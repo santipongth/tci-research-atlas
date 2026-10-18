@@ -41,6 +41,7 @@ interface RawNode {
   rank?: number; nTopics?: number
   status?: AtlasNode['status']; emerging_score?: number | null
   cagr_recent?: number | null; burst_years?: string
+  orgs_unverified?: boolean
   forecast?: TopicForecast | null
 }
 
@@ -75,6 +76,7 @@ function normalize(raw: RawAtlas): AtlasData {
     description: n.description ?? '',
     keywords: n.keywords ?? '',
     forecast: n.forecast ?? null,
+    orgsUnverified: n.orgs_unverified,
   }))
   return {
     groups,

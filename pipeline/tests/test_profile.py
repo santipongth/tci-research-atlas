@@ -18,6 +18,36 @@ def test_profile_real_fixtures(thaijo_dir):
     assert r["journals"]["count"] == 1
 
 
+def test_profile_year_totals_and_forward_dated(thaijo_dir, tmp_path):
+    import re
+    import shutil
+    from datetime import date
+
+    r = profile_corpus(thaijo_dir)
+    assert r["years"]["forward_dated"] == 0
+    totals = {e["year"]: e for e in r["year_totals"]}
+    assert sum(e["articles"] for e in totals.values()) == 11
+    first = min(totals)
+    assert totals[first]["vs_prev"] is None
+    for y, e in totals.items():
+        prev = totals.get(y - 1)
+        if prev:
+            assert e["vs_prev"] == round(e["articles"] / prev["articles"], 3)
+
+    src = tmp_path / "in"
+    src.mkdir()
+    for f in sorted(thaijo_dir.glob("*.md"))[:2]:
+        shutil.copyfile(f, src / f.name)
+    future = sorted(src.glob("*.md"))[0]
+    text = future.read_text(encoding="utf-8")
+    future.write_text(re.sub(r"\*\*Published:\*\* .*", f"**Published:** {date.today().year + 1}-01-15", text),
+                      encoding="utf-8")
+    r2 = profile_corpus(src)
+    assert r2["years"]["forward_dated"] == 1
+    md = render_markdown(r2)
+    assert "Forward-dated" in md and "Articles per year" in md
+
+
 def test_render_markdown_mentions_key_numbers(thaijo_dir):
     md = render_markdown(profile_corpus(thaijo_dir))
     assert md.startswith("# รายงานคุณภาพคลังบทความ")
@@ -29,3 +59,4 @@ def test_cli_profile_writes_json(thaijo_dir, tmp_path):
     res = CliRunner().invoke(app, ["profile", str(thaijo_dir), "--out", str(out)])
     assert res.exit_code == 0, res.stdout
     assert json.loads(out.read_text(encoding="utf-8"))["files"] == 11
+

@@ -31,6 +31,14 @@ def test_sample_topic_validates_and_bad_id_fails():
         Topic.model_validate({**SAMPLE, "status": "RISING"})
 
 
+def test_v3_contract_fields():
+    defs = contract_json_schema()["definitions"]
+    assert defs["Manifest"]["properties"]["definition_version"]["default"] == 3
+    assert defs["TopicMetrics"]["properties"]["orgs_unverified"] == {
+        "default": False, "title": "Orgs Unverified", "type": "boolean"}
+    assert Topic.model_validate(SAMPLE).metrics.orgs_unverified is False
+
+
 def test_committed_schema_is_up_to_date():
     committed = json.loads((REPO / "web" / "src" / "data" / "contract.schema.json").read_text(encoding="utf-8"))
     assert committed == contract_json_schema(), "run: uv run atlas schema && (cd ../web && npm run gen:types)"

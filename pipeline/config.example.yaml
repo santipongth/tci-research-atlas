@@ -88,16 +88,20 @@ labeling:
   n_repr_docs: 8              # บทความตัวแทน (ใกล้ centroid + กระจายด้วย MMR)
   mmr_lambda: 0.7
 
-# ---------- Emerging v2 — นิยามเต็มใน docs/EMERGING_SPEC.md ----------
+# ---------- Emerging v3 — นิยามเต็มใน docs/EMERGING_SPEC.md ----------
 emerging:
-  definition_version: 2
-  min_year_complete: null     # null = backfill guard อัตโนมัติ
-  backfill_min_ratio: 0.6     # ปีล่าสุดที่ยอด < 60% ของ median ถือว่ายังไม่ครบ
+  definition_version: 3
+  as_of_year: null            # ปีที่รัน (null = ปีปฏิทินปัจจุบัน) — ปีที่กำลังดำเนินอยู่ไม่ถือว่าครบเสมอ
+  min_year_complete: null     # null = backfill guard อัตโนมัติ (ตั้งเองได้ — มีผลเหนือกว่า guard)
+  backfill_min_ratio: 0.6     # ปีที่ยอด < 60% ของ median ปีอ้างอิงก่อนหน้า ถือว่ายังไม่ครบ
+  backfill_ref_years: 3       # จำนวนปีก่อนหน้าที่ใช้หา median อ้างอิง
+  backfill_max_trim: 2        # ตัดปีที่ไม่ครบได้มากสุดกี่ปี
   recent_window: 3            # R
   baseline_window: 5          # B (ก่อน R)
   trend_window: 5             # W (ใช้วัดอัตราโตของ share ด้วย GLM)
   min_articles_recent: 30     # ต่ำกว่านี้ = LOW_DATA (ไม่ฟันธง)
-  ci_level: 0.90
+  ci_level: 0.90              # ช่วงเชื่อมั่น: Student-t (df ของ GLM) เมื่อ overdispersed, normal เมื่อ φ = 1
+  max_abs_log_growth: 10.0    # |log growth| หรือขอบช่วงเชื่อมั่นเกินนี้ (e^10 ≈ 22,000 เท่า/ปี) = ประมาณไม่ได้
   size:
     rule: quantile            # quantile | absolute
     large_quantile: 0.75      # "ใหญ่" = share_R ≥ quantile นี้ของหัวข้อที่จำแนกได้

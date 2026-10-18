@@ -1,8 +1,9 @@
-# EMERGING_SPEC — นิยาม "Emerging" ของ TCI (definition_version 2)
+# EMERGING_SPEC — นิยาม "Emerging" ของ TCI (definition_version 3)
 
 > **source of truth** ของนิยาม — ถ้าโค้ดกับเอกสารไม่ตรงกัน ถือเป็นบั๊ก
-> Implementation: `pipeline/atlas/emerging.py` · Thresholds: `config.yaml → emerging:` · Tests: `pipeline/tests/test_emerging.py`
+> Implementation: `pipeline/atlas/emerging.py` (+ ปีสมบูรณ์ล่าสุดใน `pipeline/atlas/topics_time.py`) · Thresholds: `config.yaml → emerging:` · Tests: `pipeline/tests/test_emerging.py`, `pipeline/tests/test_series.py`
 > อนุมัติใช้ v2 เมื่อ 2026-10-18 (ยังไม่เคยเผยแพร่ตัวเลข v1 ต่อสาธารณะ) — v1 อยู่ในภาคผนวก
+> **v3** (2026-10-18, ผู้ใช้อนุมัติ): ประมาณอัตราโตไม่ได้ = ไม่ฟันธง, ช่วงเชื่อมั่นแบบ Student-t, flag `orgs_unverified`, กฎปีสมบูรณ์ล่าสุดใหม่ — ดู "การเปลี่ยนแปลง v3" ท้ายเอกสาร
 
 ## 1. ปรัชญา
 คำถามของผู้บริหาร: **"อะไรที่ยังเล็ก แต่โตเร็วอย่างมีนัยสำคัญ และโตจากหลายวารสาร/หลายสถาบัน — ที่อีก 2–3 ปีจะกลายเป็นเรื่องใหญ่?"**
@@ -13,7 +14,12 @@
 - หัวข้อที่ข้อมูลน้อยเกินจะ **ไม่ถูกฟันธง** (`LOW_DATA`)
 
 ## 2. หน้าต่างเวลา
-- `last_complete_year` = ปีล่าสุดที่ข้อมูลสมบูรณ์ (backfill guard: ปีล่าสุดที่ยอดรวม < `backfill_min_ratio` × median ถูกตัด; ตั้งเองได้ด้วย `min_year_complete`)
+- `last_complete_year` = ปีล่าสุดที่ข้อมูลสมบูรณ์ หาตามลำดับ (v3):
+  1. ตั้ง `min_year_complete` ไว้ → ใช้ค่านั้นเลย
+  2. ผู้สมัคร = min(ปีล่าสุดที่มีข้อมูล, `as_of_year` − 1) — `as_of_year` = ปีที่รัน (null = ปีปฏิทินปัจจุบัน); **ปีที่กำลังดำเนินอยู่ไม่ถือว่าครบเสมอ** และบทความที่ลงวันที่ล่วงหน้า (ฉบับปีหน้า) ไม่มีวันเป็นปีสมบูรณ์ล่าสุด
+  3. backfill guard: ถ้ายอดรวมของผู้สมัคร < `backfill_min_ratio` (0.6) × median ของยอดรวม `backfill_ref_years` (3) ปีที่มีข้อมูลก่อนหน้า → ถอยไป 1 ปี ทำซ้ำได้ไม่เกิน `backfill_max_trim` (2) ครั้ง
+  4. ปีที่มีข้อมูลหลัง `last_complete_year` ทั้งหมดบันทึกเป็น `trimmed_years` (พร้อม `as_of_year`) ใน `06_meta.json`, `atlas_data.json → meta` และ manifest — บทความในปีเหล่านี้ยังอยู่ในคลัง (ใช้จัดหัวข้อ) แต่ไม่ถูกใช้คำนวณแนวโน้ม
+  - ถ้า `as_of_year` เก่ากว่าข้อมูลทั้งหมด (ไม่มีปีใดครบได้) → error
 - **R** = `recent_window` ปีล่าสุด (3) · **B** = `baseline_window` ปีก่อน R (5) · **W** = `trend_window` ปีล่าสุด (5) ใช้วัดแนวโน้ม
 
 ## 3. มิติที่วัดต่อหัวข้อ
@@ -21,14 +27,23 @@
 |---|---|---|
 | `share_recent`, `share_baseline` | บทความหัวข้อ ÷ บทความทั้งหมด ในช่วง R / B (ตัวหารรวมบทความที่ยังไม่จัดหมวด) | ขนาดสัมพัทธ์ |
 | `share_ratio` | share_R ÷ share_B | โตเร็วกว่าภาพรวมกี่เท่า |
-| `share_growth` (+`_lo`, `_hi`) | Poisson GLM `log E[c_t] = log N_t + a + b·t` บนปีใน W; growth = e^b − 1; ช่วงเชื่อมั่น `ci_level` (90%) ด้วย quasi-Poisson SE `se·√φ`, `φ = max(1, χ²/df)` | อัตราโตต่อปีของ share พร้อมความไม่แน่นอน |
-| `acceleration` | log growth ใน R − log growth ใน B | เร่งตัวหรือชะลอ |
+| `share_growth` (+`_lo`, `_hi`) | Poisson GLM `log E[c_t] = log N_t + a + b·t` บนปีใน W; growth = e^b − 1; ช่วงเชื่อมั่น `ci_level` (90%) = `b ± q·se` ด้วย quasi-Poisson SE `se·√φ`, `φ = max(1, χ²/df)`; **q = Student-t (df = df_resid ของ GLM, = 3 สำหรับ W 5 ปี) เมื่อ φ > 1** (φ ประมาณจากข้อมูลเพียงไม่กี่จุด) และ q = normal เมื่อ φ = 1 (รู้ variance แบบ Poisson) — ดู §3.1 | อัตราโตต่อปีของ share พร้อมความไม่แน่นอน |
+| `acceleration` | log growth ใน R − log growth ใน B (ฝั่งที่ประมาณไม่ได้นับเป็น 0) | เร่งตัวหรือชะลอ |
 | `burst_frac`, `burst_years` | Kleinberg 2 สถานะ (§5) | สัดส่วนปีใน R ที่ "ระเบิด" |
 | `novelty` | 0.5 × สัดส่วนบทความของหัวข้อที่อยู่ใน R + 0.5 × (1 − อายุ/15), อายุ = ปีนับจากปีแรกที่ยอด ≥ max(3, 10% ของจุดสูงสุด) | ความใหม่ |
 | `coherence` | cosine เฉลี่ยของบทความกับ centroid | หัวข้อเกาะกลุ่มชัดเจนแค่ไหน |
 | `n_journals_R`, `n_orgs_R` | จำนวนวารสาร / สถาบันที่มีบทความในหัวข้อช่วง R | ความกว้างของชุมชน |
 | `new_journal_share` | สัดส่วนบทความใน R ที่มาจากวารสารที่ปรากฏครั้งแรกในช่วง R | ตัวชี้ journal-entry bias |
 | `journal_hhi` | Herfindahl ของวารสารใน R | การกระจุกตัว |
+| `org_coverage_R`, `orgs_unverified` | สัดส่วนบทความใน R ที่มีข้อมูลสังกัด; `orgs_unverified` = `org_coverage_R` < `breadth.min_org_coverage` (ทุกสถานะ) | ตรวจเกณฑ์สถาบันไม่ได้ (§6) |
+
+### 3.1 เมื่อไหร่ "ประมาณ share_growth ไม่ได้" (คืน NaN ทั้ง 3 ค่า)
+- ปีที่มีข้อมูล corpus < 3 ปี หรือหัวข้อไม่มีบทความเลยในหน้าต่าง
+- **บทความของหัวข้อกระจุกอยู่ในปีเดียว** (ปีที่ยอด > 0 น้อยกว่า 2 ปี) — ถ้าอยู่ปีขอบ (เช่น หัวข้อเพิ่งเกิดปีสุดท้าย) MLE ของ b เป็นอนันต์ (perfect separation); ถ้าอยู่ปีกลางก็ได้ค่าจำกัดแต่ไม่มีความหมาย
+- การ fit ล้มเหลวเชิงตัวเลข (PerfectSeparationError, LinAlgError, ValueError, FloatingPointError) — error ชนิดอื่นถือเป็นบั๊ก ปล่อยให้หยุดทำงาน
+- ค่าไม่สมเหตุสมผล: b, b − q·se หรือ b + q·se ไม่เป็นจำนวนจำกัด หรือ |ค่า| > `max_abs_log_growth` (10 ≈ โต 22,000 เท่า/ปี) — ตรวจบนสเกล log **ก่อน** ยกกำลัง
+
+ผลใน W → สถานะ `LOW_DATA` (§6 ข้อ 1); ผลใน R/B → `acceleration` ใช้ 0 แทนฝั่งนั้น
 
 ## 4. ขนาด "ใหญ่/เล็ก"
 `large` = `share_recent` ≥ quantile `size.large_quantile` (0.75) ของหัวข้อที่จำแนกได้ (ไม่รวม `LOW_DATA`) — ใช้ค่าตายตัว `size.large_share` ได้ด้วย `size.rule: absolute`
@@ -39,7 +54,7 @@
 ## 6. เกณฑ์สถานะ (ตรวจตามลำดับ — ข้อแรกที่เข้าคือคำตอบ)
 | ลำดับ | สถานะ | เงื่อนไข (ค่าดีฟอลต์) |
 |---|---|---|
-| 1 | `LOW_DATA` ข้อมูลน้อย | count_R < 30 **หรือ** ประมาณ share_growth ไม่ได้ |
+| 1 | `LOW_DATA` ข้อมูลน้อย | count_R < 30 **หรือ** ประมาณ share_growth ไม่ได้ (§3.1) |
 | 2 | `EMERGING` กำลังเกิดใหม่ | เล็ก **และ** `share_growth_lo` ≥ +10%/ปี **และ** `share_ratio` ≥ 1.8 **และ** ความกว้างผ่าน |
 | 3 | `WATCH` จับตา | เข้าเกณฑ์การเติบโตของข้อ 2 แต่ **ความกว้างไม่ผ่าน** |
 | 4 | `HOT` กำลังร้อน | ใหญ่ **และ** `share_growth_lo` > 0 |
@@ -48,6 +63,7 @@
 
 **ความกว้างผ่าน** = `n_journals_R` ≥ 3 **และ** (`n_orgs_R` ≥ 3 **หรือ** บทความใน R มีข้อมูลสังกัด < 50%) **และ** `new_journal_share` < 0.5
 `journal_driven` = เข้าเกณฑ์การเติบโต แต่ความกว้างไม่ผ่าน (ตรงกับ `WATCH`)
+`orgs_unverified` = true เมื่อเกณฑ์สถาบันถูกข้าม (ข้อมูลสังกัดใน R < `min_org_coverage`) — ส่งออกต่อหัวข้อใน `atlas_data.json` และนับรวมใน `meta.n_orgs_unverified` / manifest เพื่อให้ผู้อ่านรู้ว่า EMERGING นั้นยังไม่ได้ตรวจความกว้างระดับสถาบัน (ไม่ลดสถานะ)
 
 ## 7. Emerging Score (0–100)
 `score = 100 × Σ wᵢ · P(มิติᵢ)` — P = percentile rank ภายในรอบรันเดียวกัน
@@ -65,10 +81,21 @@
 | F | 3, 5, 8 เรื่องใน R | `LOW_DATA` |
 
 ## 9. การทดสอบ
-`pipeline/tests/test_emerging.py` ล็อก: สถานะของทั้ง 9 สถานการณ์, flag journal_driven, ขอบเขต score, corpus 2 ปีไม่ crash, GLM คืนอัตราโตที่ฝังไว้, Kleinberg เจอ burst ที่ฝังไว้
+`pipeline/tests/test_emerging.py` ล็อก: สถานะของทั้ง 9 สถานการณ์, flag journal_driven / orgs_unverified, ขอบเขต score, corpus 2 ปีไม่ crash, GLM คืนอัตราโตที่ฝังไว้, Kleinberg เจอ burst ที่ฝังไว้, (v3) บทความปีเดียว → NaN ไม่ใช่ตัวเลขมหาศาล, ช่วง t เมื่อ φ > 1 / normal เมื่อ φ = 1, หัวข้อเกิดปีสุดท้ายของ R หรือ B ไม่ crash และ acceleration ไม่เพี้ยน, 0 หัวข้อเขียนตารางว่าง
+`pipeline/tests/test_series.py` ล็อกกฎปีสมบูรณ์ล่าสุด v3 (corpus โต 12%/ปีที่ปีล่าสุดครบ 25%, ฉบับลงวันที่ล่วงหน้า + ปีปัจจุบันไม่ครบ, ประวัติคงที่, เพดานการตัด, `min_year_complete` มีผลเหนือกว่า) — ทุกเทสต์ส่ง `as_of_year` ตรง ๆ ไม่ขึ้นกับนาฬิกา
 `pipeline/tests/test_e2e_synth.py` (slow): corpus สังเคราะห์ 20K เรื่อง — ต้องได้ EMERGING / WATCH / HOT / DECLINING ตามที่ฝังไว้ และไม่มี HOT/DECLINING ปลอมในหัวข้อคงที่
+`pipeline/tests/test_pipeline_small.py` (slow): UMAP บน 11 ไฟล์จริง — ไม่ crash, ทุกหัวข้อ LOW_DATA, ไม่มี |share_growth| > 1e3
 
 แก้นิยาม = แก้เอกสารนี้ + `config.example.yaml` + tests พร้อมกันเสมอ และเพิ่ม `definition_version`
+
+## การเปลี่ยนแปลง v3 (v3 changes, 2026-10-18)
+เกณฑ์สถานะ (§6), น้ำหนัก score (§7) และ threshold ทุกตัวของ v2 **คงเดิม** — v3 แก้ 4 จุดที่ทำให้ตัวเลขผิดหรือเกินจริง:
+1. **share_growth ที่ประมาณไม่ได้ = NaN (→ LOW_DATA)** (§3.1) — v2 ส่งตัวเลขมหาศาล (growth ≈ 1e7, ขอบบน ≈ 1e28 ที่ถูกเผยแพร่เป็น STABLE) หรือ crash (`OverflowError`) เมื่อบทความของหัวข้อกระจุกอยู่ปีเดียว และหัวข้อที่เกิดปีสุดท้ายของ B ได้ acceleration ≈ −15 (ถูกดันลงท้ายตาราง score) · key ใหม่ `max_abs_log_growth: 10.0`
+2. **ช่วงเชื่อมั่นแบบ Student-t เมื่อ overdispersed** — φ ประมาณจาก 5 จุด (df 3) แต่ v2 ใช้ quantile ปกติ z → ช่วง "90%" ครอบจริงราว 80% เมื่อข้อมูล overdispersed; v3 ใช้ `t.ppf((1+ci_level)/2, df_resid)` เมื่อ φ > 1 (กว้างขึ้น ~43% ที่ df 3) และ z เมื่อ φ = 1
+3. **`orgs_unverified`** — เกณฑ์สถาบันยังถูกข้ามเมื่อข้อมูลสังกัดใน R < `breadth.min_org_coverage` (เหมือน v2) แต่ตอนนี้เปิดเผยเป็น flag ต่อหัวข้อ + จำนวนรวมใน meta/manifest
+4. **ปีสมบูรณ์ล่าสุด** (§2) — v2 เทียบเฉพาะปีสุดท้ายกับ median ของทุกปีและตัดได้แค่ปีเดียว: corpus ที่โต 12%/ปีทำให้ปีที่ครบแค่ 25% ผ่านได้ และฉบับลงวันที่ล่วงหน้าทำให้ตัดแค่ปีหน้าแต่ปล่อยปีปัจจุบันที่ยังไม่ครบเข้ามา · key ใหม่ `as_of_year`, `backfill_ref_years: 3`, `backfill_max_trim: 2`; บันทึก `trimmed_years`, `as_of_year`
+
+ส่วนที่ไม่เปลี่ยน: นิยาม `share_ratio` (= (share_R + ε) / (share_B + ε)) — หัวข้อใหม่ที่ไม่มี baseline จึงมีค่ามหาศาลโดยนิยามและผ่านเกณฑ์ ≥ 1.8 ได้ตามเจตนา (ถ้าข้อมูลพอ)
 
 ## ภาคผนวก — นิยาม v1 (เลิกใช้ 2026-10-18)
 EMERGING: share_R < 1.5% และ CAGR(ปีแรก–ปีสุดท้ายของ R) ≥ 25% และ share_ratio ≥ 1.8 และ count_R ≥ 30 · HOT: share_R ≥ 1.5% และ slope_share > 0 · DECLINING: share ลด 3 ปีติด · score 4 มิติ (growth 0.35, acceleration 0.25, burst 0.20, novelty 0.20)

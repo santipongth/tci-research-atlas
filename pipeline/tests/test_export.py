@@ -3,7 +3,10 @@ import math
 
 import pandas as pd
 
+from atlas.config import load_config
 from atlas.export import build_atlas, clean_json
+
+META = {"last_complete_year": 2024, "as_of_year": 2026, "trimmed_years": [2025, 2026]}
 
 
 def _frames():
@@ -19,7 +22,8 @@ def _frames():
     em = pd.DataFrame({"topic_id": [0, 1], "status": ["EMERGING", "LOW_DATA"], "emerging_score": [80.0, 20.0],
                        "cagr_recent": [0.5, math.nan], "burst_years": ["2023", ""], "share_growth": [0.4, math.nan],
                        "share_growth_lo": [0.2, math.nan], "share_growth_hi": [0.6, math.nan],
-                       "n_journals_R": [4, 1], "n_orgs_R": [5, 1], "journal_driven": [False, False]})
+                       "n_journals_R": [4, 1], "n_orgs_R": [5, 1], "journal_driven": [False, False],
+                       "orgs_unverified": [False, True]})
     hist = json.dumps([2019, 2020, 2021, 2022, 2023, 2024])
     fc = pd.DataFrame({"topic_id": [0, 1], "model": ["linear", "naive"], "backtest_mae": [1.0, 2.0],
                        "backtest_mape": [5.0, 9.0], "mase": [0.5, None], "skill_vs_naive": [0.6, 0.0],
@@ -30,15 +34,17 @@ def _frames():
 
 
 def test_build_atlas_v11_is_strict_json_and_gated():
-    atlas = build_atlas(*_frames(), meta={"last_complete_year": 2024}, n_articles=50, include_forecast=True)
+    atlas = build_atlas(*_frames(), meta=META, n_articles=50, include_forecast=True, definition_version=3)
     json.dumps(atlas, allow_nan=False)                                   # raises if NaN slipped through
     m = atlas["meta"]
-    assert (m["schema_version"], m["definition_version"]) == ("1.1", 2)
+    assert (m["schema_version"], m["definition_version"]) == ("1.1", 3)
+    assert (m["as_of_year"], m["trimmed_years"], m["n_orgs_unverified"]) == (2026, [2025, 2026], 1)
     assert (m["total_articles"], m["assigned_articles"], m["unassigned_articles"]) == (50, 40, 10)
     topics = {n["nodeId"]: n for n in atlas["nodes"] if n["kind"] == "topic"}
     assert topics["t0"]["status"] == "EMERGING" and topics["t0"]["forecast"]["fc_mean"] == [7, 8]
     assert topics["t1"]["forecast"] is None and topics["t1"]["forecast_uncertain"] is True
     assert topics["t1"]["coherence"] is None and topics["t1"]["share_growth"] is None
+    assert topics["t0"]["orgs_unverified"] is False and topics["t1"]["orgs_unverified"] is True
     assert atlas["links"] == [{"s": "t0", "t": "t1", "w": 0.7}]
 
 
@@ -51,7 +57,7 @@ def test_clean_json_handles_numpy_and_nan():
 
 def test_forecast_uncertain_uses_skill_gate_only_and_missing_show_is_not_shown():
     frames = list(_frames())
-    atlas = build_atlas(*frames, meta={"last_complete_year": 2024}, n_articles=50, include_forecast=False)
+    atlas = build_atlas(*frames, meta=META, n_articles=50, include_forecast=False, definition_version=3)
     t = {n["nodeId"]: n for n in atlas["nodes"] if n["kind"] == "topic"}
     assert t["t0"]["forecast"] is None and t["t0"]["forecast_uncertain"] is False
     assert t["t1"]["forecast"] is None and t["t1"]["forecast_uncertain"] is True
@@ -60,7 +66,7 @@ def test_forecast_uncertain_uses_skill_gate_only_and_missing_show_is_not_shown()
     fc["show"] = pd.Series([True, None], dtype=object)
     fc.loc[0, "show"] = math.nan
     frames[5] = fc
-    atlas = build_atlas(*frames, meta={"last_complete_year": 2024}, n_articles=50, include_forecast=True)
+    atlas = build_atlas(*frames, meta=META, n_articles=50, include_forecast=True, definition_version=3)
     t = {n["nodeId"]: n for n in atlas["nodes"] if n["kind"] == "topic"}
     assert t["t0"]["forecast"] is None and t["t1"]["forecast"] is None
 
@@ -79,12 +85,13 @@ def _write_work(tmp_path, with_centroids=True):
     for name, df in [("04_topic_info", info), ("05_labels", labels), ("07_emerging", em), ("08_forecasts", fc),
                      ("09_layout", layout), ("09_edges", edges), ("02_docs", pd.DataFrame({"article_id": range(50)}))]:
         write_table(df, work / f"{name}.parquet")
-    (work / "06_meta.json").write_text(json.dumps({"last_complete_year": 2024}), encoding="utf-8")
+    (work / "06_meta.json").write_text(json.dumps(META), encoding="utf-8")
     if with_centroids:
         np.save(work / "04_centroids.npy", np.zeros((2, 3)))
         (work / "04_centroid_ids.json").write_text("[0, 1]", encoding="utf-8")
     cfg = {"pipeline": {"work_dir": str(work), "output_dir": str(out), "state_dir": str(state)},
-           "export": {"formats": ["json", "csv"], "include_forecast_in_json": True}, "emerging": {}}
+           "export": {"formats": ["json", "csv"], "include_forecast_in_json": True},
+           "emerging": load_config(None)["emerging"]}
     return cfg, out, state
 
 
@@ -108,3 +115,4 @@ def test_export_checks_centroids_before_writing_anything(tmp_path):
     with pytest.raises(FileNotFoundError, match="04_centroids.npy"):
         export(cfg)
     assert not out.exists() or not any(out.iterdir())
+

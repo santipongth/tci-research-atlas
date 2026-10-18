@@ -7,6 +7,7 @@ metadata/DOI/references, author affiliation coverage, and text-quality flags.
 from __future__ import annotations
 
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -39,6 +40,10 @@ def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1)
 
     flags = Counter(f for s in arts["text_quality"].fillna("").astype(str) for f in s.split("; ") if f)
     affiliation = auths["affiliation_th"].fillna("").astype(str) + auths["affiliation_en"].fillna("").astype(str)
+    by_year = years.dropna().astype(int).value_counts().sort_index()
+    year_totals = [{"year": int(y), "articles": int(c),
+                    "vs_prev": round(int(c) / int(by_year[y - 1]), 3) if (y - 1) in by_year.index else None}
+                   for y, c in by_year.items()]
     return {
         "files": n,
         "unique_articles": int(arts["article_id"].nunique()),
@@ -49,8 +54,10 @@ def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1)
             "max": int(years.max()) if years.notna().any() else None,
             "missing": int(years.isna().sum()),
             "by_source": {str(k): int(v) for k, v in arts["year_source"].replace("", "none").value_counts().items()},
+            "forward_dated": int((years > date.today().year).sum()),     # issues dated after today's year
         },
-        "by_year": {int(y): int(c) for y, c in years.dropna().astype(int).value_counts().sort_index().items()},
+        "by_year": {int(y): int(c) for y, c in by_year.items()},
+        "year_totals": year_totals,                  # per year vs the previous year: spot incomplete years
         "journals": {"count": int(arts["journal_name"].nunique()), "top": journals[:50], "year_spikes": spikes},
         "coverage_pct": {**{c: _pct(m) for c, m in nonempty.items()},
                          "references": _pct(arts["has_references"].astype(bool)),
@@ -96,6 +103,15 @@ def render_markdown(r: dict) -> str:
         "## Text-quality flags",
         "",
         *([f"- {k}: {v:,}" for k, v in r["text_quality"].items()] or ["- ไม่พบ"]),
+        "",
+        "## Articles per year (vs previous year)",
+        "",
+        f"- Forward-dated articles (year > {date.today().year}): {r['years']['forward_dated']:,}",
+        "",
+        "| year | articles | vs previous year |",
+        "|---|---|---|",
+        *[f"| {e['year']} | {e['articles']:,} | "
+          f"{'—' if e['vs_prev'] is None else format(e['vs_prev'], '.2f') + '×'} |" for e in r["year_totals"]],
         "",
     ]
     return "\n".join(lines)

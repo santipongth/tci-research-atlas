@@ -160,9 +160,13 @@ class ScoreWeightsCfg(_Strict):
 
 
 class EmergingCfg(_Strict):
-    definition_version: Literal[2] = 2
+    definition_version: Literal[3] = 3
+    as_of_year: int | None = None     # null = today's calendar year; the running year is never complete
     min_year_complete: int | None = None
     backfill_min_ratio: float = 0.6
+    backfill_ref_years: int = Field(3, ge=1)
+    backfill_max_trim: int = Field(2, ge=0)
+    max_abs_log_growth: float = Field(10.0, gt=0.0)   # |log growth| or CI bound above this = not estimable
     recent_window: int = 3
     baseline_window: int = 5
     trend_window: int = 5

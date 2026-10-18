@@ -1,9 +1,10 @@
 """Export web-ready JSON (atlas_data.json, schema 1.1) + analyst CSVs + manifest.
 
 1.1 = the v1 contract read by web/src/lib/loader.ts, plus per topic:
-  status in EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA   (definition_version 2)
-  share_growth(_lo/_hi), n_journals_R, n_orgs_R, journal_driven, coherence, forecast_uncertain
+  status in EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA   (definition_version from config, 3)
+  share_growth(_lo/_hi), n_journals_R, n_orgs_R, journal_driven, orgs_unverified, coherence, forecast_uncertain
   forecast is non-null only when the skill gate `show` is true
+  meta adds as_of_year, trimmed_years, n_orgs_unverified (additive — schema stays 1.1)
 Strict JSON: NaN/Infinity become null (browsers reject NaN in JSON).
 """
 from __future__ import annotations
@@ -73,7 +74,8 @@ def _is_true(v) -> bool:
 
 
 def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFrame, edges: pd.DataFrame,
-                em: pd.DataFrame, fc: pd.DataFrame, meta: dict, n_articles: int, include_forecast: bool) -> dict:
+                em: pd.DataFrame, fc: pd.DataFrame, meta: dict, n_articles: int, include_forecast: bool,
+                definition_version: int) -> dict:
     labels = fine_labels(labels).set_index("topic_id")
     em = em.set_index("topic_id")
     fcm = fc.set_index("topic_id") if len(fc) else pd.DataFrame()
@@ -127,6 +129,7 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
             "n_journals_R": int(e["n_journals_R"]) if e is not None else 0,
             "n_orgs_R": int(e["n_orgs_R"]) if e is not None else 0,
             "journal_driven": bool(e["journal_driven"]) if e is not None else False,
+            "orgs_unverified": bool(e["orgs_unverified"]) if e is not None else False,
             "coherence": _r(info_i.loc[tid, "coherence"]),
             "forecast": ({
                 "model": f["model"], "backtest_mape": _r(f["backtest_mape"], 2), "mase": _r(f["mase"]),
@@ -144,13 +147,16 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
             "generated_at": datetime.now(UTC).isoformat(),
             "pipeline_version": _git_hash(),
             "schema_version": SCHEMA_VERSION,
-            "definition_version": 2,
+            "definition_version": int(definition_version),
             "last_complete_year": int(meta["last_complete_year"]),
+            "as_of_year": meta.get("as_of_year"),
+            "trimmed_years": [int(y) for y in meta.get("trimmed_years", [])],
             "total_articles": int(n_articles),
             "assigned_articles": assigned,
             "unassigned_articles": int(n_articles) - assigned,
             "total_topics": int(len(info)),
             "total_groups": len(groups),
+            "n_orgs_unverified": int(em["orgs_unverified"].astype(bool).sum()) if len(em) else 0,
         },
         "groups": groups,
         "nodes": nodes,
@@ -173,7 +179,8 @@ def export(cfg: dict) -> dict:
     meta = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
     atlas = build_atlas(info, labels, read_table(work / "09_layout.parquet"), read_table(work / "09_edges.parquet"),
                         em, fc, meta, n_articles=len(read_table(work / "02_docs.parquet")),
-                        include_forecast=bool(cfg["export"]["include_forecast_in_json"]))
+                        include_forecast=bool(cfg["export"]["include_forecast_in_json"]),
+                        definition_version=int(cfg["emerging"]["definition_version"]))
     (outdir / "atlas_data.json").write_text(json.dumps(atlas, ensure_ascii=False, indent=1, allow_nan=False),
                                             encoding="utf-8")
     if "csv" in cfg["export"]["formats"]:
@@ -185,7 +192,7 @@ def export(cfg: dict) -> dict:
         "pipeline_version": atlas["meta"]["pipeline_version"],
         "generated_at": atlas["meta"]["generated_at"],
         "schema_version": SCHEMA_VERSION,
-        "definition_version": 2,
+        "definition_version": atlas["meta"]["definition_version"],
         "config_emerging": cfg["emerging"],
         "counts": atlas["meta"],
         "artifacts": sorted(p.name for p in outdir.iterdir()),

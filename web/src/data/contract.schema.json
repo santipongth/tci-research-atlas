@@ -34,7 +34,7 @@
           "type": "string"
         },
         "definition_version": {
-          "default": 2,
+          "default": 3,
           "title": "Definition Version",
           "type": "integer"
         },
@@ -392,6 +392,11 @@
         "novelty": {
           "title": "Novelty",
           "type": "number"
+        },
+        "orgs_unverified": {
+          "default": false,
+          "title": "Orgs Unverified",
+          "type": "boolean"
         },
         "share_baseline": {
           "title": "Share Baseline",

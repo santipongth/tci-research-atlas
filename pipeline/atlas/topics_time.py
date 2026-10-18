@@ -1,4 +1,4 @@
-"""Yearly series per topic + journal/institution tables for Emerging v2, with backfill guard.
+"""Yearly series per topic + journal/institution tables for Emerging v3, with backfill guard.
 
 corpus_total counts ALL dated articles (assigned or not) — it is the share denominator.
 Outputs: 06_series, 06_topic_journal_year, 06_topic_org_year, 06_journal_first_year, 06_meta.json
@@ -6,6 +6,7 @@ Outputs: 06_series, 06_topic_journal_year, 06_topic_org_year, 06_journal_first_y
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -13,14 +14,41 @@ import pandas as pd
 from atlas.io_utils import read_table, write_table
 
 
+def as_of_year(ecfg: dict) -> int:
+    """The year the run describes (config `as_of_year`, default today's calendar year)."""
+    v = ecfg.get("as_of_year")
+    return int(v) if v is not None else date.today().year
+
+
 def last_complete_year(totals: pd.Series, ecfg: dict) -> int:
+    """Last year whose corpus total can be trusted as complete (EMERGING_SPEC §2, v3).
+
+    1. `min_year_complete` set → it wins.
+    2. candidate = min(last year with data, as_of_year − 1) — the running year is never complete
+       and forward-dated issues are never the last complete year.
+    3. while candidate's total < backfill_min_ratio × median(totals of the backfill_ref_years data
+       years before it) and fewer than backfill_max_trim years were trimmed: candidate −= 1.
+    """
     if ecfg.get("min_year_complete") is not None:
         return int(ecfg["min_year_complete"])
-    ymax = int(totals.index.max())
-    if len(totals) > 1 and totals.loc[ymax] < float(ecfg["backfill_min_ratio"]) * totals.median():
-        print(f"[series] {ymax} looks incomplete (backfill guard) — analysis stops at {ymax - 1}")
-        return ymax - 1
-    return ymax
+    totals = totals.sort_index()
+    as_of = as_of_year(ecfg)
+    first = int(totals.index.min())
+    cand = min(int(totals.index.max()), as_of - 1)
+    if cand < first:
+        raise ValueError(f"emerging.as_of_year={as_of} leaves no complete year: the data starts in {first}")
+    ratio, ref_n, max_trim = (float(ecfg["backfill_min_ratio"]), int(ecfg["backfill_ref_years"]),
+                              int(ecfg["backfill_max_trim"]))
+    trims = 0
+    while trims < max_trim:
+        ref = totals[(totals.index < cand) & (totals.index >= cand - ref_n)]
+        if ref.empty or float(totals.get(cand, 0)) >= ratio * float(ref.median()):
+            break
+        print(f"[series] {cand} looks incomplete ({int(totals.get(cand, 0)):,} < {ratio:g} × median "
+              f"{float(ref.median()):,.0f} of the {len(ref)} years before) — backfill guard trims it")
+        cand -= 1
+        trims += 1
+    return cand
 
 
 def build_series(cfg: dict) -> pd.DataFrame:
@@ -41,7 +69,8 @@ def build_series(cfg: dict) -> pd.DataFrame:
 
     totals = d.groupby("year").size()
     cutoff = last_complete_year(totals, cfg["emerging"])
-    d, totals = d[d["year"] <= cutoff], totals[totals.index <= cutoff]
+    trimmed = [int(y) for y in totals.index if y > cutoff]     # forward-dated / incomplete years: kept in the
+    d, totals = d[d["year"] <= cutoff], totals[totals.index <= cutoff]   # corpus, excluded from trends
     a = d[d["fine_topic"] >= 0]
 
     orgs = authors[authors["org_key"].astype(str) != ""].drop_duplicates(["article_id", "org_key"])
@@ -67,8 +96,11 @@ def build_series(cfg: dict) -> pd.DataFrame:
     write_table(jfirst, work / "06_journal_first_year.parquet")
     (work / "06_meta.json").write_text(json.dumps({
         "last_complete_year": int(cutoff),
+        "as_of_year": as_of_year(cfg["emerging"]),
+        "trimmed_years": trimmed,
         "years": [int(y) for y in totals.index],
         "totals": {str(int(y)): int(c) for y, c in totals.items()},
     }), encoding="utf-8")
-    print(f"[series] {s['topic_id'].nunique()} topics × {len(totals)} years (≤ {cutoff}) → 06_series")
+    print(f"[series] {s['topic_id'].nunique()} topics × {len(totals)} years (≤ {cutoff}; "
+          f"excluded years {trimmed or 'none'}) → 06_series")
     return s

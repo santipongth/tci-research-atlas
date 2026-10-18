@@ -1,7 +1,7 @@
 // Auto-generated from fields_merged_semantic.json — do not edit by hand
 export interface TopicForecast { model: string; backtest_mape: number; hist_years: number[]; hist_counts: number[]; fc_years: number[]; fc_mean: number[]; fc_lo: number[]; fc_hi: number[] }
 export type TopicStatus = "EMERGING" | "WATCH" | "HOT" | "DECLINING" | "STABLE" | "LOW_DATA"
-export interface AtlasNode { id: string; kind: "group" | "field"; group?: string; th: string; en: string; articles: number; color: string; x: number; y: number; r: number; rank?: number; nFields?: number; status?: TopicStatus; emergingScore?: number | null; burstYears?: string; description?: string; keywords?: string; forecast?: TopicForecast | null }
+export interface AtlasNode { id: string; kind: "group" | "field"; group?: string; th: string; en: string; articles: number; color: string; x: number; y: number; r: number; rank?: number; nFields?: number; status?: TopicStatus; emergingScore?: number | null; burstYears?: string; description?: string; keywords?: string; forecast?: TopicForecast | null; orgsUnverified?: boolean }
 export interface AtlasGroup { id: string; th: string; en: string; color: string; articles: number; rank: number; fieldCount: number }
 export interface AtlasLink { s: string; t: string }
 export const TOTAL_ARTICLES = 200003

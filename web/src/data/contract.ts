@@ -47,6 +47,7 @@ export type NJournalsR = number;
 export type NOrgsR = number;
 export type NewJournalShare = number;
 export type Novelty = number;
+export type OrgsUnverified = boolean;
 export type ShareBaseline = number;
 export type ShareGrowth = number | null;
 export type ShareGrowthHi = number | null;
@@ -136,6 +137,7 @@ export interface TopicMetrics {
   n_orgs_R: NOrgsR;
   new_journal_share: NewJournalShare;
   novelty: Novelty;
+  orgs_unverified?: OrgsUnverified;
   share_baseline: ShareBaseline;
   share_growth: ShareGrowth;
   share_growth_hi: ShareGrowthHi;

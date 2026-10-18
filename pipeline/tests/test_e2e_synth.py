@@ -32,6 +32,12 @@ def test_synthetic_corpus_recovers_planted_signals(tmp_path):
         tid = tt[tt["role"] == role]["fine_topic"].value_counts().index[0]
         return em.loc[tid, "status"], bool(em.loc[tid, "journal_driven"])
 
+    # diagnostic table (shown with -s or on failure): one row per planted role's dominant topic
+    cols = ["status", "count_recent", "share_recent", "share_ratio", "share_growth", "share_growth_lo",
+            "share_growth_hi", "n_journals_R", "n_orgs_R", "orgs_unverified", "journal_driven"]
+    dom = tt.groupby("fine_topic")["role"].agg(lambda x: x.value_counts().index[0])
+    print("\n" + em.loc[dom.index, cols].assign(role=dom).sort_values("role").to_string())
+
     assert status_of("emerging") == ("EMERGING", False)
     assert status_of("confound") == ("WATCH", True)
     assert status_of("hot")[0] == "HOT"
@@ -43,4 +49,4 @@ def test_synthetic_corpus_recovers_planted_signals(tmp_path):
     purity = tt.groupby("fine_topic")["topic"].agg(lambda x: x.value_counts().iloc[0] / len(x)).mean()
     assert purity >= 0.95
     atlas = json.loads((tmp_path / "out" / "atlas_data.json").read_text(encoding="utf-8"))
-    assert atlas["meta"]["definition_version"] == 2
+    assert atlas["meta"]["definition_version"] == 3

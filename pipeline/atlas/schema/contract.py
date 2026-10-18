@@ -32,7 +32,7 @@ class Manifest(_Model):
     generated_at: str
     pipeline_version: str
     config_hash: str
-    definition_version: int = 2
+    definition_version: int = 3
     embedding_model: str
     taxonomy_version: str | None = None
     modules: list[str] = Field(default_factory=list)
@@ -58,6 +58,7 @@ class TopicMetrics(_Model):
     new_journal_share: float
     journal_hhi: float
     journal_driven: bool
+    orgs_unverified: bool = False      # v3: institution breadth rule skipped (affiliation coverage too low)
 
 
 class TopicForecast(_Model):
