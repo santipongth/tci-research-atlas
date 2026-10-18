@@ -42,3 +42,13 @@ def test_dois_are_unique(tmp_path):
     generate(tmp_path, n=3000, seed=2)
     dois = [r["doi"] for r in read_thaijo_corpus(tmp_path) if r["doi"] and "_dup" not in r["source_path"]]
     assert len(dois) == len(set(dois))
+
+
+def test_ingest_loses_no_synthetic_article(make_cfg, tmp_path):
+    from atlas.ingest import ingest
+
+    corpus = tmp_path / "synth"
+    generate(corpus, n=3000, seed=2)
+    originals = [p for p in corpus.glob("*.md") if "_dup" not in p.name]
+    df = ingest(make_cfg(corpus))
+    assert len(df) == len(originals)                 # dedup removes exactly the planted _dup copies
