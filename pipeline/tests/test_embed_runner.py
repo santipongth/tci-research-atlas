@@ -19,7 +19,7 @@ import yaml
 from atlas.embed_api import ApiEmbedder, EmbeddingConfigError
 from atlas.embed_runner import JOURNAL, pack_batches, read_journal, run_embedding
 from atlas.embed_store import EmbeddingStore, text_key
-from atlas.jobs import LockHeld, now_iso, read_json
+from atlas.jobs import LockHeld, RunLock, now_iso, read_json
 
 DIM = 6
 
@@ -184,13 +184,12 @@ def test_journal_holds_batches_between_checkpoints(tmp_path):
 
 
 # ---------- lock
-def test_lock_held_by_a_live_pid_refuses_to_run(tmp_path):
+def test_lock_held_by_a_live_run_refuses_to_run(tmp_path):
     store = store_for(tmp_path)
-    (store.dir / "run.lock").write_text(json.dumps({"pid": os.getpid(), "host": socket.gethostname(),
-                                                    "started_at": now_iso()}), encoding="utf-8")
-    with pytest.raises(LockHeld):
-        run_embedding(TEXTS, Fake(), store, rcfg(), progress=False)
-    assert (store.dir / "run.lock").exists()
+    with RunLock(store.dir / "run.lock"):                                     # another run holds the store
+        with pytest.raises(LockHeld):
+            run_embedding(TEXTS, Fake(), store, rcfg(), progress=False)
+        assert (store.dir / "run.lock").exists()
 
 
 def test_lock_of_a_dead_pid_is_taken_over(tmp_path):
@@ -221,6 +220,7 @@ def test_stop_flag_mid_run_stops_and_flushes(tmp_path):
 def test_stale_stop_flag_at_start_is_ignored(tmp_path):
     store = store_for(tmp_path)
     (store.dir / "stop.flag").write_text("old", encoding="utf-8")
+    os.utime(store.dir / "stop.flag", (time.time() - 86_400,) * 2)         # written before this process started
     assert run_embedding(TEXTS, Fake(), store, rcfg(), progress=False)["status"] == "done"
 
 
@@ -363,3 +363,177 @@ def test_store_status_lines_word_the_journal_by_run_state(tmp_path):
     live = store_status_lines(store.dir, active=True)[0]
     assert "2 vectors" in idle and "3 vectors waiting" in idle and "next run" in idle
     assert "next checkpoint" in live
+
+
+# ---------- fix round 1: Windows readers, two-writer defence
+def _hold_open(path, seconds):
+    """A reader (like `atlas status` or an antivirus) holding `path` open for a while, from another thread."""
+    def run():
+        for _ in range(400):
+            if path.exists():
+                break
+            time.sleep(0.005)
+        with open(path, "rb"):
+            time.sleep(seconds)
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    return t
+
+
+def test_store_add_survives_a_reader_holding_the_index(tmp_path):
+    store = store_for(tmp_path)
+    store.add(["a" * 40], np.ones((1, 3), dtype=np.float32))
+    t = _hold_open(store.dir / "index.parquet", 0.5)
+    time.sleep(0.05)
+    store.add(["b" * 40], np.full((1, 3), 2, dtype=np.float32))       # waits for the reader, then replaces
+    t.join()
+    again = store_for(tmp_path)
+    assert len(again) == 2 and np.array_equal(again.get(["b" * 40]), np.full((1, 3), 2, dtype=np.float32))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="POSIX lets you replace an open file")
+def test_store_add_that_cannot_replace_the_index_leaves_no_trace(tmp_path):
+    store = store_for(tmp_path)
+    store.add(["a" * 40], np.ones((1, 3), dtype=np.float32))
+    shards = sorted(p.name for p in store.dir.glob("shard_*.npy"))
+    with open(store.dir / "index.parquet", "rb"):
+        with pytest.raises(PermissionError):
+            store.add(["b" * 40], np.ones((1, 3), dtype=np.float32), replace_timeout=0.3)
+    assert sorted(p.name for p in store.dir.glob("shard_*.npy")) == shards   # no orphan shard
+    assert len(store) == 1 and not store.has("b" * 40)                        # memory matches disk
+    store.add(["b" * 40], np.ones((1, 3), dtype=np.float32))                  # and it works afterwards
+    assert len(store_for(tmp_path)) == 2
+
+
+def test_shard_collision_never_overwrites(tmp_path):
+    store = store_for(tmp_path)
+    (store.dir / "shard_00000.npy").write_bytes(b"someone else's shard")    # e.g. a second writer
+    store.add(["a" * 40], np.ones((1, 3), dtype=np.float32))
+    assert (store.dir / "shard_00000.npy").read_bytes() == b"someone else's shard"
+    assert int(store.index["shard"].iloc[0]) == 1
+    assert np.array_equal(store_for(tmp_path).get(["a" * 40]), np.ones((1, 3), dtype=np.float32))
+
+
+def test_run_completes_while_a_reader_holds_the_index_across_checkpoints(tmp_path):
+    store = store_for(tmp_path)
+
+    class Slowish(Fake):
+        def embed_batch(self, texts):
+            time.sleep(0.02)
+            return super().embed_batch(texts)
+    readers = []
+
+    def hook(n):
+        if n == 3:                                         # after the first checkpoint created index.parquet
+            readers.append(_hold_open(store.dir / "index.parquet", 1.5))
+    stats = run_embedding(TEXTS * 1, Slowish(hook=hook), store, rcfg(checkpoint_every=4), progress=False)
+    assert stats["status"] == "done" and len(store_for(tmp_path)) == 40
+    assert read_json(store.dir / "progress.json")["status"] == "done"
+
+
+def test_progress_publishes_store_and_journal_counts(tmp_path):
+    store = store_for(tmp_path)
+    seen = []
+
+    def hook(n):
+        if n == 5:
+            seen.append(read_json(store.dir / "progress.json"))
+    run_embedding(TEXTS, Fake(hook=hook), store, rcfg(checkpoint_every=8), progress=False)
+    final = read_json(store.dir / "progress.json")
+    assert final["store_vectors"] == 40 and final["journal_pending"] == 0
+    assert "store_vectors" in seen[0] and "journal_pending" in seen[0]
+
+
+def test_stop_requested_before_the_run_reached_embedding_is_honoured(tmp_path):
+    store = store_for(tmp_path)
+    (store.dir / "stop.flag").write_text("x", encoding="utf-8")      # `embed-stop` while it was still ingesting
+    fake = Fake()
+    stats = run_embedding(TEXTS, fake, store, rcfg(), progress=False)
+    assert stats["status"] == "stopped" and fake.calls == 0
+    assert not (store.dir / "stop.flag").exists()
+
+
+def _api_cfg(**kw):
+    return {"embedding": {"api": {"base_url": "http://x/v1", "api_key_env": "NOPE_KEY", "model": "m",
+                                  "dimensions": None, "store_id": None, "request_timeout": 5.0, "min_text_chars": 10,
+                                  "backoff_initial": 0.01, "backoff_max": 0.02, "max_retries": None,
+                                  "requests_per_minute": None, **kw}}}
+
+
+def _vec_transport(dim=6, max_inputs=None, max_chars=None, after=None):
+    """OpenAI-compatible fake: 413 above max_inputs, 400 'maximum context' above max_chars, then `after`."""
+    calls = {"n": 0}
+
+    def t(url, headers, body, timeout):
+        inp = json.loads(body)["input"]
+        calls["n"] += 1
+        if max_inputs and len(inp) > max_inputs:
+            return 413, {}, b"too large"
+        if max_chars and any(len(x) > max_chars for x in inp):
+            return 400, {}, b"This model's maximum context length is 8192 tokens"
+        if after is not None:
+            r = after(calls["n"], inp)
+            if r is not None:
+                return r
+        data = [{"index": i, "embedding": fake_vec(x, dim).tolist()} for i, x in enumerate(inp)]
+        return 200, {}, json.dumps({"data": data}).encode()
+    return t
+
+
+def test_split_batch_stopped_half_way_keeps_the_paid_half(tmp_path):
+    # batch of 4 -> 413 -> left half paid -> right half hits a dead server -> stop: the left half must be stored
+    down = lambda n, inp: (503, {}, b"down") if n > 2 else None          # noqa: E731
+    emb = ApiEmbedder(_api_cfg(backoff_initial=60.0, backoff_max=60.0),
+                      transport=_vec_transport(max_inputs=2, after=down))
+    store = store_for(tmp_path, emb.model_id)
+    threading.Timer(0.5, lambda: (store.dir / "stop.flag").write_text("x", encoding="utf-8")).start()
+    stats = run_embedding(TEXTS[:4], emb, store, rcfg(batch_size=4, concurrency=1), progress=False)
+    assert stats["status"] == "stopped" and stats["embedded"] == 2
+    again = store_for(tmp_path, emb.model_id)
+    assert len(again) == 2 and np.array_equal(again.get(keys_of(TEXTS[:2], emb.model_id)),
+                                              np.stack([fake_vec(t) for t in TEXTS[:2]]))
+
+
+def test_truncated_texts_are_recorded_and_counted(tmp_path):
+    from atlas.embed_runner import TRUNCATED, store_status_lines
+    from atlas.io_utils import read_table
+
+    emb = ApiEmbedder(_api_cfg(min_text_chars=50), transport=_vec_transport(max_chars=400))
+    store = store_for(tmp_path, emb.model_id)
+    texts = TEXTS[:6] + ["L" * 1000, "M" * 2000]
+    stats = run_embedding(texts, emb, store, rcfg(), progress=False)
+    assert stats["truncated"] == 2
+    df = read_table(store.dir / TRUNCATED)
+    assert list(df.columns) == ["key", "original_chars", "used_chars", "run_started_at"]
+    assert sorted(df["original_chars"]) == [1000, 2000] and sorted(df["used_chars"]) == [250, 250]
+    assert set(df["key"]) == set(keys_of(["L" * 1000, "M" * 2000], emb.model_id))
+    assert read_json(store.dir / "progress.json")["truncated_total"] == 2
+    emb2 = ApiEmbedder(_api_cfg(min_text_chars=50), transport=_vec_transport(max_chars=400))
+    run_embedding(texts + ["N" * 900], emb2, store_for(tmp_path, emb.model_id), rcfg(), progress=False)
+    assert len(read_table(store.dir / TRUNCATED)) == 3                    # appended per run, cumulative
+    assert any("3 in total" in x for x in store_status_lines(store.dir))
+
+
+def test_second_ctrl_c_abandons_in_flight_requests_at_once(tmp_path):
+    release = threading.Event()
+    store = store_for(tmp_path)
+
+    def twice():
+        _thread.interrupt_main()
+        time.sleep(0.8)
+        _thread.interrupt_main()
+
+    def hook(n):
+        if n == 2:
+            threading.Thread(target=twice, daemon=True).start()
+        if n >= 2:
+            release.wait(30)                               # a slow request that would block for 30 s
+    t0 = time.monotonic()
+    try:
+        stats = run_embedding(TEXTS, Fake(hook=hook), store, rcfg(concurrency=2, checkpoint_every=1000),
+                              progress=False)
+    finally:
+        release.set()
+    assert time.monotonic() - t0 < 10
+    assert stats["status"] == "stopped" and stats["abandoned"] >= 1
+    assert len(store_for(tmp_path)) == stats["embedded"]

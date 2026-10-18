@@ -81,3 +81,7 @@ def test_api_embed_validation(tmp_path, bad):
     p.write_text(f"embedding:\n  api:\n    {bad}\n", encoding="utf-8")
     with pytest.raises(ValidationError):
         load_config(p)
+
+
+def test_local_provider_has_its_own_lock_stale_seconds():
+    assert load_config(None)["embedding"]["local"]["lock_stale_seconds"] == 300

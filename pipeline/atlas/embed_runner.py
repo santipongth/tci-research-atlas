@@ -1,13 +1,15 @@
 """Embedding runner: batches -> worker threads -> journal -> EmbeddingStore, with lock, stop flag, progress.
 
 Durability (nothing paid for is lost, nothing is paid for twice):
-  * every completed batch is appended to <store>/journal.bin at once (flush per batch, fsync <= every 10 s)
-  * every `checkpoint_every` vectors the buffer goes into the store (shard + index) and the journal is emptied
+  * every completed batch is appended to <store>/journal.bin at once (flush per batch, fsync <= every 10 s,
+    so a power cut can lose up to ~10 s of results; a killed process loses only requests still in flight)
+  * every `checkpoint_every` vectors the buffer goes into the store (shard + index) and the journal is emptied;
+    a checkpoint that cannot replace the index (a reader holds it on Windows) is postponed, never fatal
   * a new run first replays journal.bin into the store, then embeds only keys the store does not have
-  * so a killed process (closed window, crash, power loss) loses at most the requests still in flight
+  * one run per store: an OS lock held for the whole run (jobs.RunLock)
 
-Only the main thread touches the store, the journal and progress.json; workers only call embed_batch.
-Retries/backoff live in the embedder (ApiEmbedder); the runner just keeps going and reports.
+Only the main thread touches the store, the journal, truncated.parquet and progress.json; workers only call
+embed_batch. Retries/backoff live in the embedder (ApiEmbedder); the runner keeps going and reports.
 """
 from __future__ import annotations
 
@@ -23,41 +25,64 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 from atlas.api_http import Cancelled
-from atlas.embed_api import dim_mismatch
+from atlas.embed_api import PartialBatch, dim_mismatch
 from atlas.embed_store import EmbeddingStore, text_key
-from atlas.jobs import LOCK, PROGRESS, STOP, ProgressFile, RunLock, StopFlag, fmt_duration, now_iso
+from atlas.io_utils import fsync_dir, read_table, replace_with_retry, unlink_with_retry, write_table
+from atlas.jobs import (
+    LOCK,
+    PROGRESS,
+    STOP,
+    ProgressFile,
+    RunLock,
+    StopFlag,
+    fmt_duration,
+    now_iso,
+    process_started_epoch,
+)
 
-JOURNAL = "journal.bin"
+JOURNAL, TRUNCATED = "journal.bin", "truncated.parquet"
 MAGIC = b"ATJ1"
 HEADER = len(MAGIC) + 4
 KEY_BYTES = 40                                   # sha1 hex
 _HEX = re.compile(rb"[0-9a-f]{40}")
 FSYNC_EVERY_S = 10.0
 PROGRESS_EVERY_S = 5.0                           # progress.json heartbeat (spec: at least every 30 s)
+CHECKPOINT_REPLACE_S = 20.0                      # how long a checkpoint waits for index.parquet readers
+FINAL_REPLACE_S = 60.0                           # ... and the final flush
 
 
 # ---------- journal
 class Journal:
     """Write-ahead log of paid vectors: b"ATJ1" + uint32 dim, then records of 40 ASCII key bytes +
-    dim float32 little-endian. Append + flush per batch; os.fsync at most every FSYNC_EVERY_S seconds."""
+    dim float32 little-endian. Opened for append (only ever by the lock holder); flush per batch;
+    os.fsync at most every FSYNC_EVERY_S seconds."""
 
     def __init__(self, path: Path):
         self.path = Path(path)
         self.f = None
         self.dim: int | None = None
+        self.records = 0                          # appended since the last checkpoint
         self._synced = time.monotonic()
 
     def append(self, keys: list[str], vectors: np.ndarray) -> None:
         vectors = np.ascontiguousarray(vectors, dtype="<f4")
         if self.f is None:
             self.dim = int(vectors.shape[1])
-            self.f = open(self.path, "wb")                    # any old journal was replayed and deleted at start
-            self.f.write(MAGIC + struct.pack("<I", self.dim))
+            self.f = open(self.path, "ab")        # normally absent: replayed and removed at start
+            if self.f.tell() == 0:
+                self.f.write(MAGIC + struct.pack("<I", self.dim))
+            else:
+                head = self.path.read_bytes()[:HEADER]
+                if head[:4] != MAGIC or struct.unpack("<I", head[4:HEADER])[0] != self.dim:
+                    self.f.truncate(0)            # foreign/garbled leftover: start a fresh journal
+                    self.f.write(MAGIC + struct.pack("<I", self.dim))
         self.f.write(b"".join(k.encode("ascii") + vectors[i].tobytes() for i, k in enumerate(keys)))
         self.f.flush()
+        self.records += len(keys)
         if time.monotonic() - self._synced >= FSYNC_EVERY_S:
             os.fsync(self.f.fileno())
             self._synced = time.monotonic()
@@ -65,19 +90,24 @@ class Journal:
     def truncate(self) -> None:
         """Everything journaled is now durable in the store."""
         if self.f is not None:
-            self.f.seek(HEADER)
-            self.f.truncate()
+            self.f.truncate(HEADER)
             self.f.flush()
+        self.records = 0
 
     def close(self, delete: bool) -> None:
         if self.f is not None:
             self.f.close()
             self.f = None
-        if delete:
-            try:
-                self.path.unlink()
-            except FileNotFoundError:
-                pass
+        if delete and not unlink_with_retry(self.path):
+            _empty_file(self.path)                # a reader holds it: an empty journal replays nothing
+
+
+def _empty_file(path: Path) -> None:
+    try:
+        with open(path, "r+b") as f:
+            f.truncate(0)
+    except OSError:
+        pass
 
 
 def read_journal(path: str | Path) -> tuple[list[str], np.ndarray, int]:
@@ -120,24 +150,8 @@ def journal_records(path: str | Path) -> int:
     return (size - HEADER) // (KEY_BYTES + 4 * struct.unpack("<I", head[4:])[0])
 
 
-def store_status_lines(sdir: str | Path, active: bool = False) -> list[str]:
-    """Extra `atlas status` lines for an embedding store folder (`active`: a live run owns the journal)."""
-    from atlas.io_utils import read_table
-
-    try:
-        n = len(read_table(Path(sdir) / "index.parquet"))
-    except (FileNotFoundError, OSError, ValueError):
-        n = 0
-    pending = journal_records(Path(sdir) / JOURNAL)
-    line = f"  store                 : {n:,} vectors"
-    if pending:
-        line += (f" · journal.bin: {pending:,} vectors (go into the store at the next checkpoint)" if active
-                 else f" · journal.bin: {pending:,} vectors waiting (the next run recovers them)")
-    return [line]
-
-
 def recover_journal(store: EmbeddingStore, log=print) -> int:
-    """Replay <store>/journal.bin into the store, then delete it. Returns the number of vectors recovered."""
+    """Replay <store>/journal.bin into the store, then remove it. Returns the number of vectors recovered."""
     path = store.dir / JOURNAL
     if not path.exists():
         return 0
@@ -145,11 +159,60 @@ def recover_journal(store: EmbeddingStore, log=print) -> int:
     if keys:
         if store.dim is not None and vecs.shape[1] != store.dim:
             raise dim_mismatch(store.dim, int(vecs.shape[1]), "journal")
-        store.add(keys, vecs)
-    path.unlink()
-    log(f"[embed] recovered {len(keys):,} vectors from journal" + (f" ({bad} damaged record(s) skipped)"
-                                                                   if bad else ""))
+        store.add(keys, vecs, replace_timeout=FINAL_REPLACE_S)
+    if not unlink_with_retry(path):
+        _empty_file(path)
+    if keys or bad:
+        log(f"[embed] recovered {len(keys):,} vectors from journal" + (f" ({bad} damaged record(s) skipped)"
+                                                                       if bad else ""))
     return len(keys)
+
+
+# ---------- truncated texts (audit trail)
+TRUNCATED_COLUMNS = ["key", "original_chars", "used_chars", "run_started_at"]
+
+
+def count_truncated(sdir: str | Path) -> int:
+    try:
+        return len(read_table(Path(sdir) / TRUNCATED))
+    except (FileNotFoundError, OSError, ValueError):
+        return 0
+
+
+def append_truncated(sdir: str | Path, rows: list[dict]) -> int:
+    """Append rows to <store>/truncated.parquet (atomic replace). Returns the new total."""
+    sdir = Path(sdir)
+    try:
+        old = read_table(sdir / TRUNCATED)
+    except FileNotFoundError:
+        old = pd.DataFrame(columns=TRUNCATED_COLUMNS)
+    new = pd.DataFrame(rows, columns=TRUNCATED_COLUMNS)
+    df = new if old.empty else pd.concat([old, new], ignore_index=True)
+    written = write_table(df, sdir / "truncated.tmp.parquet")
+    replace_with_retry(written, sdir / written.name.replace(".tmp", ""), timeout=CHECKPOINT_REPLACE_S)
+    fsync_dir(sdir)
+    return len(df)
+
+
+def store_status_lines(sdir: str | Path, active: bool = False) -> list[str]:
+    """`atlas status` lines read from the files of a store that NO live run holds (a live run publishes the
+    same numbers in progress.json — status never opens its files, so it cannot block a checkpoint)."""
+    try:
+        n = len(read_table(Path(sdir) / "index.parquet"))
+    except (FileNotFoundError, OSError, ValueError):
+        n = 0
+    return store_lines(n, journal_records(Path(sdir) / JOURNAL), count_truncated(sdir), active)
+
+
+def store_lines(vectors: int, pending: int, truncated_total: int, active: bool) -> list[str]:
+    line = f"  store                 : {vectors:,} vectors"
+    if pending:
+        line += (f" · journal.bin: {pending:,} vectors (go into the store at the next checkpoint)" if active
+                 else f" · journal.bin: {pending:,} vectors waiting (the next run recovers them)")
+    lines = [line]
+    if truncated_total:
+        lines.append(f"  truncated texts       : {truncated_total:,} in total (see {TRUNCATED})")
+    return lines
 
 
 def pack_batches(lengths: list[int], batch_size: int, max_chars: int | None) -> list[tuple[int, int]]:
@@ -168,28 +231,33 @@ def pack_batches(lengths: list[int], batch_size: int, max_chars: int | None) -> 
 
 
 # ---------- the run
-def run_embedding(texts: list[str], embedder, store: EmbeddingStore, rcfg: dict, *, progress: bool = True) -> dict:
+def run_embedding(texts: list[str], embedder, store: EmbeddingStore, rcfg: dict, *, progress: bool = True,
+                  run_started: float | None = None) -> dict:
     """Embed every text whose key is not in `store`. Returns {total, cached, embedded, retries, truncated,
-    status, recovered, store_id}; status is "done" or "stopped" (Ctrl-C / stop.flag). Errors are re-raised
-    after everything already paid for is flushed. Raises jobs.LockHeld when another live run holds the lock."""
+    status, recovered, store_id, abandoned}; status is "done" or "stopped" (Ctrl-C / stop.flag). Errors are
+    re-raised after everything already paid for is flushed. Raises jobs.LockHeld when another run holds the
+    store. `run_started` (epoch, default: this process's start) — a stop.flag older than that is stale."""
     lock = RunLock(store.dir / LOCK, stale_seconds=float(rcfg.get("lock_stale_seconds") or 300),
                    heartbeat=store.dir / PROGRESS)
     lock.acquire()
     try:
-        return _Run(texts, embedder, store, rcfg, progress).run()
+        return _Run(texts, embedder, store, rcfg, progress,
+                    process_started_epoch() if run_started is None else run_started).run()
     finally:
         lock.release()
 
 
 class _Run:
-    def __init__(self, texts, embedder, store: EmbeddingStore, rcfg: dict, progress: bool):
+    def __init__(self, texts, embedder, store: EmbeddingStore, rcfg: dict, progress: bool, run_started: float):
         self.texts, self.embedder, self.store = texts, embedder, store
         self.store_id = embedder.model_id
         self.batch_size = max(1, int(rcfg.get("batch_size") or 32))
         self.max_chars = rcfg.get("max_batch_chars")
         self.concurrency = max(1, int(rcfg.get("concurrency") or 1))
         self.checkpoint_every = max(1, int(rcfg.get("checkpoint_every") or 2000))
+        self.next_flush_at = self.checkpoint_every
         self.show = progress
+        self.run_started = run_started
         self.stop_flag = StopFlag(store.dir / STOP)
         self.pf = ProgressFile(store.dir / PROGRESS, min_interval=PROGRESS_EVERY_S)
         self.journal = Journal(store.dir / JOURNAL)
@@ -201,11 +269,14 @@ class _Run:
         self.buffered = 0
         self.in_flight: dict[Future, list[str]] = {}
         self.interrupts = 0
+        self.abandoned = 0
         self.stopping: str | None = None          # why we stopped submitting: "stop.flag" | "Ctrl-C" | "error"
         self.error: BaseException | None = None
         self.final: str | None = None
         self.t_embed = time.monotonic()
         self.pbar = None
+        self.truncated_total = count_truncated(store.dir)
+        self.truncations: dict[str, tuple[int, int]] = {}   # key -> (original_chars, used_chars), not yet saved
         # written by worker threads through on_event
         self._ev = threading.Lock()
         self.last_error: str | None = None
@@ -214,7 +285,7 @@ class _Run:
         self.backoff_until = 0.0
         self.last_retry_at = 0.0
         self.last_ok_at = 0.0
-        self._shown_event = ""
+        self._shown_event: str | None = ""
         self._shown_at = 0.0
 
     # ---- events from worker threads
@@ -229,6 +300,9 @@ class _Run:
                                    f"\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER NO NU} {fmt_duration(info.get('delay'))}")
             elif kind == "truncated":
                 self.last_event = f"\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER O ANG} {info.get('chars')} \N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SO RUSI}\N{THAI CHARACTER RO RUA}"
+                if info.get("text") is not None:
+                    self.truncations[text_key(self.store_id, info["text"])] = (int(info.get("original_chars") or 0),
+                                                                              int(info.get("chars") or 0))
             elif kind == "split":
                 self.last_event = f"\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NGO NGU} batch {info.get('size')} \N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}"
 
@@ -251,6 +325,8 @@ class _Run:
                 "eta_s": round((self.remaining - self.embedded) / rate) if rate else None,
                 "retries": int(getattr(self.embedder, "n_retries", 0)),
                 "truncated": int(getattr(self.embedder, "n_truncated", 0)),
+                "truncated_total": self.truncated_total,
+                "store_vectors": len(self.store), "journal_pending": self.journal.records,
                 "last_error": last_error, "last_error_at": last_error_at, "last_event": last_event,
                 "recovered": self.recovered, "concurrency": self.concurrency, "in_flight": len(self.in_flight),
                 "started_at": self.started_at, "updated_at": now_iso()}
@@ -283,16 +359,46 @@ class _Run:
             self.last_ok_at = time.monotonic()
         if self.pbar is not None:
             self.pbar.update(len(keys))
-        if self.buffered >= self.checkpoint_every:
+        if self.buffered >= self.next_flush_at:
             self.flush()
 
-    def flush(self) -> None:
+    def flush(self, final: bool = False) -> None:
         if self.buffer:
             keys = [k for ks, _ in self.buffer for k in ks]
-            self.store.add(keys, np.vstack([v for _, v in self.buffer]))
-            self.buffer, self.buffered = [], 0
+            try:
+                self.store.add(keys, np.vstack([v for _, v in self.buffer]),
+                               replace_timeout=FINAL_REPLACE_S if final else CHECKPOINT_REPLACE_S)
+            except PermissionError as e:
+                if final:
+                    raise
+                # a reader (antivirus, backup, an old `atlas status`) holds index.parquet: everything stays in
+                # the journal and the buffer; try again after the next checkpoint_every vectors
+                self.next_flush_at = self.buffered + self.checkpoint_every
+                print(f"[embed] checkpoint postponed — index.parquet is held by another program ({e.strerror}); "
+                      f"{self.buffered:,} vectors stay in journal.bin and are stored at the next checkpoint",
+                      flush=True)
+                self.tick(force=True)
+                return
+            self.buffer, self.buffered, self.next_flush_at = [], 0, self.checkpoint_every
+            self.save_truncations(set(keys), final)
         self.journal.truncate()
         self.tick(force=True)
+
+    def save_truncations(self, stored: set[str], final: bool) -> None:
+        with self._ev:
+            rows = [{"key": k, "original_chars": o, "used_chars": u, "run_started_at": self.started_at}
+                    for k, (o, u) in self.truncations.items() if k in stored]
+        if not rows:
+            return
+        try:
+            self.truncated_total = append_truncated(self.store.dir, rows)
+        except PermissionError:
+            if final:
+                print(f"[embed] WARNING: could not update {TRUNCATED} (held by another program)", flush=True)
+            return                                           # retried at the next checkpoint
+        with self._ev:
+            for r in rows:
+                self.truncations.pop(r["key"], None)
 
     def begin_stop(self, why: str) -> None:
         if self.stopping:
@@ -302,45 +408,62 @@ class _Run:
             f.cancel()                                        # queued batches never start (not paid)
         cancel = getattr(self.embedder, "cancel", None)
         if cancel:
-            cancel()                                          # workers in a backoff wait give up at once
+            cancel()                                          # workers in a backoff/rate-limit wait give up
         running = sum(1 for f in self.in_flight if not f.done())
         if why != "error":
             print(f"[embed] \N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK} ({why}): \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER O ANG} request \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} {running} \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER RO RUA} / stopping ({why}): waiting for "
                   f"{running} in-flight request(s) — Ctrl-C again to abandon them", flush=True)
 
+    def fail(self, e: BaseException) -> None:
+        if isinstance(e, (Cancelled, CancelledError)):
+            return
+        if self.error is None:
+            self.error = e
+            self.begin_stop("error")
+
     def collect(self, fut: Future, keys: list[str]) -> None:
         try:
             vec = fut.result()
+        except PartialBatch as e:                             # a split batch stopped half-way: keep paid parts
+            for start, arr in e.parts:
+                try:
+                    self.accept(keys[start:start + len(arr)], arr)
+                except Exception as exc:  # noqa: BLE001
+                    self.fail(exc)
+            self.fail(e.cause)
+            return
         except (Cancelled, CancelledError):
             return
         except Exception as e:  # noqa: BLE001 — keep what was paid for, then re-raise the first error
-            if self.error is None:
-                self.error = e
-                self.begin_stop("error")
+            self.fail(e)
             return
         try:
             self.accept(keys, vec)
         except Exception as e:  # noqa: BLE001
-            if self.error is None:
-                self.error = e
-                self.begin_stop("error")
+            self.fail(e)
 
     # ---- driver
+    def _on_sigint(self, signum, frame) -> None:
+        self.interrupts += 1                                  # handled by the loop: never raises mid-bookkeeping
+
     def run(self) -> dict:
-        # Ctrl-C only sets a flag while we run (a KeyboardInterrupt could land between "batch done" and
-        # "batch stored" and drop a paid batch); possible in the main thread only.
-        try:
-            prev_sigint = signal.signal(signal.SIGINT, self._on_sigint)
-        except ValueError:
-            prev_sigint = None
+        # Ctrl-C (and Ctrl-Break on Windows) only set a flag while we run: a KeyboardInterrupt could land
+        # between "batch done" and "batch stored" and drop a paid batch. Possible in the main thread only.
+        sigs = [signal.SIGINT] + ([signal.SIGBREAK] if hasattr(signal, "SIGBREAK") else [])
+        previous = {}
+        for sig in sigs:
+            try:
+                previous[sig] = signal.signal(sig, self._on_sigint)
+            except ValueError:
+                break
         try:
             return self._run()
         finally:
-            if prev_sigint is not None:
-                signal.signal(signal.SIGINT, prev_sigint)
+            for sig, handler in previous.items():
+                signal.signal(sig, handler)
 
     def _run(self) -> dict:
-        self.stop_flag.clear()                                # a stale stop.flag from an earlier run
+        self.stop_flag.clear_if_older(self.run_started)      # left by an earlier run; a newer one is honoured
         self.tick(force=True)                                 # heartbeat before the (possibly long) setup
         self.recovered = recover_journal(self.store)
         keys = [text_key(self.store_id, t) for t in self.texts]
@@ -380,10 +503,8 @@ class _Run:
         return {"total": self.total, "cached": self.cached, "embedded": self.embedded,
                 "retries": int(getattr(self.embedder, "n_retries", 0)),
                 "truncated": int(getattr(self.embedder, "n_truncated", 0)),
-                "status": self.final, "recovered": self.recovered, "store_id": self.store_id}
-
-    def _on_sigint(self, signum, frame) -> None:
-        self.interrupts += 1                                  # handled by the loop: never raises mid-bookkeeping
+                "status": self.final, "recovered": self.recovered, "store_id": self.store_id,
+                "abandoned": self.abandoned}
 
     def loop(self, todo: list[str], text_of: dict[str, str], batches: list[tuple[int, int]]) -> None:
         ex = ThreadPoolExecutor(max_workers=self.concurrency, thread_name_prefix="embed")
@@ -391,8 +512,11 @@ class _Run:
         try:
             while True:
                 if self.interrupts >= 2:
-                    print(f"[embed] abandoning {len(self.in_flight)} in-flight request(s); their texts are sent "
+                    self.abandoned = sum(1 for f in self.in_flight if not f.done())
+                    print(f"[embed] abandoning {self.abandoned} in-flight request(s); their texts are sent "
                           f"again by the next run", flush=True)
+                    for fut in [f for f in self.in_flight if f.done()]:
+                        self.collect(fut, self.in_flight.pop(fut))
                     break
                 if self.interrupts and not self.stopping:
                     self.begin_stop("Ctrl-C")
@@ -411,12 +535,12 @@ class _Run:
                     self.collect(fut, self.in_flight.pop(fut))
                 self.tick()
         finally:
-            ex.shutdown(wait=False, cancel_futures=True)
+            ex.shutdown(wait=False, cancel_futures=True)     # never joins a request that was abandoned
 
     def finish(self) -> None:
-        """Flush everything paid for; the journal is deleted only once the store holds it."""
+        """Flush everything paid for; the journal is removed only once the store holds it."""
         try:
-            self.flush()
+            self.flush(final=True)
         except BaseException:
             self.journal.close(delete=False)                 # keep journal.bin: the next run replays it
             self.final = "failed"
@@ -433,8 +557,7 @@ class _Run:
             self.final = "done"
         else:
             self.final = "stopped" if self.stopping else "failed"
-        if self.stopping and self.stopping != "error":
-            self.stop_flag.clear()
+        self.stop_flag.clear()                               # served (or moot): never carried to the next run
         self.tick(force=True)
         if self.final == "stopped":
             print(f"[embed] \N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN} — \N{THAI CHARACTER SARA E}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER BO BAIMAI} {self.embedded:,} \N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER NGO NGU} store; \N{THAI CHARACTER SARA E}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER O ANG} {left:,} \N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU} — "

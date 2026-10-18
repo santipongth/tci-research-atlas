@@ -254,3 +254,79 @@ def test_live_check():
                                    model=os.environ.get("ATLAS_EMBED_LIVE_MODEL", "BAAI/bge-m3"),
                                    dimensions=None)
     assert ApiEmbedder(cfg).check()["dim"] > 0
+
+
+# ---------- fix round 1
+def test_three_identical_malformed_answers_split_the_batch(key):
+    api = FakeAPI(["short", "short", "short"])
+    e = emb_for(api)
+    assert np.allclose(e.embed_batch(TEXTS[:4]), expected(TEXTS[:4]))
+    assert [len(c["input"]) for c in api.calls] == [4, 4, 4, 2, 2]
+
+
+def test_different_malformed_answers_keep_retrying_the_whole_batch(key):
+    api = FakeAPI(["short", "nan", "short", "nan"])
+    e = emb_for(api)
+    assert np.allclose(e.embed_batch(TEXTS[:4]), expected(TEXTS[:4]))
+    assert [len(c["input"]) for c in api.calls] == [4] * 5
+
+
+def test_single_text_with_a_persistently_malformed_answer_is_a_config_error(key):
+    with pytest.raises(EmbeddingConfigError, match="non-finite"):
+        emb_for(FakeAPI(["nan"] * 3)).embed_batch(["one text"])
+
+
+def test_out_of_quota_is_a_config_error_without_retry(key):
+    slept = []
+    api = FakeAPI([(429, {}, b'{"error": {"code": "insufficient_quota"}}')])
+    with pytest.raises(EmbeddingConfigError, match="(?i)quota"):
+        emb_for(api, slept).embed_batch(["a"])
+    assert slept == [] and len(api.calls) == 1
+
+
+def test_redirect_is_a_config_error_naming_the_target(key):
+    api = FakeAPI([(308, {"Location": "https://emb.test/v1/embeddings"}, b"")])
+    with pytest.raises(EmbeddingConfigError, match="https://emb.test/v1/embeddings"):
+        emb_for(api).embed_batch(["a"])
+
+
+@pytest.mark.parametrize("url", ["http://emb.test:notaport/v1", "http://emb.test:70000/v1", "emb.test/v1"])
+def test_bad_base_url_fails_at_construction(key, url):
+    with pytest.raises(EmbeddingConfigError):
+        ApiEmbedder(make_cfg(base_url=url), transport=FakeAPI())
+
+
+def test_key_over_plain_http_to_a_remote_host_warns_once(key, capsys):
+    ApiEmbedder(make_cfg(base_url="http://emb.example.org/v1"), transport=FakeAPI())
+    assert "WARNING" in capsys.readouterr().out
+    for url in ("http://127.0.0.1:8080/v1", "http://localhost/v1", "https://emb.example.org/v1"):
+        ApiEmbedder(make_cfg(base_url=url), transport=FakeAPI())
+    assert "WARNING" not in capsys.readouterr().out
+
+
+def test_no_warning_without_a_key(monkeypatch, capsys):
+    monkeypatch.delenv("ATLAS_TEST_EMBED_KEY", raising=False)
+    ApiEmbedder(make_cfg(base_url="http://emb.example.org/v1"), transport=FakeAPI())
+    assert "WARNING" not in capsys.readouterr().out
+
+
+def test_cancel_during_a_split_keeps_the_paid_half(key):
+    from atlas.embed_api import PartialBatch
+
+    api = FakeAPI(["ok", "ok"] + [(503, {}, b"down")] * 1000, max_inputs=2)   # 413, left half ok, right half down
+    e = ApiEmbedder(make_cfg(backoff_initial=60.0, backoff_max=60.0), transport=api)
+    threading.Timer(0.3, e.cancel).start()
+    with pytest.raises(PartialBatch) as err:
+        e.embed_batch(TEXTS[:4])
+    (start, arr), = err.value.parts
+    assert start == 0 and np.allclose(arr, expected(TEXTS[:2]))
+    assert isinstance(err.value.cause, Cancelled)
+
+
+def test_truncated_event_names_the_text_once(key):
+    events = []
+    e = emb_for(FakeAPI(max_chars=1000), events=events, min_text_chars=100)
+    long = "z" * 3000
+    e.embed_batch([long])
+    trunc = [i for k, i in events if k == "truncated"]
+    assert len(trunc) == 1 and trunc[0]["text"] == long and trunc[0]["chars"] == 750

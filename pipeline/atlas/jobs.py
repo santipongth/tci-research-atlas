@@ -1,8 +1,11 @@
 """Plumbing for long, resumable jobs (embedding now, LLM runs in P1) — nothing embedding-specific.
 
 Each job owns a folder under state_dir with:
-  run.lock       JSON {pid, host, started_at}; created atomically; a dead PID or an old heartbeat = stale
-  progress.json  status snapshot, written atomically (heartbeat for the lock and for `atlas status`)
+  .lock          never deleted; the running process holds an OS lock on it (msvcrt / fcntl) for the whole
+                 run. The kernel releases it when the process dies, so exclusivity never depends on PIDs
+                 or heartbeats.
+  run.lock       information only: {pid, host, started_at, pid_started}; read by `atlas status`
+  progress.json  status snapshot, written atomically (the heartbeat `atlas status` shows)
   stop.flag      `atlas embed-stop` creates it; the runner stops cleanly when it sees it
   run.log        stdout+stderr of a --background run
 """
@@ -15,24 +18,31 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-LOCK, PROGRESS, STOP, LOG = "run.lock", "progress.json", "stop.flag", "run.log"
+from atlas.io_utils import replace_with_retry, unlink_with_retry
+
+LOCK, OSLOCK, PROGRESS, STOP, LOG = "run.lock", ".lock", "progress.json", "stop.flag", "run.log"
 ACTIVE = ("running", "backing_off")
 
 
 class LockHeld(RuntimeError):
-    """Another live process holds the job's run.lock."""
+    """Another live process holds the job's lock."""
 
-    def __init__(self, message: str, pid: int | None):
+    def __init__(self, message: str, pid: int | None, hung: bool = False):
         super().__init__(message)
-        self.pid = pid
+        self.pid, self.hung = pid, hung
 
 
 class RunStopped(RuntimeError):
     """The run ended early because a stop was requested (Ctrl-C or stop.flag)."""
+
+    def __init__(self, message: str = "", abandoned: int = 0):
+        super().__init__(message)
+        self.abandoned = abandoned          # in-flight requests left behind by a second Ctrl-C
 
 
 def now_iso() -> str:
@@ -59,6 +69,20 @@ def fmt_duration(seconds: float | None) -> str:
     return f"{s}s"
 
 
+# ---------- processes
+def _kernel32():
+    import ctypes
+    from ctypes import wintypes
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    k32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+    k32.GetProcessTimes.argtypes = (wintypes.HANDLE,) + (ctypes.POINTER(wintypes.FILETIME),) * 4
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    return k32
+
+
 def pid_alive(pid: Any) -> bool:
     """True when a process with this PID is running. Never signals it (os.kill(pid, 0) kills on Windows)."""
     if not isinstance(pid, int) or pid <= 0:
@@ -67,11 +91,7 @@ def pid_alive(pid: Any) -> bool:
         import ctypes
         from ctypes import wintypes
 
-        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        k32.OpenProcess.restype = wintypes.HANDLE
-        k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
-        k32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
-        k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        k32 = _kernel32()
         handle = k32.OpenProcess(0x1000, False, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
         if not handle:
             return ctypes.get_last_error() == 5                 # ERROR_ACCESS_DENIED: exists, not ours
@@ -89,8 +109,66 @@ def pid_alive(pid: Any) -> bool:
     return True
 
 
-def read_json(path: str | Path) -> dict | None:
+def process_start_time(pid: Any) -> int | None:
+    """An opaque, exact start stamp of process `pid` (Windows creation FILETIME; Linux start ticks), or None
+    when it cannot be read. A PID that was reused by a new process gets a different stamp."""
+    if not isinstance(pid, int) or pid <= 0:
+        return None
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        k32 = _kernel32()
+        handle = k32.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return None
+        try:
+            t = [wintypes.FILETIME() for _ in range(4)]
+            if not k32.GetProcessTimes(handle, *(ctypes.byref(x) for x in t)):
+                return None
+            return (t[0].dwHighDateTime << 32) | t[0].dwLowDateTime
+        finally:
+            k32.CloseHandle(handle)
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+        return int(stat.rsplit(")", 1)[1].split()[19])          # field 22: starttime (clock ticks since boot)
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def process_alive(pid: Any, started: Any = None) -> bool:
+    """pid_alive, and — when the start stamp was recorded — still the same process (not a reused PID)."""
+    if not pid_alive(pid):
+        return False
+    if started is None:
+        return True
+    now = process_start_time(pid)
+    return now is None or now == started
+
+
+def process_started_epoch() -> float:
+    """When this process started (epoch seconds); a stop.flag written after this belongs to this run."""
+    stamp = process_start_time(os.getpid())
+    if stamp is not None and os.name == "nt":
+        return (stamp - 116_444_736_000_000_000) / 1e7          # FILETIME (100 ns since 1601) -> epoch
+    if stamp is not None:
+        try:
+            btime = next(int(line.split()[1]) for line in Path("/proc/stat").read_text().splitlines()
+                         if line.startswith("btime"))
+            return btime + stamp / os.sysconf("SC_CLK_TCK")
+        except (OSError, StopIteration, ValueError):
+            pass
+    return _IMPORTED_AT
+
+
+_IMPORTED_AT = time.time()
+
+
+# ---------- files
+def read_json(path: str | Path | None) -> dict | None:
     """The JSON object in `path`, or None when missing, half-written or locked."""
+    if path is None:
+        return None
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -98,63 +176,106 @@ def read_json(path: str | Path) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-def write_json_atomic(path: str | Path, obj: dict, *, retries: int = 20, retry_delay: float = 0.05) -> bool:
+def write_json_atomic(path: str | Path, obj: dict, *, timeout: float = 1.0) -> bool:
     """tmp + os.replace, so readers never see half a file. On Windows the replace fails while another
-    process has the file open; retry briefly, then skip this write (returns False) — progress is best effort."""
+    process has the file open: retry for up to `timeout` s, then skip this write (False) — best effort."""
     path = Path(path)
     tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
-    for attempt in range(retries + 1):
-        try:
-            os.replace(tmp, path)
-            return True
-        except PermissionError:
-            if attempt < retries:
-                time.sleep(retry_delay)
     try:
-        tmp.unlink()
+        replace_with_retry(tmp, path, timeout=timeout)
+        return True
+    except PermissionError:
+        unlink_with_retry(tmp, timeout=0.2)
+        return False
+
+
+# ---------- the lock
+def _os_lock(fd: int) -> bool:
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)              # byte 0 (beyond EOF is fine on Windows)
+        else:
+            import fcntl
+
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return False
+    return True
+
+
+def _os_unlock(fd: int) -> None:
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(fd, fcntl.LOCK_UN)
     except OSError:
         pass
-    return False
+    finally:
+        os.close(fd)
 
 
 class RunLock:
-    """Exclusive run.lock with stale takeover (dead PID, or no heartbeat for `stale_seconds`)."""
+    """Exclusive lock for one job folder.
+
+    Exclusivity = an OS lock held on `<dir>/.lock` (never deleted) for the life of the run; the kernel drops
+    it when the process dies, so a killed run is taken over at once and a live one — even a hung one whose
+    heartbeat is old — never is. `run.lock` (JSON: pid, host, started_at, pid_started) is information for
+    `atlas status` only. `wait` = how long acquire() retries before raising LockHeld.
+    """
 
     def __init__(self, path: str | Path, *, stale_seconds: float = 300, heartbeat: str | Path | None = None,
-                 log: Callable[[str], Any] = print):
-        self.path, self.stale_seconds = Path(path), float(stale_seconds)
+                 log: Callable[[str], Any] = print, wait: float = 0.5):
+        self.path = Path(path)
+        self.os_path = self.path.parent / OSLOCK
+        self.stale_seconds, self.wait = float(stale_seconds), float(wait)
         self.heartbeat = Path(heartbeat) if heartbeat else None
         self.log, self.held = log, False
+        self._fd: int | None = None
 
-    def _create(self) -> bool:
-        try:
-            fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            return False
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump({"pid": os.getpid(), "host": socket.gethostname(), "started_at": now_iso()}, f)
-        return True
+    def _try(self) -> bool:
+        fd = os.open(self.os_path, os.O_RDWR | os.O_CREAT, 0o644)
+        if _os_lock(fd):
+            self._fd = fd
+            return True
+        os.close(fd)
+        return False
 
     def acquire(self) -> RunLock:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        for _ in range(3):
-            if self._create():
-                self.held = True
-                return self
-            state = inspect_lock(self.path, self.heartbeat, self.stale_seconds)
-            if not state["exists"]:
-                continue                                   # released between our two calls
-            if not state["stale"]:
-                pid = state["pid"]
-                raise LockHeld(f"\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} (PID {pid}) / another run is in progress (PID {pid}) — "
-                               f"lock {self.path}", pid)
-            self.log(f"[lock] taking over a stale lock ({state['reason']}): {self.path}")
-            try:
-                self.path.unlink()
-            except FileNotFoundError:
-                pass
-        raise LockHeld(f"could not acquire {self.path}", None)
+        deadline = time.monotonic() + self.wait
+        while not self._try():
+            if time.monotonic() >= deadline:
+                st = lock_state(self.path, self.heartbeat, self.stale_seconds)
+                pid = st["pid"]
+                if st["hung"]:
+                    msg = (f"\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} (hung) — \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II} heartbeat \N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU} {fmt_duration(st['heartbeat_age'])} \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK} process \N{THAI CHARACTER YO YAK}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} "
+                           f"(PID {pid}) / hung — no heartbeat for {fmt_duration(st['heartbeat_age'])} but the "
+                           f"process (PID {pid}) still holds the lock; it is never taken over while it lives — check "
+                           f"it, or end it (taskkill /F /PID {pid}) and run again")
+                else:
+                    msg = f"\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} (PID {pid}) / another run is in progress (PID {pid})"
+                raise LockHeld(f"{msg} — lock {self.os_path}", pid, hung=st["hung"])
+            time.sleep(0.05)
+        prev = read_json(self.path)
+        if prev is not None:
+            self.log(f"[lock] previous run (PID {prev.get('pid')}, started {prev.get('started_at')}) ended without "
+                     f"releasing run.lock (stale) — taking over: {self.path}")
+        info = {"pid": os.getpid(), "host": socket.gethostname(), "started_at": now_iso(),
+                "pid_started": process_start_time(os.getpid())}
+        if not write_json_atomic(self.path, info, timeout=10.0):
+            self.log(f"[lock] WARNING: could not write {self.path} (information only)")
+        self.held = True
+        return self
 
     def release(self) -> None:
         if not self.held:
@@ -162,10 +283,10 @@ class RunLock:
         self.held = False
         info = read_json(self.path) or {}
         if info.get("pid") == os.getpid() and info.get("host") == socket.gethostname():
-            try:
-                self.path.unlink()
-            except FileNotFoundError:
-                pass
+            unlink_with_retry(self.path)                       # information only: a leftover is harmless
+        if self._fd is not None:
+            _os_unlock(self._fd)
+            self._fd = None
 
     def __enter__(self) -> RunLock:
         return self.acquire()
@@ -174,33 +295,28 @@ class RunLock:
         self.release()
 
 
-def inspect_lock(path: Path, heartbeat: Path | None, stale_seconds: float) -> dict:
-    """{exists, pid, alive, stale, reason} for a run.lock (heartbeat = progress.json updated_at)."""
+def lock_state(path: str | Path, heartbeat: str | Path | None, stale_seconds: float) -> dict:
+    """What run.lock says, without touching the OS lock: {exists, pid, alive, hung, heartbeat_age}.
+
+    alive = the recorded process still runs (same start stamp, so a reused PID does not count). The heartbeat
+    is progress.json `updated_at` of that process (else run.lock `started_at`); hung = alive but silent for
+    longer than stale_seconds. Another host's PID cannot be checked: there, alive = a recent heartbeat.
+    """
     path = Path(path)
-    if not path.exists():
-        return {"exists": False, "pid": None, "alive": False, "stale": True, "reason": "no lock"}
     info = read_json(path)
     if info is None:
-        try:
-            young = time.time() - path.stat().st_mtime < 10
-        except OSError:
-            young = False
-        # an empty/corrupt lock that is seconds old is being written right now: treat it as held
-        return {"exists": True, "pid": None, "alive": young, "stale": not young, "reason": "unreadable lock file"}
+        return {"exists": path.exists(), "pid": None, "alive": False, "hung": False, "heartbeat_age": None}
     pid = info.get("pid")
-    same_host = info.get("host") in (None, socket.gethostname())
-    alive = pid_alive(pid) if same_host else True          # another machine: judge by the heartbeat only
-    beats = [parse_iso(info.get("started_at")) or 0.0]
     prog = read_json(heartbeat) if heartbeat else None
-    if prog and prog.get("pid") == pid:
-        beats.append(parse_iso(prog.get("updated_at")) or 0.0)
-    age = time.time() - max(beats)
-    if not alive:
-        return {"exists": True, "pid": pid, "alive": False, "stale": True, "reason": f"PID {pid} is not running"}
-    if age > stale_seconds:
-        return {"exists": True, "pid": pid, "alive": alive, "stale": True,
-                "reason": f"no heartbeat for {fmt_duration(age)} (lock_stale_seconds={stale_seconds:g})"}
-    return {"exists": True, "pid": pid, "alive": True, "stale": False, "reason": ""}
+    beat = parse_iso(prog.get("updated_at")) if prog and prog.get("pid") == pid else None
+    beat = beat or parse_iso(info.get("started_at"))
+    age = time.time() - beat if beat else None
+    if info.get("host") in (None, socket.gethostname()):
+        alive = process_alive(pid, info.get("pid_started"))
+    else:
+        alive = age is not None and age <= stale_seconds
+    hung = bool(alive and age is not None and age > stale_seconds)
+    return {"exists": True, "pid": pid, "alive": alive, "hung": hung, "heartbeat_age": age}
 
 
 class StopFlag:
@@ -215,10 +331,16 @@ class StopFlag:
         return self.path.exists()
 
     def clear(self) -> None:
+        unlink_with_retry(self.path)
+
+    def clear_if_older(self, epoch: float) -> bool:
+        """Remove a flag written before `epoch` (left from an earlier run); True when one was removed."""
         try:
-            self.path.unlink()
+            if self.path.stat().st_mtime < epoch:
+                return unlink_with_retry(self.path)
         except FileNotFoundError:
             pass
+        return False
 
 
 class ProgressFile:
@@ -240,6 +362,15 @@ class ProgressFile:
         return False
 
 
+# ---------- background runs
+@dataclass
+class Spawned:
+    pid: int
+    proc: subprocess.Popen
+    breakaway: bool                 # Windows: left the parent's job object (cannot be killed with it)
+    warning: str | None             # set when the child may die with this terminal
+
+
 _SPAWNED: list[subprocess.Popen] = []      # keep handles alive: no ResourceWarning for a child we never wait on
 
 
@@ -253,24 +384,59 @@ def python_command() -> tuple[str, dict]:
     exe, env = sys.executable, dict(os.environ)
     env["PYTHONUNBUFFERED"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"           # run.log stays UTF-8 even for tracebacks before use_utf8_stdio()
-    base =getattr(sys, "_base_executable", exe)
+    base = getattr(sys, "_base_executable", exe)
     if os.name == "nt" and base and os.path.normcase(base) != os.path.normcase(exe) and os.path.exists(base):
         env["__PYVENV_LAUNCHER__"] = exe
         exe = base
     return exe, env
 
 
-def spawn_background(args: list[str], log_path: str | Path, cwd: str | Path | None = None) -> int:
+def kill_on_close_job() -> bool:
+    """Windows: True when this process sits in a job object that kills its members when it closes and does
+    not let children leave silently — a child that could not break away dies with this terminal/launcher."""
+    if os.name != "nt":
+        return False
+    import ctypes
+    from ctypes import wintypes
+
+    class Basic(ctypes.Structure):
+        _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
+                    ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
+                    ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
+                    ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
+                    ("SchedulingClass", wintypes.DWORD)]
+
+    class Io(ctypes.Structure):
+        _fields_ = [(n, ctypes.c_uint64) for n in ("r", "w", "o", "rb", "wb", "ob")]
+
+    class Extended(ctypes.Structure):
+        _fields_ = [("Basic", Basic), ("Io", Io), ("ProcessMemoryLimit", ctypes.c_size_t),
+                    ("JobMemoryLimit", ctypes.c_size_t), ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                    ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    in_job = wintypes.BOOL()
+    if not k32.IsProcessInJob(wintypes.HANDLE(-1), None, ctypes.byref(in_job)) or not in_job.value:
+        return False
+    info = Extended()
+    if not k32.QueryInformationJobObject(None, 9, ctypes.byref(info), ctypes.sizeof(info), None):
+        return True                                            # cannot tell: assume the worst
+    flags = info.Basic.LimitFlags
+    return bool(flags & 0x2000) and not flags & 0x1000         # KILL_ON_JOB_CLOSE, not SILENT_BREAKAWAY_OK
+
+
+def spawn_background(args: list[str], log_path: str | Path, cwd: str | Path | None = None) -> Spawned:
     """Start `python <args>` detached from this console (survives closing the window); stdout+stderr are
-    appended to log_path. Returns the child's PID.
+    appended to log_path.
 
     Windows: CREATE_NO_WINDOW (a hidden console of its own, inherited by multiprocessing workers, so no
-    window ever pops up) + CREATE_NEW_PROCESS_GROUP, and break away from the parent's job object when allowed.
-    POSIX: a new session.
+    window ever pops up) + CREATE_NEW_PROCESS_GROUP, and break away from the parent's job object when allowed
+    (if not, and that job kills its members on close, `warning` says so). POSIX: a new session.
     """
     log_path = Path(log_path)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     exe, env = python_command()
+    breakaway, warning = False, None
     with open(log_path, "ab") as log:
         kw: dict[str, Any] = {"stdin": subprocess.DEVNULL, "stdout": log, "stderr": subprocess.STDOUT,
                               "cwd": str(cwd) if cwd else None, "env": env, "close_fds": True}
@@ -278,18 +444,25 @@ def spawn_background(args: list[str], log_path: str | Path, cwd: str | Path | No
             flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
             try:
                 proc = subprocess.Popen([exe, *args], creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB, **kw)
+                breakaway = True
             except OSError:                                # the job does not allow breakaway
                 proc = subprocess.Popen([exe, *args], creationflags=flags, **kw)
+                if kill_on_close_job():
+                    warning = ("this terminal runs inside a Windows job that kills its processes when it closes, "
+                               "and the background run could not leave it — keep this window open, or start the "
+                               "command from a plain PowerShell/cmd window")
         else:
             proc = subprocess.Popen([exe, *args], start_new_session=True, **kw)
+            breakaway = True
     _SPAWNED.append(proc)
-    return proc.pid
+    return Spawned(proc.pid, proc, breakaway, warning)
 
 
 # ---------- status (`atlas status`)
 _STATUS_TH = {
     "running": "\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}",
     "backing_off": "\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER O ANG} server (backoff)",
+    "hung": "\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} — process \N{THAI CHARACTER YO YAK}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II} heartbeat; \N{THAI CHARACTER TO TAO}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER CHO CHAN}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA UU} \N{THAI CHARACTER HO HIP}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER O ANG} taskkill \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}",
     "stopped": "\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN} — \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER PHO PHAN}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}",
     "interrupted": "\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER CHO CHAN}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER SARA A} — \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER PHO PHAN}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}",
     "done": "\N{THAI CHARACTER SARA E}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER CHO CHAN}",
@@ -304,16 +477,20 @@ def find_jobs(state_dir: str | Path) -> list[Path]:
 
 
 def job_status(job_dir: str | Path, stale_seconds: float = 300) -> dict:
-    """progress.json + lock state; a running/backing_off job whose lock is gone or stale is `interrupted`."""
+    """progress.json + run.lock (information only — the OS lock is never touched here).
+    A running/backing_off job whose process is gone is `interrupted`; alive but silent = `hung`."""
     job_dir = Path(job_dir)
     prog = read_json(job_dir / PROGRESS) or {}
-    lock = inspect_lock(job_dir / LOCK, job_dir / PROGRESS, stale_seconds)
+    lock = lock_state(job_dir / LOCK, job_dir / PROGRESS, stale_seconds)
     status = prog.get("status", "unknown")
-    if status in ACTIVE and (not lock["exists"] or lock["stale"]):
-        status = "interrupted"
+    if status in ACTIVE:
+        if not lock["alive"]:
+            status = "interrupted"
+        elif lock["hung"]:
+            status = "hung"
     return {**prog, "status": status, "recorded_status": prog.get("status"), "dir": str(job_dir),
             "lock_pid": lock["pid"], "lock_alive": lock["alive"] if lock["exists"] else None,
-            "stop_requested": (job_dir / STOP).exists()}
+            "heartbeat_age": lock["heartbeat_age"], "stop_requested": (job_dir / STOP).exists()}
 
 
 def format_job_status(info: dict, extra: list[str] | None = None) -> str:
@@ -325,6 +502,9 @@ def format_job_status(info: dict, extra: list[str] | None = None) -> str:
     alive = info.get("lock_alive")
     pid_txt = f" — PID {pid} ({'alive' if alive else 'not running'})" if pid else ""
     lines.append(f"  \N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status        : {status} ({_STATUS_TH.get(status, '?')}){pid_txt}")
+    if status == "hung":
+        lines.append(f"  heartbeat             : none for {fmt_duration(info.get('heartbeat_age'))} "
+                     f"(lock_stale_seconds) — the process is alive and keeps the lock")
     total, remaining = info.get("total"), info.get("remaining")
     if not total and status in ACTIVE:
         lines.append("  \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA} / progress : \N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA} (\N{THAI CHARACTER O ANG}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU} journal / \N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}) / starting (journal replay, counting work)")

@@ -4,6 +4,7 @@ from __future__ import annotations
 import http.client
 import http.server
 import threading
+import time
 import urllib.error
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
@@ -25,6 +26,7 @@ from atlas.api_http import (
     parse_retry_after,
     post_json,
     urllib_transport,
+    validate_base_url,
 )
 
 
@@ -275,3 +277,92 @@ def test_urllib_transport_returns_http_errors():
         srv.shutdown()
     assert status == 503 and body == b"busy"
     assert {k.lower(): v for k, v in headers.items()}["retry-after"] == "5"
+
+
+# ---------- fix round 1
+@pytest.mark.parametrize("body", ['{"error": {"code": "insufficient_quota", "message": "You exceeded your current quota"}}',
+                                  "billing hard limit has been reached", "Payment required: add credits",
+                                  "monthly quota exceeded for this key"])
+def test_429_out_of_money_is_permanent(body):
+    assert classify_http(429, body) == "permanent"
+    msg = explain_permanent(429, body, key_env="K", base_url="u", model="m")
+    assert "quota" in msg.lower() or "billing" in msg.lower()
+
+
+@pytest.mark.parametrize("body", ["Rate limit reached for requests", "Quota exceeded for metric: requests per minute",
+                                  "too many requests", ""])
+def test_429_rate_limits_stay_transient(body):
+    assert classify_http(429, body) == "transient"
+
+
+def test_402_payment_required_is_permanent_and_explained():
+    assert classify_http(402, "") == "permanent"
+    assert "billing" in explain_permanent(402, "", key_env="K", base_url="u", model="m").lower()
+
+
+def test_retry_after_zero_or_past_is_floored_at_the_backoff():
+    p = RetryPolicy(2.0, 300.0, None, sleep=lambda s: None, rand=lambda: 0.5)
+    assert p.delay(3, 0.0) == 8.0                       # not a zero-delay hot loop
+    assert p.delay(3, 20.0) == 20.0                     # a longer Retry-After still wins
+    slept = []
+    send, _ = _flaky([TransientError("HTTP 429", status=429, retry_after=0.0)] * 2)
+    call_with_retry(send, RetryPolicy(2.0, 300.0, None, sleep=slept.append, rand=lambda: 0.5))
+    assert slept == [1.0, 2.0]
+
+
+def test_rate_limiter_wait_is_cancellable():
+    cancel = threading.Event()
+    rl = RateLimiter(1, cancel=cancel)                  # 1 request per minute
+    rl.acquire()
+    threading.Timer(0.1, cancel.set).start()
+    t = time.monotonic()
+    with pytest.raises(Cancelled):
+        rl.acquire()                                    # would wait ~60 s
+    assert time.monotonic() - t < 5
+
+
+@pytest.mark.parametrize("url", ["http://127.0.0.1:notaport/v1", "http://127.0.0.1:99999/v1", "http:///v1",
+                                 "localhost:8080/v1", "ftp://host/v1"])
+def test_bad_base_urls_are_config_errors(url):
+    with pytest.raises(ApiConfigError):
+        validate_base_url(url)
+    with pytest.raises(ApiConfigError):
+        urllib_transport(url + "/embeddings", {}, b"{}", 2.0)
+
+
+class _Redirect(http.server.BaseHTTPRequestHandler):
+    hits: list = []
+
+    def do_POST(self):  # noqa: N802
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        _Redirect.hits.append((self.path, self.headers.get("Authorization")))
+        if self.path.startswith("/old"):
+            self.send_response(307)
+            self.send_header("Location", f"http://127.0.0.1:{self.server.server_address[1]}/new/embeddings")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        else:
+            self.send_response(200)
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+    def log_message(self, *a):
+        pass
+
+
+def test_redirects_are_not_followed_and_explained():
+    _Redirect.hits = []
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Redirect)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        with pytest.raises(HttpPermanentError) as e:
+            post_json(urllib_transport, f"{base}/old/embeddings", {}, headers={"Authorization": "Bearer k"},
+                      timeout=5)
+    finally:
+        srv.shutdown()
+    assert e.value.status == 307 and [p for p, _ in _Redirect.hits] == ["/old/embeddings"]   # never followed
+    msg = explain_permanent(e.value.status, e.value.body, key_env="K", base_url=f"{base}/old", model="m",
+                            location=e.value.location)
+    assert f"{base}/new/embeddings" in msg and "base_url" in msg

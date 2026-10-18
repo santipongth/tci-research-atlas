@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import threading
 import time
 
@@ -15,7 +14,7 @@ from typer.testing import CliRunner
 from atlas.cli import app
 from atlas.embed_store import EmbeddingStore, store_dir
 from atlas.io_utils import write_table
-from atlas.jobs import now_iso, pid_alive, read_json
+from atlas.jobs import RunLock, now_iso, pid_alive, read_json, write_json_atomic
 from tests.conftest import FIXTURES
 from tests.stub_embed_server import StubEmbedServer
 
@@ -106,12 +105,11 @@ def test_permanent_error_during_a_run_exits_2(tmp_path, key):
 def test_lock_held_exits_3(tmp_path, key):
     write_docs(tmp_path, 10)
     sdir = EmbeddingStore(tmp_path / "state" / "embeddings", STORE_ID).dir
-    (sdir / "run.lock").write_text(json.dumps({"pid": os.getpid(), "host": socket.gethostname(),
-                                               "started_at": now_iso()}), encoding="utf-8")
-    r = invoke("embed", "-c", write_cfg(tmp_path))
-    assert r.exit_code == 3 and "atlas status" in r.output and str(os.getpid()) in r.output
-    r = invoke("embed", "-c", write_cfg(tmp_path), "--background")      # refused before spawning anything
-    assert r.exit_code == 3
+    with RunLock(sdir / "run.lock"):                                     # another run holds the store
+        r = invoke("embed", "-c", write_cfg(tmp_path))
+        assert r.exit_code == 3 and "atlas status" in r.output and str(os.getpid()) in r.output
+        r = invoke("embed", "-c", write_cfg(tmp_path), "--background")  # refused before spawning anything
+        assert r.exit_code == 3
 
 
 def test_foreground_stop_exits_130(tmp_path, key):
@@ -176,3 +174,89 @@ def test_background_run_then_embed_stop(tmp_path, key):
             assert "[embed]" in log and "to embed" in log
         finally:
             _kill(pid)
+
+
+# ---------- fix round 1
+def test_status_never_opens_the_files_of_a_live_run(tmp_path, monkeypatch):
+    import atlas.embed_runner as er
+    from atlas.cli import render_status
+    from atlas.config import load_config
+
+    cfg = load_config(write_cfg(tmp_path))
+    sdir = EmbeddingStore(tmp_path / "state" / "embeddings", STORE_ID).dir
+
+    def forbidden(*a, **k):
+        raise AssertionError("status opened index.parquet/journal.bin of a live run")
+    monkeypatch.setattr(er, "store_status_lines", forbidden)
+    with RunLock(sdir / "run.lock"):
+        write_json_atomic(sdir / "progress.json", {"kind": "embedding", "store_id": STORE_ID, "status": "running",
+                                                   "pid": os.getpid(), "total": 10, "cached": 0, "embedded": 4,
+                                                   "remaining": 6, "store_vectors": 3, "journal_pending": 1,
+                                                   "truncated_total": 2, "updated_at": now_iso()})
+        text = render_status(cfg)
+    assert "running" in text and "3 vectors" in text and "1 vectors (go into the store" in text
+    assert "2 in total" in text
+
+
+def test_status_polling_during_a_live_run_never_breaks_it(tmp_path, key):
+    from atlas.cli import render_status
+    from atlas.config import load_config
+
+    write_docs(tmp_path, 600)
+    seen, stop = [], threading.Event()
+    with StubEmbedServer(latency=0.01) as srv:
+        cfg_path = write_cfg(tmp_path, srv.url, batch_size=8, concurrency=2, checkpoint_every=16)
+        cfg = load_config(cfg_path)
+
+        def poll():
+            while not stop.is_set():
+                seen.append(render_status(cfg))           # what `atlas status` prints, every 5 ms
+                time.sleep(0.005)
+        t = threading.Thread(target=poll, daemon=True)
+        t.start()
+        try:
+            r = invoke("embed", "-c", cfg_path)
+        finally:
+            stop.set()
+            t.join(10)
+    assert r.exit_code == 0, r.output
+    assert len(seen) > 20 and any("running" in x for x in seen)
+    assert "done" in render_status(cfg)
+
+
+def test_embed_stop_before_the_run_reaches_embedding_is_honoured(tmp_path, key):
+    write_docs(tmp_path, 50)
+    cfg = write_cfg(tmp_path)
+    s = invoke("embed-stop", "-c", cfg)                    # e.g. a background run still ingesting
+    assert s.exit_code == 0 and "will stop" in s.output
+    r = invoke("embed", "-c", cfg)                         # this process started before the flag: honoured
+    assert r.exit_code == 130, r.output
+    assert not (store_dir(tmp_path / "state" / "embeddings", STORE_ID) / "stop.flag").exists()
+
+
+def test_background_child_that_dies_at_once_is_reported(tmp_path, key, monkeypatch):
+    monkeypatch.setenv("ATLAS_BACKGROUND_CHECK_S", "30")
+    write_docs(tmp_path, 20)
+    r = invoke("embed", "-c", write_cfg(tmp_path, "ftp://not-http.example/v1"), "--background")
+    assert r.exit_code == 2, r.output
+    assert "exit code 2" in r.output and "base_url" in r.output        # the tail of run.log is shown
+
+
+def test_abandoned_requests_exit_at_once(tmp_path, monkeypatch):
+    import atlas.cli as cli
+    import atlas.pipeline as pl
+    from atlas.config import load_config
+    from atlas.jobs import RunStopped
+
+    def stopped(cfg, steps):
+        raise RunStopped("left", abandoned=3)
+    codes = []
+
+    def fake_exit(code):
+        codes.append(code)
+        raise SystemExit(code)
+    monkeypatch.setattr(pl, "run", stopped)
+    monkeypatch.setattr(cli.os, "_exit", fake_exit)
+    with pytest.raises(SystemExit):
+        cli._run_guarded(load_config(write_cfg(tmp_path)), ["embed"], None)
+    assert codes == [130]                                   # no wait for the abandoned requests' threads

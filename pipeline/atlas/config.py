@@ -62,7 +62,7 @@ class ApiEmbedCfg(_Strict):
     backoff_max: float = 300.0
     min_text_chars: int = Field(512, ge=1)
     checkpoint_every: int = Field(2000, ge=1)
-    lock_stale_seconds: int = Field(300, ge=1)
+    lock_stale_seconds: int = Field(300, ge=1)  # no heartbeat this long -> `atlas status` says hung
 
     @model_validator(mode="after")
     def _backoff_order(self) -> ApiEmbedCfg:
@@ -78,6 +78,7 @@ class LocalEmbedCfg(_Strict):
     fp16: bool = True
     max_seq_length: int = 1024
     checkpoint_every: int = 5000
+    lock_stale_seconds: int = Field(300, ge=1)   # no heartbeat this long -> `atlas status` says hung
 
 
 class LiteEmbedCfg(_Strict):

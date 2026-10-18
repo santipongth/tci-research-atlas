@@ -53,7 +53,7 @@ embedding:
     backoff_max: 300          # รอนานสุดต่อครั้ง (Retry-After ของ server ก็ไม่เกินค่านี้)
     min_text_chars: 512       # server บอกว่าข้อความยาวเกิน → ตัดครึ่งซ้ำได้ แต่ไม่ต่ำกว่านี้
     checkpoint_every: 2000    # เขียนลง store ทุก N เรื่อง (ระหว่างนั้นอยู่ใน journal.bin — ปิดหน้าต่าง/ไฟดับก็ไม่หาย)
-    lock_stale_seconds: 300   # run.lock ที่ไม่มี heartbeat นานเกินนี้ (หรือ PID ตายแล้ว) = ค้าง → รันใหม่ยึดต่อได้
+    lock_stale_seconds: 300   # ไม่มี heartbeat นานเกินนี้ → atlas status แสดง hung; lock ถูกยึดต่อเฉพาะเมื่อ process ตายแล้วเท่านั้น
     # ตัวอย่าง BGE-M3 (ตรวจ base_url/model กับผู้ให้บริการก่อนใช้ — check with your provider):
     #   self-hosted HF TEI / vLLM / Infinity / Ollama: base_url: http://host:port/v1   model: BAAI/bge-m3 (หรือ bge-m3)   dimensions: null
     #   DeepInfra:   base_url: https://api.deepinfra.com/v1/openai   model: BAAI/bge-m3   dimensions: null
@@ -65,6 +65,7 @@ embedding:
     fp16: true
     max_seq_length: 1024      # 512 ตัดบทคัดย่อไทยทิ้งเกือบหมด — BGE-M3 รองรับถึง 8192
     checkpoint_every: 5000
+    lock_stale_seconds: 300   # ไม่มี heartbeat นานเกินนี้ → atlas status แสดง hung (ไม่ยึด lock ของ process ที่ยังอยู่)
   lite:
     dim: 128
     ngram_min: 2

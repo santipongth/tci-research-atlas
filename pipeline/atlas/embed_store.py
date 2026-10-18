@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from atlas.io_utils import read_table, write_table
+from atlas.io_utils import fsync_dir, read_table, replace_with_retry, unlink_with_retry, write_table
 
 
 def text_key(model_id: str, text: str) -> str:
@@ -51,7 +51,14 @@ class EmbeddingStore:
     def has(self, key: str) -> bool:
         return key in self._lookup
 
-    def add(self, keys: list[str], vectors: np.ndarray) -> None:
+    def add(self, keys: list[str], vectors: np.ndarray, *, replace_timeout: float = 20.0) -> None:
+        """Write the new keys' vectors as a NEW shard, then atomically replace the index.
+
+        The shard is created exclusively ("xb"): an existing file — an orphan of a killed run, or another
+        writer's — is never overwritten; the next free number is used. On Windows the index replace waits up
+        to `replace_timeout` s for readers (`atlas status`, antivirus); if it still fails, the new shard is
+        removed, memory is unchanged and the PermissionError propagates (the caller keeps the vectors).
+        """
         vectors = np.asarray(vectors, dtype=np.float32)
         if len(keys) != len(vectors):
             raise ValueError("keys and vectors differ in length")
@@ -63,15 +70,29 @@ class EmbeddingStore:
         if not new:
             return
         shard = int(self.index["shard"].max()) + 1 if len(self.index) else 0
-        with open(self.dir / f"shard_{shard:05d}.npy", "wb") as f:
-            np.save(f, vectors[[i for _, i in new]])
-            _fsync(f)
+        while True:
+            shard_path = self.dir / f"shard_{shard:05d}.npy"
+            try:
+                f = open(shard_path, "xb")
+            except FileExistsError:
+                shard += 1
+                continue
+            with f:
+                np.save(f, vectors[[i for _, i in new]])
+                _fsync(f)
+            break
         add = pd.DataFrame({"key": [k for k, _ in new], "shard": shard, "row": np.arange(len(new))})
         index = pd.concat([self.index, add], ignore_index=True)
         written = write_table(index, self.dir / "index.tmp.parquet")       # .pkl here if no pyarrow
         with open(written, "rb+") as f:                                     # durable before it replaces the
             _fsync(f)                                                       # old index (power loss safe)
-        os.replace(written, self.dir / written.name.replace(".tmp", ""))    # atomic: never half-written
+        try:
+            replace_with_retry(written, self.dir / written.name.replace(".tmp", ""), timeout=replace_timeout)
+        except BaseException:
+            unlink_with_retry(shard_path, timeout=1.0)                      # not referenced by any index
+            unlink_with_retry(written, timeout=1.0)
+            raise
+        fsync_dir(self.dir)
         self.index = index
         self._lookup.update({k: (shard, int(r)) for k, r in zip(add["key"], add["row"])})
 
