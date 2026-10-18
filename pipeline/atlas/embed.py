@@ -22,14 +22,16 @@ from atlas.io_utils import read_table
 
 
 class ApiEmbedder:
-    def __init__(self, cfg: dict):
-        from openai import OpenAI  # optional dependency: uv sync --extra api
-
+    def __init__(self, cfg: dict, client=None):
         acfg = cfg["embedding"]["api"]
-        api_key = os.environ.get(acfg["api_key_env"], "")
-        if not api_key:
-            raise OSError(f"set ${acfg['api_key_env']} before running with embedding.provider=api")
-        self.client = OpenAI(base_url=acfg["base_url"], api_key=api_key, timeout=120)
+        if client is None:
+            from openai import OpenAI  # optional dependency: uv sync --extra api
+
+            api_key = os.environ.get(acfg["api_key_env"], "")
+            if not api_key:
+                raise OSError(f"set ${acfg['api_key_env']} before running with embedding.provider=api")
+            client = OpenAI(base_url=acfg["base_url"], api_key=api_key, timeout=120)
+        self.client = client
         self.model, self.dimensions = acfg["model"], acfg.get("dimensions")
         self.max_retries = int(acfg.get("max_retries", 6))
         self.model_id = f"api|{acfg['base_url']}|{self.model}|{self.dimensions}"
@@ -42,13 +44,19 @@ class ApiEmbedder:
         for attempt in range(self.max_retries):
             try:
                 resp = self.client.embeddings.create(**kwargs)
-                return np.array([d.embedding for d in resp.data], dtype=np.float32)
             except Exception as e:  # noqa: BLE001 — retry any transport/API error
                 if attempt == self.max_retries - 1:
                     raise
                 print(f"[embed] retry {attempt + 1}/{self.max_retries}: {e}")
                 time.sleep(delay)
                 delay *= 2
+                continue
+            # a malformed response is not retried: storing vectors under the wrong text keys is unrecoverable
+            items = sorted(resp.data, key=lambda d: d.index)
+            if [d.index for d in items] != list(range(len(texts))):
+                raise ValueError(f"embedding API returned {len(items)} vectors for a batch of {len(texts)} "
+                                 f"(indices {[d.index for d in items][:10]}…)")
+            return np.array([d.embedding for d in items], dtype=np.float32)
         raise RuntimeError("unreachable")
 
 

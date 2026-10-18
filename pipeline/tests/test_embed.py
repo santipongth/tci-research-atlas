@@ -97,3 +97,42 @@ def test_embed_crash_with_partial_buffer_keeps_paid_vectors(make_cfg, tmp_path):
     fake = FakeEmbedder()
     embed(cfg, embedder=fake)
     assert fake.calls == 2                                   # 10 texts − 6 kept = 4 → 2 batches
+
+
+# ---- F9: API responses are re-ordered by `index` and must have one vector per input
+class _FakeEmbeddingsAPI:
+    def __init__(self, shuffle: bool = False, drop: int = 0):
+        self.shuffle, self.drop, self.calls = shuffle, drop, 0
+
+    def create(self, model, input, **kw):
+        from types import SimpleNamespace
+
+        self.calls += 1
+        items = [SimpleNamespace(index=i, embedding=[float(i), 1.0]) for i in range(len(input))]
+        if self.shuffle:
+            items = items[::-1]
+        return SimpleNamespace(data=items[:len(items) - self.drop])
+
+
+def _api_embedder(make_cfg, tmp_path, api):
+    from types import SimpleNamespace
+
+    from atlas.embed import ApiEmbedder
+
+    cfg = make_cfg(tmp_path)
+    cfg["embedding"]["api"]["max_retries"] = 3
+    return ApiEmbedder(cfg, client=SimpleNamespace(embeddings=api))
+
+
+def test_api_embedder_sorts_response_by_index(make_cfg, tmp_path):
+    emb = _api_embedder(make_cfg, tmp_path, _FakeEmbeddingsAPI(shuffle=True))
+    assert emb.embed_batch(["a", "b", "c"])[:, 0].tolist() == [0.0, 1.0, 2.0]
+
+
+def test_api_embedder_rejects_a_short_response_without_retrying(make_cfg, tmp_path):
+    api = _FakeEmbeddingsAPI(drop=1)
+    emb = _api_embedder(make_cfg, tmp_path, api)
+    with pytest.raises(ValueError, match="2 vectors for a batch of 3"):
+        emb.embed_batch(["a", "b", "c"])
+    assert api.calls == 1
+
