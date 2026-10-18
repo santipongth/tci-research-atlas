@@ -129,7 +129,12 @@ def coarse_groups(C: np.ndarray, n_groups: int) -> np.ndarray:
 
 def fit_labels(emb: np.ndarray, ccfg: dict, seed: int) -> tuple[np.ndarray, int]:
     """Cluster from scratch → (labels 0..k−1 by size, −1 = unassigned; raw cluster count)."""
-    raw = hdbscan_labels(reduce_embeddings(emb, ccfg, seed), ccfg["fine"], ccfg["hdbscan_backend"])
+    if ccfg["algorithm"] == "leiden":
+        from atlas.graph_cluster import leiden_labels  # optional extra: uv sync --extra leiden
+
+        raw = leiden_labels(emb, ccfg["leiden"], seed)
+    else:
+        raw = hdbscan_labels(reduce_embeddings(emb, ccfg, seed), ccfg["fine"], ccfg["hdbscan_backend"])
     n_raw = len(set(raw.tolist()) - {-1})
     labels = merge_similar(raw, emb, float(ccfg["merge_similarity"]))
     labels = assign_outliers(labels, emb, float(ccfg["outlier_min_similarity"]))

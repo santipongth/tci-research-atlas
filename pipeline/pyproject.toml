@@ -23,6 +23,9 @@ local = ["sentence-transformers>=3.0"]
 fast = [
     "fast-hdbscan>=0.3",
 ]
+leiden = [
+    "igraph>=1.0",
+]
 
 [project.scripts]
 atlas = "atlas.cli:app"
