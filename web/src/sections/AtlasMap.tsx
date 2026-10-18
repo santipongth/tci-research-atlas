@@ -18,9 +18,11 @@ const INK = '#161611'
 
 export const STATUS_STYLE: Record<string, { th: string; en: string; color: string }> = {
   EMERGING: { th: 'กำลังเกิดใหม่', en: 'Emerging', color: '#FF5F1F' },
+  WATCH: { th: 'จับตา', en: 'Watch', color: '#A16207' },
   HOT: { th: 'กำลังร้อน', en: 'Hot', color: '#E5484D' },
   DECLINING: { th: 'กำลังลดลง', en: 'Declining', color: '#697177' },
   STABLE: { th: 'คงที่', en: 'Stable', color: '#30A46C' },
+  LOW_DATA: { th: 'ข้อมูลน้อย', en: 'Low data', color: '#57534E' },
 }
 
 export default function AtlasMap({ lang, selected, onSelect, data }: Props) {

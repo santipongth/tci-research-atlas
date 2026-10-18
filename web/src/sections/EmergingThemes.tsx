@@ -10,7 +10,7 @@ interface Props {
   data: AtlasData
 }
 
-const ORDER = ['EMERGING', 'HOT', 'DECLINING', 'STABLE'] as const
+const ORDER = ['EMERGING', 'WATCH', 'HOT', 'DECLINING', 'STABLE', 'LOW_DATA'] as const
 
 export default function EmergingThemes({ lang, selected, onSelect, data }: Props) {
   const topics = useMemo(

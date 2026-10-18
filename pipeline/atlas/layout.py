@@ -8,6 +8,7 @@ Output: work/09_layout.parquet  (kind, id, x, y, r, parent)
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +23,7 @@ def layout(cfg: dict) -> pd.DataFrame:
     seed = int(cfg["pipeline"]["seed"])
 
     centroids = np.load(work / "04_centroids.npy")
-    ids = pd.read_json(work / "04_centroid_ids.json", typ="series").tolist()
+    ids = json.loads((work / "04_centroid_ids.json").read_text(encoding="utf-8"))
     info = read_table(work / "04_topic_info.parquet").set_index("topic_id")
 
     # --- 2D positions ---
@@ -93,7 +94,7 @@ def layout(cfg: dict) -> pd.DataFrame:
             if tid < ids[j]:  # undirected, write once
                 edges.append({"s": int(tid), "t": int(ids[j]), "w": round(float(sim[i, j]), 3)})
                 kept += 1
-    pd.DataFrame(edges).to_parquet(work / "09_edges.parquet", index=False)
+    write_table(pd.DataFrame(edges, columns=["s", "t", "w"]), work / "09_edges.parquet")
     write_table(out, work / "09_layout.parquet")
     print(f"[layout] {len(hubs)} hubs, {len(fine_df)} topics, {len(edges)} similarity edges")
     return out
