@@ -1,0 +1,56 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run pytest -q
+      - name: data-contract JSON Schema is up to date
+        run: uv run atlas schema --out ../web/src/data/contract.schema.json && git diff --exit-code -- ../web/src/data/contract.schema.json
+
+  e2e:
+    needs: pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: synthetic corpus recovers planted EMERGING / WATCH / HOT / DECLINING
+        run: uv run pytest -m slow -q
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: TypeScript contract types are up to date
+        run: npm run gen:types && git diff --exit-code -- src/data/contract.ts
+      - run: npm run build
