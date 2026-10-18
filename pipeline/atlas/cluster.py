@@ -5,6 +5,10 @@
   → outliers join the nearest topic only if cosine ≥ outlier_min_similarity (else −1 = unassigned)
   → coarse groups = agglomerative clustering of topic centroids (P1: OpenAlex fields)
   → per topic: c-TF-IDF words, author keywords, coherence (mean cosine to centroid)
+
+Stable ids (atlas/lineage.py): topics.mode auto|fit|assign — assign keeps last release's
+topics, fit re-clusters and matches clusters to last release's ids; state per release in
+state_dir/releases/<release>/topics/. Extra outputs: 04_lineage, 04_topics_meta.json.
 """
 from __future__ import annotations
 
@@ -17,6 +21,18 @@ import pandas as pd
 from atlas.checkpoints import load_aligned
 from atlas.ctfidf import topic_keywords, topic_terms
 from atlas.io_utils import write_table
+from atlas.lineage import (
+    EVENT_COLUMNS,
+    EVENTS,
+    assign_to_previous,
+    kept_fraction,
+    load_topic_state,
+    match_topics,
+    member_centroids,
+    save_topic_state,
+    update_registry,
+)
+from atlas.state import current_release, previous_release
 
 
 def _sample(n: int, k: int, seed: int) -> np.ndarray:
@@ -111,11 +127,8 @@ def coarse_groups(C: np.ndarray, n_groups: int) -> np.ndarray:
                                    linkage="average").fit_predict(C)
 
 
-def cluster(cfg: dict) -> np.ndarray:
-    work = Path(cfg["pipeline"]["work_dir"])
-    df, emb = load_aligned(work)
-    ccfg, seed = cfg["clustering"], int(cfg["pipeline"]["seed"])
-
+def fit_labels(emb: np.ndarray, ccfg: dict, seed: int) -> tuple[np.ndarray, int]:
+    """Cluster from scratch → (labels 0..k−1 by size, −1 = unassigned; raw cluster count)."""
     raw = hdbscan_labels(reduce_embeddings(emb, ccfg, seed), ccfg["fine"], ccfg["hdbscan_backend"])
     n_raw = len(set(raw.tolist()) - {-1})
     labels = merge_similar(raw, emb, float(ccfg["merge_similarity"]))
@@ -128,7 +141,74 @@ def cluster(cfg: dict) -> np.ndarray:
                 f"clustering.fine.hdbscan_min_cluster_size (now {mcs}) / hdbscan_min_samples, or check the "
                 f"embeddings (embedding.provider, 03_meta.json) before publishing anything")
         labels = np.zeros(len(labels), dtype=int)      # tiny corpus (< 2 × min_cluster_size): one topic
-    labels = relabel_by_size(labels)
+    return relabel_by_size(labels), n_raw
+
+
+def _embedding_model_id(work: Path) -> str:
+    meta = work / "03_meta.json"
+    return json.loads(meta.read_text(encoding="utf-8"))["model_id"] if meta.exists() else ""
+
+
+def _active_ids(registry: pd.DataFrame) -> set[int]:
+    return set(registry.loc[registry["status"] == "active", "topic_id"].astype(int))
+
+
+def stable_labels(cfg: dict, article_ids: pd.Series, emb: np.ndarray, prev: dict | None,
+                  model_id: str) -> tuple[np.ndarray, pd.DataFrame, dict, str]:
+    """→ (labels with stable ids, lineage events, model.json for this release, log message)."""
+    ccfg, tcfg, seed = cfg["clustering"], cfg["topics"], int(cfg["pipeline"]["seed"])
+    min_sim = float(ccfg["outlier_min_similarity"])
+    mode, reason = tcfg["mode"], "configured"
+    if prev is None:
+        mode, reason = "fit", "no previous release"
+    elif mode == "auto":
+        pm = prev["model"]
+        if pm.get("embedding_model") != model_id:
+            mode, reason = "fit", "embedding model changed"
+        elif int(pm.get("releases_since_fit", 0)) + 1 >= int(tcfg["refit_every_releases"]):
+            mode, reason = "fit", "scheduled refit"
+        else:
+            mode, reason = "assign", "auto"
+    if mode == "assign":
+        labels, n_new, n_lost = assign_to_previous(article_ids, emb, prev["assignments"], min_sim)
+        if tcfg["mode"] == "auto" and n_new and n_lost / n_new > float(tcfg["refit_max_unassigned"]):
+            mode, reason = "fit", f"{n_lost / n_new:.0%} of new articles fit no topic"
+        else:
+            cur = sorted(set(labels.tolist()) - {-1})
+            events = pd.DataFrame([{"event": "continue", "topic_id": t, "parents": ""} for t in cur]
+                                  + [{"event": "retired", "topic_id": t, "parents": ""}
+                                     for t in sorted(_active_ids(prev["registry"]) - set(cur))],
+                                  columns=EVENT_COLUMNS)
+            model = {**prev["model"], "releases_since_fit": int(prev["model"].get("releases_since_fit", 0)) + 1,
+                     "mode": "assign"}
+            return labels, events, model, f"assign ({reason}): {n_new:,} new articles, {n_lost:,} without a topic"
+    tmp, n_raw = fit_labels(emb, ccfg, seed)
+    cur_df = pd.DataFrame({"article_id": article_ids.to_numpy(), "topic_id": tmp})
+    if prev is None:
+        mapping = {t: t + 1 for t in sorted(set(tmp.tolist()) - {-1})}
+        events = pd.DataFrame([{"event": "new", "topic_id": s, "parents": ""} for s in mapping.values()],
+                              columns=EVENT_COLUMNS)
+        next_id = max(mapping.values(), default=0) + 1
+    else:
+        pa = prev["assignments"]
+        old_vec = member_centroids(article_ids, emb, pa)
+        new_vec = member_centroids(article_ids, emb, cur_df)
+        mapping, events, next_id = match_topics(pa, cur_df, old_vec, new_vec, int(prev["model"]["next_id"]),
+                                                float(tcfg["match_containment"]), int(tcfg["match_min_shared"]))
+    labels = np.array([mapping.get(int(t), -1) for t in tmp], dtype=int)
+    model = {"embedding_model": model_id, "fitted_release": current_release(cfg), "releases_since_fit": 0,
+             "next_id": int(next_id), "mode": "fit"}
+    return labels, events, model, f"fit ({reason}): {n_raw} raw clusters → {len(mapping)} topics"
+
+
+def cluster(cfg: dict) -> np.ndarray:
+    work = Path(cfg["pipeline"]["work_dir"])
+    df, emb = load_aligned(work)
+    ccfg, seed = cfg["clustering"], int(cfg["pipeline"]["seed"])
+    release, prev_release = current_release(cfg), previous_release(cfg)
+    prev = load_topic_state(cfg, prev_release)
+
+    labels, events, model, msg = stable_labels(cfg, df["article_id"], emb, prev, _embedding_model_id(work))
     ids, C = centroids(labels, emb)
     groups = coarse_groups(C, int(ccfg["n_groups"]))
     group_of = dict(zip(ids, (int(g) for g in groups)))
@@ -146,13 +226,24 @@ def cluster(cfg: dict) -> np.ndarray:
         "top_terms": "; ".join(terms[t]), "top_keywords": "; ".join(keys[t]),
         "coarse_topic": group_of[t], "coherence": float((emb[labels == t] @ C[i]).mean()),
     } for i, t in enumerate(ids)])
-    write_table(pd.DataFrame({"article_id": df["article_id"], "fine_topic": labels}), work / "04_fine_topics.parquet")
+    fine = pd.DataFrame({"article_id": df["article_id"], "fine_topic": labels})
+    write_table(fine, work / "04_fine_topics.parquet")
     write_table(pd.DataFrame({"article_id": df["article_id"],
                               "coarse_topic": [group_of.get(int(x), -1) for x in labels]}),
                 work / "04_coarse_topics.parquet")
     write_table(info, work / "04_topic_info.parquet")
+    write_table(events, work / "04_lineage.parquet")
     np.save(work / "04_centroids.npy", C)
     (work / "04_centroid_ids.json").write_text(json.dumps(ids), encoding="utf-8")
-    print(f"[cluster] HDBSCAN {n_raw} → merged {len(ids)} topics, {len(set(groups.tolist()))} groups, "
-          f"unassigned {(labels < 0).mean():.1%}")
+
+    kept = kept_fraction(set() if prev is None else _active_ids(prev["registry"]), set(ids))
+    (work / "04_topics_meta.json").write_text(json.dumps({
+        "release": release, "previous_release": prev_release, "mode": model["mode"],
+        "kept_fraction": round(kept, 4), "n_topics": len(ids),
+        "events": {e: int((events["event"] == e).sum()) for e in EVENTS},
+    }), encoding="utf-8")
+    registry = update_registry(None if prev is None else prev["registry"], ids, events, release)
+    save_topic_state(cfg, release, fine.rename(columns={"fine_topic": "topic_id"}), registry, events, model)
+    print(f"[cluster] {msg}; {len(ids)} topics, {len(set(groups.tolist()))} groups, "
+          f"unassigned {(labels < 0).mean():.1%}, ids kept {kept:.0%}")
     return labels

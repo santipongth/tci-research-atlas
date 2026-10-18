@@ -99,7 +99,7 @@ def _all_noise_cfg(make_cfg, tmp_path, monkeypatch, mcs):
 
 def test_all_noise_tiny_corpus_becomes_one_topic(make_cfg, tmp_path, monkeypatch):
     labels = cluster(_all_noise_cfg(make_cfg, tmp_path, monkeypatch, mcs=20))     # 20 < 2 × 20
-    assert set(labels.tolist()) == {0}
+    assert set(labels.tolist()) == {1}                                            # first stable id
 
 
 def test_all_noise_real_corpus_is_an_error(make_cfg, tmp_path, monkeypatch):
