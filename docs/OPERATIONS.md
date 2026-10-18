@@ -106,7 +106,10 @@ uv run atlas embed -c config.yaml --background    # เบื้องหลั�
 ```
 
 - server ล่ม / 5xx / 429 / 408 / timeout / เน็ตหลุด / คำตอบผิดรูป → **รอแล้วลองใหม่ไม่จำกัด** (exponential backoff + jitter สูงสุด `backoff_max` = 5 นาที/ครั้ง, เคารพ `Retry-After`) — ไม่ต้องเฝ้า
-- key ผิด (401/403), base_url หรือโมเดลผิด (404), request ไม่ถูกต้อง (400/422 อื่น) → **หยุดทันที** (exit 2) พร้อมบอกวิธีแก้ — ไม่วนเปล่า
+- key ผิด (401/403), base_url หรือโมเดลผิด (404), request ไม่ถูกต้อง (400/422 อื่น), **เครดิต/โควตาหมด** (402 หรือ 429 ที่บอก `insufficient_quota`/billing — แต่ 429 ที่พูดถึง rate limit ต่อนาที/วัน ยังรอแล้วลองใหม่), base_url ถูก **redirect** (3xx — ไม่ follow เพื่อไม่ส่ง key ไปที่อื่น; ระบบบอก URL ปลายทางให้ตั้งเป็น base_url) → **หยุดทันที** (exit 2) พร้อมบอกวิธีแก้ — ไม่วนเปล่า
+- server ตอบผิดรูปแบบ **แบบเดิมซ้ำ 3 ครั้ง** สำหรับ batch เดียว → แบ่ง batch; ถ้าเหลือข้อความเดียวแล้วยังผิด → หยุด (exit 2) พร้อมบอกปัญหา (ไม่วนไม่รู้จบกับคำตอบเสียแบบเดิม)
+- ส่ง key ผ่าน `http://` ไปเครื่องที่ไม่ใช่ localhost → ขึ้น WARNING หนึ่งครั้ง (ควรใช้ `https://` เว้นแต่เป็นเครือข่ายภายในที่เชื่อถือได้)
+- `--background` เฝ้า process ลูก ~3 วินาที: ถ้าตายทันที (config ผิด, 401 ใน request แรก, มีอีกตัวรันอยู่) จะพิมพ์ exit code + ท้าย `run.log` และจบด้วย exit code นั้น — ไม่ใช่บอกว่า "รันแล้ว"
 - server บอกว่าใหญ่เกิน (413 หรือ 400/422 ที่พูดถึง token/length) → แบ่ง batch ครึ่งอัตโนมัติ; ข้อความเดี่ยวยาวเกิน → ตัดครึ่งซ้ำได้ถึง `min_text_chars` (นับใน `truncated`)
 
 **5) ดูสถานะ** (เปิดอีกหน้าต่างได้ระหว่างรัน)
@@ -115,13 +118,14 @@ uv run atlas embed -c config.yaml --background    # เบื้องหลั�
 uv run atlas status -c config.yaml               # = atlas embed-status
 ```
 
-แสดง: สถานะ (`running` / `backing_off` = รอ server / `stopped` / `interrupted` = process ตายกลางคัน / `done` / `failed`), PID ยังทำงานไหม, ความคืบหน้า, อัตรา, ETA, จำนวน retry/ตัดข้อความ, error ล่าสุด, จำนวนเวกเตอร์ใน store, journal ที่รอ recover — อ่านจาก `progress.json` (อัปเดตทุก ~5 วินาที)
+แสดง: สถานะ (`running` / `backing_off` = รอ server / `hung` = process ยังอยู่แต่ไม่มี heartbeat นานกว่า `lock_stale_seconds` / `stopped` / `interrupted` = process ตายกลางคัน / `done` / `failed`), PID ยังทำงานไหม (ตรวจเวลาเริ่ม process ด้วย จึงไม่สับสนเมื่อ Windows นำ PID เดิมไปใช้ใหม่), ความคืบหน้า, อัตรา, ETA, จำนวน retry/ตัดข้อความ, error ล่าสุด, จำนวนเวกเตอร์ใน store, journal ที่รอ, จำนวนข้อความที่ถูกตัดสะสม (`truncated.parquet`) — ระหว่างรัน ตัวเลขเหล่านี้มาจาก `progress.json` (อัปเดตทุก ~5 วินาที) **status ไม่เปิดไฟล์ store ของงานที่กำลังรัน** จึงสั่งดูถี่แค่ไหนก็ไม่ขวาง checkpoint บน Windows
 
 **6) หยุด**
 
 - หน้าต่างที่รันอยู่: **Ctrl-C ครั้งเดียว** = หยุดส่งงานใหม่ รอ request ที่ค้าง บันทึกทุกอย่าง (exit 130); กดซ้ำ = ไม่รอ request ที่ค้าง (ข้อความเหล่านั้นถูกส่งใหม่รอบหน้า)
-- รันเบื้องหลัง: `uv run atlas embed-stop -c config.yaml` (สถานะเป็น `stopped`)
-- ฉุกเฉิน — ปิดหน้าต่าง / `taskkill /F /PID <pid>` / ไฟดับ: เสียได้แค่ request ที่ยังไม่ตอบ (≤ 2 × `concurrency` batch) เพราะทุก batch ที่ได้ผลถูกเขียนลง `journal.bin` ทันที
+- รันเบื้องหลัง: `uv run atlas embed-stop -c config.yaml` (สถานะเป็น `stopped`) — สั่งได้แม้งานยังอยู่ช่วง ingest: จะหยุดทันทีที่ถึงขั้น embed (คำขอหยุดที่เก่ากว่าเวลาเริ่ม process ถูกทิ้งเอง)
+- ฉุกเฉิน — ปิดหน้าต่าง / `taskkill /F /PID <pid>` / process crash: เสียได้แค่ request ที่ยังไม่ตอบ (≤ 2 × `concurrency` batch) เพราะทุก batch ที่ได้ผลถูกเขียนลง `journal.bin` ทันที
+- **ไฟดับ / เครื่องดับกะทันหัน**: เสียเพิ่มได้อีก**ไม่เกินราว 10 วินาทีล่าสุด**ของผลที่อยู่ใน `journal.bin` (journal fsync ลงดิสก์อย่างช้าทุก 10 วินาที; ส่วนที่เข้า store แล้วถูก fsync ก่อนแทนที่ index เสมอ) — รันคำสั่งเดิมแล้วระบบจ่ายเฉพาะส่วนที่หายนั้นใหม่
 
 **7) ทำต่อ = รันคำสั่งเดิมอีกครั้ง**
 
@@ -129,7 +133,7 @@ uv run atlas status -c config.yaml               # = atlas embed-status
 uv run atlas embed -c config.yaml
 ```
 
-ระบบอ่าน `journal.bin` คืนเข้า store (`[embed] recovered N vectors from journal`), ยึด `run.lock` ที่ค้างจาก process ที่ตายแล้ว (PID ตาย หรือไม่มี heartbeat นานกว่า `lock_stale_seconds`) แล้ว embed เฉพาะที่ store ยังไม่มี — ไม่จ่ายซ้ำ
+ระบบอ่าน `journal.bin` คืนเข้า store (`[embed] recovered N vectors from journal`) แล้ว embed เฉพาะที่ store ยังไม่มี — ไม่จ่ายซ้ำ. การกันรันซ้อนใช้ OS lock บนไฟล์ `<store>/.lock` ที่ process ถือไว้ตลอดการรัน: process ตาย (ปิดหน้าต่าง/taskkill/crash) → OS ปล่อย lock ทันที รันใหม่ได้เลยไม่ต้องรอ; process ที่ยังอยู่ (แม้ค้าง) **ไม่ถูกแย่ง lock เด็ดขาด** — `run.lock` เป็นแค่ข้อมูลให้ `atlas status` อ่าน
 เสร็จแล้วรัน `uv run atlas run -c config.yaml` ตามปกติ — ขั้น embed จะขึ้น `0 to embed` และใช้เวกเตอร์จาก store
 
 **8) ย้าย server / เปลี่ยนโมเดล**
@@ -138,7 +142,7 @@ uv run atlas embed -c config.yaml
 - server ใหม่ให้เวกเตอร์ต่างไป (โมเดล, quantization, มิติ) → ตั้ง `store_id` ใหม่ (เช่น `bge-m3-deepinfra`) = store ใหม่, embed ใหม่ทั้งคลัง — ห้ามผสมเวกเตอร์ต่างที่มาใน store เดียว
 - ถ้ามิติไม่ตรง store เดิม ระบบหยุดเอง: `store เดิมเป็นมิติ X แต่ server ตอบ Y — ตั้ง store_id ใหม่`
 
-**exit codes**: 0 เสร็จ · 1 ล้ม (เช่น ตั้ง `max_retries` แล้ว retry หมด) · 2 config/error ถาวร · 3 มีอีก process รัน store เดียวกันอยู่ · 130 ถูกหยุด (ทำต่อได้)
+**exit codes**: 0 เสร็จ · 1 ล้ม (เช่น ตั้ง `max_retries` แล้ว retry หมด) · 2 config/error ถาวร (key, URL, redirect, โมเดล, โควตาหมด, มิติไม่ตรง) · 3 มี process อื่นถือ store นี้อยู่ (กำลังรัน หรือ hung) · 130 ถูกหยุด (ทำต่อได้)
 
 ## 2. ตั้ง cron (ตัวเลือก — ยังต้องมีคนกดตรวจขั้น 3–4)
 
@@ -152,11 +156,13 @@ uv run atlas embed -c config.yaml
 | อาการ | สาเหตุที่พบบ่อย | วิธีแก้ |
 |---|---|---|
 | `atlas profile` ฟ้องไฟล์อ่านไม่ได้/ฟิลด์ว่างมาก | รูปแบบ .md จาก ThaiJO เปลี่ยน (หรือใช้ `input.format: table` แล้ว mapping คอลัมน์ผิด) | ดูรายงาน profile; ถ้าเป็นตาราง แก้ `input.columns` ใน config.yaml |
-| embed ค้าง/ล่มกลางทาง/ปิดหน้าต่าง | API timeout, OOM, process ถูกฆ่า | รันคำสั่งเดิมได้เลย — ทุก batch ที่ได้ผลอยู่ใน `journal.bin` ทันที (เข้า store ทุก `checkpoint_every`) ทำต่อจากจุดเดิมโดยไม่จ่ายซ้ำ (§1A) |
-| `atlas embed` exit 2 | key ไม่ได้ตั้ง/ผิด (401/403), `base_url`/`model` ผิด (404), request ไม่ถูกต้อง (400/422), มิติไม่ตรง store เดิม, ข้อความยาวเกินแม้ตัดถึง `min_text_chars` | อ่านข้อความ error (บอกวิธีแก้ทั้งไทย/อังกฤษ) → แก้ env var/config → `atlas embed --check` → รันใหม่ |
-| `atlas embed` exit 3 `กำลังรันอยู่ (PID …)` | มีอีก process รัน store เดียวกันอยู่ | `atlas status` ดู PID/ความคืบหน้า; ถ้า process นั้นตายแล้ว lock ถูกยึดต่ออัตโนมัติ (PID ตาย หรือ heartbeat เก่ากว่า `lock_stale_seconds`) |
+| embed ค้าง/ล่มกลางทาง/ปิดหน้าต่าง | API timeout, OOM, process ถูกฆ่า | รันคำสั่งเดิมได้เลย — ทุก batch ที่ได้ผลอยู่ใน `journal.bin` ทันที (เข้า store ทุก `checkpoint_every`) ทำต่อจากจุดเดิมโดยไม่จ่ายซ้ำ; ไฟดับอาจเสียผล ~10 วินาทีล่าสุด (§1A) |
+| `atlas embed` exit 2 | key ไม่ได้ตั้ง/ผิด (401/403), `base_url`/`model` ผิด (404), request ไม่ถูกต้อง (400/422), base_url ถูก redirect (3xx), เครดิต/โควตาหมด (402, 429 `insufficient_quota`/billing), server ตอบผิดรูปแบบเดิมซ้ำกับข้อความเดียว, มิติไม่ตรง store เดิม, ข้อความยาวเกินแม้ตัดถึง `min_text_chars`, `base_url` ผิดรูป (port/scheme) | อ่านข้อความ error (บอกวิธีแก้ทั้งไทย/อังกฤษ) → แก้ env var/config (redirect: ตั้ง base_url เป็น URL ปลายทางที่แสดง; โควตา: เติมเงินกับผู้ให้บริการ) → `atlas embed --check` → รันใหม่ |
+| `atlas embed` exit 3 `กำลังรันอยู่ (PID …)` หรือ `hung` | มี process อื่นถือ OS lock ของ store นี้อยู่ (lock หลุดเองทันทีเมื่อ process ตาย ไม่ต้องรอ) | `atlas status` ดู PID/ความคืบหน้า; ถ้าตั้งใจให้รันตัวเดียวก็รอให้จบ หรือ `atlas embed-stop`; ถ้าเป็น `hung` ดูหัวข้อถัดไป |
+| สถานะ `hung` (process ยังอยู่แต่ไม่มี heartbeat นานกว่า `lock_stale_seconds`) | main thread ค้าง เช่น หน้าต่าง console ถูกคลิกค้าง (QuickEdit หยุดการพิมพ์), ดิสก์/แชร์ค้าง, เครื่อง sleep | กด Esc/Enter ในหน้าต่างนั้นถ้าเป็น QuickEdit; ถ้ายังไม่ขยับ `taskkill /F /PID <pid>` แล้วรันคำสั่งเดิม (journal recover ให้) — ระบบไม่แย่ง lock จาก process ที่ยังอยู่เอง |
 | `atlas embed` exit 130 | Ctrl-C หรือ `atlas embed-stop` | ปกติ — รันคำสั่งเดิมเพื่อทำต่อ |
 | retry ไม่จบ / สถานะ `backing_off` นาน | server ปลายทางล่ม คิวเต็ม หรือติด rate limit | `atlas status` → `last error` (เช่น `HTTP 503`, `URLError: ... refused`) แล้วแก้ที่ server — runner ทำต่อเองเมื่อ server กลับมา; 429 บ่อย → ลด `concurrency` หรือตั้ง `requests_per_minute`; ไม่อยากรอไม่จำกัด → ตั้ง `max_retries` |
+| log ขึ้น `checkpoint postponed — index.parquet is held by another program` | โปรแกรมอื่น (antivirus, backup, ตัวเปิดไฟล์) เปิด `index.parquet` ค้างไว้นาน | ไม่ต้องทำอะไร — ผลอยู่ใน `journal.bin` และเข้า store ใน checkpoint ถัดไป; ถ้าเกิดบ่อย ให้ยกเว้นโฟลเดอร์ `state/` จากการสแกน |
 | สถานะ `interrupted` | process ตายกลางคัน (ปิดหน้าต่าง/ไฟดับ/taskkill) | รันคำสั่งเดิม — journal ถูก recover อัตโนมัติ |
 | topic ออกมาใหญ่เกิน/เล็กเกิน | hdbscan_min_cluster_size ไม่เหมาะ | ปรับ `clustering.fine.hdbscan_min_cluster_size` (หรือ `clustering.n_groups` สำหรับกลุ่มใหญ่) แล้วรัน `uv run atlas run -c config.yaml -s cluster -s label -s series -s emerging -s forecast -s layout -s export` |
 | ทุกหัวข้อขึ้น DECLINING | ปีล่าสุดข้อมูลยังไม่ครบ แต่ backfill guard ไม่ตัด (เช่น รันย้อนหลังด้วย `as_of_year` ผิด) | ดู log `[series] … looks incomplete` และ `meta.trimmed_years`; ตรวจ `emerging.as_of_year` (null = ปีปัจจุบัน) หรือตั้ง `emerging.min_year_complete` เอง |

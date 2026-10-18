@@ -44,10 +44,12 @@
 | `09_layout`, `09_edges` | layout | id, kind, x, y, r, parent · s, t, w |
 | `state/embeddings/<slug>-<hash>/` | embed | index.parquet + shard_NNNNN.npy (ถาวร; slug/hash จาก store id: `api\|<model>\|<dimensions>` หรือ `embedding.api.store_id` — ไม่รวม base_url; `local\|<model>\|<max_seq_length>`; hash = sha1 8 ตัวแรก) |
 | `…/<store>/journal.bin` | embed | write-ahead log ของเวกเตอร์ที่ได้แล้วแต่ยังไม่เข้า store: header `ATJ1` + uint32 dim; record = sha1 key 40 ไบต์ ASCII + dim × float32 little-endian (flush ทุก batch, fsync ≤ ทุก 10 วินาที) — รันครั้งถัดไป replay เข้า store แล้วลบ (record ท้ายที่ขาด/เสียถูกข้าม) |
-| `…/<store>/progress.json` | embed | สถานะงาน (เขียนแบบ atomic ทุก ~5 วินาที + ทุก flush/เปลี่ยนสถานะ): kind, store_id, status (`running`/`backing_off`/`stopped`/`done`/`failed`), pid, total, cached, embedded, remaining, rate_per_s, eta_s, retries, truncated, last_error, last_error_at, last_event, recovered, started_at, updated_at — อ่านด้วย `atlas status` (แสดง `interrupted` เมื่อ lock ค้าง) |
-| `…/<store>/run.lock` | embed | `{pid, host, started_at}` สร้างแบบ O_EXCL กันรันซ้อน; PID ตาย หรือ heartbeat (progress.json `updated_at`) เก่ากว่า `lock_stale_seconds` = ค้าง → รันใหม่ยึดต่อ; ลบเมื่อจบ |
+| `…/<store>/progress.json` | embed | สถานะงาน (เขียนแบบ atomic ทุก ~5 วินาที + ทุก flush/เปลี่ยนสถานะ): kind, store_id, status (`running`/`backing_off`/`stopped`/`done`/`failed`), pid, total, cached, embedded, remaining, rate_per_s, eta_s, retries, truncated, truncated_total, store_vectors, journal_pending, last_error, last_error_at, last_event, recovered, started_at, updated_at — อ่านด้วย `atlas status` (แสดง `interrupted` เมื่อ process ตาย, `hung` เมื่อยังอยู่แต่ heartbeat เก่ากว่า `lock_stale_seconds`); ระหว่างรัน status ใช้ store_vectors/journal_pending จากไฟล์นี้ ไม่เปิดไฟล์ store |
+| `…/<store>/.lock` | embed | ไฟล์ว่าง ไม่ถูกลบ — process ที่รันถือ OS lock (msvcrt/fcntl) บนไฟล์นี้ตลอดการรัน = กันรันซ้อนจริง; OS ปล่อยเองเมื่อ process ตาย |
+| `…/<store>/run.lock` | embed | ข้อมูลเท่านั้น `{pid, host, started_at, pid_started}` (pid_started = เวลาเริ่ม process จาก OS กัน PID reuse) — `atlas status` ใช้บอกว่า process ยังอยู่ไหม; ลบเมื่อจบ (ค้างได้ ไม่มีผล) |
 | `…/<store>/run.log` | embed `--background` | stdout+stderr ของการรันเบื้องหลัง (ต่อท้ายทุกครั้ง) |
-| `…/<store>/stop.flag` | embed-stop | คำขอหยุด — runner หยุดสุภาพ (รอ request ที่ค้าง, flush) แล้วลบ; ไฟล์ที่ค้างอยู่ตอนเริ่มรันถูกลบทิ้ง |
+| `…/<store>/stop.flag` | embed-stop | คำขอหยุด — runner หยุดสุภาพ (รอ request ที่ค้าง, flush) แล้วลบ; flag ที่เขียนก่อน process ที่รันเริ่ม = ค้างจากรอบก่อน ถูกลบทิ้ง, flag ที่ใหม่กว่า (เช่น สั่งตอนยัง ingest) ถูกทำตาม |
+| `…/<store>/truncated.parquet` | embed | key, original_chars, used_chars, run_started_at — ข้อความที่ server รับไม่ได้จนต้องตัด (ต่อท้ายทุกรอบ, สะสม; `atlas status` แสดงจำนวนรวม) |
 | `state/label_cache.parquet` | label | cache_key → ชื่อหัวข้อ |
 | `state/prev/centroids.npy` | export | centroid รอบนี้ สำหรับรอบหน้า |
 
