@@ -25,3 +25,15 @@ def make_cfg(tmp_path):
         cfg["embedding"]["provider"] = "lite"           # CPU-only test embeddings (production default: local)
         return cfg
     return _make
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _offline():
+    """No test touches the network: OpenAlex calls raise OpenAlexUnavailable → taxonomy falls back.
+
+    Session scope, so it is already active while module-scoped fixtures run the pipeline.
+    """
+    mp = pytest.MonkeyPatch()
+    mp.setenv("ATLAS_OFFLINE", "1")
+    yield
+    mp.undo()

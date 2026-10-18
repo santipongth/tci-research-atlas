@@ -85,3 +85,22 @@ def test_api_embed_validation(tmp_path, bad):
 
 def test_local_provider_has_its_own_lock_stale_seconds():
     assert load_config(None)["embedding"]["local"]["lock_stale_seconds"] == 300
+
+
+def test_p1_sections_have_defaults():
+    cfg = load_config(None)
+    assert cfg["pipeline"]["release"] is None
+    assert cfg["topics"]["mode"] == "auto" and cfg["taxonomy"]["source"] == "openalex"
+    assert "completeness" not in cfg["emerging"]                    # definition v3 stays (user, 2026-10-19)
+    assert cfg["validation"]["min_kept_ids"] == 0.9 and cfg["bakeoff"]["embedding_candidates"] == []
+
+
+def test_release_name_and_reference_path(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text("pipeline:\n  release: 2026Q4\ntaxonomy:\n  reference_path: ref/works.jsonl\n", encoding="utf-8")
+    cfg = load_config(p)
+    assert cfg["pipeline"]["release"] == "2026Q4"
+    assert Path(cfg["taxonomy"]["reference_path"]) == (tmp_path / "ref" / "works.jsonl").resolve()
+    p.write_text("pipeline:\n  release: ../x\n", encoding="utf-8")
+    with pytest.raises(ValidationError):
+        load_config(p)

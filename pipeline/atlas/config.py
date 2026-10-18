@@ -22,6 +22,7 @@ class PipelineCfg(_Strict):
     output_dir: str = "./output"
     state_dir: str = "./state"        # persistent: embedding store, label cache, previous run
     seed: int = 42
+    release: str | None = Field(None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")  # None → YYYYQn of today
 
 
 class DedupCfg(_Strict):
@@ -109,7 +110,16 @@ class FineLevelCfg(_Strict):
     hdbscan_min_samples: int = 20
 
 
+class LeidenCfg(_Strict):
+    k: int = Field(15, ge=2)
+    resolution: float = Field(1.0, gt=0.0)
+    min_cluster_size: int = Field(150, ge=2)
+    n_iterations: int = -1
+
+
 class ClusteringCfg(_Strict):
+    algorithm: Literal["hdbscan", "leiden"] = "hdbscan"
+    leiden: LeidenCfg = Field(default_factory=LeidenCfg)
     reducer: Literal["umap", "pca"] = "umap"
     pca_dims: int = 128
     umap_fit_sample: int = 150_000
@@ -135,6 +145,35 @@ class LabelingCfg(_Strict):
     api: LabelApiCfg = Field(default_factory=LabelApiCfg)
     n_repr_docs: int = 8
     mmr_lambda: float = Field(0.7, ge=0.0, le=1.0)
+
+
+class TopicsCfg(_Strict):
+    mode: Literal["auto", "fit", "assign"] = "auto"
+    refit_every_releases: int = Field(4, ge=1)
+    refit_max_unassigned: float = Field(0.15, ge=0.0, le=1.0)
+    match_containment: float = Field(0.5, gt=0.0, le=1.0)
+    match_min_shared: int = Field(5, ge=1)
+
+
+class OpenAlexCfg(_Strict):
+    base_url: str = "https://api.openalex.org"
+    mailto: str = ""
+    api_key_env: str = "OPENALEX_API_KEY"
+    country_code: str = "TH"
+    per_subfield: int = Field(100, ge=1, le=100)
+    seed: int = 42
+    timeout: float = 30.0
+    max_retries: int = Field(3, ge=1)
+
+
+class TaxonomyCfg(_Strict):
+    source: Literal["openalex", "off"] = "openalex"
+    reference_path: str | None = None
+    openalex: OpenAlexCfg = Field(default_factory=OpenAlexCfg)
+    k: int = Field(20, ge=1)
+    max_articles_per_topic: int = Field(200, ge=1)
+    min_vote_share: float = Field(0.5, ge=0.0, le=1.0)
+    holdout_frac: float = Field(0.2, gt=0.0, lt=1.0)
 
 
 class SizeCfg(_Strict):
@@ -209,6 +248,19 @@ class ForecastCfg(_Strict):
     min_skill: float = 0.0
 
 
+class KeywordsCfg(_Strict):
+    enabled: bool = True
+    min_docs_recent: int = Field(7, ge=1)
+    max_doc_share: float = Field(0.15, gt=0.0, le=1.0)
+    novelty_min_ratio: float = Field(2.0, gt=0.0)
+    min_active_years: int = Field(3, ge=1)
+    min_orgs: int = Field(3, ge=0)
+    min_journals: int = Field(3, ge=0)
+    max_new_journal_share: float = Field(0.5, gt=0.0, le=1.0)
+    min_growth_lo: float = 0.0
+    max_terms: int = Field(50, ge=1)
+
+
 class LayoutCfg(_Strict):
     umap_2d_neighbors: int = 12
     umap_2d_min_dist: float = 0.35
@@ -216,11 +268,49 @@ class LayoutCfg(_Strict):
     view_h: int = 1040
     edge_similarity_threshold: float = 0.55
     max_edges_per_node: int = 4
+    stable: bool = True
+    anchor: float = Field(0.9, ge=0.0, le=1.0)
+    init_neighbors: int = Field(3, ge=1)
+    galaxy: bool = True
 
 
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
+    v2: bool = True
+    repr_articles: int = Field(12, ge=1)
+    max_topic_journals: int = Field(10, ge=1)
+    max_topic_orgs: int = Field(10, ge=1)
+    max_neighbors: int = Field(6, ge=0)
+
+
+class ValidateCfg(_Strict):
+    max_topic_count_change: float = Field(0.25, ge=0.0)
+    min_kept_ids: float = Field(0.9, ge=0.0, le=1.0)
+    max_status_change_frac: float = Field(0.3, ge=0.0, le=1.0)
+    size_swing_ratio: float = Field(2.0, gt=1.0)
+    size_swing_min_articles: int = Field(50, ge=1)
+    max_article_drop: float = Field(0.02, ge=0.0, le=1.0)
+
+
+class BakeoffCandidate(_Strict):
+    name: str
+    provider: Literal["api", "local", "lite"]
+    model: str = ""
+    base_url: str = ""
+    dimensions: int | None = None
+    store_id: str | None = None       # api only; None → the P0 runner's default "api|<model>|<dimensions>"
+
+
+class BakeoffCfg(_Strict):
+    sample: int = Field(5000, ge=50)
+    k: int = Field(10, ge=1)
+    holdout_frac: float = Field(0.2, gt=0.0, lt=1.0)
+    seeds: list[int] = Field(default_factory=lambda: [1, 2, 3])
+    algorithms: list[Literal["hdbscan", "hdbscan_fast", "leiden"]] = Field(
+        default_factory=lambda: ["hdbscan", "hdbscan_fast", "leiden"])
+    npmi_top_n: int = Field(10, ge=2)
+    embedding_candidates: list[BakeoffCandidate] = Field(default_factory=list)
 
 
 class AtlasConfig(_Strict):
@@ -229,10 +319,15 @@ class AtlasConfig(_Strict):
     embedding: EmbeddingCfg = Field(default_factory=EmbeddingCfg)
     clustering: ClusteringCfg = Field(default_factory=ClusteringCfg)
     labeling: LabelingCfg = Field(default_factory=LabelingCfg)
+    topics: TopicsCfg = Field(default_factory=TopicsCfg)
+    taxonomy: TaxonomyCfg = Field(default_factory=TaxonomyCfg)
     emerging: EmergingCfg = Field(default_factory=EmergingCfg)
+    keywords: KeywordsCfg = Field(default_factory=KeywordsCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)
+    validation: ValidateCfg = Field(default_factory=ValidateCfg)
+    bakeoff: BakeoffCfg = Field(default_factory=BakeoffCfg)
 
 
 def _resolve(p: str, base: Path) -> str:
@@ -252,4 +347,6 @@ def load_config(path: str | Path | None = None) -> dict:
     for key in ("work_dir", "output_dir", "state_dir"):
         cfg["pipeline"][key] = _resolve(cfg["pipeline"][key], base)
     cfg["input"]["path"] = _resolve(cfg["input"]["path"], base)
+    if cfg["taxonomy"]["reference_path"]:
+        cfg["taxonomy"]["reference_path"] = _resolve(cfg["taxonomy"]["reference_path"], base)
     return cfg

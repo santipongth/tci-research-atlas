@@ -9,6 +9,7 @@ pipeline:
   output_dir: ./output        # ผลลัพธ์สำหรับเว็บ/นักวิเคราะห์
   state_dir: ./state          # ข้อมูลถาวรข้ามรอบ: embedding store, label cache, รอบก่อน — ห้ามลบ
   seed: 42
+  release: null               # ชื่อรอบข้อมูล เช่น 2026Q4 — null = ไตรมาสของวันที่รัน (YYYYQn); state แยกตามรอบ
 
 input:
   format: thaijo_md           # thaijo_md = โฟลเดอร์ไฟล์ .md จาก ThaiJO | table = csv/json/jsonl/parquet ไฟล์เดียว
@@ -77,6 +78,12 @@ embedding:
   max_chars_per_doc: 6000
 
 clustering:
+  algorithm: hdbscan          # hdbscan (UMAP→HDBSCAN) | leiden (Leiden บน kNN graph — ต้อง uv sync --extra leiden)
+  leiden:
+    k: 15                     # เพื่อนบ้านต่อบทความใน kNN graph
+    resolution: 1.0           # สูง = หัวข้อเล็กลง/มากขึ้น
+    min_cluster_size: 150     # community ที่เล็กกว่านี้ = ยังไม่จัดหมวด (−1)
+    n_iterations: -1          # −1 = วนจนผลนิ่ง
   reducer: umap               # umap | pca
   pca_dims: 128               # ลดมิติด้วย PCA ก่อน UMAP เมื่อ embedding ใหญ่กว่านี้
   umap_fit_sample: 150000     # fit UMAP บนตัวอย่างแล้ว transform ที่เหลือ (ประหยัด RAM ที่ 500K)
@@ -103,6 +110,32 @@ labeling:
     concurrency: 8
   n_repr_docs: 8              # บทความตัวแทน (ใกล้ centroid + กระจายด้วย MMR)
   mmr_lambda: 0.7
+
+# ---------- หัวข้อที่มี ID ถาวรข้ามรอบ (T000123) ----------
+topics:
+  mode: auto                  # auto | fit | assign — auto: assign ทุกไตรมาส, fit ใหม่เมื่อครบรอบ/โมเดล embedding เปลี่ยน/บทความใหม่หาที่ลงไม่ได้
+  refit_every_releases: 4     # fit ใหม่อย่างน้อยทุก 4 รอบ (ปีละครั้ง)
+  refit_max_unassigned: 0.15  # auto: บทความใหม่ > 15% ไม่ใกล้หัวข้อใดเลย → fit ใหม่
+  match_containment: 0.5      # ตอน fit ใหม่ จับคู่หัวข้อเก่า↔ใหม่เมื่อบทความร่วม ≥ 50% (ฝั่งใดฝั่งหนึ่ง)
+  match_min_shared: 5         # และมีบทความร่วมอย่างน้อยเท่านี้
+
+# ---------- กลุ่มใหญ่ = OpenAlex fields (นิ่งข้ามรอบ + เทียบสากลได้) ----------
+taxonomy:
+  source: openalex            # openalex | off (off = ใช้กลุ่ม agglomerative ของ P0)
+  reference_path: null        # ไฟล์งานอ้างอิง (.jsonl/.parquet/.csv) แบบ offline — null = ดึงจาก OpenAlex API แล้ว cache ใน state_dir
+  openalex:
+    base_url: https://api.openalex.org
+    mailto: ""                # อีเมลติดต่อ (ส่งเป็นพารามิเตอร์ mailto)
+    api_key_env: OPENALEX_API_KEY   # ไม่บังคับ — ชื่อ env var ของ API key (การดึงหน้าแรกแบบ sample ไม่ต้องใช้ key)
+    country_code: TH          # งานที่มีผู้แต่งสังกัดประเทศนี้
+    per_subfield: 100         # จำนวนงานตัวอย่างต่อ subfield (สูงสุด 100 = 1 request)
+    seed: 42
+    timeout: 30
+    max_retries: 3
+  k: 20                       # kNN: เพื่อนบ้านที่ใช้โหวต subfield
+  max_articles_per_topic: 200 # บทความที่ใกล้ centroid ที่สุดที่ใช้โหวตต่อหัวข้อ
+  min_vote_share: 0.5         # โหวตชนะ < 50% → cross_field
+  holdout_frac: 0.2           # สัดส่วนงานอ้างอิงที่กันไว้วัดความแม่น kNN
 
 # ---------- Emerging v3 — นิยามเต็มใน docs/EMERGING_SPEC.md ----------
 emerging:
@@ -146,6 +179,19 @@ emerging:
     coherence: 0.10
     breadth: 0.10
 
+# ---------- Emerging keywords (ระดับคำสำคัญ — Carley/Porter) ----------
+keywords:
+  enabled: true
+  min_docs_recent: 7          # อย่างน้อย 7 บทความในช่วง R
+  max_doc_share: 0.15         # คำที่อยู่ใน > 15% ของบทความ = คำทั่วไป ตัดทิ้ง
+  novelty_min_ratio: 2.0      # ใหม่: share ใน R ≥ 2 เท่าของช่วง B
+  min_active_years: 3         # ต่อเนื่อง: ปรากฏ ≥ 3 ปีในช่วง W
+  min_orgs: 3                 # ≥ 3 สถาบันในช่วง R
+  min_journals: 3             # ≥ 3 วารสารในช่วง R (ไม่ผ่าน = journal_driven)
+  max_new_journal_share: 0.5  # บทความจากวารสารที่เพิ่งเข้าระบบใน R ต้อง < 50%
+  min_growth_lo: 0.0          # โตจริง: CI ล่างของอัตราโต share > ค่านี้
+  max_terms: 50               # จำนวนคำสูงสุดที่ส่งออก
+
 forecast:
   horizon: 2
   min_history_years: 6
@@ -160,7 +206,37 @@ layout:
   view_h: 1040
   edge_similarity_threshold: 0.55
   max_edges_per_node: 4
+  stable: true                # วางแผนที่ต่อจากรอบก่อน (หัวข้อเดิมอยู่ที่เดิม)
+  anchor: 0.9                 # 1 = หัวข้อเดิมอยู่ตำแหน่งเดิมทุกประการ, 0 = ตาม UMAP รอบนี้ (หลังจัดแนวแล้ว)
+  init_neighbors: 3           # หัวข้อใหม่วางตามหัวข้อเดิมที่คล้ายที่สุด 3 หัวข้อ
+  galaxy: true                # พิกัดบทความรอบหัวข้อ (work/09_galaxy)
 
 export:
   formats: [json, csv]
   include_forecast_in_json: true
+  v2: true                    # เขียน data contract v2 → output/data/<release>/ (+ atlas_data.json 1.1 เหมือนเดิม)
+  repr_articles: 12           # บทความตัวแทนต่อหัวข้อ (ชื่อเรื่อง + ลิงก์ ThaiJO — ไม่เผยแพร่บทคัดย่อ)
+  max_topic_journals: 10
+  max_topic_orgs: 10
+  max_neighbors: 6
+
+# ---------- atlas validate: เทียบกับรอบก่อน ----------
+validation:
+  max_topic_count_change: 0.25  # จำนวนหัวข้อเปลี่ยน > 25% → warning
+  min_kept_ids: 0.9           # ID หัวข้อรอบก่อนที่ยังอยู่ < 90% → warning
+  max_status_change_frac: 0.3 # หัวข้อเดิมที่เปลี่ยนสถานะ > 30% → warning
+  size_swing_ratio: 2.0       # ขนาดหัวข้อเปลี่ยน ≥ 2 เท่า (ขึ้นหรือลง) → warning
+  size_swing_min_articles: 50 # ...เฉพาะหัวข้อที่มี ≥ 50 บทความ
+  max_article_drop: 0.02      # บทความทั้งหมดลดลง > 2% → error
+
+# ---------- atlas bakeoff: เทียบ embedding/clustering ด้วยตัวเลข ----------
+bakeoff:
+  sample: 5000                # จำนวนบทความตัวอย่าง
+  k: 10                       # kNN สำหรับวัดความแม่น
+  holdout_frac: 0.2
+  seeds: [1, 2, 3]            # วัดความนิ่ง (ARI) ข้าม seed
+  algorithms: [hdbscan, hdbscan_fast, leiden]   # hdbscan_fast ต้อง --extra fast, leiden ต้อง --extra leiden
+  npmi_top_n: 10
+  embedding_candidates: []    # เช่น - {name: bge-m3-api, provider: api, model: BAAI/bge-m3, base_url: https://…/v1}
+                              #      - {name: 3-large, provider: api, model: text-embedding-3-large, dimensions: 1024}
+                              #      (api ใช้ runner ของ P0 — แยก store ต่อโมเดลด้วย store_id อัตโนมัติ)
