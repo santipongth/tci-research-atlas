@@ -114,15 +114,19 @@ def embed(cfg: dict, embedder=None) -> np.ndarray:
         print(f"[embed] {len(keys) - len(todo):,} cached, {len(todo):,} to embed ({embedder.model_id})")
         buf_k: list[str] = []
         buf_v: list[np.ndarray] = []
-        for i in tqdm(range(0, len(todo), batch), desc="embed", disable=not todo):
-            chunk = todo[i:i + batch]
-            buf_k += chunk
-            buf_v.append(embedder.embed_batch([text_of[k] for k in chunk]))
-            if len(buf_k) >= every:
+        try:
+            for i in tqdm(range(0, len(todo), batch), desc="embed", disable=not todo):
+                chunk = todo[i:i + batch]
+                vec = embedder.embed_batch([text_of[k] for k in chunk])   # paid for only once it returns
+                buf_k += chunk
+                buf_v.append(vec)
+                if len(buf_k) >= every:
+                    store.add(buf_k, np.vstack(buf_v))
+                    buf_k, buf_v = [], []
+        finally:
+            # keep vectors already paid for, even when a later batch raises or Ctrl-C arrives
+            if buf_k:
                 store.add(buf_k, np.vstack(buf_v))
-                buf_k, buf_v = [], []
-        if buf_k:
-            store.add(buf_k, np.vstack(buf_v))
         arr, model_id = store.get(keys), embedder.model_id
     arr = _normalize(arr)
     work.mkdir(parents=True, exist_ok=True)

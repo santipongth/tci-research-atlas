@@ -87,3 +87,13 @@ def test_embed_second_run_uses_store_only(make_cfg, tmp_path):
     again = FakeEmbedder()
     embed(cfg, embedder=again)
     assert again.calls == 0
+
+
+def test_embed_crash_with_partial_buffer_keeps_paid_vectors(make_cfg, tmp_path):
+    cfg, texts = _docs(make_cfg, tmp_path)
+    cfg["embedding"]["api"].update(batch_size=2, checkpoint_every=4)
+    with pytest.raises(RuntimeError):
+        embed(cfg, embedder=FakeEmbedder(fail_on_call=4))   # batches 1-3 succeed, flush at 4 vectors, 2 buffered
+    fake = FakeEmbedder()
+    embed(cfg, embedder=fake)
+    assert fake.calls == 2                                   # 10 texts − 6 kept = 4 → 2 batches

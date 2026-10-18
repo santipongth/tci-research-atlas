@@ -8,6 +8,7 @@ change between quarters are never paid for twice.
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from pathlib import Path
 
@@ -55,7 +56,9 @@ class EmbeddingStore:
         np.save(self.dir / f"shard_{shard:05d}.npy", vectors[[i for _, i in new]])
         add = pd.DataFrame({"key": [k for k, _ in new], "shard": shard, "row": np.arange(len(new))})
         self.index = pd.concat([self.index, add], ignore_index=True)
-        write_table(self.index, self._index_path)
+        tmp = self.dir / "index.tmp.parquet"
+        write_table(self.index, tmp)
+        os.replace(tmp, self._index_path)      # atomic: the index is never half-written
         self._lookup.update({k: (shard, int(r)) for k, r in zip(add["key"], add["row"])})
 
     def get(self, keys: list[str]) -> np.ndarray:
