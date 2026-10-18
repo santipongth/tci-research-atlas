@@ -36,7 +36,10 @@ packages = ["atlas"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: end-to-end tests on the synthetic corpus (run with: pytest -m slow)"]
+markers = [
+  "slow: end-to-end tests on the synthetic corpus (run with: pytest -m slow)",
+  "live: smoke tests against a real embedding API (skipped unless ATLAS_EMBED_LIVE_BASE_URL and ATLAS_EMBED_API_KEY are set)",
+]
 addopts = "-m 'not slow'"
 
 [tool.ruff]

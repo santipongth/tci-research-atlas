@@ -37,14 +37,27 @@ input:
 embedding:
   provider: local             # local = BGE-M3 บนเครื่องเรา (ค่าใช้งานจริง) | api = เสียเงินต่อเรื่อง | lite = TF-IDF+SVD บน CPU สำหรับ CI/ทดสอบเท่านั้น (คุณภาพต่ำ)
   lite_max_docs: 50000        # ถ้าใช้ lite กับคลังใหญ่กว่านี้ จะพิมพ์ WARNING (ผลคุณภาพต่ำ ไม่ควรเผยแพร่)
-  api:                        # OpenAI-compatible (OpenAI, Gemini, OpenRouter, vLLM, Ollama)
+  api:                        # OpenAI-compatible POST {base_url}/embeddings — รันครั้งใหญ่ด้วย `uv run atlas embed -c config.yaml` (docs/OPERATIONS.md)
     base_url: https://api.openai.com/v1
-    api_key_env: ATLAS_API_KEY
+    api_key_env: ATLAS_EMBED_API_KEY   # "ชื่อ" env var ที่เก็บ key — ตัว key อยู่ใน env var เท่านั้น ห้ามใส่ในไฟล์
     model: text-embedding-3-large
-    dimensions: 1024
-    batch_size: 256
-    max_retries: 6
-    checkpoint_every: 5000
+    dimensions: 1024          # ส่งให้ server เฉพาะเมื่อไม่ใช่ null (bge-m3: null — ได้ 1024 มิติเสมอ)
+    store_id: null            # null → "api|<model>|<dimensions>" — ไม่ผูก base_url: ย้าย server ที่ให้ผลเท่ากันได้โดยไม่ต้อง embed ใหม่
+    batch_size: 32            # เรื่องต่อ request สูงสุด
+    max_batch_chars: 60000    # ตัวอักษรรวมต่อ request สูงสุด (ไทย ≈ 1 token/ตัวอักษร)
+    concurrency: 4            # จำนวน request พร้อมกัน
+    requests_per_minute: null # จำกัดอัตรา (null = ไม่จำกัด) — นับทุก request รวม retry และ batch ที่ถูกแบ่ง
+    request_timeout: 120      # วินาทีต่อ request
+    max_retries: null         # null = retry error ชั่วคราว (5xx/429/408/เน็ตหลุด) ไม่จำกัด; error ถาวร (401/403/404/400) หยุดทันที
+    backoff_initial: 2        # วินาที — exponential backoff + full jitter
+    backoff_max: 300          # รอนานสุดต่อครั้ง (Retry-After ของ server ก็ไม่เกินค่านี้)
+    min_text_chars: 512       # server บอกว่าข้อความยาวเกิน → ตัดครึ่งซ้ำได้ แต่ไม่ต่ำกว่านี้
+    checkpoint_every: 2000    # เขียนลง store ทุก N เรื่อง (ระหว่างนั้นอยู่ใน journal.bin — ปิดหน้าต่าง/ไฟดับก็ไม่หาย)
+    lock_stale_seconds: 300   # run.lock ที่ไม่มี heartbeat นานเกินนี้ (หรือ PID ตายแล้ว) = ค้าง → รันใหม่ยึดต่อได้
+    # ตัวอย่าง BGE-M3 (ตรวจ base_url/model กับผู้ให้บริการก่อนใช้ — check with your provider):
+    #   self-hosted HF TEI / vLLM / Infinity / Ollama: base_url: http://host:port/v1   model: BAAI/bge-m3 (หรือ bge-m3)   dimensions: null
+    #   DeepInfra:   base_url: https://api.deepinfra.com/v1/openai   model: BAAI/bge-m3   dimensions: null
+    #   SiliconFlow: base_url: https://api.siliconflow.cn/v1         model: BAAI/bge-m3   dimensions: null
   local:                      # sentence-transformers บน GPU/CPU ของเราเอง
     model: BAAI/bge-m3
     device: cuda

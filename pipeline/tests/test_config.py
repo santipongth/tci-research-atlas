@@ -60,3 +60,24 @@ def test_ci_config_loads():
     cfg = load_config(PIPELINE / "configs" / "ci.yaml")
     assert cfg["embedding"]["provider"] == "lite"
     assert cfg["labeling"]["provider"] == "off"
+
+
+# ---- Task 19: API embedding runner settings
+def test_api_embed_defaults():
+    api = load_config(None)["embedding"]["api"]
+    assert api["api_key_env"] == "ATLAS_EMBED_API_KEY"
+    assert api["model"] == "text-embedding-3-large" and api["store_id"] is None
+    assert api["max_retries"] is None                    # unlimited retries on transient errors
+    assert (api["batch_size"], api["max_batch_chars"], api["concurrency"]) == (32, 60_000, 4)
+    assert (api["backoff_initial"], api["backoff_max"], api["request_timeout"]) == (2.0, 300.0, 120.0)
+    assert (api["min_text_chars"], api["checkpoint_every"], api["lock_stale_seconds"]) == (512, 2000, 300)
+    assert api["requests_per_minute"] is None
+
+
+@pytest.mark.parametrize("bad", ["batch_size: 0", "concurrency: 0", "backoff_initial: 0",
+                                 "backoff_initial: 10\n    backoff_max: 5", "requests_per_minute: 0"])
+def test_api_embed_validation(tmp_path, bad):
+    p = tmp_path / "c.yaml"
+    p.write_text(f"embedding:\n  api:\n    {bad}\n", encoding="utf-8")
+    with pytest.raises(ValidationError):
+        load_config(p)

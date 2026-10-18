@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class _Strict(BaseModel):
@@ -46,13 +46,29 @@ class InputCfg(_Strict):
 
 
 class ApiEmbedCfg(_Strict):
+    """OpenAI-compatible /embeddings endpoint, run by atlas.embed_runner (see docs/OPERATIONS.md)."""
     base_url: str = "https://api.openai.com/v1"
-    api_key_env: str = "ATLAS_API_KEY"
+    api_key_env: str = "ATLAS_EMBED_API_KEY"     # the NAME of the env var holding the key — never the key
     model: str = "text-embedding-3-large"
-    dimensions: int | None = 1024
-    batch_size: int = 256
-    max_retries: int = 6
-    checkpoint_every: int = 5000
+    dimensions: int | None = Field(1024, ge=1)   # sent only when set (null for bge-m3)
+    store_id: str | None = None                  # null -> "api|<model>|<dimensions>" (never includes base_url)
+    batch_size: int = Field(32, ge=1)
+    max_batch_chars: int = Field(60_000, ge=1)
+    concurrency: int = Field(4, ge=1)
+    requests_per_minute: int | None = Field(None, ge=1)
+    request_timeout: float = Field(120.0, gt=0)
+    max_retries: int | None = Field(None, ge=0)  # null = retry transient errors forever
+    backoff_initial: float = Field(2.0, gt=0)
+    backoff_max: float = 300.0
+    min_text_chars: int = Field(512, ge=1)
+    checkpoint_every: int = Field(2000, ge=1)
+    lock_stale_seconds: int = Field(300, ge=1)
+
+    @model_validator(mode="after")
+    def _backoff_order(self) -> ApiEmbedCfg:
+        if self.backoff_max < self.backoff_initial:
+            raise ValueError("embedding.api.backoff_max must be >= backoff_initial")
+        return self
 
 
 class LocalEmbedCfg(_Strict):
