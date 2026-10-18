@@ -1,0 +1,499 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "FileEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "title": "FileEntry",
+      "type": "object"
+    },
+    "Manifest": {
+      "additionalProperties": false,
+      "properties": {
+        "config_hash": {
+          "title": "Config Hash",
+          "type": "string"
+        },
+        "definition_version": {
+          "default": 2,
+          "title": "Definition Version",
+          "type": "integer"
+        },
+        "embedding_model": {
+          "title": "Embedding Model",
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/definitions/FileEntry"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "modules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Modules",
+          "type": "array"
+        },
+        "pipeline_version": {
+          "title": "Pipeline Version",
+          "type": "string"
+        },
+        "previous_release": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Release"
+        },
+        "release": {
+          "description": "release tag, e.g. 2026Q4",
+          "title": "Release",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "taxonomy_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Taxonomy Version"
+        }
+      },
+      "required": [
+        "release",
+        "generated_at",
+        "pipeline_version",
+        "config_hash",
+        "embedding_model"
+      ],
+      "title": "Manifest",
+      "type": "object"
+    },
+    "Topic": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "forecast": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TopicForecast"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "group": {
+          "title": "Group",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^T\\d{6}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "keywords": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        },
+        "lineage": {
+          "$ref": "#/definitions/TopicLineage"
+        },
+        "metrics": {
+          "$ref": "#/definitions/TopicMetrics"
+        },
+        "r": {
+          "title": "R",
+          "type": "number"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "sdg": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Sdg",
+          "type": "array"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "EMERGING",
+            "WATCH",
+            "HOT",
+            "DECLINING",
+            "STABLE",
+            "LOW_DATA"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "th": {
+          "title": "Th",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "group",
+        "th",
+        "en",
+        "size",
+        "x",
+        "y",
+        "r",
+        "status",
+        "score",
+        "metrics"
+      ],
+      "title": "Topic",
+      "type": "object"
+    },
+    "TopicForecast": {
+      "additionalProperties": false,
+      "properties": {
+        "hi80": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Hi80",
+          "type": "array"
+        },
+        "hi95": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Hi95",
+          "type": "array"
+        },
+        "lo80": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Lo80",
+          "type": "array"
+        },
+        "lo95": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Lo95",
+          "type": "array"
+        },
+        "mase": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mase"
+        },
+        "mean": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Mean",
+          "type": "array"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "show": {
+          "title": "Show",
+          "type": "boolean"
+        },
+        "skill_vs_naive": {
+          "title": "Skill Vs Naive",
+          "type": "number"
+        },
+        "years": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Years",
+          "type": "array"
+        }
+      },
+      "required": [
+        "model",
+        "mase",
+        "skill_vs_naive",
+        "show",
+        "years",
+        "mean",
+        "lo80",
+        "hi80",
+        "lo95",
+        "hi95"
+      ],
+      "title": "TopicForecast",
+      "type": "object"
+    },
+    "TopicLineage": {
+      "additionalProperties": false,
+      "properties": {
+        "born": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Born"
+        },
+        "event": {
+          "default": "new",
+          "enum": [
+            "new",
+            "continue",
+            "split",
+            "merge"
+          ],
+          "title": "Event",
+          "type": "string"
+        },
+        "parents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parents",
+          "type": "array"
+        }
+      },
+      "title": "TopicLineage",
+      "type": "object"
+    },
+    "TopicMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "acceleration": {
+          "title": "Acceleration",
+          "type": "number"
+        },
+        "burst_frac": {
+          "title": "Burst Frac",
+          "type": "number"
+        },
+        "burst_years": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Burst Years",
+          "type": "array"
+        },
+        "coherence": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coherence"
+        },
+        "count_recent": {
+          "title": "Count Recent",
+          "type": "integer"
+        },
+        "journal_driven": {
+          "title": "Journal Driven",
+          "type": "boolean"
+        },
+        "journal_hhi": {
+          "title": "Journal Hhi",
+          "type": "number"
+        },
+        "n_journals_R": {
+          "title": "N Journals R",
+          "type": "integer"
+        },
+        "n_orgs_R": {
+          "title": "N Orgs R",
+          "type": "integer"
+        },
+        "new_journal_share": {
+          "title": "New Journal Share",
+          "type": "number"
+        },
+        "novelty": {
+          "title": "Novelty",
+          "type": "number"
+        },
+        "share_baseline": {
+          "title": "Share Baseline",
+          "type": "number"
+        },
+        "share_growth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Share Growth"
+        },
+        "share_growth_hi": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Share Growth Hi"
+        },
+        "share_growth_lo": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Share Growth Lo"
+        },
+        "share_ratio": {
+          "title": "Share Ratio",
+          "type": "number"
+        },
+        "share_recent": {
+          "title": "Share Recent",
+          "type": "number"
+        }
+      },
+      "required": [
+        "count_recent",
+        "share_recent",
+        "share_baseline",
+        "share_ratio",
+        "share_growth",
+        "share_growth_lo",
+        "share_growth_hi",
+        "acceleration",
+        "burst_frac",
+        "novelty",
+        "n_journals_R",
+        "n_orgs_R",
+        "new_journal_share",
+        "journal_hhi",
+        "journal_driven"
+      ],
+      "title": "TopicMetrics",
+      "type": "object"
+    },
+    "TopicsFile": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/definitions/Topic"
+          },
+          "title": "Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "topics"
+      ],
+      "title": "TopicsFile",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "manifest": {
+      "$ref": "#/definitions/Manifest"
+    },
+    "topics": {
+      "$ref": "#/definitions/TopicsFile"
+    }
+  },
+  "required": [
+    "manifest",
+    "topics"
+  ],
+  "title": "AtlasContract",
+  "type": "object"
+}

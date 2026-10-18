@@ -66,6 +66,16 @@ def profile(
     typer.echo(text)
 
 
+@app.command()
+def schema(
+    out: Path = typer.Option(Path("../web/src/data/contract.schema.json"), help="where to write the JSON Schema"),
+) -> None:
+    """Write the data-contract v2 JSON Schema (then run `npm run gen:types` in web/)."""
+    from atlas.schema.contract import write_json_schema
+
+    typer.echo(f"wrote {write_json_schema(out)}")
+
+
 @app.command("run")
 def run_cmd(
     config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
