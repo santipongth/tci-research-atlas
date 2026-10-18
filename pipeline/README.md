@@ -32,7 +32,7 @@ bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้า�
 uv run pytest -q                           # ทดสอบ (เพิ่ม uv run pytest -m slow -q สำหรับ e2e ข้อมูลสังเคราะห์)
 ```
 
-Python ≥ 3.11 (dev/CI ใช้ 3.12) · `--extra api` ติดตั้ง `openai`, `--extra local` ติดตั้ง `sentence-transformers` (BGE-M3) · โหมด `embedding.provider: lite` (TF-IDF+SVD) ไม่ต้องใช้ extra ใด ๆ — ใช้ใน CI
+Python ≥ 3.11 (dev/CI ใช้ 3.12) · `--extra api` ติดตั้ง `openai`, `--extra local` ติดตั้ง `sentence-transformers` (BGE-M3) · ดีฟอลต์ `embedding.provider: local`; โหมด `lite` (TF-IDF+SVD) ไม่ต้องใช้ extra ใด ๆ — ใช้ใน CI/ทดสอบเท่านั้น (เกิน `embedding.lite_max_docs` เรื่องจะขึ้น WARNING)
 **ข้อมูลจริงไม่เข้า git** — คลังบทความและ `atlas_data.json` ของจริงเก็บนอก repo (มีเฉพาะตัวอย่าง 11 ไฟล์ใน `tests/fixtures/thaijo_md/`)
 
 ## 2. เตรียมข้อมูล
@@ -93,14 +93,14 @@ uv run atlas schema                                                     # เข
 # หรือใช้สคริปต์ที่ profile คลังก่อนแล้วรัน: bash /path/to/tci-research-atlas/scripts/quarterly_run.sh
 ```
 
-รอบใหม่จะใช้ centroids ของรอบก่อน (ที่ export เก็บไว้ให้เองใน `state/prev/`) คำนวณ **novelty** — หัวข้อเกิดใหม่จริงจะมี novelty สูง
+export เก็บ centroids ของรอบนี้ไว้ใน `state/prev/` ให้รอบหน้า — **P0 ยังไม่ใช้** (novelty ตอนนี้ = สัดส่วนบทความของหัวข้อที่อยู่ในช่วง R + อายุของหัวข้อ ดู `../docs/EMERGING_SPEC.md` §3); P1 จะใช้ไฟล์นี้ทำ lineage ของหัวข้อข้ามรอบ
 
 ---
 
-## นิยาม "Emerging" ของ TCI v2
+## นิยาม "Emerging" ของ TCI v3
 
-implement ใน `atlas/emerging.py` (`definition_version = 2`) และปรับ threshold ได้ทั้งหมดใน `config.yaml → emerging:`
-หน้าต่างเวลา: R = `recent_window` ปีล่าสุดที่ข้อมูลสมบูรณ์ (ดีฟอลต์ 3), B = `baseline_window` ปีก่อนหน้า R (ดีฟอลต์ 5); backfill guard ตัดปีล่าสุดที่ยอดต่ำผิดปกติออกอัตโนมัติ
+implement ใน `atlas/emerging.py` (`definition_version = 3`) และปรับ threshold ได้ทั้งหมดใน `config.yaml → emerging:`
+หน้าต่างเวลา: R = `recent_window` ปีล่าสุดที่ข้อมูลสมบูรณ์ (ดีฟอลต์ 3), B = `baseline_window` ปีก่อนหน้า R (ดีฟอลต์ 5); ปีที่กำลังดำเนินอยู่ (`as_of_year`) ไม่นับเสมอ และ backfill guard ตัดปีล่าสุดที่ยอดต่ำกว่า 60% ของ median 3 ปีก่อนหน้า (ได้สูงสุด 2 ปี) — ปีที่ถูกตัดอยู่ใน `meta.trimmed_years`
 
 | สถานะ | ความหมาย (ดีฟอลต์) |
 |---|---|
@@ -112,6 +112,7 @@ implement ใน `atlas/emerging.py` (`definition_version = 2`) และปร�
 | **STABLE** คงที่ | อื่น ๆ |
 
 สถานะตรวจตามลำดับข้างต้น (ข้อแรกที่เข้าคือคำตอบ) · Emerging Score 0–100 เป็น percentile ภายในรอบ ใช้จัดอันดับเท่านั้น เทียบข้ามรอบไม่ได้
+v3: share_growth ที่ประมาณไม่ได้ (เช่น บทความทั้งหมดอยู่ปีเดียว) = NaN → LOW_DATA · ช่วงเชื่อมั่นใช้ Student-t เมื่อข้อมูล overdispersed · `orgs_unverified` บอกหัวข้อที่ข้ามเกณฑ์สถาบัน (ข้อมูลสังกัดไม่พอ)
 สเปกเต็มพร้อมสูตรและเหตุผลเชิงวิธีวิจัย: `docs/EMERGING_SPEC.md`
 
 แก้นิยาม = แก้ `docs/EMERGING_SPEC.md` + `config.example.yaml` + `tests/test_emerging.py` พร้อมกัน และเพิ่ม `definition_version`
@@ -127,7 +128,7 @@ implement ใน `atlas/emerging.py` (`definition_version = 2`) และปร�
 ## การเชื่อมเข้าหน้าเว็บ Atlas
 
 `output/atlas_data.json` มีโครง `{meta, groups, nodes, links}` — nodes แต่ละตัวมี
-`x, y, r, color, th, en, articles, status, emerging_score, burst_years, share_growth(_lo/_hi), journal_driven, forecast{...}` (schema 1.1 — ดู `../docs/DATA_SPEC.md` §3)
+`x, y, r, color, th, en, articles, status, emerging_score, burst_years, share_growth(_lo/_hi), journal_driven, orgs_unverified, forecast{...}` (schema 1.1 — ดู `../docs/DATA_SPEC.md` §3)
 หน้าเว็บที่ทำไว้สลับจากไฟล์ `src/data/atlas.ts` มาอ่าน JSON นี้ได้โดยเปลี่ยน data source จุดเดียว
 (โครง field ตั้งใจออกแบบให้ตรงกัน)
 
@@ -154,7 +155,7 @@ atlas/
   cluster.py      PCA → UMAP → HDBSCAN (sklearn) → merge ซ้ำ → outlier → กลุ่มใหญ่ (agglomerative); ctfidf.py
   label.py        LLM ตั้งชื่อ topic (cache_key = hash ของ model + prompt ใน state/label_cache) หรือ off
   topics_time.py  yearly series + backfill guard
-  emerging.py     นิยาม Emerging v2 + Kleinberg burst + novelty
+  emerging.py     นิยาม Emerging v3 + Kleinberg burst + novelty
   forecast.py     naive/linear/Poisson + backtest + skill gate
   layout.py       UMAP 2D บน centroid → ตำแหน่งบนแผนที่ + similarity edges
   export.py       atlas_data.json (1.1) + CSVs + manifest

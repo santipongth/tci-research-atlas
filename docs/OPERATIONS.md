@@ -30,7 +30,7 @@ uv run atlas run --config config.yaml      # ทั้งสาย (หรือ
 
 สิ่งที่ต้องดูตอนจบ:
 - `[export] -> output/atlas_data.json` ขึ้นโดยไม่มี error
-- เปิด `output/manifest.json` ดู `counts.total_articles` ว่าเพิ่มขึ้นสมเหตุสมผลจากรอบก่อน
+- เปิด `output/manifest.json` ดู `counts.total_articles` ว่าเพิ่มขึ้นสมเหตุสมผลจากรอบก่อน และตรวจ `ingest_errors` (ควรเป็น 0), `embedding_provider` (ต้องเป็น `local` หรือ `api` — ห้ามเผยแพร่ผลจาก `lite`), `n_labels_fallback`, `trimmed_years` / `as_of_year` (ปีที่ไม่ถูกนับในแนวโน้ม), `n_orgs_unverified`
 - เปิด `output/emerging.csv` sort ตาม `emerging_score` — ลองอ่าน top 10 ว่า "มีเหตุผล" ไหม (sanity check ด้วยความรู้โดเมน)
 
 ### ขั้น 3 — นำเข้าเว็บ
@@ -70,7 +70,11 @@ mkdir -p runs/2026Q4 && cp pipeline/output/* runs/2026Q4/
 | `atlas profile` ฟ้องไฟล์อ่านไม่ได้/ฟิลด์ว่างมาก | รูปแบบ .md จาก ThaiJO เปลี่ยน (หรือใช้ `input.format: table` แล้ว mapping คอลัมน์ผิด) | ดูรายงาน profile; ถ้าเป็นตาราง แก้ `input.columns` ใน config.yaml |
 | embed ค้าง/ล่มกลางทาง | API timeout, OOM | รันใหม่ได้เลย — checkpoint ทุก 5,000 เรื่อง รันต่อจากจุดเดิม |
 | topic ออกมาใหญ่เกิน/เล็กเกิน | hdbscan_min_cluster_size ไม่เหมาะ | ปรับ `clustering.fine.hdbscan_min_cluster_size` (หรือ `clustering.n_groups` สำหรับกลุ่มใหญ่) แล้วรัน `uv run atlas run -c config.yaml -s cluster -s label -s series -s emerging -s forecast -s layout -s export` |
-| ทุกหัวข้อขึ้น DECLINING | ปีล่าสุดข้อมูลยังไม่ครบ แต่ backfill guard ไม่ตัด | ตั้ง `emerging.min_year_complete` เองใน config |
+| ทุกหัวข้อขึ้น DECLINING | ปีล่าสุดข้อมูลยังไม่ครบ แต่ backfill guard ไม่ตัด (เช่น รันย้อนหลังด้วย `as_of_year` ผิด) | ดู log `[series] … looks incomplete` และ `meta.trimmed_years`; ตรวจ `emerging.as_of_year` (null = ปีปัจจุบัน) หรือตั้ง `emerging.min_year_complete` เอง |
+| `meta.trimmed_years` มีหลายปี / `last_complete_year` ต่ำกว่าที่คิด | ปีที่กำลังดำเนินอยู่ไม่นับเสมอ, ฉบับลงวันที่ล่วงหน้า, หรือปีล่าสุดยอด < 60% ของ median 3 ปีก่อน (ตัดได้สูงสุด `backfill_max_trim` = 2 ปี) | ปกติ — ดูตาราง "Articles per year" ใน profile; ถ้าข้อมูลครบจริงแล้ว ตั้ง `emerging.min_year_complete` |
+| log ขึ้น `[ingest] WARNING: N files could not be read or parsed` | ไฟล์เสีย/ถูกล็อก/สิทธิ์ไม่พอ, โฟลเดอร์ชื่อลงท้าย `.md`, หรือ layout ที่ parser ไม่รองรับ | ดู `work/01_ingest_errors` (path + error) หรือส่วน "Files with errors" ใน profile; แก้/ลบไฟล์แล้วรัน `-s ingest` ใหม่ — ไฟล์ที่มีไบต์เพี้ยนเล็กน้อยไม่ถูกข้าม แต่ได้ flag `decode_replaced` |
+| log ขึ้น `[embed] WARNING: embedding.provider is 'lite'` | config ใช้ `lite` (สำหรับ CI) กับคลังจริง | เปลี่ยนเป็น `embedding.provider: local` (หรือ `api`) แล้วรันใหม่ — อย่าเผยแพร่ผลจาก lite |
+| `ValueError: HDBSCAN found no clusters in N documents` | `hdbscan_min_cluster_size` ใหญ่เกินคลัง หรือ embedding ผิดปกติ (เช่น lite/โมเดลผิด) | ลด `clustering.fine.hdbscan_min_cluster_size` / `hdbscan_min_samples`; ตรวจ `work/03_meta.json` (model_id) — pipeline จะไม่รวมทุกอย่างเป็นหัวข้อเดียวเงียบ ๆ อีกแล้ว (ยกเว้นคลังจิ๋ว < 2 × min_cluster_size) |
 | label เป็นภาษาอังกฤษหมด | โมเดลไม่ถนัดไทย | เปลี่ยน `labeling.api.model` (เช่น typhoon / gpt-4o / gemini-2.0-flash) — cache_key (hash ของ model + prompt) เปลี่ยน เฉพาะ label จะถูกสร้างใหม่ |
 | หน้าเว็บยังเป็นข้อมูลเก่า | ลืม build ใหม่ หรือ browser cache | `import_atlas.sh` ต้องรันจนจบ (มี build ในตัว); hard-refresh |
 | หน้าเว็บ badge ขึ้น "○ ข้อมูลตัวอย่าง" | JSON ไม่ถูกวาง/โหลดไม่ได้ | เช็ก `web/public/data/atlas_data.json` มีจริง และ deploy มีไฟล์นี้ด้วย |
@@ -78,7 +82,7 @@ mkdir -p runs/2026Q4 && cp pipeline/output/* runs/2026Q4/
 | หัวข้อเกือบทั้งหมดเป็น LOW_DATA | corpus เล็ก/ช่วงปีสั้น หรือ `min_articles_recent` สูงไป | ตรวจรายงาน profile; ปรับ `emerging.min_articles_recent` เฉพาะเมื่อมีเหตุผล (กระทบนิยาม ต้อง bump `definition_version`) |
 | หัวข้อขึ้น WATCH เยอะ | วารสารเข้ามาอัปโหลดย้อนหลังเป็นชุด (journal-entry bias) | ดู profile หัวข้อ "วารสารที่อัปโหลดย้อนหลัง"; WATCH คือสัญญาณเตือน ไม่ใช่ข้อสรุป |
 | `provider: off` ใน YAML ไม่ทำงานตามคาด | YAML อ่าน `off` เปล่า ๆ เป็น false | ใส่เครื่องหมายคำพูด: `provider: "off"` |
-| Windows แสดงภาษาไทยเพี้ยนใน console | console เป็น cp1252 | ใช้ `uv run atlas …` (ตั้ง UTF-8 ให้แล้ว) |
+| Windows แสดงภาษาไทยเพี้ยนใน console | console เป็น cp1252 | ทั้ง `uv run atlas …` และ `python -m atlas.pipeline` ตั้ง stdout/stderr เป็น UTF-8 ให้แล้ว (รวมตอน redirect ลงไฟล์) |
 | อยากปรับนิยาม emerging | — | แก้ `config.yaml → emerging:` + `docs/EMERGING_SPEC.md` + `tests/test_emerging.py` พร้อมกัน แล้วรัน `uv run atlas run -c config.yaml -s emerging -s forecast -s export` (ฟรี ไม่แตะ API) |
 
 ## 4. งบประมาณโดยประมาณต่อรอบ (corpus ~200K เรื่อง)

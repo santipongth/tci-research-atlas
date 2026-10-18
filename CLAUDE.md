@@ -99,12 +99,12 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 
 **นี่คือสัญญาระหว่าง pipeline กับเว็บ — ห้ามเปลี่ยนโดยไม่แก้ทั้งสองฝั่ง**
 
-- ฝั่งผลิต: `pipeline/atlas/export.py` (schema เต็มใน `docs/DATA_SPEC.md`) — ตอนนี้เป็น **schema 1.1** (`meta.schema_version`, `meta.definition_version = 2`)
-- ฟิลด์ใหม่ของ 1.1 ต่อหัวข้อ: `share_growth`, `share_growth_lo`, `share_growth_hi`, `n_journals_R`, `n_orgs_R`, `journal_driven`, `coherence`, `forecast_uncertain` (+ `meta.assigned_articles`, `meta.unassigned_articles`); status มี 6 ค่า (EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA); `forecast` เป็น null เว้นแต่ผ่าน skill gate
+- ฝั่งผลิต: `pipeline/atlas/export.py` (schema เต็มใน `docs/DATA_SPEC.md`) — ตอนนี้เป็น **schema 1.1** (`meta.schema_version`, `meta.definition_version = 3`)
+- ฟิลด์ใหม่ของ 1.1 ต่อหัวข้อ: `share_growth`, `share_growth_lo`, `share_growth_hi`, `n_journals_R`, `n_orgs_R`, `journal_driven`, `orgs_unverified`, `coherence`, `forecast_uncertain` (+ `meta.assigned_articles`, `meta.unassigned_articles`, `meta.as_of_year`, `meta.trimmed_years`, `meta.n_orgs_unverified`); status มี 6 ค่า (EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA); `forecast` เป็น null เว้นแต่ผ่าน skill gate และสถานะไม่ใช่ LOW_DATA
 - data contract v2 อยู่ที่ `pipeline/atlas/schema/contract.py` → ต้องสร้างใหม่พร้อมกัน: `uv run atlas schema` แล้ว `npm run gen:types` (ใน `web/`) — CI ตรวจ drift ทั้งสองขั้น
 - ฝั่งบริโภค: `web/src/lib/loader.ts` — ฟังก์ชัน `normalize()` แปลง pipeline schema → web schema:
   - `nodeId` → `id`, `kind: "topic"` → `kind: "field"`, `nTopics` → `nFields`
-  - `emerging_score` → `emergingScore`, `burst_years` → `burstYears`
+  - `emerging_score` → `emergingScore`, `burst_years` → `burstYears`, `orgs_unverified` → `orgsUnverified`
   - `meta.total_topics` → `totalFields`, `meta.last_complete_year` → `lastCompleteYear`
 - เว็บ fetch `/data/atlas_data.json` ตอน runtime (`cache: "no-cache"`) — ถ้าไม่มีไฟล์/โหลดไม่ได้ → ใช้ข้อมูล bundle ใน `src/data/atlas.ts` แทน (หน้าเว็บไม่มีวันขาว)
 - **การอัปเดตข้อมูล = วางไฟล์ JSON ใหม่เท่านั้น ไม่ต้องแก้โค้ดเว็บ** (แต่ต้อง build ใหม่เพราะ public/ ถูกคัดลอกเข้า dist/)
@@ -118,7 +118,8 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 - **DO** เก็บค่าพารามิเตอร์ทุกตัวใน `config.yaml` — ห้าม hardcode threshold
 - **DO** รัน `uv run pytest -q` ก่อนส่งงาน — โดยเฉพาะถ้าแก้ `emerging.py` (นิยาม emerging มี unit test ล็อกไว้)
 - **DO** เก็บข้อมูลถาวรเฉพาะใน `state_dir` (`work_dir` ต้องลบได้เสมอ)
-- **DO** สถานะมี 6 ค่าของ v2 เท่านั้น และต้องเพิ่ม `definition_version` ทุกครั้งที่นิยามเปลี่ยน
+- **DO** สถานะมี 6 ค่าเท่านั้น (ชุดเดียวกันตั้งแต่ v2; นิยามปัจจุบัน v3) และต้องเพิ่ม `definition_version` ทุกครั้งที่นิยามเปลี่ยน
+- **DO** ค่าดีฟอลต์ `embedding.provider` คือ `local`; `lite` ใช้เฉพาะ CI/ทดสอบ (`make_cfg` ใน tests ตั้งให้เอง)
 - **DO** เขียนอักษรไทยในซอร์สเป็น `\N{THAI CHARACTER ...}` หรือ `chr(0x...)` — ห้ามใช้ backslash-u escape
 - **DO** pandas 3: ห้ามทดสอบ `dtype == object`; normalise คอลัมน์ข้อความด้วย `.fillna("").astype(str)`
 - **DO** ใส่เครื่องหมายคำพูดให้ `"off"` ใน YAML (`provider: "off"`) — `off` เปล่า ๆ ถูกอ่านเป็น false

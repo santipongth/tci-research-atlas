@@ -16,23 +16,25 @@ corpus/*.md (ThaiJO scrape)            ← ตรวจก่อนด้วย:
         │
         ▼
 [ingest]     parse .md (ซ่อม PUA/สระอำ, แยก TH/EN, ปี: Published→DOI→median issue, ID จาก URL), dedup
-        │  → work/01_articles · 01_authors (+org_key) · 01_references
+             ไฟล์ที่อ่าน/parse ไม่ได้ → บันทึกแล้วข้าม (ไม่หยุดทั้งรอบ)
+        │  → work/01_articles · 01_authors (+org_key) · 01_references · 01_ingest_errors
         ▼
 [preprocess] doc_text = title + keywords + abstract (≤ 6000 ตัวอักษร)          → work/02_docs
         ▼
-[embed]      api | local (BGE-M3, 1024 tokens) | lite (TF-IDF+SVD สำหรับ CI)
+[embed]      local (ดีฟอลต์: BGE-M3, 1024 tokens) | api | lite (TF-IDF+SVD สำหรับ CI — คลังใหญ่ขึ้น WARNING)
              เวกเตอร์ api/local เก็บถาวรใน state/embeddings (resume + incremental)  → work/03_embeddings.npy
         ▼
 [cluster]    [PCA] → UMAP → HDBSCAN → merge cluster ซ้ำ (cos ≥ 0.8) → outlier เข้าเฉพาะที่ใกล้พอ
+             (HDBSCAN ไม่เจอ cluster เลยในคลังจริง → error; รวมเป็นหัวข้อเดียวเฉพาะคลังจิ๋ว)
              → กลุ่มใหญ่ (agglomerative) → c-TF-IDF (pythainlp) + author keywords + coherence
         │  → work/04_fine_topics · 04_coarse_topics · 04_topic_info · 04_centroids.npy · 04_centroid_ids.json
         ▼
 [label]      LLM (cache = hash ของ prompt ใน state/label_cache) หรือ off (ชื่อจาก author keywords)  → work/05_labels
         ▼
-[series]     topic × ปี + ตารางวารสาร/สถาบัน + backfill guard
+[series]     topic × ปี + ตารางวารสาร/สถาบัน + ปีสมบูรณ์ล่าสุด (as_of_year + backfill guard)
         │  → work/06_series · 06_topic_journal_year · 06_topic_org_year · 06_journal_first_year · 06_meta.json
         ▼
-[emerging]   Emerging v2 (docs/EMERGING_SPEC.md)                                   → work/07_emerging
+[emerging]   Emerging v3 (docs/EMERGING_SPEC.md)                                   → work/07_emerging
         ▼
 [forecast]   naive / linear / Poisson + backtest + skill gating                    → work/08_forecasts
         ▼
