@@ -301,14 +301,15 @@ class RunLock:
             if time.monotonic() >= deadline:
                 st = lock_state(self.path, self.heartbeat, self.stale_seconds)
                 pid, age = st["pid"], st["heartbeat_age"]
+                shown = pid or "unknown"                                    # run.lock may be missing
                 hung = age is not None and age > self.stale_seconds        # the holder is alive by definition
                 if hung:
                     msg = (f"\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} (hung) — \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II} heartbeat \N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU} {fmt_duration(age)} \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK} process \N{THAI CHARACTER YO YAK}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} "
-                           f"(PID {pid}) / hung — no heartbeat for {fmt_duration(age)} but the "
-                           f"process (PID {pid}) still holds the lock; it is never taken over while it lives — check "
-                           f"it, or end it (taskkill /F /PID {pid}) and run again")
+                           f"(PID {shown}) / hung — no heartbeat for {fmt_duration(age)} but the "
+                           f"process (PID {shown}) still holds the lock; it is never taken over while it lives — check "
+                           f"it, or end it (taskkill /F /PID {shown}) and run again")
                 else:
-                    msg = f"\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} (PID {pid}) / another run is in progress (PID {pid})"
+                    msg = f"\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} (PID {shown}) / another run is in progress (PID {shown})"
                 raise LockHeld(f"{msg} — lock {self.os_path}", pid, hung=hung)
             time.sleep(0.05)
         try:

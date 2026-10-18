@@ -390,3 +390,52 @@ def test_acquire_releases_the_os_lock_when_writing_run_lock_fails(tmp_path, monk
         RunLock(tmp_path / "run.lock").acquire()
     monkeypatch.undo()
     RunLock(tmp_path / "run.lock", wait=0).acquire().release()  # not leaked: acquirable again at once
+
+
+# ---------- fix round 3
+@pytest.mark.skipif(os.name != "nt", reason="Windows sharing semantics")
+def test_replace_blocked_predicts_os_replace_for_every_holder_kind(tmp_path):
+    import ctypes
+    import mmap
+    from ctypes import wintypes
+
+    from atlas.io_utils import replace_blocked
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.restype = wintypes.HANDLE
+    k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+                                wintypes.DWORD, wintypes.HANDLE)
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    tgt, src = tmp_path / "index.parquet", tmp_path / "index.tmp.parquet"
+    tgt.write_bytes(b"x" * 4096)
+
+    def replace_fails():
+        src.write_bytes(b"y" * 4096)
+        try:
+            os.replace(src, tgt)
+            return False
+        except PermissionError:
+            src.unlink()
+            return True
+
+    def share_rwd():                                   # GENERIC_READ, share read|write|delete (AV/backup agents)
+        return k32.CreateFileW(str(tgt), 0x80000000, 0x7, None, 3, 0x80, None)
+
+    def mapped():                                      # a memory map whose file handle is already closed
+        f = open(tgt, "rb")
+        m = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        f.close()
+        return m
+
+    cases = [("none", lambda: None, lambda h: None),
+             ("plain open", lambda: open(tgt, "rb"), lambda h: h.close()),
+             ("share read|write|delete", share_rwd, lambda h: k32.CloseHandle(h)),
+             ("mmap", mapped, lambda m: m.close())]
+    for name, opener, closer in cases:
+        h = opener()
+        try:
+            predicted, actual = replace_blocked(tgt), replace_fails()
+        finally:
+            closer(h)
+        assert predicted == actual, name
+        assert actual == (name != "none"), name

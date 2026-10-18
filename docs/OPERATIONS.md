@@ -123,6 +123,7 @@ uv run atlas status -c config.yaml               # = atlas embed-status
 **6) หยุด**
 
 - หน้าต่างที่รันอยู่: **Ctrl-C ครั้งเดียว** = หยุดส่งงานใหม่ รอ request ที่ค้างให้ตอบ บันทึกทุกอย่าง แล้วออก (exit 130); **กดอีกครั้ง** = ไม่รอ request ที่ค้าง: บันทึกเฉพาะที่ได้ผลแล้วลง store แล้วออกทันที (exit 130 — ข้อความของ request ที่ทิ้งไป จะถูกส่งใหม่รอบหน้า) — บน Windows การกดสองครั้งติดกันเร็วมากอาจนับเป็นครั้งเดียว: ถ้ายังไม่ออก ให้รอสักครู่แล้วกดอีกครั้ง
+- **หยุดด้วย Ctrl-C เท่านั้น อย่าใช้ Ctrl-Break**: Ctrl-Break ทำให้ `uv run` จบทันที (หน้าต่างกลับมาที่ prompt) ขณะที่ Python ยังหยุดงานต่ออยู่เบื้องหลัง — ดูสถานะด้วย `atlas status` แล้วรอให้ขึ้น `stopped` ก่อนรันใหม่
 - รันเบื้องหลัง: `uv run atlas embed-stop -c config.yaml` (สถานะเป็น `stopped`) — สั่งได้แม้งานยังอยู่ช่วง ingest: จะหยุดทันทีที่ถึงขั้น embed (คำขอหยุดที่เก่ากว่าเวลาเริ่ม process ถูกทิ้งเอง)
 - ฉุกเฉิน — ปิดหน้าต่าง / `taskkill /F /PID <pid>` / process crash: เสียได้แค่ request ที่ยังไม่ตอบ (≤ 2 × `concurrency` batch) เพราะทุก batch ที่ได้ผลถูกเขียนลง `journal.bin` ทันที
 - **ไฟดับ / เครื่องดับกะทันหัน**: เสียเพิ่มได้อีก**ไม่เกินราว 10 วินาทีล่าสุด**ของผลที่อยู่ใน `journal.bin` (journal fsync ลงดิสก์อย่างช้าทุก 10 วินาที; ส่วนที่เข้า store แล้วถูก fsync ก่อนแทนที่ index เสมอ) — รันคำสั่งเดิมแล้วระบบจ่ายเฉพาะส่วนที่หายนั้นใหม่
@@ -142,7 +143,7 @@ uv run atlas embed -c config.yaml
 - server ใหม่ให้เวกเตอร์ต่างไป (โมเดล, quantization, มิติ) → ตั้ง `store_id` ใหม่ (เช่น `bge-m3-deepinfra`) = store ใหม่, embed ใหม่ทั้งคลัง — ห้ามผสมเวกเตอร์ต่างที่มาใน store เดียว
 - ถ้ามิติไม่ตรง store เดิม ระบบหยุดเอง: `store เดิมเป็นมิติ X แต่ server ตอบ Y — ตั้ง store_id ใหม่`
 
-**exit codes**: 0 เสร็จ · 1 ล้ม (เช่น ตั้ง `max_retries` แล้ว retry หมด; หรือบันทึกลง store ตอนจบไม่ได้เพราะมีโปรแกรมเปิด `index.parquet` ค้าง — ผลอยู่ใน `journal.bin` ครบ รันคำสั่งเดิมอีกครั้ง) · 2 config/error ถาวร (key, URL, redirect, โมเดล, โควตาหมด, มิติไม่ตรง, ระบบไฟล์ล็อกไฟล์ไม่ได้) · 3 มี process อื่นถือ store นี้อยู่ (กำลังรัน หรือ hung) · 130 ถูกหยุด (ทำต่อได้)
+**exit codes**: 0 เสร็จ · 1 ล้ม (เช่น ตั้ง `max_retries` แล้ว retry หมด; หรือบันทึกลง store ตอนจบไม่ได้ เช่น ดิสก์เต็ม หรือมีโปรแกรมเปิด `index.parquet` ค้าง — ผลอยู่ใน `journal.bin` ครบ รันคำสั่งเดิมอีกครั้ง) · 2 config/error ถาวร (key, URL, redirect, โมเดล, โควตาหมด, มิติไม่ตรง, ระบบไฟล์ล็อกไฟล์ไม่ได้) · 3 มี process อื่นถือ store นี้อยู่ (กำลังรัน หรือ hung) · 130 ถูกหยุด (ทำต่อได้)
 
 ## 2. ตั้ง cron (ตัวเลือก — ยังต้องมีคนกดตรวจขั้น 3–4)
 
@@ -159,10 +160,11 @@ uv run atlas embed -c config.yaml
 | embed ค้าง/ล่มกลางทาง/ปิดหน้าต่าง | API timeout, OOM, process ถูกฆ่า | รันคำสั่งเดิมได้เลย — ทุก batch ที่ได้ผลอยู่ใน `journal.bin` ทันที (เข้า store ทุก `checkpoint_every`) ทำต่อจากจุดเดิมโดยไม่จ่ายซ้ำ; ไฟดับอาจเสียผล ~10 วินาทีล่าสุด (§1A) |
 | `atlas embed` exit 2 | key ไม่ได้ตั้ง/ผิด (401/403), `base_url`/`model` ผิด (404), request ไม่ถูกต้อง (400/422), base_url ถูก redirect (3xx), เครดิต/โควตาหมด (402, 429 `insufficient_quota`/billing), server ตอบผิดรูปแบบเดิมซ้ำกับข้อความเดียว, มิติไม่ตรง store เดิม, ข้อความยาวเกินแม้ตัดถึง `min_text_chars`, `base_url` ผิดรูป (port/scheme) | อ่านข้อความ error (บอกวิธีแก้ทั้งไทย/อังกฤษ) → แก้ env var/config (redirect: ตั้ง base_url เป็น URL ปลายทางที่แสดง; โควตา: เติมเงินกับผู้ให้บริการ) → `atlas embed --check` → รันใหม่ |
 | `atlas embed` exit 2 `this filesystem does not support file locking` | `state_dir` อยู่บน network share / ระบบไฟล์ที่ล็อกไฟล์ไม่ได้ (กันรันซ้อนไม่ได้) | ย้าย `pipeline.state_dir` ไปไว้บนดิสก์ในเครื่อง |
-| `atlas embed` exit 1 `could not save into the store … kept in journal.bin` | ตอนจบ มีโปรแกรมอื่นเปิด `index.parquet` ค้างนานเกิน 1 นาที | ปิดโปรแกรมนั้น (หรือยกเว้น `state/` จาก antivirus/backup) แล้วรันคำสั่งเดิม — journal ถูก replay ไม่จ่ายซ้ำ |
+| `atlas embed` exit 1 `could not save into the store … kept in journal.bin` | ตอนจบบันทึกลง store ไม่ได้: ดิสก์เต็ม/I-O error หรือมีโปรแกรมอื่นเปิด `index.parquet` ค้างนานเกิน 1 นาที | แก้สาเหตุ (เพิ่มพื้นที่ดิสก์, ปิดโปรแกรมนั้น หรือยกเว้น `state/` จาก antivirus/backup) แล้วรันคำสั่งเดิม — journal ถูก replay ไม่จ่ายซ้ำ |
 | `atlas embed` exit 3 `กำลังรันอยู่ (PID …)` หรือ `hung` | มี process อื่นถือ OS lock ของ store นี้อยู่ (lock หลุดเองทันทีเมื่อ process ตาย ไม่ต้องรอ) | `atlas status` ดู PID/ความคืบหน้า; ถ้าตั้งใจให้รันตัวเดียวก็รอให้จบ หรือ `atlas embed-stop`; ถ้าเป็น `hung` ดูหัวข้อถัดไป |
 | สถานะ `hung` (process ยังอยู่แต่ไม่มี heartbeat นานกว่า `lock_stale_seconds`) | main thread ค้าง เช่น หน้าต่าง console ถูกคลิกค้าง (QuickEdit หยุดการพิมพ์), ดิสก์/แชร์ค้าง, เครื่อง sleep | กด Esc/Enter ในหน้าต่างนั้นถ้าเป็น QuickEdit; ถ้ายังไม่ขยับ `taskkill /F /PID <pid>` แล้วรันคำสั่งเดิม (journal recover ให้) — ระบบไม่แย่ง lock จาก process ที่ยังอยู่เอง |
 | `atlas embed` exit 130 | Ctrl-C หรือ `atlas embed-stop` | ปกติ — รันคำสั่งเดิมเพื่อทำต่อ |
+| กด Ctrl-Break แล้ว prompt กลับมาทันที แต่ `atlas status` ยังขึ้น running | Ctrl-Break ปิด `uv run` ทันที ขณะที่ Python ยังหยุดงานอยู่เบื้องหลัง | รอจน `atlas status` ขึ้น `stopped`/`interrupted` แล้วค่อยรันใหม่; ครั้งหน้าใช้ Ctrl-C |
 | retry ไม่จบ / สถานะ `backing_off` นาน | server ปลายทางล่ม คิวเต็ม หรือติด rate limit | `atlas status` → `last error` (เช่น `HTTP 503`, `URLError: ... refused`) แล้วแก้ที่ server — runner ทำต่อเองเมื่อ server กลับมา; 429 บ่อย → ลด `concurrency` หรือตั้ง `requests_per_minute`; ไม่อยากรอไม่จำกัด → ตั้ง `max_retries` |
 | log/status ขึ้น `checkpoint postponed N times — something holds index.parquet` | โปรแกรมอื่น (antivirus, backup, ตัวเปิดไฟล์) เปิด `index.parquet` ค้างไว้นาน | ไม่ต้องทำอะไร — ผลอยู่ใน `journal.bin` และเข้า store เมื่อไฟล์ว่าง (หลังเลื่อน 3 ครั้งติด ระบบจะไม่เขียน shard ซ้ำจนกว่าไฟล์จะว่างจริง); ถ้าเกิดบ่อย ให้ยกเว้นโฟลเดอร์ `state/` จากการสแกน |
 | สถานะ `interrupted` | process ตายกลางคัน (ปิดหน้าต่าง/ไฟดับ/taskkill) | รันคำสั่งเดิม — journal ถูก recover อัตโนมัติ |

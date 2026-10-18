@@ -540,7 +540,7 @@ def test_second_ctrl_c_abandons_in_flight_requests_at_once(tmp_path):
 
 
 # ---------- fix round 2
-def test_two_ctrl_c_during_a_slow_checkpoint_still_cancel_and_stop(tmp_path, monkeypatch):
+def test_two_ctrl_c_during_a_slow_checkpoint_still_cancel_and_stop(tmp_path, monkeypatch, capsys):
     # both presses are counted while the main thread is busy in a checkpoint: the loop jumps 0 -> 2
     import atlas.embed_store as es
 
@@ -589,6 +589,8 @@ def test_two_ctrl_c_during_a_slow_checkpoint_still_cancel_and_stop(tmp_path, mon
     assert stats["status"] == "stopped" and stats["abandoned"] >= 0 and cancelled
     assert read_json(store.dir / "progress.json")["status"] == "stopped"
     assert c1 == c0                                        # nobody keeps retrying after the run returned
+    out = capsys.readouterr().out
+    assert "Ctrl-C again to abandon" not in out             # the jump goes straight to "abandoning"
 
 
 def test_store_index_is_reloaded_after_taking_the_lock(tmp_path):
@@ -644,8 +646,27 @@ def test_final_flush_failure_keeps_the_journal_and_says_so(tmp_path, monkeypatch
     assert stats["recovered"] == 39 and again.calls == 0 and len(store_for(tmp_path)) == 40
 
 
+def _share_rwd_open(path):
+    """A reader that allows read|write|delete sharing (as many antivirus/backup agents do)."""
+    import ctypes
+    from ctypes import wintypes
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.restype = wintypes.HANDLE
+    k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+                                wintypes.DWORD, wintypes.HANDLE)
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    h = k32.CreateFileW(str(path), 0x80000000, 0x7, None, 3, 0x80, None)
+
+    class Holder:
+        def close(self):
+            k32.CloseHandle(h)
+    return Holder()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="only Windows blocks replacing a file that is open")
-def test_a_persistent_holder_does_not_cause_repeated_shard_rewrites(tmp_path, monkeypatch):
+@pytest.mark.parametrize("holder", ["plain", "share_rwd"])
+def test_a_persistent_holder_does_not_cause_repeated_shard_rewrites(tmp_path, monkeypatch, holder):
     import atlas.embed_runner as er
     import atlas.embed_store as es
 
@@ -661,7 +682,7 @@ def test_a_persistent_holder_does_not_cause_repeated_shard_rewrites(tmp_path, mo
     store.add(keys_of(TEXTS[:1]), fake_vec(TEXTS[0])[None])
     adds.clear()
     released, seen, held_adds = threading.Event(), [], []
-    f = open(store.dir / "index.parquet", "rb")
+    f = open(store.dir / "index.parquet", "rb") if holder == "plain" else _share_rwd_open(store.dir / "index.parquet")
 
     def hook(n):
         if n == 30:                                        # long after 3 postponements
@@ -693,3 +714,26 @@ def test_runner_messages_never_break_on_a_cp1252_console(tmp_path, monkeypatch):
     stats = run_embedding(TEXTS, Fake(hook=hook), store, rcfg(checkpoint_every=1000), progress=False)
     sys.stdout.flush()
     assert stats["status"] == "stopped" and b"stopping (stop.flag)" in raw.getvalue()
+
+
+
+def test_any_final_save_failure_is_typed_and_keeps_the_journal(tmp_path, monkeypatch):
+    import errno
+
+    import atlas.embed_store as es
+    from atlas.embed_runner import StoreSaveFailed
+
+    store = store_for(tmp_path)
+
+    def disk_full(self, keys, vectors, **kw):
+        raise OSError(errno.ENOSPC, "No space left on device")
+    monkeypatch.setattr(es.EmbeddingStore, "add", disk_full)
+    with pytest.raises(StoreSaveFailed) as e:
+        run_embedding(TEXTS, Fake(), store, rcfg(checkpoint_every=1000), progress=False)
+    assert "journal.bin" in str(e.value) and "No space left" in str(e.value)
+    prog = read_json(store.dir / "progress.json")
+    assert prog["status"] == "failed" and "journal.bin" in prog["last_error"]
+    monkeypatch.undo()
+    again = Fake()
+    stats = run_embedding(TEXTS, again, store_for(tmp_path), rcfg(), progress=False)
+    assert stats["recovered"] == 40 and again.calls == 0              # nothing paid twice

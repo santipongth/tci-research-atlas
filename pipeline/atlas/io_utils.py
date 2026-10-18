@@ -49,9 +49,10 @@ def unlink_with_retry(path: str | Path, *, timeout: float = 5.0) -> bool:
 
 
 def replace_blocked(path: str | Path) -> bool:
-    """Windows: True when another process holds `path` open without delete-sharing, so os.replace onto it
-    would fail right now (a cheap check: open for DELETE access only, no data written). Always False on
-    POSIX and when the file does not exist."""
+    """Windows: True when os.replace onto `path` would fail right now because another process has it open
+    or mapped — whatever sharing that process allows (even read|write|delete, as antivirus/backup agents
+    do, replacing an open file fails). The check opens the file for DELETE access with share mode 0 for an
+    instant (no data read or written). Always False on POSIX and when the file does not exist."""
     if os.name != "nt" or not Path(path).exists():
         return False
     import ctypes
@@ -62,8 +63,8 @@ def replace_blocked(path: str | Path) -> bool:
     k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
                                 wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
     k32.CloseHandle.argtypes = (wintypes.HANDLE,)
-    # DELETE access, share read|write|delete, OPEN_EXISTING
-    handle = k32.CreateFileW(str(path), 0x00010000, 0x7, None, 3, 0x80, None)
+    # DELETE access, share mode 0 (any other open handle or mapping makes this fail), OPEN_EXISTING
+    handle = k32.CreateFileW(str(path), 0x00010000, 0x0, None, 3, 0x80, None)
     if handle in (None, wintypes.HANDLE(-1).value):
         return ctypes.get_last_error() in (5, 32)              # access denied / sharing violation
     k32.CloseHandle(handle)

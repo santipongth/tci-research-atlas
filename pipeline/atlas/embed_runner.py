@@ -57,9 +57,13 @@ POSTPONE_GATE = 3                                # after this many postponements
                                                  # checkpoint once index.parquet is free (no shard rewrites)
 
 
-class StoreBusy(PermissionError):
-    """The final save into the store failed (index.parquet held by another program). Nothing is lost:
-    journal.bin is kept and the next run replays it."""
+class StoreSaveFailed(OSError):
+    """The final save into the store failed (disk full, I/O error, ...). Nothing is lost: journal.bin is
+    kept and the next run replays it."""
+
+
+class StoreBusy(StoreSaveFailed, PermissionError):
+    """The final save failed because another program holds index.parquet (Windows)."""
 
 
 def say(text: str) -> None:
@@ -430,7 +434,7 @@ class _Run:
             for r in rows:
                 self.truncations.pop(r["key"], None)
 
-    def begin_stop(self, why: str) -> None:
+    def begin_stop(self, why: str, quiet: bool = False) -> None:
         if self.stopping:
             return
         self.stopping = why
@@ -440,7 +444,7 @@ class _Run:
         if cancel:
             cancel()                                          # workers in a backoff/rate-limit wait give up
         running = sum(1 for f in self.in_flight if not f.done())
-        if why != "error":
+        if why != "error" and not quiet:
             say(f"[embed] \N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK} ({why}): \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER O ANG} request \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} {running} \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER RO RUA} / stopping ({why}): waiting for "
                   f"{running} in-flight request(s) — Ctrl-C again to abandon them")
 
@@ -488,6 +492,13 @@ class _Run:
                 break
         try:
             return self._run()
+        except BaseException as e:
+            if self.abandoned:                                # the CLI exits at once whatever the outcome
+                try:
+                    e.abandoned = self.abandoned
+                except (AttributeError, TypeError):
+                    pass
+            raise
         finally:
             for sig, handler in previous.items():
                 signal.signal(sig, handler)
@@ -542,7 +553,7 @@ class _Run:
         try:
             while True:
                 if self.interrupts >= 2:
-                    self.begin_stop("Ctrl-C")                 # both presses may land before we looked: cancel too
+                    self.begin_stop("Ctrl-C", quiet=True)     # both presses may land before we looked: cancel too
                     self.abandoned = sum(1 for f in self.in_flight if not f.done())
                     say(f"[embed] abandoning {self.abandoned} in-flight request(s); their texts are sent "
                           f"again by the next run")
@@ -579,13 +590,17 @@ class _Run:
         except BaseException as e:
             self.journal.close(delete=False)                 # keep journal.bin: the next run replays it
             self.final = "failed"
+            fix = ("close the program that holds index.parquet" if isinstance(e, PermissionError)
+                   else "free disk space / fix the cause")
             msg = (f"could not save {self.buffered:,} vectors into the store ({type(e).__name__}: {e}) — they are "
-                   f"kept in journal.bin; run the same command again to store them (nothing is paid twice)")
+                   f"kept in journal.bin; {fix} and run the same command again (nothing is paid twice)")
             with self._ev:
                 self.last_error, self.last_error_at = msg, now_iso()
             self.tick(force=True)
             if isinstance(e, PermissionError):
                 raise StoreBusy(f"index.parquet is held by another program — {msg}") from e
+            if isinstance(e, Exception):
+                raise StoreSaveFailed(msg) from e
             raise
         self.journal.close(delete=True)
         left = self.remaining - self.embedded

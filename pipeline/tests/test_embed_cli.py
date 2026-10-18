@@ -363,3 +363,83 @@ def test_second_ctrl_c_exits_the_cli_at_once_end_to_end(tmp_path, key):
     store = EmbeddingStore(tmp_path / "state" / "embeddings", STORE_ID)
     stored = {t for t in texts if store.has(text_key(STORE_ID, t))}
     assert stored == served and len(stored) >= 48            # everything that completed was saved
+
+
+# ---------- fix round 3
+ERROR_ABANDON = """
+import _thread, json, sys, threading, time
+import atlas.embed_api as ea
+n = {"i": 0}
+lk = threading.Lock()
+
+def transport(url, headers, body, timeout):
+    inp = json.loads(body)["input"]
+    with lk:
+        n["i"] += 1
+        i = n["i"]
+    if i <= 4:
+        return 200, {}, json.dumps({"data": [{"index": j, "embedding": [float(len(t))] * 8}
+                                             for j, t in enumerate(inp)]}).encode()
+    if i == 5:
+        def presses():
+            time.sleep(1.0)
+            _thread.interrupt_main()
+            time.sleep(1.0)
+            print("CHILD second Ctrl-C", flush=True)
+            _thread.interrupt_main()
+        threading.Thread(target=presses, daemon=True).start()
+        time.sleep(30.0)                                   # this request hangs
+        return 200, {}, json.dumps({"data": [{"index": j, "embedding": [1.0] * 8} for j in range(len(inp))]}).encode()
+    time.sleep(0.2)
+    return 400, {}, b'{"error": "bad request"}'            # permanent
+
+ea.urllib_transport = transport
+from atlas.cli import app
+app(["embed", "-c", sys.argv[1]], prog_name="atlas")
+"""
+
+
+def test_abandon_during_a_failing_run_still_exits_at_once(tmp_path, key):
+    from atlas.jobs import python_command
+
+    write_docs(tmp_path, 200)
+    cfg = write_cfg(tmp_path, "http://127.0.0.1:9/v1", batch_size=8, concurrency=2, request_timeout=120.0)
+    exe, env = python_command()
+    t0 = time.monotonic()
+    p = subprocess.Popen([exe, "-c", ERROR_ABANDON, cfg], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         text=True, encoding="utf-8", errors="replace")
+    try:
+        out, _ = p.communicate(timeout=90)
+    finally:
+        if p.poll() is None:
+            p.kill()
+            p.wait()
+    wall = time.monotonic() - t0
+    assert p.returncode == 2, out                           # the run's own outcome (permanent error) is kept
+    assert "abandoning" in out and "400" in out
+    assert wall < 20, (wall, out)                           # not 30 s waiting for the abandoned request
+
+
+def test_final_disk_full_is_explained(tmp_path, monkeypatch):
+    import atlas.cli as cli
+    import atlas.pipeline as pl
+    from atlas.embed_runner import StoreSaveFailed
+
+    def full(cfg, steps):
+        raise StoreSaveFailed("could not save 120 vectors into the store (OSError: [Errno 28] No space left on "
+                              "device) — they are kept in journal.bin; free space / fix the cause and run the same "
+                              "command again")
+    monkeypatch.setattr(pl, "run", full)
+    r = CliRunner().invoke(cli.app, ["run", "-c", write_cfg(tmp_path), "-s", "embed"])
+    assert r.exit_code == 1 and "journal.bin" in r.output and "No space left" in r.output
+    assert "Traceback" not in r.output
+
+
+def test_pid_unknown_when_run_lock_is_missing(tmp_path):
+    sdir = EmbeddingStore(tmp_path / "state" / "embeddings", STORE_ID).dir
+    with RunLock(sdir / "run.lock"):
+        (sdir / "run.lock").unlink()
+        s = invoke("embed-stop", "-c", write_cfg(tmp_path))
+        b = invoke("embed", "-c", write_cfg(tmp_path), "--background")
+    assert s.exit_code == 0 and "PID unknown" in s.output and "PID None" not in s.output
+    assert b.exit_code == 3 and "PID unknown" in b.output and "PID None" not in b.output
