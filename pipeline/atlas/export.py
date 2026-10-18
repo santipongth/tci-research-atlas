@@ -63,9 +63,18 @@ def _r(v, nd: int = 3):
     return round(f, nd) if math.isfinite(f) else None
 
 
+def fine_labels(labels: pd.DataFrame) -> pd.DataFrame:
+    """One fine-level label row per topic (latest wins) - shared by JSON and CSV."""
+    return labels[labels["level"] == "fine"].drop_duplicates("topic_id", keep="last")
+
+
+def _is_true(v) -> bool:
+    return bool(pd.notna(v) and bool(v))
+
+
 def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFrame, edges: pd.DataFrame,
                 em: pd.DataFrame, fc: pd.DataFrame, meta: dict, n_articles: int, include_forecast: bool) -> dict:
-    labels = labels[labels["level"] == "fine"].drop_duplicates("topic_id", keep="last").set_index("topic_id")
+    labels = fine_labels(labels).set_index("topic_id")
     em = em.set_index("topic_id")
     fcm = fc.set_index("topic_id") if len(fc) else pd.DataFrame()
     info_i = info.set_index("topic_id")
@@ -97,7 +106,8 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
         lb = labels.loc[tid] if tid in labels.index else None
         e = em.loc[tid] if tid in em.index else None
         f = fcm.loc[tid] if len(fcm) and tid in fcm.index else None
-        show = f is not None and bool(f["show"]) and include_forecast
+        passes_gate = f is not None and _is_true(f["show"])
+        show = passes_gate and include_forecast
         nodes.append({
             "nodeId": f"t{tid}", "kind": "topic", "group": f"g{int(row['parent'])}",
             "th": lb["name_th"] if lb is not None else f"{_TOPIC_TH}{tid}",
@@ -125,7 +135,7 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
                 "fc_years": json.loads(f["fc_years"]), "fc_mean": json.loads(f["fc_mean"]),
                 "fc_lo": json.loads(f["fc_lo"]), "fc_hi": json.loads(f["fc_hi"]),
             } if show else None),
-            "forecast_uncertain": bool(f is not None and not show),
+            "forecast_uncertain": bool(f is not None and not passes_gate),
         })
 
     assigned = int(info["size"].sum())
@@ -152,6 +162,9 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
 def export(cfg: dict) -> dict:
     work, outdir = Path(cfg["pipeline"]["work_dir"]), Path(cfg["pipeline"]["output_dir"])
     state = Path(cfg["pipeline"]["state_dir"])
+    for name in ("04_centroids.npy", "04_centroid_ids.json"):
+        if not (work / name).exists():
+            raise FileNotFoundError(f"export needs {work / name} (written by the cluster step); nothing was exported")
     outdir.mkdir(parents=True, exist_ok=True)
     info = read_table(work / "04_topic_info.parquet")
     labels = read_table(work / "05_labels.parquet")
@@ -164,7 +177,7 @@ def export(cfg: dict) -> dict:
     (outdir / "atlas_data.json").write_text(json.dumps(atlas, ensure_ascii=False, indent=1, allow_nan=False),
                                             encoding="utf-8")
     if "csv" in cfg["export"]["formats"]:
-        lab = labels[["topic_id", "name_th", "name_en", "description", "keywords"]]
+        lab = fine_labels(labels)[["topic_id", "name_th", "name_en", "description", "keywords"]]
         info.merge(lab, on="topic_id", how="left").to_csv(outdir / "topics.csv", index=False, encoding="utf-8")
         em.to_csv(outdir / "emerging.csv", index=False, encoding="utf-8")
         fc.to_csv(outdir / "forecasts.csv", index=False, encoding="utf-8")

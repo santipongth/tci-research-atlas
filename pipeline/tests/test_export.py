@@ -47,3 +47,64 @@ def test_clean_json_handles_numpy_and_nan():
 
     assert clean_json({"a": np.float64("nan"), "b": [np.int64(3), np.bool_(True)], "c": float("inf")}) == \
         {"a": None, "b": [3, True], "c": None}
+
+
+def test_forecast_uncertain_uses_skill_gate_only_and_missing_show_is_not_shown():
+    frames = list(_frames())
+    atlas = build_atlas(*frames, meta={"last_complete_year": 2024}, n_articles=50, include_forecast=False)
+    t = {n["nodeId"]: n for n in atlas["nodes"] if n["kind"] == "topic"}
+    assert t["t0"]["forecast"] is None and t["t0"]["forecast_uncertain"] is False
+    assert t["t1"]["forecast"] is None and t["t1"]["forecast_uncertain"] is True
+
+    fc = frames[5].copy()
+    fc["show"] = pd.Series([True, None], dtype=object)
+    fc.loc[0, "show"] = math.nan
+    frames[5] = fc
+    atlas = build_atlas(*frames, meta={"last_complete_year": 2024}, n_articles=50, include_forecast=True)
+    t = {n["nodeId"]: n for n in atlas["nodes"] if n["kind"] == "topic"}
+    assert t["t0"]["forecast"] is None and t["t1"]["forecast"] is None
+
+
+def _write_work(tmp_path, with_centroids=True):
+    import numpy as np
+
+    from atlas.io_utils import write_table
+
+    info, labels, layout, edges, em, fc = _frames()
+    work, out, state = tmp_path / "work", tmp_path / "out", tmp_path / "state"
+    work.mkdir()
+    extra = pd.DataFrame({"level": ["fine", "coarse"], "topic_id": [0, 0], "name_th": ["old_th", "coarse_th"],
+                          "name_en": ["Old", "Coarse"], "description": "", "keywords": "", "cache_key": "old"})
+    labels = pd.concat([extra.iloc[:1], labels, extra.iloc[1:]], ignore_index=True)   # old dup first, coarse last
+    for name, df in [("04_topic_info", info), ("05_labels", labels), ("07_emerging", em), ("08_forecasts", fc),
+                     ("09_layout", layout), ("09_edges", edges), ("02_docs", pd.DataFrame({"article_id": range(50)}))]:
+        write_table(df, work / f"{name}.parquet")
+    (work / "06_meta.json").write_text(json.dumps({"last_complete_year": 2024}), encoding="utf-8")
+    if with_centroids:
+        np.save(work / "04_centroids.npy", np.zeros((2, 3)))
+        (work / "04_centroid_ids.json").write_text("[0, 1]", encoding="utf-8")
+    cfg = {"pipeline": {"work_dir": str(work), "output_dir": str(out), "state_dir": str(state)},
+           "export": {"formats": ["json", "csv"], "include_forecast_in_json": True}, "emerging": {}}
+    return cfg, out, state
+
+
+def test_export_topics_csv_one_row_per_topic_with_latest_fine_label(tmp_path):
+    from atlas.export import export
+
+    cfg, out, state = _write_work(tmp_path)
+    export(cfg)
+    csv = pd.read_csv(out / "topics.csv")
+    assert len(csv) == 2 and csv["topic_id"].tolist() == [0, 1]
+    assert csv.loc[0, "name_en"] == "One"
+    assert (state / "prev" / "centroids.npy").exists() and (state / "prev" / "centroid_ids.json").exists()
+
+
+def test_export_checks_centroids_before_writing_anything(tmp_path):
+    import pytest
+
+    from atlas.export import export
+
+    cfg, out, _ = _write_work(tmp_path, with_centroids=False)
+    with pytest.raises(FileNotFoundError, match="04_centroids.npy"):
+        export(cfg)
+    assert not out.exists() or not any(out.iterdir())
