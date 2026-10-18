@@ -1,0 +1,24 @@
+# Synthetic end-to-end config (CPU only). Paths are relative to this file → pipeline/.ci/
+pipeline:
+  work_dir: ../.ci/work
+  output_dir: ../.ci/output
+  state_dir: ../.ci/state
+  seed: 42
+input:
+  format: thaijo_md
+  path: ../.ci/synth
+  workers: 2
+embedding:
+  provider: lite
+clustering:
+  fine:
+    umap_n_components: 10
+    umap_n_neighbors: 15
+    umap_min_dist: 0.0
+    hdbscan_min_cluster_size: 40
+    hdbscan_min_samples: 10
+  merge_similarity: 0.8
+  outlier_min_similarity: 0.35
+  n_groups: 6
+labeling:
+  provider: "off"            # quoted: bare `off` is YAML boolean false

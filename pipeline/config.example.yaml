@@ -1,142 +1,146 @@
 # ============================================================
-# TCI Research Atlas — Pipeline Configuration
-# คัดลอกเป็น config.yaml แล้วแก้ตามสภาพแวดล้อมของคุณ
+# TCI Research Atlas — Pipeline configuration (v2)
+# คัดลอกเป็น config.yaml แล้วแก้ตามสภาพแวดล้อม — key ที่ไม่รู้จักจะถูกปฏิเสธ (กันพิมพ์ผิด)
 # ============================================================
 
 pipeline:
   name: tci-research-atlas
-  work_dir: ./work            # checkpoint ทั้งหมดอยู่ที่นี่ (ลบทิ้งได้ รันใหม่ได้)
-  output_dir: ./output        # ผลลัพธ์สุดท้ายสำหรับเว็บ
+  work_dir: ./work            # checkpoint ที่สร้างใหม่ได้ — ลบทิ้งได้เสมอ
+  output_dir: ./output        # ผลลัพธ์สำหรับเว็บ/นักวิเคราะห์
+  state_dir: ./state          # ข้อมูลถาวรข้ามรอบ: embedding store, label cache, รอบก่อน — ห้ามลบ
   seed: 42
 
-# ---------- Phase 1: Input ----------
 input:
-  # รองรับ .csv / .json / .jsonl / .parquet — กำหนด mapping คอลัมน์ด้านล่าง
-  path: ./data/tci_articles.csv
-  columns:
+  format: thaijo_md           # thaijo_md = โฟลเดอร์ไฟล์ .md จาก ThaiJO | table = csv/json/jsonl/parquet ไฟล์เดียว
+  path: ../corpus             # โฟลเดอร์ .md (หรือไฟล์ตารางถ้า format: table)
+  glob: "**/*.md"
+  workers: 4                  # จำนวน process ตอน parse (ใช้เมื่อไฟล์ > 2,000)
+  min_year: 1990              # ตัดปีผิดปกติ (หลังแปลง พ.ศ.→ค.ศ.)
+  max_year: null              # null = ปีปัจจุบัน + 1
+  columns:                    # ใช้เฉพาะ format: table — ชื่อคอลัมน์มาตรฐาน: ชื่อคอลัมน์ในไฟล์
     article_id: id
     title_th: title_th
     title_en: title_en
     abstract_th: abstract_th
     abstract_en: abstract_en
-    keywords_th: keywords_th        # คั่นด้วย ; หรือ ,
+    keywords_th: keywords_th
     keywords_en: keywords_en
-    authors: authors                # คั่นด้วย ;
+    authors: authors
     affiliations: affiliations
     journal_name: journal
     year: year
-    volume: volume
-    issue: issue
-    tci_tier: tci_tier              # ถ้าไม่มี ให้ลบออกจาก mapping
     doi: doi
     url: url
-  min_year: 2000                    # ตัดข้อมูลปีที่ผิดปกติทิ้ง
   dedup:
-    enabled: true
-    title_similarity: 0.95          # rapidfuzz ratio /100 — เรื่องซ้ำให้เก็บ record ที่ metadata ครบกว่า
+    enabled: true             # ตัดซ้ำด้วย article_id → DOI → ชื่อเรื่อง+ปี (เก็บ record ที่ครบที่สุด)
 
-# ---------- Phase 2: Embedding ----------
 embedding:
-  provider: api                     # api | local
-
-  # --- โหมด API: OpenAI-compatible (OpenAI, Gemini, OpenRouter, vLLM, Ollama ฯลฯ) ---
-  api:
-    base_url: https://api.openai.com/v1     # Gemini: https://generativelanguage.googleapis.com/v1beta/openai/
-    api_key_env: ATLAS_API_KEY              # ชื่อ env var ที่เก็บ key (ไม่ใส่ key ในไฟล์นี้)
-    model: text-embedding-3-large           # Gemini: text-embedding-004
-    dimensions: 1024                        # ลดมิติตั้งแต่ต้นทาง (รองรับใน text-embedding-3-*; ถ้าโมเดลไม่รองรับให้ลบบรรทัดนี้)
-    batch_size: 512
+  provider: lite              # api | local | lite (lite = TF-IDF+SVD บน CPU สำหรับทดสอบ/CI — คุณภาพต่ำกว่า)
+  api:                        # OpenAI-compatible (OpenAI, Gemini, OpenRouter, vLLM, Ollama)
+    base_url: https://api.openai.com/v1
+    api_key_env: ATLAS_API_KEY
+    model: text-embedding-3-large
+    dimensions: 1024
+    batch_size: 256
     max_retries: 6
-    checkpoint_every: 5000                  # เซฟ checkpoint ทุก n เรื่อง
-
-  # --- โหมด Local: รันเองบน GPU/CPU ---
-  local:
-    model: BAAI/bge-m3                      # multilingual แข็งแรง ไทยดี; ทางเลือก: intfloat/multilingual-e5-large
-    device: cuda                            # cuda | cpu | mps
-    batch_size: 64
+    checkpoint_every: 5000
+  local:                      # sentence-transformers บน GPU/CPU ของเราเอง
+    model: BAAI/bge-m3
+    device: cuda
+    batch_size: 32
     fp16: true
-    max_seq_length: 512
-
-  # ประกอบข้อความต่อเรื่อง (เรียงตามความสำคัญ — abstract อาจถูกตัดถ้ายาวเกิน)
+    max_seq_length: 1024      # 512 ตัดบทคัดย่อไทยทิ้งเกือบหมด — BGE-M3 รองรับถึง 8192
+    checkpoint_every: 5000
+  lite:
+    dim: 128
+    ngram_min: 2
+    ngram_max: 4
+    max_features: 100000
+    min_df: 2
   doc_fields: [title_th, title_en, keywords_th, keywords_en, abstract_th, abstract_en]
   max_chars_per_doc: 6000
 
-# ---------- Phase 3: Clustering ----------
 clustering:
-  # ทำ 2 ชั้น: coarse = กลุ่มใหญ่บนหน้าแผนที่, fine = topic สำหรับ drill-down
-  coarse:
-    umap_n_components: 10
-    umap_n_neighbors: 30
-    umap_min_dist: 0.0
-    hdbscan_min_cluster_size: 1500
-    hdbscan_min_samples: 50
+  reducer: umap               # umap | pca
+  pca_dims: 128               # ลดมิติด้วย PCA ก่อน UMAP เมื่อ embedding ใหญ่กว่านี้
+  umap_fit_sample: 150000     # fit UMAP บนตัวอย่างแล้ว transform ที่เหลือ (ประหยัด RAM ที่ 500K)
   fine:
     umap_n_components: 10
     umap_n_neighbors: 15
     umap_min_dist: 0.0
     hdbscan_min_cluster_size: 150
     hdbscan_min_samples: 20
-  outlier_strategy: nearest_centroid        # outlier ของ HDBSCAN → assign เข้า centroid ใกล้สุด
+  merge_similarity: 0.8       # รวม cluster ที่ centroid cosine ≥ ค่านี้ (แก้ HDBSCAN over-split)
+  outlier_min_similarity: 0.35  # outlier เข้าหัวข้อเฉพาะเมื่อใกล้พอ ไม่งั้น "ยังไม่จัดหมวด"
+  n_groups: 20                # จำนวนกลุ่มใหญ่บนแผนที่ (P1 จะเปลี่ยนเป็น OpenAlex fields)
   ctfidf_top_n: 20
+  ctfidf_max_docs_per_topic: 400
 
-# ---------- Phase 4: LLM Labeling ----------
 labeling:
-  provider: api                   # api (OpenAI-compatible) | off
+  provider: "off"             # api | "off" (ต้องใส่เครื่องหมายคำพูด — YAML อ่าน off เปล่า ๆ เป็น false) — off = ตั้งชื่อจากคำสำคัญของผู้เขียน + c-TF-IDF
   api:
     base_url: https://api.openai.com/v1
     api_key_env: ATLAS_API_KEY
-    model: gpt-4o-mini            # หรือโมเดลไทยที่แข็งแรง เช่น typhoon, gpt-4o, gemini-2.0-flash
+    model: gpt-5-mini         # ตั้งเป็นโมเดลรุ่นปัจจุบันที่ถนัดไทยได้ เช่น Claude Haiku / Gemini Flash / Typhoon
     temperature: 0.2
     max_retries: 5
     concurrency: 8
-  # ส่งให้ LLM ต่อ cluster: top c-TF-IDF terms + representative titles
-  n_repr_titles: 8
-  merge_duplicates: true          # ให้ LLM รวม cluster ที่ความหมายซ้ำ (ระดับ coarse)
+  n_repr_docs: 8              # บทความตัวแทน (ใกล้ centroid + กระจายด้วย MMR)
+  mmr_lambda: 0.7
 
-# ---------- Phase 5: Emerging Topic — นิยามของ TCI ----------
-# นิยามเต็มอยู่ใน README.md หัวข้อ "นิยาม Emerging"
+# ---------- Emerging v2 — นิยามเต็มใน docs/EMERGING_SPEC.md ----------
 emerging:
-  min_year_complete: null         # null = ตัดปีล่าสุดออกอัตโนมัติถ้ายอด < 60% ของค่ามัธยฐาน (backfill guard)
-  recent_window: 3                # หน้าต่างปีล่าสุด (R)
-  baseline_window: 5              # หน้าต่างอ้างอิงก่อน R (B)
-  min_articles_recent: 30         # กัน noise: topic ต้องมีอย่างน้อย n เรื่องในช่วง R
+  definition_version: 2
+  min_year_complete: null     # null = backfill guard อัตโนมัติ
+  backfill_min_ratio: 0.6     # ปีล่าสุดที่ยอด < 60% ของ median ถือว่ายังไม่ครบ
+  recent_window: 3            # R
+  baseline_window: 5          # B (ก่อน R)
+  trend_window: 5             # W (ใช้วัดอัตราโตของ share ด้วย GLM)
+  min_articles_recent: 30     # ต่ำกว่านี้ = LOW_DATA (ไม่ฟันธง)
+  ci_level: 0.90
+  size:
+    rule: quantile            # quantile | absolute
+    large_quantile: 0.75      # "ใหญ่" = share_R ≥ quantile นี้ของหัวข้อที่จำแนกได้
+    large_share: 0.015        # ใช้เมื่อ rule: absolute
   emerging:
-    max_recent_share: 0.015       # share ช่วง R < 1.5% (ยังเล็ก)
-    min_cagr_recent: 0.25         # CAGR ช่วง R >= 25%/ปี
-    min_share_ratio: 1.8          # share(R) / share(B) >= 1.8
+    min_growth_lo: 0.10       # CI ล่างของอัตราโตของ share ≥ +10%/ปี
+    min_share_ratio: 1.8      # share_R / share_B
   hot:
-    min_recent_share: 0.015       # share >= 1.5% และ
-    min_slope_share: 0.0          # slope ของ share ทั้งช่วง > 0
+    min_growth_lo: 0.0        # หัวข้อใหญ่ที่ CI ล่าง > 0
   declining:
-    consecutive_negative_years: 3 # slope ติดลบต่อเนื่อง n ปี
-  # คะแนนรวม 0–100 = weighted sum ของมิติที่ normalize ต่อรอบรัน
-  score_weights:
-    growth: 0.35
-    acceleration: 0.25
-    burst: 0.20                   # Kleinberg burst intensity
-    novelty: 0.20                 # 1 - max cosine sim กับ centroid รอบก่อน (ถ้าไม่มีรอบก่อน → ใช้ 0.5)
+    max_growth_hi: 0.0        # CI บน < 0
+    max_share_ratio: 0.8
+  breadth:
+    min_journals: 3           # ใน R ต้องมี ≥ 3 วารสาร
+    min_orgs: 3               # และ ≥ 3 สถาบัน
+    max_new_journal_share: 0.5  # บทความจากวารสารที่เพิ่งเข้าระบบใน R ต้อง < 50%
+    min_org_coverage: 0.5     # ใช้เกณฑ์สถาบันเฉพาะเมื่อบทความใน R มีข้อมูลสังกัด ≥ 50% (กันข้อมูลตารางที่ไม่มีสังกัด)
   burst:
-    kleinberg_states: 2
-    gamma: 1.0                    # transition cost — สูง = หา burst ที่ยาว/ชัดเจนขึ้น
+    s: 2.0                    # Kleinberg: อัตราในสถานะ burst = s × ปกติ
+    gamma: 1.0                # ค่าเข้าสถานะ burst = γ·ln(T)
+  score_weights:
+    growth: 0.30
+    acceleration: 0.20
+    burst: 0.15
+    novelty: 0.15
+    coherence: 0.10
+    breadth: 0.10
 
-# ---------- Phase 6: Forecast ----------
 forecast:
-  horizon: 2                      # ทำนายล่วงหน้า n ปี
-  min_history_years: 6            # topic ต้องมีประวัติอย่างน้อย n ปีถึงจะทำนาย
-  models: [linear, poisson]       # เพิ่ม prophet ได้ถ้าติดตั้งแล้ว
-  backtest_years: 3               # train ≤ Y-3 แล้ววัดผล 3 ปีสุดท้าย
-  metric: mape                    # เลือกโมเดลที่ดีสุดต่อ topic ด้วย metric นี้
-  winsorize_quantile: 0.98        # ตัด outlier รายปี (เช่น ปีที่วารสาร backfill)
+  horizon: 2
+  min_history_years: 6
+  models: [naive, linear, poisson]
+  backtest_years: 3
+  min_skill: 0.0              # แสดงตัวเลขเฉพาะเมื่อ skill เทียบ naive > ค่านี้ (ไม่งั้น "แนวโน้มไม่แน่นอน")
 
-# ---------- Phase 7: Layout & Export ----------
 layout:
   umap_2d_neighbors: 12
   umap_2d_min_dist: 0.35
   view_w: 1680
   view_h: 1040
-  edge_similarity_threshold: 0.55 # edge ระหว่าง topic = cosine sim ของ centroid ≥ ค่านี้
+  edge_similarity_threshold: 0.55
   max_edges_per_node: 4
 
 export:
-  formats: [json, csv]            # json สำหรับเว็บ, csv สำหรับนักวิเคราะห์
+  formats: [json, csv]
   include_forecast_in_json: true
