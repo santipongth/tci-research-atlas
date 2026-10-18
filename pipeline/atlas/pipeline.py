@@ -1,79 +1,58 @@
-"""Pipeline orchestrator — run the whole batch or individual steps.
+"""Pipeline orchestrator — run all steps or a subset; every step reads the previous
+step's checkpoint from work_dir, so the run can stop and resume anywhere.
 
-Usage:
-  python -m atlas.pipeline --config config.yaml                 # run everything
-  python -m atlas.pipeline --config config.yaml --steps embed cluster
-  python -m atlas.pipeline --steps emerging forecast export     # reuse checkpoints
-
-Steps: ingest → preprocess → embed → cluster → label → series → emerging → forecast → layout → export
-Every step reads its predecessor's checkpoint in work_dir — safe to stop/resume anywhere.
+  uv run atlas run --config config.yaml
+  uv run atlas run --config config.yaml --step emerging --step forecast --step export
+  python -m atlas.pipeline --config config.yaml --steps emerging forecast export
 """
 from __future__ import annotations
 
 import argparse
+import importlib
 import sys
 import time
 
-from . import config as cfg_mod
+from atlas import config as cfg_mod
 
-STEPS = ["ingest", "preprocess", "embed", "cluster", "label",
-         "series", "emerging", "forecast", "layout", "export"]
+STEPS = ["ingest", "preprocess", "embed", "cluster", "label", "series", "emerging", "forecast", "layout", "export"]
+_FUNCS = {
+    "ingest": ("atlas.ingest", "ingest"),
+    "preprocess": ("atlas.preprocess", "preprocess"),
+    "embed": ("atlas.embed", "embed"),
+    "cluster": ("atlas.cluster", "cluster"),
+    "label": ("atlas.label", "label"),
+    "series": ("atlas.topics_time", "build_series"),
+    "emerging": ("atlas.emerging", "emerging"),
+    "forecast": ("atlas.forecast", "forecast"),
+    "layout": ("atlas.layout", "layout"),
+    "export": ("atlas.export", "export"),
+}
 
 
-def run(cfg: dict, steps: list[str]) -> None:
+def run(cfg: dict, steps: list[str] | None = None) -> None:
+    steps = steps or STEPS
+    unknown = [s for s in steps if s not in _FUNCS]
+    if unknown:
+        raise ValueError(f"unknown steps {unknown}; choose from {STEPS}")
     t0 = time.time()
     for step in steps:
         print(f"\n=== STEP: {step} ===")
         t = time.time()
-        if step == "ingest":
-            from . import ingest
-            ingest.ingest(cfg)
-        elif step == "preprocess":
-            from . import preprocess
-            preprocess.preprocess(cfg)
-        elif step == "embed":
-            from . import embed
-            embed.embed(cfg)
-        elif step == "cluster":
-            from . import cluster
-            cluster.cluster(cfg)
-        elif step == "label":
-            from . import label
-            label.label(cfg)
-        elif step == "series":
-            from . import topics_time
-            topics_time.build_series(cfg)
-        elif step == "emerging":
-            from . import emerging
-            emerging.emerging(cfg)
-        elif step == "forecast":
-            from . import forecast
-            forecast.forecast(cfg)
-        elif step == "layout":
-            from . import layout
-            layout.layout(cfg)
-        elif step == "export":
-            from . import export
-            export.export(cfg)
-        else:
-            raise ValueError(f"unknown step: {step} (choose from {STEPS})")
+        module, fn = _FUNCS[step]
+        getattr(importlib.import_module(module), fn)(cfg)
         print(f"=== {step} done in {time.time() - t:.1f}s ===")
-    print(f"\n[pipeline] all steps finished in {(time.time() - t0) / 60:.1f} min")
+    print(f"\n[pipeline] {len(steps)} steps finished in {(time.time() - t0) / 60:.1f} min")
 
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="TCI Research Atlas batch pipeline")
-    ap.add_argument("--config", default=None, help="path to config.yaml (defaults to config.example.yaml)")
-    ap.add_argument("--steps", nargs="*", default=None,
-                    help=f"subset of steps to run (default: all). Choices: {STEPS}")
+    ap.add_argument("--config", default=None)
+    ap.add_argument("--steps", nargs="*", default=None, help=f"subset of {STEPS}")
     args = ap.parse_args(argv)
-
-    cfg = cfg_mod.load_config(args.config)
-    steps = args.steps or STEPS
-    unknown = set(steps) - set(STEPS)
-    if unknown:
-        sys.exit(f"unknown steps: {unknown}")
-    run(cfg, steps)
+    try:
+        run(cfg_mod.load_config(args.config), args.steps)
+    except ValueError as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":

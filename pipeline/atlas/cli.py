@@ -64,3 +64,15 @@ def profile(
     if md:
         md.write_text(text, encoding="utf-8")
     typer.echo(text)
+
+
+@app.command("run")
+def run_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+    step: list[str] = typer.Option(None, "--step", "-s", help="run only these steps, repeatable, in order"),
+) -> None:
+    """Run the batch pipeline (all steps, or the given --step list)."""
+    from atlas.config import load_config
+    from atlas.pipeline import run
+
+    run(load_config(config), step or None)
