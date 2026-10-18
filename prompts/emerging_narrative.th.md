@@ -40,5 +40,5 @@
 ## หมายเหตุการ implement
 
 - ค่าใช้จ่าย: top 24 emerging × ~500 token ≈ น้อยมากต่อรอบ
-- ควร cache ด้วย prompt_hash เหมือน label.py
+- ควร cache ด้วย `cache_key` (hash ของ model + prompt) เหมือน label.py
 - เว็บ: เพิ่มฟิลด์ `narrative_th`/`narrative_en` (optional) ใน `AtlasNode` → แสดงเหนือกราฟ forecast ใน DetailPanel

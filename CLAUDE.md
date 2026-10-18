@@ -21,16 +21,21 @@ tci-research-atlas/
 ├── README.md               ← ภาพรวมสำหรับทีม (ภาษาไทย)
 ├── docs/
 │   ├── ARCHITECTURE.md     ← การออกแบบระบบ + การไหลของข้อมูล
-│   ├── DATA_SPEC.md        ← สเปก input (TCI metadata) และ output (atlas_data.json)
+│   ├── DATA_SPEC.md        ← สเปก input (ThaiJO Markdown) และ output (atlas_data.json)
 │   ├── EMERGING_SPEC.md    ← นิยาม "emerging" ของ TCI ฉบับเต็ม + สูตรคะแนน
 │   ├── ROADMAP.md          ← ฟีเจอร์ทั้ง 5 phase + ของที่ควรทำต่อ
-│   └── OPERATIONS.md       ← วิธีรัน batch รายไตรมาส + import เข้าเว็บ + troubleshoot
+│   ├── OPERATIONS.md       ← วิธีรัน batch รายไตรมาส + import เข้าเว็บ + troubleshoot
+│   └── superpowers/        ← specs + plans ของ v2 (แผนหลัก: specs/2026-10-18-tci-atlas-v2-design.md)
 ├── pipeline/               ← Python batch pipeline (Phase 1,2,4,5)
 │   ├── atlas/              ← โมดูล pipeline: ingest→preprocess→embed→cluster→label
 │   │                         →series→emerging→forecast→layout→export
+│   │   ├── sources/        ← parser ข้อมูลเข้า (thaijo_md.py)
+│   │   └── schema/         ← data contract v2 (contract.py → JSON Schema)
+│   ├── configs/ci.yaml     ← config สำหรับ CI
+│   ├── state/              ← ข้อมูลถาวรข้ามรอบ (embedding store, label cache, centroids) — git-ignored, ห้ามลบ
 │   ├── config.example.yaml ← คัดลอกเป็น config.yaml แล้วแก้
 │   ├── tests/              ← pytest (มี test_emerging.py ครอบคลุมนิยาม emerging)
-│   ├── scripts/            ← validate_input.py, run_all.sh
+│   ├── scripts/            ← run_all.sh
 │   └── requirements.txt
 ├── web/                    ← React + TypeScript + Vite + Tailwind (Phase 3)
 │   ├── src/sections/       ← AtlasMap, EmergingThemes, GroupRanking, Insights, ...
@@ -62,15 +67,16 @@ tci-research-atlas/
 ### Pipeline (ทำงานใน `pipeline/`)
 
 ```bash
-pip install -r requirements.txt
-cp config.example.yaml config.yaml      # แล้วแก้ path/ค่าต่าง ๆ
-export ATLAS_API_KEY=...                # ถ้าใช้ embedding/labeling แบบ API
-
-python scripts/validate_input.py --config config.yaml   # เช็กไฟล์ input ก่อนเสมอ
-python -m atlas.pipeline --config config.yaml           # รันทั้ง pipeline
-python -m atlas.pipeline --config config.yaml --steps emerging forecast export  # รันบาง step
-pytest tests/ -q                        # ทดสอบ
+cd pipeline
+uv sync                                    # + --extra api / --extra local
+cp config.example.yaml config.yaml         # แก้ input.path → โฟลเดอร์ .md
+uv run atlas profile ../corpus             # ตรวจคุณภาพคลังก่อนเสมอ
+uv run atlas run --config config.yaml      # ทั้งสาย
+uv run atlas run -c config.yaml -s emerging -s forecast -s export
+uv run atlas synth --out .ci/synth --n 20000
+uv run pytest -q && uv run pytest -m slow -q
 ```
+(ตั้ง `ATLAS_API_KEY` ใน env ถ้าใช้ embedding/labeling แบบ API)
 
 ### Web (ทำงานใน `web/`)
 
@@ -83,7 +89,7 @@ npm run build      # build → dist/
 ### รอบรันรายไตรมาส (จาก root)
 
 ```bash
-bash scripts/quarterly_run.sh /path/to/tci_export.csv     # รัน pipeline ครบ + validate
+bash scripts/quarterly_run.sh [pipeline/config.yaml]      # profile คลัง + รัน pipeline ครบ
 bash scripts/import_atlas.sh                              # คัดลอก JSON เข้าเว็บ + build
 ```
 
@@ -93,7 +99,9 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 
 **นี่คือสัญญาระหว่าง pipeline กับเว็บ — ห้ามเปลี่ยนโดยไม่แก้ทั้งสองฝั่ง**
 
-- ฝั่งผลิต: `pipeline/atlas/export.py` (schema เต็มใน `docs/DATA_SPEC.md`)
+- ฝั่งผลิต: `pipeline/atlas/export.py` (schema เต็มใน `docs/DATA_SPEC.md`) — ตอนนี้เป็น **schema 1.1** (`meta.schema_version`, `meta.definition_version = 2`)
+- ฟิลด์ใหม่ของ 1.1 ต่อหัวข้อ: `share_growth`, `share_growth_lo`, `share_growth_hi`, `n_journals_R`, `n_orgs_R`, `journal_driven`, `coherence`, `forecast_uncertain` (+ `meta.assigned_articles`, `meta.unassigned_articles`); status มี 6 ค่า (EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA); `forecast` เป็น null เว้นแต่ผ่าน skill gate
+- data contract v2 อยู่ที่ `pipeline/atlas/schema/contract.py` → ต้องสร้างใหม่พร้อมกัน: `uv run atlas schema` แล้ว `npm run gen:types` (ใน `web/`) — CI ตรวจ drift ทั้งสองขั้น
 - ฝั่งบริโภค: `web/src/lib/loader.ts` — ฟังก์ชัน `normalize()` แปลง pipeline schema → web schema:
   - `nodeId` → `id`, `kind: "topic"` → `kind: "field"`, `nTopics` → `nFields`
   - `emerging_score` → `emergingScore`, `burst_years` → `burstYears`
@@ -108,8 +116,13 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 - **DO** เพิ่ม step ใหม่โดยสร้างโมดูลใน `atlas/` ที่อ่าน checkpoint ของ step ก่อนจาก `work_dir` และเขียน checkpoint ของตัวเอง — pipeline ต้อง stop/resume ได้ทุกจุด
 - **DO** ใช้ `io_utils.read_table/write_table` (รองรับ parquet→pickle fallback) อย่าเรียก `pd.read_parquet` ตรง ๆ
 - **DO** เก็บค่าพารามิเตอร์ทุกตัวใน `config.yaml` — ห้าม hardcode threshold
-- **DO** รัน `pytest tests/ -q` ก่อนส่งงาน — โดยเฉพาะถ้าแก้ `emerging.py` (นิยาม emerging มี unit test ล็อกไว้)
-- **DON'T** แก้นิยาม EMERGING/HOT/DECLINING โดยไม่อัปเดต `docs/EMERGING_SPEC.md` + `config.example.yaml` + ทดสอบให้ตรงกัน
+- **DO** รัน `uv run pytest -q` ก่อนส่งงาน — โดยเฉพาะถ้าแก้ `emerging.py` (นิยาม emerging มี unit test ล็อกไว้)
+- **DO** เก็บข้อมูลถาวรเฉพาะใน `state_dir` (`work_dir` ต้องลบได้เสมอ)
+- **DO** สถานะมี 6 ค่าของ v2 เท่านั้น และต้องเพิ่ม `definition_version` ทุกครั้งที่นิยามเปลี่ยน
+- **DO** เขียนอักษรไทยในซอร์สเป็น `\N{THAI CHARACTER ...}` หรือ `chr(0x...)` — ห้ามใช้ backslash-u escape
+- **DO** pandas 3: ห้ามทดสอบ `dtype == object`; normalise คอลัมน์ข้อความด้วย `.fillna("").astype(str)`
+- **DO** ใส่เครื่องหมายคำพูดให้ `"off"` ใน YAML (`provider: "off"`) — `off` เปล่า ๆ ถูกอ่านเป็น false
+- **DON'T** แก้นิยาม EMERGING/WATCH/HOT/DECLINING โดยไม่อัปเดต `docs/EMERGING_SPEC.md` + `config.example.yaml` + ทดสอบให้ตรงกัน
 - **DON'T** ใส่ API key ลงไฟล์ใด ๆ — ใช้ env var (`ATLAS_API_KEY`) เสมอ
 
 ### Web
@@ -124,10 +137,11 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 ### LLM prompts
 
 - Prompts ฉบับ master อยู่ใน `prompts/*.md` — โค้ดใน `pipeline/atlas/label.py` มีสำเนาฝังอยู่; **ถ้าแก้ prompt ให้แก้ทั้งสองที่และบอกใน commit**
-- ทุก prompt มี `prompt_hash` caching — เปลี่ยน prompt = hash เปลี่ยน = label ถูกสร้างใหม่เฉพาะที่จำเป็น
+- label cache ใช้ `cache_key` = sha256(model + prompt เต็ม)[:16] เก็บใน `state_dir/label_cache` — เปลี่ยน prompt หรือ model = key เปลี่ยน = label ถูกสร้างใหม่เฉพาะที่จำเป็น
 
 ## 7. บริบทภาษาไทยที่ต้องรู้
 
+- ข้อความไทยจาก PDF อาจมีอักษร Private-Use (U+F700–F71A) — `atlas.thai.clean_text` ซ่อมให้; ห้ามลบทิ้ง
 - ข้อมูล TCI เป็นไทย+อังกฤษปนกัน — embedding ต้อง multilingual (default: API `text-embedding-3-large` หรือ local `BAAI/bge-m3`)
 - c-TF-IDF ใช้ `char_wb` n-gram 3–5 เพราะภาษาไทยไม่มีช่องว่างระหว่างคำ
 - ปีในข้อมูลอาจเป็น พ.ศ. — `ingest.py` แปลงเป็น ค.ศ. แล้ว (ทุกอย่าง downstream เป็น ค.ศ.)

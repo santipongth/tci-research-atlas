@@ -5,26 +5,29 @@
 
 ## 0. สิ่งที่ต้องมี (ครั้งแรกครั้งเดียว)
 
-- เครื่องที่รัน pipeline: Python 3.10+, RAM ≥ 16 GB (local mode อยากได้ GPU)
-- เครื่อง build เว็บ: Node.js ≥ 18 (เครื่องเดียวกันก็ได้)
+- เครื่องที่รัน pipeline: Python 3.11+ (ใช้ `uv`; dev/CI ใช้ 3.12), RAM ≥ 16 GB (local mode อยากได้ GPU)
+- เครื่อง build เว็บ: Node.js 24 (ตรงกับ CI) (เครื่องเดียวกันก็ได้)
 - API key ถ้าใช้โหมด api: ตั้ง `export ATLAS_API_KEY=...` (ใส่ใน `.env` หรือ crontab env)
 - `pipeline/config.yaml` (คัดลอกจาก `config.example.yaml` แล้วแก้ `input.path`)
 
 ## 1. รอบรันรายไตรมาส (runbook)
 
-### ขั้น 1 — รับและวางไฟล์ export จาก TCI
+### ขั้น 1 — รับและวางคลังบทความ
 
-ได้ไฟล์ metadata ใหม่ (เช่น `tci_export_2026Q4.csv`) จากทีมข้อมูล → วางที่ `pipeline/data/`
-→ แก้ `config.yaml: input.path` ชี้ไฟล์ใหม่ (หรือตั้ง symlink `data/tci_articles.csv`)
+ได้โฟลเดอร์ไฟล์ .md จาก ThaiJO ชุดใหม่ (หนึ่งไฟล์ต่อบทความ) → วางนอก git (เช่น `../corpus`; ข้อมูลจริงห้ามเข้า repo)
+→ แก้ `config.yaml: input.path` ชี้โฟลเดอร์นั้น
 
 ### ขั้น 2 — รัน pipeline
 
 ```bash
 cd pipeline
-python scripts/validate_input.py --config config.yaml   # เช็กไฟล์ก่อนเสมอ — ถ้าไม่ผ่าน หยุดแก้ข้อมูล
-bash ../scripts/quarterly_run.sh data/tci_export_2026Q4.csv
-# หรือรันเอง: python -m atlas.pipeline --config config.yaml
+uv sync --extra local                      # หรือ --extra api
+uv run atlas profile /path/to/corpus --md ../logs/profile.md   # ขั้น 1: อ่านรายงานก่อนเสมอ
+uv run atlas run --config config.yaml      # ขั้น 2: ทั้งสาย (หรือ bash ../scripts/quarterly_run.sh)
+bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้าเว็บ + build
 ```
+
+(`python -m atlas.pipeline` ยังใช้ได้เป็น alias ของ `atlas run` แต่เอกสารนี้ใช้ `atlas` CLI)
 
 สิ่งที่ต้องดูตอนจบ:
 - `[export] -> output/atlas_data.json` ขึ้นโดยไม่มี error
@@ -58,22 +61,26 @@ mkdir -p runs/2026Q4 && cp pipeline/output/* runs/2026Q4/
 
 ```cron
 # 01:00 วันที่ 1 ของ เดือน 1,4,7,10
-0 1 1 1,4,7,10 * * cd /path/to/tci-research-atlas && bash scripts/quarterly_run.sh pipeline/data/tci_articles.csv >> logs/quarterly.log 2>&1
+0 1 1 1,4,7,10 * cd /path/to/tci-research-atlas && bash scripts/quarterly_run.sh pipeline/config.yaml >> logs/quarterly.log 2>&1
 ```
 
 ## 3. Troubleshooting
 
 | อาการ | สาเหตุที่พบบ่อย | วิธีแก้ |
 |---|---|---|
-| `validate_input.py` ฟ้องคอลัมน์หาย | หน้า export จาก TCI เปลี่ยน | แก้ `input.columns` mapping ใน config.yaml |
+| `atlas profile` ฟ้องไฟล์อ่านไม่ได้/ฟิลด์ว่างมาก | รูปแบบ .md จาก ThaiJO เปลี่ยน (หรือใช้ `input.format: table` แล้ว mapping คอลัมน์ผิด) | ดูรายงาน profile; ถ้าเป็นตาราง แก้ `input.columns` ใน config.yaml |
 | embed ค้าง/ล่มกลางทาง | API timeout, OOM | รันใหม่ได้เลย — checkpoint ทุก 5,000 เรื่อง รันต่อจากจุดเดิม |
-| topic ออกมาใหญ่เกิน/เล็กเกิน | hdbscan_min_cluster_size ไม่เหมาะ | ปรับ `clustering.fine/coarse.hdbscan_min_cluster_size` แล้วรัน `--steps cluster label series emerging forecast layout export` |
+| topic ออกมาใหญ่เกิน/เล็กเกิน | hdbscan_min_cluster_size ไม่เหมาะ | ปรับ `clustering.fine.hdbscan_min_cluster_size` (หรือ `clustering.n_groups` สำหรับกลุ่มใหญ่) แล้วรัน `uv run atlas run -c config.yaml -s cluster -s label -s series -s emerging -s forecast -s layout -s export` |
 | ทุกหัวข้อขึ้น DECLINING | ปีล่าสุดข้อมูลยังไม่ครบ แต่ backfill guard ไม่ตัด | ตั้ง `emerging.min_year_complete` เองใน config |
-| label เป็นภาษาอังกฤษหมด | โมเดลไม่ถนัดไทย | เปลี่ยน `labeling.api.model` (เช่น typhoon / gpt-4o / gemini-2.0-flash) — prompt_hash เปลี่ยน เฉพาะ label จะถูกสร้างใหม่ |
+| label เป็นภาษาอังกฤษหมด | โมเดลไม่ถนัดไทย | เปลี่ยน `labeling.api.model` (เช่น typhoon / gpt-4o / gemini-2.0-flash) — cache_key (hash ของ model + prompt) เปลี่ยน เฉพาะ label จะถูกสร้างใหม่ |
 | หน้าเว็บยังเป็นข้อมูลเก่า | ลืม build ใหม่ หรือ browser cache | `import_atlas.sh` ต้องรันจนจบ (มี build ในตัว); hard-refresh |
 | หน้าเว็บ badge ขึ้น "○ ข้อมูลตัวอย่าง" | JSON ไม่ถูกวาง/โหลดไม่ได้ | เช็ก `web/public/data/atlas_data.json` มีจริง และ deploy มีไฟล์นี้ด้วย |
-| forecast ไม่มีบาง topic | ประวัติ < 6 ปี | เป็นเรื่องปกติ (`forecast.min_history_years`) |
-| อยากปรับนิยาม emerging | — | แก้ `config.yaml → emerging:` + `docs/EMERGING_SPEC.md` + `tests/test_emerging.py` พร้อมกัน แล้วรัน `--steps emerging forecast export` (ฟรี ไม่แตะ API) |
+| forecast ไม่มีบาง topic | ประวัติ < 6 ปี หรือไม่ผ่าน skill gate (ดีกว่า naive ไม่พอ) | เป็นเรื่องปกติ (`forecast.min_history_years`, `forecast.min_skill`); ใน JSON จะเป็น `forecast: null` + `forecast_uncertain` |
+| หัวข้อเกือบทั้งหมดเป็น LOW_DATA | corpus เล็ก/ช่วงปีสั้น หรือ `min_articles_recent` สูงไป | ตรวจรายงาน profile; ปรับ `emerging.min_articles_recent` เฉพาะเมื่อมีเหตุผล (กระทบนิยาม ต้อง bump `definition_version`) |
+| หัวข้อขึ้น WATCH เยอะ | วารสารเข้ามาอัปโหลดย้อนหลังเป็นชุด (journal-entry bias) | ดู profile หัวข้อ "วารสารที่อัปโหลดย้อนหลัง"; WATCH คือสัญญาณเตือน ไม่ใช่ข้อสรุป |
+| `provider: off` ใน YAML ไม่ทำงานตามคาด | YAML อ่าน `off` เปล่า ๆ เป็น false | ใส่เครื่องหมายคำพูด: `provider: "off"` |
+| Windows แสดงภาษาไทยเพี้ยนใน console | console เป็น cp1252 | ใช้ `uv run atlas …` (ตั้ง UTF-8 ให้แล้ว) |
+| อยากปรับนิยาม emerging | — | แก้ `config.yaml → emerging:` + `docs/EMERGING_SPEC.md` + `tests/test_emerging.py` พร้อมกัน แล้วรัน `uv run atlas run -c config.yaml -s emerging -s forecast -s export` (ฟรี ไม่แตะ API) |
 
 ## 4. งบประมาณโดยประมาณต่อรอบ (corpus ~200K เรื่อง)
 

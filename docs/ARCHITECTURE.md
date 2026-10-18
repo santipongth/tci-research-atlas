@@ -4,49 +4,41 @@
 
 1. **แยกผลิตจากแสดงผลสมบูรณ์** — pipeline (Python, batch, หนัก) กับเว็บ (React, static, เบา) รู้จักกันผ่านไฟล์เดียว: `atlas_data.json` เปลี่ยนโค้ดฝั่งใดฝั่งหนึ่งได้อิสระ ตราบใดที่ data contract ไม่เปลี่ยน
 2. **ไม่มี backend/database** — ลดภาระ infra ของทีมเป็นศูนย์; เว็บ static ใช้ได้ทุกที่ (Kimi publish, GitHub Pages, nginx)
-3. **ทุกอย่าง resume ได้** — pipeline เขียน checkpoint หลังทุก step ลง `work_dir`; รันใหม่ = ข้าม step ที่ทำแล้ว (เลือกด้วย `--steps`)
+3. **ทุกอย่าง resume ได้** — pipeline เขียน checkpoint หลังทุก step ลง `work_dir`; รันใหม่ = ข้าม step ที่ทำแล้ว (เลือกด้วย `--step/-s`)
 4. **ตัวเลขต้องอธิบายได้** — ทุก metric ที่ขึ้นหน้าเว็บมีนิยามเขียนไว้ใน `EMERGING_SPEC.md` และทดสอบใน `tests/` เพราะผู้บริหารจะถือตัวเลขนี้ไปคุยต่อ
 5. **ภาษาไทยเป็นพลเมืองชั้นหนึ่ง** — embedding multilingual, c-TF-IDF แบบ char n-gram, UI สองภาษา, ปี ค.ศ. เป็นมาตรฐานกลาง (แปลงจาก พ.ศ. ที่ ingest)
+6. **state แยกจาก work** — `work_dir` ลบได้เสมอ; `state_dir` เก็บสิ่งที่ต้องอยู่ข้ามรอบ (embedding store, label cache, centroids รอบก่อน)
 
 ## 2. การไหลของข้อมูล (data flow)
 
 ```
-metadata TCI (csv/json/parquet)
+corpus/*.md (ThaiJO scrape)            ← ตรวจก่อนด้วย: atlas profile
         │
         ▼
-[ingest]      อ่าน+map คอลัมน์, แปลง พ.ศ.→ค.ศ., dedup (title similarity ≥0.95 เก็บ record ที่ metadata ครบกว่า)
-        │  → work/01_articles.parquet
+[ingest]     parse .md (ซ่อม PUA/สระอำ, แยก TH/EN, ปี: Published→DOI→median issue, ID จาก URL), dedup
+        │  → work/01_articles · 01_authors (+org_key) · 01_references
         ▼
-[preprocess]  ประกอบ doc ต่อเรื่อง (title+keywords+abstract, ≤6000 ตัวอักษร), ทำความสะอาด
-        │  → work/02_docs.parquet
+[preprocess] doc_text = title + keywords + abstract (≤ 6000 ตัวอักษร)          → work/02_docs
         ▼
-[embed]       embedding ทุกเรื่อง (provider: api|local) + checkpoint ทุก 5,000 เรื่อง
-        │  → work/03_embeddings.npy
+[embed]      api | local (BGE-M3, 1024 tokens) | lite (TF-IDF+SVD สำหรับ CI)
+             เวกเตอร์ api/local เก็บถาวรใน state/embeddings (resume + incremental)  → work/03_embeddings.npy
         ▼
-[cluster]     UMAP(10 มิติ) → HDBSCAN 2 ชั้น (coarse=กลุ่มใหญ่, fine=topic)
-              outlier → assign เข้า centroid ใกล้สุด, c-TF-IDF (char_wb 3–5) หาคำเด่น
-        │  → work/04_topics.parquet, 04_topic_info.parquet, 04_centroids.npy
+[cluster]    [PCA] → UMAP → HDBSCAN → merge cluster ซ้ำ (cos ≥ 0.8) → outlier เข้าเฉพาะที่ใกล้พอ
+             → กลุ่มใหญ่ (agglomerative) → c-TF-IDF (pythainlp) + author keywords + coherence
+        │  → work/04_fine_topics · 04_coarse_topics · 04_topic_info · 04_centroids.npy · 04_centroid_ids.json
         ▼
-[label]       LLM ตั้งชื่อ topic (terms + representative titles → JSON ชื่อไทย/อังกฤษ/คำอธิบาย/keywords)
-              cache ด้วย (topic, prompt_hash, model) — รันใหม่ไม่เสียเงินซ้ำ
-        │  → work/05_labels.parquet
+[label]      LLM (cache = hash ของ prompt ใน state/label_cache) หรือ off (ชื่อจาก author keywords)  → work/05_labels
         ▼
-[series]      ตารางจำนวนบทความ topic × ปี + last_complete_year (backfill guard:
-              ตัดปีล่าสุดทิ้งถ้ายอด < 60% ของ median)
-        │  → work/06_topic_year.parquet, 06_meta.json
+[series]     topic × ปี + ตารางวารสาร/สถาบัน + backfill guard
+        │  → work/06_series · 06_topic_journal_year · 06_topic_org_year · 06_journal_first_year · 06_meta.json
         ▼
-[emerging]    นิยาม TCI: share/CAGR/slope/streak + Kleinberg burst + novelty เทียบ centroid รอบก่อน
-        │  → work/07_emerging.parquet
+[emerging]   Emerging v2 (docs/EMERGING_SPEC.md)                                   → work/07_emerging
         ▼
-[forecast]    OLS/Poisson ต่อ topic + เลือกโมเดลด้วย backtest MAPE (train ≤ Y−3)
-        │  → work/08_forecasts.parquet
+[forecast]   naive / linear / Poisson + backtest + skill gating                    → work/08_forecasts
         ▼
-[layout]      UMAP 2 มิติสำหรับแผนที่ + edges จาก cosine similarity ของ centroid
-        │  → work/09_layout.parquet, 09_edges.parquet
+[layout]     UMAP 2D บน centroid + edges                                           → work/09_layout · 09_edges
         ▼
-[export]      atlas_data.json (เว็บ) + topics.csv / emerging.csv / forecasts.csv (นักวิเคราะห์)
-              + manifest.json + เก็บ centroids ไว้ให้รอบหน้าคำนวณ novelty
-        │  → output/atlas_data.json
+[export]     output/atlas_data.json (schema 1.1) + CSVs + manifest; centroids → state/prev/
         ▼
 เว็บ: fetch('/data/atlas_data.json') → loader.normalize() → render
       (fetch ไม่สำเร็จ → ใช้ข้อมูล bundle ใน src/data/atlas.ts)
@@ -97,5 +89,5 @@ static hosting ถูกกว่า เสถียรกว่า และ pu
 ## 6. ข้อจำกัดที่รับรู้ไว้
 
 - **forecast ระยะสั้น (2 ปี)** — ตั้งใจ: ข้อมูลบทความมี backfill lag, ทำนายยาวจะหลอกตัวเอง
-- **emerging score เป็น percentile ภายในรอบรัน** — เปรียบเทียบข้ามรอบรันไม่ได้ตรง ๆ (ออกแบบให้เช่นนั้น: ใช้จัดอันดับ "ตอนนี้อะไรน่าสนใจ")
+- **สถานะใช้ช่วงเชื่อมั่น (v2)** — score ยังเป็น percentile ภายในรอบ เทียบข้ามรอบไม่ได้
 - **layout เปลี่ยนทุกรอบรัน** — ตำแหน่งวงกลมคำนวณใหม่ทุกครั้ง; ถ้าต้องการแผนที่นิ่งข้ามรอบ ดู ROADMAP.md §map-stability

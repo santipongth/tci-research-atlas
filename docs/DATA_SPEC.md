@@ -1,53 +1,48 @@
 # DATA_SPEC — สเปกข้อมูลเข้า/ออก
 
-## 1. Input: metadata บทความ TCI
-
-ไฟล์เดียว รองรับ `.csv` / `.json` / `.jsonl` / `.parquet` — แถวละ 1 บทความ
-mapping ชื่อคอลัมน์ตั้งใน `config.yaml` ที่ `input.columns` (เปลี่ยนได้ตามหน้า export จริง)
-
-| ฟิลด์มาตรฐาน | จำเป็น | หมายเหตุ |
+## 1. Input: ThaiJO Markdown (ค่าดีฟอลต์ `input.format: thaijo_md`)
+หนึ่งไฟล์ .md ต่อบทความ (ตัวอย่างจริงใน `pipeline/tests/fixtures/thaijo_md/`):
+| ส่วน | รูปแบบ | ที่ pipeline ทำ |
 |---|---|---|
-| `article_id` | ✅ | id เฉพาะของบทความ |
-| `title_th` / `title_en` | ✅ (อย่างน้อยหนึ่ง) | ชื่อเรื่อง |
-| `year` | ✅ | ปีตีพิมพ์ — รับทั้ง พ.ศ./ค.ศ. (ingest แปลงให้เป็น ค.ศ.) |
-| `abstract_th` / `abstract_en` | แนะนำอย่างยิ่ง | คุณภาพ cluster/label ขึ้นกับ abstract มาก |
-| `keywords_th` / `keywords_en` | แนะนำ | คั่นด้วย `;` หรือ `,` |
-| `authors` | ทางเลือก | คั่นด้วย `;` (สำหรับ author network อนาคต) |
-| `affiliations` | ทางเลือก | |
-| `journal_name` | แนะนำ | ใช้ทำ journal view อนาคต |
-| `volume` / `issue` | ทางเลือก | |
-| `tci_tier` | ทางเลือก | Tier 1/2 ของ TCI ถ้ามี |
-| `doi` / `url` | ทางเลือก | ลิงก์กลับไปหาบทความ |
+| `# ชื่อเรื่อง` | ไทย, อังกฤษ, `TH [EN]` หรือ `EN (TH)` | แยก title_th / title_en (วงเล็บสั้นอย่าง `(TQA)` ไม่ถูกแยก) |
+| `**Journal:**` | OJS path เช่น `BECJournal` | journal_name (ชื่อเต็ม/ISSN มาจาก registry ใน P2) |
+| `**Published:**` | YYYY-MM-DD; `1970-01-01` = วันที่หาย | ปี: Published → ปีใน DOI → median ของ issue → ว่าง |
+| `**Article URL:**` | `https://so02.tci-thaijo.org/index.php/<journal>/article/view/<id>` | article_id = `so02:<journal>:<id>` (ไม่มี URL → `file:<sha1 ชื่อไฟล์>`) |
+| `**Authors:**` | `- ชื่อ [EN name] (สังกัดไทย (สังกัด EN))` + คำนำหน้าวิชาการ | ชื่อ, สังกัด TH/EN, role, is_student, org_key |
+| `**Keywords:**` | ไทย+อังกฤษคั่น `,` | keywords_th / keywords_en |
+| `## Abstract` | บทคัดย่อไทย␣␣␣ชื่ออังกฤษ␣␣␣บทคัดย่ออังกฤษ␣␣␣DOI: … | แยกด้วยช่องว่าง ≥2 + สัดส่วนอักษร; ดึง DOI; ตัด label "Abstract" |
+| `## References` | bullet ที่ถูกตัดบรรทัด | ต่อบรรทัด, ปี พ.ศ.→ค.ศ., ตัด self-citation และส่วน "Translated Thai References" ออกจากการนับ |
 
-ตรวจก่อนรัน: `python scripts/validate_input.py --config config.yaml`
-(รายงานจำนวนแถว, ช่วงปี, % ฟิลด์ว่าง, แจ้งเตือนคอลัมน์หาย)
+ปัญหาข้อความที่ซ่อมให้อัตโนมัติ: อักษรไทย Private-Use (U+F700–F71A) จาก PDF, `ํา`→`ำ`, ช่องว่างก่อนสระบน/ล่าง · flag ใน `text_quality`: `thai_pua_repaired`, `tone_marks_missing`, `stat_symbols_missing`
 
-กฎความสะอาดที่ ingest ทำให้:
-- ตัดแถวที่ `year` < `input.min_year` (default 2000) หรือปีเพี้ยน
-- dedup: ชื่อเรื่องคล้ายกัน ≥ 95% (rapidfuzz) → เก็บ record ที่ metadata ครบกว่า
-- พ.ศ. → ค.ศ. (พ.ศ. − 543) อัตโนมัติ — ตรวจจากช่วงค่า
+ตาราง (`input.format: table`, csv/json/jsonl/parquet) ยังรองรับผ่าน `input.columns`
 
-## 2. Checkpoints กลางทาง (work_dir)
+ตรวจคลังก่อนรัน: `uv run atlas profile /path/to/corpus --md ../logs/profile.md` (รายงานคุณภาพคลัง: จำนวนไฟล์ ช่วงปี ฟิลด์ว่าง วารสารที่อัปโหลดย้อนหลัง)
 
-ทุก step เขียน/อ่านจาก `work_dir` (default `./work`) — ลบทิ้งแล้วรันใหม่ได้เสมอ
+กฎความสะอาดที่ ingest ทำให้: ตัดแถวที่ `year` < `input.min_year` · dedup ด้วย article_id, DOI และชื่อเรื่องที่ normalize แล้ว + ปี · พ.ศ. → ค.ศ. (พ.ศ. − 543) อัตโนมัติ
+
+## 2. Checkpoints (work_dir — ลบได้) และ state (state_dir — ห้ามลบ)
 ไฟล์ตารางใช้ `io_utils.write_table/read_table` (parquet ถ้ามี pyarrow, ไม่งั้น pickle)
 
 | ไฟล์ | step | คอลัมน์สำคัญ |
 |---|---|---|
-| `01_articles.parquet` | ingest | article_id, title, abstract, year (ค.ศ.), journal, ... |
-| `02_docs.parquet` | preprocess | article_id, title, abstract, doc_text, year |
-| `03_embeddings.npy` | embed | matrix (n_articles × dim) + `03_ids.json` |
-| `04_topics.parquet` | cluster | article_id → topic_id (fine), coarse_topic |
-| `04_topic_info.parquet` | cluster | topic_id, size, coarse_topic, top_terms |
-| `04_centroids.npy` + `04_centroid_ids.json` | cluster | centroid ต่อ topic (ใช้ทำ novelty/edges) |
-| `05_labels.parquet` | label | level, topic_id, name_th, name_en, description, keywords, prompt_hash |
-| `06_topic_year.parquet` | series | topic_id, year, count |
-| `06_meta.json` | series | last_complete_year, years, totals |
-| `07_emerging.parquet` | emerging | topic_id, status, emerging_score, cagr_recent, share_recent, share_baseline, burst_years, novelty, ... |
-| `08_forecasts.parquet` | forecast | topic_id, model, backtest_mape, hist_years/counts, fc_years/mean/lo/hi (JSON string) |
-| `09_layout.parquet` | layout | id, kind (group/topic), parent, x, y, r |
-| `09_edges.parquet` | layout | s, t, w |
-| `prev/centroids.npy` | export | centroid รอบนี้ เก็บไว้ให้รอบหน้าคำนวณ novelty |
+| `01_articles` | ingest | article_id, journal_name, year, year_source, title_th/en, abstract_th/en, keywords_th/en, authors, affiliations, n_authors, n_student_authors, n_references, has_references, self_citation_only, text_quality |
+| `01_authors` | ingest | article_id, position, name, name_en, affiliation_th/en, role, is_student, org_key |
+| `01_references` | ingest | article_id, position, text, year, lang, translated, self_citation |
+| `02_docs` | preprocess | 01_articles + doc_text |
+| `03_embeddings.npy`, `03_meta.json` | embed | matrix (แถวตรงกับ 02_docs), model_id |
+| `04_fine_topics`, `04_coarse_topics` | cluster | article_id → topic (−1 = ยังไม่จัดหมวด) |
+| `04_topic_info` | cluster | topic_id, size, top_terms, top_keywords, coarse_topic, coherence |
+| `04_centroids.npy`, `04_centroid_ids.json` | cluster | centroid ต่อหัวข้อ |
+| `05_labels` | label | topic_id, name_th, name_en, description, keywords, cache_key (`cache_key` = sha256(model + prompt) 16 ตัวแรก; `"fallback"` เมื่อ `label.provider: "off"`) |
+| `06_series` | series | topic_id, year, count, count_with_org, corpus_total, share |
+| `06_topic_journal_year`, `06_topic_org_year`, `06_journal_first_year`, `06_meta.json` | series | ใช้คำนวณความกว้าง + ปีสมบูรณ์ล่าสุด |
+| `07_emerging` | emerging | ดู docs/EMERGING_SPEC.md §3 + status, journal_driven, emerging_score, definition_version |
+| `08_forecasts` | forecast | model, backtest_mae/mape, mase, skill_vs_naive, show, hist/fc (JSON) |
+| `09_layout`, `09_edges` | layout | id, kind, x, y, r, parent · s, t, w |
+| `state/embeddings/<model>/` | embed | index + shards (ถาวร) |
+| `state/label_cache` | label | cache_key → ชื่อหัวข้อ |
+| `state/prev/centroids.npy` | export | centroid รอบนี้ สำหรับรอบหน้า |
 
 ## 3. Output: `atlas_data.json` (สัญญากับเว็บ)
 
@@ -61,7 +56,11 @@ mapping ชื่อคอลัมน์ตั้งใน `config.yaml` ที
     "last_complete_year": 2024,          // ปีสมบูรณ์สุดท้าย (หลัง backfill guard)
     "total_articles": 200003,
     "total_topics": 132,
-    "total_groups": 14
+    "total_groups": 14,
+    "schema_version": "1.1",
+    "definition_version": 2,
+    "assigned_articles": 198000,
+    "unassigned_articles": 2003
   },
   "groups": [
     { "id": "g0", "th": "สุขภาพ", "en": "Health", "color": "#E5484D",
@@ -80,13 +79,19 @@ mapping ชื่อคอลัมน์ตั้งใน `config.yaml` ที
       "keywords": "PM2.5; คุณภาพอากาศ; ...",   // คั่นด้วย ;
       "articles": 900, "color": "#E5484D",
       "x": 812.4, "y": 448.2, "r": 30.1,
-      "status": "EMERGING",             // EMERGING | HOT | DECLINING | STABLE
+      "status": "EMERGING",             // EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA
       "emerging_score": 92.5,           // 0–100 หรือ null
       "cagr_recent": 0.612,             // CAGR ช่วง R (ทศนิยม)
       "burst_years": "2022,2023",       // ปีที่ burst คั่นด้วย , หรือ ""
-      "forecast": {                      // null ถ้าปิด include_forecast_in_json
-        "model": "linear",              // linear | poisson | prophet
+      "share_growth": 0.42, "share_growth_lo": 0.18, "share_growth_hi": 0.71,  // v1.1
+      "n_journals_R": 9, "n_orgs_R": 14,  // v1.1
+      "journal_driven": false,          // v1.1
+      "coherence": 0.31,                // v1.1
+      "forecast_uncertain": false,      // v1.1
+      "forecast": {                      // null ถ้าไม่ผ่าน skill gate หรือปิด include_forecast_in_json
+        "model": "linear",              // naive | linear | poisson
         "backtest_mape": 12.4,          // %
+        "mase": 0.8, "skill_vs_naive": 0.2,  // แสดงเมื่อ skill > forecast.min_skill
         "hist_years":  [2017, ..., 2024],
         "hist_counts": [  12, ...,  240],
         "fc_years":    [2025, 2026],
@@ -101,6 +106,11 @@ mapping ชื่อคอลัมน์ตั้งใน `config.yaml` ที
   ]
 }
 ```
+
+### schema 1.1 additions
+ต่อ node แบบ topic เพิ่ม: `share_growth`, `share_growth_lo`, `share_growth_hi` (ช่วงเชื่อมั่นของการโตของ share), `n_journals_R`, `n_orgs_R` (จำนวนวารสาร/สถาบันในช่วง R), `journal_driven`, `coherence`, `forecast_uncertain`
+ต่อ `meta` เพิ่ม: `schema_version = "1.1"`, `definition_version = 2`, `assigned_articles`, `unassigned_articles`
+`forecast` เป็น null เว้นแต่ผ่าน skill gate (`show` = true); `forecast_uncertain` = true เมื่อมี forecast แต่ไม่ผ่าน gate (เว็บจึงไม่แสดงเส้นทำนาย)
 
 ## 4. การแปลงฝั่งเว็บ (loader.normalize)
 
@@ -127,3 +137,8 @@ mapping ชื่อคอลัมน์ตั้งใน `config.yaml` ที
 | `emerging.csv` | metric emerging ทุกตัวต่อ topic (เอาไป pivot/plot ต่อเองได้) |
 | `forecasts.csv` | โมเดล + ค่าทำนายต่อ topic |
 | `manifest.json` | เวอร์ชัน pipeline, config emerging ที่ใช้, จำนวนต่าง ๆ — ใช้ย้อนดูว่ารอบนั้นคำนวณด้วยนิยามแบบไหน |
+
+## 6. Data contract v2 (P1)
+
+`pipeline/atlas/schema/contract.py` → `web/src/data/contract.schema.json` → `web/src/data/contract.ts`
+สร้างด้วย `uv run atlas schema` และ `npm run gen:types` (CI ตรวจ drift ทั้งสองขั้น)

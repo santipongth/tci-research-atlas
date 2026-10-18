@@ -1,6 +1,6 @@
 # TCI Research Atlas — Batch Pipeline
 
-Pipeline สำหรับสร้าง Research Atlas จาก metadata วารสาร TCI (ชื่อเรื่อง, ผู้แต่ง, คำสำคัญ, บทคัดย่อ ฯลฯ)
+Pipeline สำหรับสร้าง Research Atlas จากคลังบทความ ThaiJO แบบ Markdown (ชื่อเรื่อง, ผู้แต่ง, คำสำคัญ, บทคัดย่อ, รายการอ้างอิง)
 ครอบคลุม: **embedding (API หรือ local) → topic clustering 2 ชั้น → ตั้งชื่อ topic ด้วย LLM →
 Emerging Topic Analysis → Trend Forecasting → export JSON เข้าหน้าเว็บ Atlas**
 
@@ -9,47 +9,44 @@ Emerging Topic Analysis → Trend Forecasting → export JSON เข้าหน
 ```
 ┌─────────┐  ┌────────────┐  ┌────────┐  ┌─────────┐  ┌────────┐  ┌────────┐
 │ ingest  │→ │ preprocess │→ │ embed  │→ │ cluster │→ │ label  │→ │ series │
-│ CSV/JSON│  │ doc_text   │  │api│local│  │UMAP+HDB │  │  LLM   │  │ yearly │
+│ ThaiJO md│  │ doc_text   │  │api│local│  │UMAP+HDB │  │  LLM   │  │ yearly │
 └─────────┘  └────────────┘  └────────┘  └─────────┘  └────────┘  └───┬────┘
                                                                       ↓
 ┌─────────┐  ┌────────┐  ┌──────────┐                          ┌──────────┐
 │ export  │← │ layout │← │ forecast │←─────────────────────────│ emerging │
-│ JSON/CSV│  │ UMAP2D │  │linear/pois│                         │ TCI spec │
+│ JSON/CSV│  │ UMAP2D │  │naive/lin/ps│                         │ TCI spec │
 └─────────┘  └────────┘  └──────────┘                          └──────────┘
 ```
 
 ---
 
-## 1. ติดตั้ง
+## 1. Quick start
 
 ```bash
-cd tci-atlas-pipeline
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-# เลือกตามโหมด embedding:
-pip install openai                          # โหมด api
-pip install sentence-transformers torch     # โหมด local (BGE-M3)
+cd pipeline
+uv sync --extra local                      # หรือ --extra api
+cp config.example.yaml config.yaml         # แก้ input.path → โฟลเดอร์ .md
+uv run atlas profile /path/to/corpus --md ../logs/profile.md   # ขั้น 1: อ่านรายงานก่อนเสมอ
+uv run atlas run --config config.yaml      # ขั้น 2: ทั้งสาย (หรือ bash ../scripts/quarterly_run.sh)
+bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้าเว็บ + build
+uv run pytest -q                           # ทดสอบ (เพิ่ม uv run pytest -m slow -q สำหรับ e2e ข้อมูลสังเคราะห์)
 ```
 
-## 2. เตรียมข้อมูล (metadata ขั้นต่ำที่ต้องมี)
+Python ≥ 3.11 (dev/CI ใช้ 3.12) · `--extra api` ติดตั้ง `openai`, `--extra local` ติดตั้ง `sentence-transformers` (BGE-M3) · โหมด `embedding.provider: lite` (TF-IDF+SVD) ไม่ต้องใช้ extra ใด ๆ — ใช้ใน CI
+**ข้อมูลจริงไม่เข้า git** — คลังบทความและ `atlas_data.json` ของจริงเก็บนอก repo (มีเฉพาะตัวอย่าง 11 ไฟล์ใน `tests/fixtures/thaijo_md/`)
 
-ไฟล์ CSV/JSON/JSONL/Parquet หนึ่งแถวต่อบทความ คอลัมน์ที่จำเป็น:
+## 2. เตรียมข้อมูล
 
-| คอลัมน์ | บังคับ | หมายเหตุ |
-|---|---|---|
-| `id` | ✓ | รหัสบทความ unique |
-| `title_th` / `title_en` | ✓ อย่างใดอย่างหนึ่ง | |
-| `year` | ✓ | ปีที่พิมพ์ (พ.ศ./ค.ศ. ก็ได้ — แนะนำแปลงเป็น ค.ศ. ก่อน) |
-| `abstract_th` / `abstract_en` | แนะนำ | ถ้าว่างเยอะ topic จะหยาบลง แต่ยังทำงานได้ด้วย title+keywords |
-| `keywords_th` / `keywords_en` | แนะนำ | คั่นด้วย `;` |
-| `authors`, `affiliations`, `journal`, `tci_tier`, `doi`, `url` | optional | ใช้ drill-down/segment ในเว็บ |
+ค่าดีฟอลต์ `input.format: thaijo_md` — โฟลเดอร์ไฟล์ .md จาก ThaiJO หนึ่งไฟล์ต่อบทความ (รูปแบบและสิ่งที่ pipeline ซ่อมให้ ดู `../docs/DATA_SPEC.md` §1)
+ถ้ามีเป็นตาราง ตั้ง `input.format: table` (csv/json/jsonl/parquet) แล้วจับคู่คอลัมน์ที่ `input.columns`
 
-ตรวจไฟล์ก่อนรัน:
+ตรวจคลังก่อนรันเสมอ:
 
 ```bash
-python scripts/validate_input.py --config config.yaml
+uv run atlas profile /path/to/corpus --md ../logs/profile.md [--out ../logs/profile.json] [--workers 4]
 ```
+
+รายงานบอกจำนวนไฟล์ ช่วงปี (และแหล่งที่มาของปี) ฟิลด์ว่าง ปัญหาข้อความไทย และวารสารที่อัปโหลดย้อนหลัง
 
 ## 3. ตั้งค่า
 
@@ -71,83 +68,66 @@ export ATLAS_API_KEY=sk-...     # ถ้าใช้โหมด api
 
 **Embedding — โหมด Local** (`embedding.provider: local`) ดีฟอลต์ `BAAI/bge-m3` (multilingual, ไทยดี) บน GPU ตัวเอง — ฟรี แต่ช้ากว่า; 200K เรื่อง ≈ 2–4 ชม. บน GPU เกรดกลาง
 
-**LLM labeling** (`labeling.provider: api`) — ใช้ endpoint เดียวกันได้ หรือ `off` ถ้าไม่มีงบ (จะใช้ c-TF-IDF terms เป็นชื่อ topic แทน)
+**LLM labeling** (`labeling.provider: api`) — ใช้ endpoint เดียวกันได้ หรือ `"off"` (ต้องใส่เครื่องหมายคำพูด — YAML อ่าน `off` เปล่า ๆ เป็น false) ถ้าไม่มีงบ: ชื่อหัวข้อจะมาจากคำสำคัญของผู้เขียน + c-TF-IDF
 
 ## 4. รัน
 
 ```bash
-python -m atlas.pipeline --config config.yaml                      # ทั้งสาย
-python -m atlas.pipeline --config config.yaml --steps embed cluster # บางขั้น
-python -m atlas.pipeline --steps emerging forecast export           # รันซ้ำเฉพาะท้ายสาย (ฟรี ไม่แตะ API)
+uv run atlas run --config config.yaml                                   # ทั้งสาย
+uv run atlas run -c config.yaml -s embed -s cluster                     # บางขั้น (-s ซ้ำได้)
+uv run atlas run -c config.yaml -s emerging -s forecast -s export       # รันซ้ำเฉพาะท้ายสาย (ฟรี ไม่แตะ API)
+uv run atlas synth --out .ci/synth --n 20000                           # สร้างคลังสังเคราะห์สำหรับทดสอบ
+uv run atlas schema                                                     # เขียน JSON Schema ของ data contract v2
 ```
 
-ผลลัพธ์อยู่ใน `output/`: `atlas_data.json` (สำหรับเว็บ), `topics.csv`, `emerging.csv`, `forecasts.csv`, `manifest.json`
+(`python -m atlas.pipeline --steps …` ยังใช้ได้เป็น alias ของ `atlas run` แต่ควรใช้ `atlas` CLI)
+
+ผลลัพธ์อยู่ใน `output/`: `atlas_data.json` (schema 1.1, สำหรับเว็บ), `topics.csv`, `emerging.csv`, `forecasts.csv`, `manifest.json`
+ข้อมูลที่ต้องอยู่ข้ามรอบ (embedding store, label cache, centroid รอบก่อน) อยู่ใน `state/` (git-ignored, ห้ามลบ) ส่วน `work/` ลบได้เสมอ
 
 ## 5. ตั้งเวลารัน (เช่น ทุกไตรมาส)
 
 ```bash
 # crontab: 01:00 วันที่ 1 ของเดือน 1,4,7,10
-0 1 1 1,4,7,10 * * cd /path/to/tci-atlas-pipeline && .venv/bin/python -m atlas.pipeline --config config.yaml >> logs/cron.log 2>&1
+0 1 1 1,4,7,10 * cd /path/to/tci-research-atlas/pipeline && uv run atlas run --config config.yaml >> ../logs/cron.log 2>&1
+# หรือใช้สคริปต์ที่ profile คลังก่อนแล้วรัน: bash /path/to/tci-research-atlas/scripts/quarterly_run.sh
 ```
 
-รอบใหม่จะใช้ centroids ของรอบก่อน (ที่ pipeline เก็บไว้ให้เองใน `work/prev/`) คำนวณ **novelty** — หัวข้อเกิดใหม่จริงจะมี novelty สูง
+รอบใหม่จะใช้ centroids ของรอบก่อน (ที่ export เก็บไว้ให้เองใน `state/prev/`) คำนวณ **novelty** — หัวข้อเกิดใหม่จริงจะมี novelty สูง
 
 ---
 
-## นิยาม "Emerging" ของ TCI (ฉบับใช้งานจริง)
+## นิยาม "Emerging" ของ TCI v2
 
-นิยามนี้ implement ใน `atlas/emerging.py` และปรับ threshold ได้ทั้งหมดใน `config.yaml → emerging:`
+implement ใน `atlas/emerging.py` (`definition_version = 2`) และปรับ threshold ได้ทั้งหมดใน `config.yaml → emerging:`
+หน้าต่างเวลา: R = `recent_window` ปีล่าสุดที่ข้อมูลสมบูรณ์ (ดีฟอลต์ 3), B = `baseline_window` ปีก่อนหน้า R (ดีฟอลต์ 5); backfill guard ตัดปีล่าสุดที่ยอดต่ำผิดปกติออกอัตโนมัติ
 
-### หน้าต่างเวลา
-- `R` = `recent_window` ปีล่าสุด**ที่ข้อมูลสมบูรณ์** (ดีฟอลต์ 3 ปี)
-- `B` = `baseline_window` ปีก่อนหน้า R (ดีฟอลต์ 5 ปี)
-- **backfill guard**: ถ้าปีล่าสุดมียอดบทความ < 60% ของค่ามัธยฐานรายปี (วารสารยังลงข้อมูลไม่ครบ) ปีนั้นจะถูกตัดจากหน้าต่างวิเคราะห์อัตโนมัติ
-
-### มิติที่วัด (ต่อ topic)
-
-| มิติ | สูตร/วิธี | ความหมาย |
-|---|---|---|
-| `share_R`, `share_B` | บทความ topic ÷ บทความทั้ง corpus ในช่วง R/B | ขนาดสัมพัทธ์ (กันปีที่ corpus โต) |
-| `cagr_recent` | `((c_last+0.5)/(c_first+0.5))^(1/(n-1)) − 1` | อัตราโตต่อปีช่วง R |
-| `share_ratio` | `share_R / share_B` | โตเร็วกว่า corpus กี่เท่า |
-| `slope_share` | OLS slope ของ share เทียบปี (normalize ด้วย mean share) | ทิศทางระยะยาว B∪R |
-| `acceleration` | `slope(count\|R) − slope(count\|B)` (normalize) | เร่งตัวหรือชะลอ |
-| `burst_intensity` | Kleinberg 2-state (Poisson, ปรับตามขนาด corpus รายปี, γ=1.0) | มีช่วง "ระเบิด" หรือไม่ + ปีที่ระเบิด |
-| `novelty` | `1 − max cosine sim` ของ centroid เทียบ topic รอบ pipeline ก่อน | หัวข้อเกิดใหม่จริง (0.5 ถ้าไม่มีรอบก่อน) |
-
-### เกณฑ์จำแนกสถานะ
-
-| สถานะ | เงื่อนไข (ค่าดีฟอลต์) |
+| สถานะ | ความหมาย (ดีฟอลต์) |
 |---|---|
-| **EMERGING** | `share_R < 1.5%` **และ** `cagr_recent ≥ 25%/ปี` **และ** `share_ratio ≥ 1.8` **และ** มี ≥ 30 เรื่องในช่วง R |
-| **HOT** | `share_R ≥ 1.5%` **และ** `slope_share > 0` |
-| **DECLINING** | share ลดต่อเนื่อง ≥ 3 ปีท้าย |
-| **STABLE** | อื่น ๆ |
+| **LOW_DATA** ข้อมูลน้อย | count_R < 30 หรือประมาณ share_growth ไม่ได้ — ไม่ฟันธง |
+| **EMERGING** กำลังเกิดใหม่ | หัวข้อเล็ก **และ** ขอบล่างของช่วงเชื่อมั่นการโต ≥ +10%/ปี **และ** share_ratio ≥ 1.8 **และ** ความกว้าง (วารสาร/สถาบัน) ผ่าน |
+| **WATCH** จับตา | โตตามเกณฑ์ EMERGING แต่ความกว้างไม่ผ่าน (สัญญาณ journal-entry bias) |
+| **HOT** กำลังร้อน | หัวข้อใหญ่ **และ** ขอบล่างของช่วงเชื่อมั่นการโต > 0 |
+| **DECLINING** กำลังลดลง | ขอบบนของช่วงเชื่อมั่นการโต < 0 **และ** share_ratio ≤ 0.8 |
+| **STABLE** คงที่ | อื่น ๆ |
 
-เหตุผลของ threshold: เงื่อนไข `share_R < 1.5%` บังคับว่า "emerging ต้องยังเล็ก" (ถ้าใหญ่แล้วยังโต = HOT);
-`min_articles_recent: 30` กัน noise จากหัวข้อจิ๋ว; `share_ratio` กันกรณี corpus ทั้งระบบโตเร็วจนทุกอย่างดูโต
+สถานะตรวจตามลำดับข้างต้น (ข้อแรกที่เข้าคือคำตอบ) · Emerging Score 0–100 เป็น percentile ภายในรอบ ใช้จัดอันดับเท่านั้น เทียบข้ามรอบไม่ได้
+สเปกเต็มพร้อมสูตรและเหตุผลเชิงวิธีวิจัย: `docs/EMERGING_SPEC.md`
 
-### Emerging Score (0–100)
-
-```
-score = 100 × ( 0.35 × P(growth) + 0.25 × P(acceleration) + 0.20 × P(burst) + 0.20 × P(novelty) )
-```
-
-`P(·)` = percentile rank ภายในรอบรันนั้น (ทำให้ score เทียบกันได้ข้ามรอบ) — ใช้จัดอันดับหน้า "Emerging Themes" บนเว็บ
+แก้นิยาม = แก้ `docs/EMERGING_SPEC.md` + `config.example.yaml` + `tests/test_emerging.py` พร้อมกัน และเพิ่ม `definition_version`
 
 ### Forecast
 
-- โมเดล: `linear` (OLS), `poisson` (GLM), `prophet` (optional) — **เลือกโมเดลที่ดีสุดต่อ topic อัตโนมัติ**ด้วย backtest
-  (train ถึง Y−3 → วัด MAPE 3 ปีสุดท้าย)
-- ทำนายล่วงหน้า 2 ปี พร้อมช่วงความเชื่อมั่นจาก residual (±1.96σ) — present เป็น band ไม่ใช่เส้นเดียว
-- กติกา: โมเดลไหน backtest แพ้ linear baseline จะไม่ถูกเลือก; topic ที่มีประวัติ < 6 ปีจะไม่ทำนาย
+- โมเดล: `naive`, `linear` (OLS), `poisson` (GLM) — เลือกต่อ topic ด้วย backtest (MAE, MASE, skill เทียบ naive)
+- ทำนายล่วงหน้า 2 ปี พร้อมช่วงความเชื่อมั่น
+- skill gate: ส่งออก forecast ใน JSON เฉพาะเมื่อ skill เทียบ naive > `forecast.min_skill` ไม่เช่นนั้น `forecast: null` และ `forecast_uncertain: true`; topic ที่มีประวัติ < `forecast.min_history_years` (6) จะไม่ทำนาย
 
 ---
 
 ## การเชื่อมเข้าหน้าเว็บ Atlas
 
 `output/atlas_data.json` มีโครง `{meta, groups, nodes, links}` — nodes แต่ละตัวมี
-`x, y, r, color, th, en, articles, status, emerging_score, burst_years, forecast{...}`
+`x, y, r, color, th, en, articles, status, emerging_score, burst_years, share_growth(_lo/_hi), journal_driven, forecast{...}` (schema 1.1 — ดู `../docs/DATA_SPEC.md` §3)
 หน้าเว็บที่ทำไว้สลับจากไฟล์ `src/data/atlas.ts` มาอ่าน JSON นี้ได้โดยเปลี่ยน data source จุดเดียว
 (โครง field ตั้งใจออกแบบให้ตรงกัน)
 
@@ -163,24 +143,30 @@ score = 100 × ( 0.35 × P(growth) + 0.25 × P(acceleration) + 0.20 × P(burst) 
 
 ```
 atlas/
-  ingest.py       อ่าน+normalize+dedup (DOI → title hash, เก็บ record ที่ครบสุด)
+  cli.py          typer CLI: run | profile | synth | schema
+  config.py       AtlasConfig (pydantic) — key ที่ไม่รู้จักถูกปฏิเสธ
+  sources/        thaijo_md.py — parser ไฟล์ ThaiJO Markdown
+  schema/         contract.py — data contract v2 (สร้าง JSON Schema)
+  thai.py         ซ่อมข้อความไทย (PUA, สระอำ), แยก TH/EN
+  ingest.py       อ่าน+normalize+dedup (article_id → DOI → ชื่อเรื่อง+ปี)
   preprocess.py   ประกอบ doc_text = title + keywords + abstract
-  embed.py        ApiEmbedder / LocalEmbedder + checkpoint ทุก 5,000 เรื่อง
-  cluster.py      BERTopic 2 ชั้น (fine/coarse) + outlier → nearest centroid
-  label.py        LLM ตั้งชื่อ topic (JSON schema, cache ตาม prompt_hash)
+  embed.py        api | local | lite + embed_store.py (เก็บถาวรใน state/)
+  cluster.py      PCA → UMAP → HDBSCAN (sklearn) → merge ซ้ำ → outlier → กลุ่มใหญ่ (agglomerative); ctfidf.py
+  label.py        LLM ตั้งชื่อ topic (cache_key = hash ของ model + prompt ใน state/label_cache) หรือ off
   topics_time.py  yearly series + backfill guard
-  emerging.py     นิยาม Emerging ของ TCI + Kleinberg burst + novelty
-  forecast.py     model selection ด้วย backtest MAPE
+  emerging.py     นิยาม Emerging v2 + Kleinberg burst + novelty
+  forecast.py     naive/linear/Poisson + backtest + skill gate
   layout.py       UMAP 2D บน centroid → ตำแหน่งบนแผนที่ + similarity edges
-  export.py       atlas_data.json + CSVs + manifest
-  pipeline.py     orchestrator CLI
-tests/test_emerging.py   unit test นิยาม emerging (รัน: python3 tests/test_emerging.py)
-scripts/validate_input.py  เช็คไฟล์ input ก่อนเสียงบ
-data/synth.csv    ข้อมูลสังเคราะห์ตัวอย่างสำหรับทดลอง
+  export.py       atlas_data.json (1.1) + CSVs + manifest
+  profile.py      รายงานคุณภาพคลัง   synth.py  คลังสังเคราะห์
+  pipeline.py     orchestrator
+configs/ci.yaml  config สำหรับ CI
+tests/           pytest (test_emerging.py ล็อกนิยาม; test_e2e_synth.py = slow)
+scripts/run_all.sh  ตัวช่วยรันทั้งสาย
 ```
 
 ## สิ่งที่ตั้งใจไม่ทำ (และทำเพิ่มได้ภายหลัง)
 
 - co-citation edges — ต้องมี references ในข้อมูล; เพิ่มเป็น edge อีกชุดใน layout.py ได้
 - author/affiliation network — metadata พร้อมอยู่แล้ว เพิ่ม aggregation step ได้
-- incremental clustering แบบ online — ตอนนี้รันใหม่ทั้ง corpus ทุกไตรมาส (200K เรื่องทำได้สบาย)
+- incremental clustering แบบ online — ตอนนี้ clustering รันใหม่ทั้ง corpus ทุกไตรมาส (embedding เป็น incremental อยู่แล้วผ่าน `state/embeddings`)

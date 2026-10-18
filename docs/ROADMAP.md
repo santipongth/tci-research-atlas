@@ -1,5 +1,7 @@
 # ROADMAP — แผนพัฒนาและไอเดียต่อยอด
 
+> แผนหลักปัจจุบันอยู่ที่ `docs/superpowers/specs/2026-10-18-tci-atlas-v2-design.md` (เฟส P0–P4)
+
 ## Phase ที่เสร็จแล้ว (baseline ปัจจุบัน)
 
 | Phase | รายละเอียด | ไฟล์หลัก |
@@ -7,9 +9,12 @@
 | **1 — Embedding (batch)** | รองรับ 2 โหมด: API (OpenAI-compatible: OpenAI/Gemini/OpenRouter/vLLM/Ollama) และ local (sentence-transformers, default BGE-M3); checkpoint ทุก 5,000 เรื่อง; resume ได้ | `pipeline/atlas/embed.py` |
 | **2 — Topic Clustering** | 2 ชั้น: fine (~หลายร้อย topic) + coarse (กลุ่มใหญ่บนแผนที่); UMAP 10 มิติ + HDBSCAN; outlier → nearest centroid; c-TF-IDF ด้วย char_wb 3–5 gram (เหมาะกับไทย) | `pipeline/atlas/cluster.py` |
 | **3 — Atlas web** | React bubble map (pan/zoom), drill-down, 2 ภาษา (ไทย/EN), insights ที่คำนวณจากข้อมูล, live loader + fallback | `web/` |
-| **4 — Emerging Topic Analysis** | นิยาม TCI (ดู EMERGING_SPEC.md), Kleinberg burst, novelty เทียบรอบก่อน, score 0–100, section "หัวข้อเกิดใหม่" บนเว็บ | `pipeline/atlas/emerging.py`, `web/src/sections/EmergingThemes.tsx` |
-| **5 — Research Trend Forecasting** | OLS/Poisson ต่อ topic, เลือกโมเดลด้วย backtest MAPE, ช่วง ±95%, กราฟในแผงรายละเอียด | `pipeline/atlas/forecast.py`, ForecastChart ใน AtlasMap.tsx |
-| **+ LLM Labeling** | ตั้งชื่อ topic ไทย+อังกฤษ, cache ด้วย prompt_hash (รันใหม่ไม่เสียเงินซ้ำ) | `pipeline/atlas/label.py`, `prompts/` |
+| **4 — Emerging Topic Analysis** | นิยาม TCI v2 (ดู EMERGING_SPEC.md: ช่วงเชื่อมั่น + ตัวกรองความกว้าง, 6 สถานะ), Kleinberg burst, novelty เทียบรอบก่อน, score 0–100, section "หัวข้อเกิดใหม่" บนเว็บ | `pipeline/atlas/emerging.py`, `web/src/sections/EmergingThemes.tsx` |
+| **5 — Research Trend Forecasting** | naive/OLS/Poisson ต่อ topic, เลือกโมเดลด้วย backtest, แสดงเฉพาะที่ผ่าน skill gate (แม่นกว่า naive), กราฟในแผงรายละเอียด | `pipeline/atlas/forecast.py`, ForecastChart ใน AtlasMap.tsx |
+| **+ LLM Labeling** | ตั้งชื่อ topic ไทย+อังกฤษ, cache ด้วย cache_key = hash ของ model + prompt (รันใหม่ไม่เสียเงินซ้ำ) | `pipeline/atlas/label.py`, `prompts/` |
+| **+ ThaiJO Markdown ingest (P0)** | parse ไฟล์ .md จาก ThaiJO (ซ่อม PUA/สระอำ, ปีจาก Published→DOI→issue, ผู้แต่ง/สังกัด/อ้างอิง), `atlas profile` | `pipeline/atlas/sources/thaijo_md.py`, `pipeline/atlas/profile.py` |
+| **+ Synthetic e2e (P0)** | คลังสังเคราะห์ 20K เรื่อง ฝังหัวข้อ EMERGING/WATCH/HOT/DECLINING แล้วตรวจว่ากู้คืนได้ | `pipeline/atlas/synth.py`, `pipeline/tests/test_e2e_synth.py` |
+| **+ CI (P0)** | GitHub Actions: ruff + pytest + JSON Schema drift, e2e (`pytest -m slow`), web (type drift + build) | `.github/workflows/ci.yml` |
 | **+ Live dashboard** | เว็บ fetch `/data/atlas_data.json` runtime — อัปเดตข้อมูลโดยไม่แก้โค้ด | `web/src/lib/loader.ts` |
 
 ## งานแนะนำลำดับถัดไป (เรียงตาม value/effort)
