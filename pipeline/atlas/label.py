@@ -1,11 +1,12 @@
-"""Phase 4 — LLM topic labeling.
+"""Topic labeling.
 
-Sends each cluster's top c-TF-IDF terms + representative titles to an
-OpenAI-compatible chat model and gets back a strict JSON label
-(TH/EN name, one-line description, keywords). Results are cached per
-(topic, prompt_hash, model) so reruns cost nothing.
+LLM mode: author keywords + c-TF-IDF words + representative titles (nearest to the
+centroid, diversified with MMR) → strict JSON (TH/EN name, description, keywords).
+The cache key is a hash of the exact prompt + model, stored in state_dir — so a topic is
+re-labelled only when its content changes (v1 keyed by topic_id, which silently swapped
+names after re-clustering). Master prompt text: prompts/topic_label.th.md (keep in sync).
 
-Output: work/05_labels.parquet  (level, topic_id, name_th, name_en, description, keywords)
+Off mode: names from the topic's most distinctive author keywords (TH and EN).
 """
 from __future__ import annotations
 
@@ -16,57 +17,62 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
-from .io_utils import read_table, write_table
-from tqdm import tqdm
+from atlas.io_utils import read_table, write_table
+from atlas.thai import thai_ratio
 
 PROMPT_TEMPLATE = """คุณคือบรรณาธิการวารสารวิชาการไทย ช่วยตั้งชื่อหัวข้อวิจัย (research topic) จากข้อมูลต่อไปนี้
 
-คำสำคัญเด่นของกลุ่ม (c-TF-IDF): {terms}
+คำสำคัญที่ผู้เขียนใช้บ่อยในกลุ่มนี้: {keywords}
+คำเด่นจากเนื้อหา (c-TF-IDF): {terms}
 
-ตัวอย่างชื่อเรื่องบทความในกลุ่ม:
+ตัวอย่างชื่อเรื่องบทความที่เป็นตัวแทนของกลุ่ม:
 {titles}
 
-ตอบกลับเป็น JSON เท่านั้น ตาม schema นี้ห้ามมีข้อความอื่น:
+ตอบกลับเป็น JSON เท่านั้น ตาม schema นี้ ห้ามมีข้อความอื่น:
 {{
   "name_th": "ชื่อหัวข้อภาษาไทย กระชับ ไม่เกิน 8 คำ",
   "name_en": "Concise English topic name, max 6 words",
   "description": "คำอธิบาย 1 บรรทัดว่าหัวข้อนี้ครอบคลุมงานวิจัยแบบไหน",
   "keywords": ["คำสำคัญ", "4-6", "คำ"]
 }}"""
-
-SCHEMA_KEYS = ("name_th", "name_en", "description", "keywords")
-
-
-def _prompt_hash(cfg: dict, model: str) -> str:
-    h = hashlib.sha256()
-    h.update(PROMPT_TEMPLATE.encode())
-    h.update(model.encode())
-    h.update(str(cfg["labeling"]["n_repr_titles"]).encode())
-    return h.hexdigest()[:12]
+LABEL_COLUMNS = ["level", "topic_id", "name_th", "name_en", "description", "keywords", "cache_key"]
+CACHE_COLUMNS = ["cache_key", "name_th", "name_en", "description", "keywords"]
 
 
-def _repr_titles(df: pd.DataFrame, labels: pd.Series, topic_id: int, n: int) -> list[str]:
-    sub = df[labels == topic_id]
-    # representative = longest abstracts within topic (most informative titles come along)
-    sub = sub.assign(_len=sub["abstract"].str.len()).sort_values("_len", ascending=False)
-    return sub["title"].head(n).tolist()
+def representative_indices(member_emb: np.ndarray, centroid: np.ndarray, n: int, lam: float) -> list[int]:
+    """Maximal Marginal Relevance: close to the centroid, but not near-duplicates of each other."""
+    sims = member_emb @ centroid
+    chosen = [int(np.argmax(sims))]
+    while len(chosen) < min(n, len(member_emb)):
+        redundancy = (member_emb @ member_emb[chosen].T).max(axis=1)
+        score = lam * sims - (1 - lam) * redundancy
+        score[chosen] = -np.inf
+        chosen.append(int(np.argmax(score)))
+    return chosen
 
 
-def _call_llm(client, model: str, prompt: str, max_retries: int) -> dict:
+def _cache_key(model: str, prompt: str) -> str:
+    return hashlib.sha256(f"{model}\n{prompt}".encode()).hexdigest()[:16]
+
+
+def _call_llm(client, model: str, prompt: str, temperature: float, max_retries: int) -> dict:
     delay = 2.0
     for attempt in range(max_retries):
         try:
             resp = client.chat.completions.create(
-                model=model,
+                model=model, temperature=temperature,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
                 response_format={"type": "json_object"},
             )
             data = json.loads(resp.choices[0].message.content)
-            return {k: data.get(k, "" if k != "keywords" else []) for k in SCHEMA_KEYS}
-        except Exception as e:  # noqa: BLE001
+            kws = data.get("keywords", [])
+            return {"name_th": str(data.get("name_th", "")), "name_en": str(data.get("name_en", "")),
+                    "description": str(data.get("description", "")),
+                    "keywords": "; ".join(kws) if isinstance(kws, list) else str(kws)}
+        except Exception:  # noqa: BLE001 — retry transport/JSON errors
             if attempt == max_retries - 1:
                 raise
             time.sleep(delay)
@@ -74,79 +80,75 @@ def _call_llm(client, model: str, prompt: str, max_retries: int) -> dict:
     raise RuntimeError("unreachable")
 
 
-def label(cfg: dict, df: pd.DataFrame | None = None) -> pd.DataFrame:
-    work = Path(cfg["pipeline"]["work_dir"])
-    if df is None:
-        df = read_table(work / "02_docs.parquet")
-    fine = read_table(work / "04_fine_topics.parquet")
-    coarse = read_table(work / "04_coarse_topics.parquet")
+def _fallback(top_keywords: str, top_terms: str, tid: int) -> dict:
+    kws = [k for k in str(top_keywords).split("; ") if k]
+    terms = [t for t in str(top_terms).split("; ") if t]
+    th = [k for k in kws if thai_ratio(k) > 0.5][:2] or [t for t in terms if thai_ratio(t) > 0.5][:3]
+    en = [k for k in kws if thai_ratio(k) <= 0.5][:2] or [t for t in terms if thai_ratio(t) <= 0.5][:3]
+    return {"name_th": " / ".join(th) or f"หัวข้อ {tid}", "name_en": " / ".join(en) or f"Topic {tid}",
+            "description": "", "keywords": "; ".join(kws[:6])}
+
+
+def label(cfg: dict, client=None) -> pd.DataFrame:
+    work, state = Path(cfg["pipeline"]["work_dir"]), Path(cfg["pipeline"]["state_dir"])
     info = read_table(work / "04_topic_info.parquet")
-
     lcfg = cfg["labeling"]
-    if lcfg["provider"] == "off":
-        return _fallback_labels(cfg, info, work)
 
-    from openai import OpenAI  # lazy import
+    if lcfg["provider"] == "off" and client is None:
+        out = pd.DataFrame([{"level": "fine", "topic_id": int(r.topic_id),
+                             **_fallback(r.top_keywords, r.top_terms, int(r.topic_id)), "cache_key": "fallback"}
+                            for r in info.itertuples()], columns=LABEL_COLUMNS)
+        write_table(out, work / "05_labels.parquet")
+        print(f"[label] provider=off → keyword-based labels for {len(out)} topics")
+        return out
+
+    df = read_table(work / "02_docs.parquet")
+    labels = (df[["article_id"]].merge(read_table(work / "04_fine_topics.parquet"), on="article_id", how="left")
+              ["fine_topic"].fillna(-1).astype(int).to_numpy())
+    emb = np.load(work / "03_embeddings.npy")
+    C = np.load(work / "04_centroids.npy")
+    pos = {t: i for i, t in enumerate(json.loads((work / "04_centroid_ids.json").read_text(encoding="utf-8")))}
     acfg = lcfg["api"]
-    api_key = os.environ.get(acfg["api_key_env"], "")
-    if not api_key:
-        raise EnvironmentError(f"set ${acfg['api_key_env']} for labeling")
-    client = OpenAI(base_url=acfg["base_url"], api_key=api_key, timeout=120)
     model = acfg["model"]
-    phash = _prompt_hash(cfg, model)
 
-    cache_path = work / "05_labels.parquet"
-    cache = read_table(cache_path) if cache_path.exists() else pd.DataFrame(
-        columns=["level", "topic_id", "name_th", "name_en", "description", "keywords", "prompt_hash"])
+    prompts: dict[int, tuple[str, str]] = {}
+    for r in info.itertuples():
+        tid = int(r.topic_id)
+        members = np.where(labels == tid)[0]
+        idx = representative_indices(emb[members], C[pos[tid]], int(lcfg["n_repr_docs"]), float(lcfg["mmr_lambda"]))
+        titles = "\n".join(f"- {t}" for t in df["title"].iloc[members[idx]])
+        prompt = PROMPT_TEMPLATE.format(keywords=r.top_keywords, terms=r.top_terms, titles=titles)
+        prompts[tid] = (_cache_key(model, prompt), prompt)
 
-    fine_labels = df["article_id"].map(dict(zip(fine["article_id"], fine["fine_topic"])))
-    tasks = []
-    for _, row in info.iterrows():
-        tid = int(row["topic_id"])
-        if ((cache["level"] == "fine") & (cache["topic_id"] == tid) & (cache["prompt_hash"] == phash)).any():
-            continue
-        titles = _repr_titles(df, fine_labels, tid, lcfg["n_repr_titles"])
-        prompt = PROMPT_TEMPLATE.format(
-            terms=row["top_terms"],
-            titles="\n".join(f"- {t}" for t in titles),
-        )
-        tasks.append(("fine", tid, prompt))
+    cache_path = state / "label_cache.parquet"
+    try:
+        cache = read_table(cache_path)
+    except FileNotFoundError:
+        cache = pd.DataFrame(columns=CACHE_COLUMNS)
+    known = set(cache["cache_key"])
+    todo = [(k, p) for k, p in dict(prompts.values()).items() if k not in known]
+    print(f"[label] {len(todo)} topics to label, {len(prompts) - len(todo)} from cache")
+    if todo:
+        if client is None:
+            from openai import OpenAI  # optional dependency
 
-    print(f"[label] {len(tasks)} topics to label (cached: {len(info) - len(tasks)})")
+            api_key = os.environ.get(acfg["api_key_env"], "")
+            if not api_key:
+                raise OSError(f"set ${acfg['api_key_env']} for labeling.provider=api")
+            client = OpenAI(base_url=acfg["base_url"], api_key=api_key, timeout=120)
 
-    def work_one(task):
-        level, tid, prompt = task
-        d = _call_llm(client, model, prompt, int(acfg.get("max_retries", 5)))
-        return {"level": level, "topic_id": tid, **d,
-                "keywords": "; ".join(d.get("keywords", [])), "prompt_hash": phash}
+        def one(item):
+            key, prompt = item
+            return {"cache_key": key, **_call_llm(client, model, prompt, float(acfg["temperature"]),
+                                                  int(acfg["max_retries"]))}
 
-    results = []
-    with ThreadPoolExecutor(max_workers=int(acfg.get("concurrency", 8))) as ex:
-        for r in tqdm(ex.map(work_one, tasks), total=len(tasks), desc="labeling"):
-            results.append(r)
+        with ThreadPoolExecutor(max_workers=int(acfg["concurrency"])) as ex:
+            new = list(ex.map(one, todo))
+        cache = pd.concat([cache, pd.DataFrame(new, columns=CACHE_COLUMNS)], ignore_index=True)
+        write_table(cache.drop_duplicates("cache_key", keep="last"), cache_path)
 
-    if results:
-        cache = pd.concat([cache, pd.DataFrame(results)], ignore_index=True)
-        cache = cache.drop_duplicates(subset=["level", "topic_id", "prompt_hash"], keep="last")
-        write_table(cache, cache_path)
-    print(f"[label] labels -> {cache_path} ({len(cache)} rows)")
-    return cache
-
-
-def _fallback_labels(cfg: dict, info: pd.DataFrame, work: Path) -> pd.DataFrame:
-    """No LLM: use top c-TF-IDF terms as the topic name (still fully usable)."""
-    rows = []
-    for _, r in info.iterrows():
-        terms = [t for t in str(r["top_terms"]).split("; ") if t][:3]
-        rows.append({
-            "level": "fine", "topic_id": int(r["topic_id"]),
-            "name_th": " / ".join(terms) or f"หัวข้อ {r['topic_id']}",
-            "name_en": " / ".join(terms) or f"Topic {r['topic_id']}",
-            "description": "",
-            "keywords": "; ".join(terms),
-            "prompt_hash": "fallback",
-        })
-    df = pd.DataFrame(rows)
-    write_table(df, work / "05_labels.parquet")
-    print(f"[label] provider=off -> term-based labels ({len(df)})")
-    return df
+    by_key = cache.drop_duplicates("cache_key", keep="last").set_index("cache_key")
+    out = pd.DataFrame([{"level": "fine", "topic_id": tid, **by_key.loc[key, CACHE_COLUMNS[1:]].to_dict(),
+                         "cache_key": key} for tid, (key, _) in sorted(prompts.items())], columns=LABEL_COLUMNS)
+    write_table(out, work / "05_labels.parquet")
+    return out

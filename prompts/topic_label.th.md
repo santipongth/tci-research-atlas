@@ -6,7 +6,8 @@
 ## บริบทการใช้
 
 - เรียกต่อ **fine topic** 1 ครั้ง — input คือ top c-TF-IDF terms + ชื่อบทความตัวแทน
-- ค่าที่ format เข้าไป: `{terms}` (คำคั่นด้วย "; "), `{titles}` (บรรทัดละ 1 ชื่อเรื่อง)
+- inputs: `{keywords}` = top author keywords (คั่นด้วย "; "), `{terms}` = c-TF-IDF words (คั่นด้วย "; "), `{titles}` = MMR representative titles (บรรทัดละ 1 ชื่อเรื่อง)
+- cache key = sha256(model + prompt) (ตัดเหลือ 16 hex) เก็บใน `state/label_cache.parquet` — เปลี่ยน prompt หรือ model หรือ members ของ topic → label ถูกสร้างใหม่เฉพาะ topic นั้น
 - ผลที่คาด: **JSON เท่านั้น** ตาม schema — โค้ด parse ด้วย `json.loads` + ตัด markdown fence ออก
 
 ## Prompt (master)
@@ -14,12 +15,13 @@
 ```
 คุณคือบรรณาธิการวารสารวิชาการไทย ช่วยตั้งชื่อหัวข้อวิจัย (research topic) จากข้อมูลต่อไปนี้
 
-คำสำคัญเด่นของกลุ่ม (c-TF-IDF): {terms}
+คำสำคัญที่ผู้เขียนใช้บ่อยในกลุ่มนี้: {keywords}
+คำเด่นจากเนื้อหา (c-TF-IDF): {terms}
 
-ตัวอย่างชื่อเรื่องบทความในกลุ่ม:
+ตัวอย่างชื่อเรื่องบทความที่เป็นตัวแทนของกลุ่ม:
 {titles}
 
-ตอบกลับเป็น JSON เท่านั้น ตาม schema นี้ห้ามมีข้อความอื่น:
+ตอบกลับเป็น JSON เท่านั้น ตาม schema นี้ ห้ามมีข้อความอื่น:
 {
   "name_th": "ชื่อหัวข้อภาษาไทย กระชับ ไม่เกิน 8 คำ",
   "name_en": "Concise English topic name, max 6 words",
