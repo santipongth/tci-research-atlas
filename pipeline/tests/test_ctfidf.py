@@ -10,7 +10,7 @@ def test_class_specific_terms_rank_first():
 
 
 def test_topic_terms_tokenize_thai():
-    texts = {0: ["การปลูกข้าวของเกษตรกร", "ผลผลิตข้าวของเกษตรกร"], 1: ["ผู้ป่วยเบาหวานและอินซูลิน"] * 2}
+    texts = {0: ["ข้าวนาปี ผลผลิตข้าวหอมมะลิ", "การปลูกข้าว ของเกษตรกร"], 1: ["ผู้ป่วยเบาหวานและอินซูลิน"] * 2}
     top = topic_terms(texts, top_n=3, max_docs=10, seed=1)
     assert "ข้าว" in top[0] and "เบาหวาน" in top[1]
 
