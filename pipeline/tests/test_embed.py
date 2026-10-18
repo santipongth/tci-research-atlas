@@ -84,6 +84,7 @@ def test_embed_resumes_after_interruption(make_cfg, tmp_path):
     assert fake.calls * 2 == 10 - kept                            # only the rest is embedded (batches of 2)
     assert np.allclose(arr, _norm(FakeEmbedder().embed_batch(texts)), atol=1e-6)
     meta = json.loads(open(f"{cfg['pipeline']['work_dir']}/03_meta.json", encoding="utf-8").read())
+    assert len(meta.pop("docs_fingerprint")) == 16
     assert meta == {"model_id": "fake|1", "store_id": "fake|1", "n": 10, "dim": 16, "n_retries": 0,
                     "n_truncated": 0}
 

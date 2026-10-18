@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
+from atlas.checkpoints import docs_fingerprint
 from atlas.embed_api import ApiEmbedder, api_store_id
 from atlas.embed_runner import run_embedding
 from atlas.embed_store import EmbeddingStore, text_key
@@ -97,7 +98,8 @@ def _normalize(arr: np.ndarray) -> np.ndarray:
 
 def embed(cfg: dict, embedder=None) -> np.ndarray:
     work = Path(cfg["pipeline"]["work_dir"])
-    texts = read_table(work / "02_docs.parquet")["doc_text"].tolist()
+    docs = read_table(work / "02_docs.parquet")
+    texts = docs["doc_text"].tolist()
     provider = cfg["embedding"]["provider"]
     meta: dict = {}
     if embedder is None and provider == "lite":
@@ -125,6 +127,8 @@ def embed(cfg: dict, embedder=None) -> np.ndarray:
     work.mkdir(parents=True, exist_ok=True)
     np.save(work / "03_embeddings.npy", arr)
     (work / "03_meta.json").write_text(json.dumps({"model_id": model_id, "n": int(arr.shape[0]),
-                                                   "dim": int(arr.shape[1]), **meta}), encoding="utf-8")
+                                                   "dim": int(arr.shape[1]), **meta,
+                                                   "docs_fingerprint": docs_fingerprint(docs["article_id"])}),
+                                       encoding="utf-8")
     print(f"[embed] {arr.shape} → 03_embeddings.npy")
     return arr

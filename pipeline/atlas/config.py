@@ -119,9 +119,11 @@ class LeidenCfg(_Strict):
 
 class ClusteringCfg(_Strict):
     algorithm: Literal["hdbscan", "leiden"] = "hdbscan"
+    hdbscan_backend: Literal["sklearn", "fast"] = "sklearn"
     leiden: LeidenCfg = Field(default_factory=LeidenCfg)
     reducer: Literal["umap", "pca"] = "umap"
     pca_dims: int = 128
+    pca_fit_sample: int = Field(100_000, ge=100)
     umap_fit_sample: int = 150_000
     fine: FineLevelCfg = Field(default_factory=FineLevelCfg)
     merge_similarity: float = Field(0.8, ge=0.0, le=1.0)

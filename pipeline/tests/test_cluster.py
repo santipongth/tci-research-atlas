@@ -2,8 +2,18 @@ import json
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from atlas.cluster import assign_outliers, cluster, coarse_groups, merge_similar, relabel_by_size
+from atlas.cluster import (
+    assign_outliers,
+    cluster,
+    coarse_groups,
+    hdbscan_labels,
+    merge_similar,
+    reduce_embeddings,
+    relabel_by_size,
+)
+from atlas.config import load_config
 from atlas.io_utils import read_table, write_table
 
 
@@ -73,7 +83,7 @@ def test_cluster_step_on_blobs(make_cfg, tmp_path):
 def _all_noise_cfg(make_cfg, tmp_path, monkeypatch, mcs):
     import atlas.cluster as C
 
-    monkeypatch.setattr(C, "hdbscan_labels", lambda red, fine: np.full(len(red), -1))
+    monkeypatch.setattr(C, "hdbscan_labels", lambda red, fine, backend="sklearn": np.full(len(red), -1))
     cfg = make_cfg(tmp_path)
     cfg["clustering"].update(reducer="pca", n_groups=2)
     cfg["clustering"]["fine"]["hdbscan_min_cluster_size"] = mcs
@@ -99,3 +109,26 @@ def test_all_noise_real_corpus_is_an_error(make_cfg, tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="hdbscan_min_cluster_size"):
         cluster(cfg)
     assert not (tmp_path / "work" / "04_fine_topics.parquet").exists()
+
+
+def _has_fast_hdbscan() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("fast_hdbscan") is not None
+
+
+@pytest.mark.skipif(not _has_fast_hdbscan(), reason="optional extra: uv sync --extra fast")
+def test_fast_hdbscan_backend_matches_sklearn():
+    from sklearn.metrics import adjusted_rand_score
+
+    X, _ = blobs(n_per=80)
+    fine = {"hdbscan_min_cluster_size": 20, "hdbscan_min_samples": 5}
+    assert adjusted_rand_score(hdbscan_labels(X, fine, "sklearn"), hdbscan_labels(X, fine, "fast")) > 0.95
+
+
+def test_pca_fit_sample_is_configurable():
+    ccfg = load_config(None)["clustering"]
+    ccfg.update(pca_dims=8, pca_fit_sample=100)
+    ccfg["fine"].update(umap_n_components=2)
+    X, _ = blobs(n_per=60)                 # 300 × 32 > pca_dims → PCA fitted on a 100-row sample, then UMAP
+    assert reduce_embeddings(X, ccfg, seed=0).shape == (300, 2)

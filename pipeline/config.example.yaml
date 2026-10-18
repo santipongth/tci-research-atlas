@@ -79,6 +79,7 @@ embedding:
 
 clustering:
   algorithm: hdbscan          # hdbscan (UMAP→HDBSCAN) | leiden (Leiden บน kNN graph — ต้อง uv sync --extra leiden)
+  hdbscan_backend: sklearn    # sklearn | fast (fast_hdbscan เร็วกว่ามากที่ 500K — ต้อง uv sync --extra fast)
   leiden:
     k: 15                     # เพื่อนบ้านต่อบทความใน kNN graph
     resolution: 1.0           # สูง = หัวข้อเล็กลง/มากขึ้น
@@ -86,6 +87,7 @@ clustering:
     n_iterations: -1          # −1 = วนจนผลนิ่ง
   reducer: umap               # umap | pca
   pca_dims: 128               # ลดมิติด้วย PCA ก่อน UMAP เมื่อ embedding ใหญ่กว่านี้
+  pca_fit_sample: 100000      # จำนวนบทความตัวอย่างที่ใช้ fit PCA
   umap_fit_sample: 150000     # fit UMAP บนตัวอย่างแล้ว transform ที่เหลือ (ประหยัด RAM ที่ 500K)
   fine:
     umap_n_components: 10

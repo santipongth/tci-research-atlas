@@ -20,6 +20,9 @@ dependencies = [
 [project.optional-dependencies]
 api = ["openai>=1.40"]
 local = ["sentence-transformers>=3.0"]
+fast = [
+    "fast-hdbscan>=0.3",
+]
 
 [project.scripts]
 atlas = "atlas.cli:app"

@@ -1,4 +1,8 @@
-from atlas.thai import clean_text, fold_thai, has_pua, norm_key, repair_glyphs, thai_ratio, tokenize
+import unicodedata
+
+import pytest
+
+from atlas.thai import THAI_PUA, clean_text, fold_thai, has_pua, norm_key, repair_glyphs, thai_ratio, tokenize
 
 MAI_THO = "\N{THAI CHARACTER MAI THO}"
 SARA_AM = "\N{THAI CHARACTER SARA AM}"
@@ -44,3 +48,9 @@ def test_tokenize_mixed_text():
     assert "care" in toks
     assert "and" not in toks
     assert all(len(t) >= 2 for t in toks)
+
+
+@pytest.mark.parametrize("pua", sorted(THAI_PUA))
+def test_every_pua_glyph_maps_to_its_standard_code_point(pua):
+    out = repair_glyphs(chr(pua))
+    assert out == unicodedata.normalize("NFC", chr(THAI_PUA[pua])) and not has_pua(out)

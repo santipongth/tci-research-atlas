@@ -14,8 +14,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from atlas.checkpoints import load_aligned
 from atlas.ctfidf import topic_keywords, topic_terms
-from atlas.io_utils import read_table, write_table
+from atlas.io_utils import write_table
 
 
 def _sample(n: int, k: int, seed: int) -> np.ndarray:
@@ -35,7 +36,7 @@ def reduce_embeddings(emb: np.ndarray, ccfg: dict, seed: int) -> np.ndarray:
     if d > pca_dims and n > pca_dims:
         from sklearn.decomposition import PCA
 
-        X = PCA(pca_dims, random_state=seed).fit(emb[_sample(n, 100_000, seed)]).transform(emb)
+        X = PCA(pca_dims, random_state=seed).fit(emb[_sample(n, int(ccfg["pca_fit_sample"]), seed)]).transform(emb)
     import umap
 
     reducer = umap.UMAP(n_components=min(n_comp, n - 2), n_neighbors=min(int(fine["umap_n_neighbors"]), n - 1),
@@ -47,7 +48,14 @@ def reduce_embeddings(emb: np.ndarray, ccfg: dict, seed: int) -> np.ndarray:
     return reducer.fit_transform(X)
 
 
-def hdbscan_labels(red: np.ndarray, fine: dict) -> np.ndarray:
+def hdbscan_labels(red: np.ndarray, fine: dict, backend: str = "sklearn") -> np.ndarray:
+    if backend == "fast":
+        import fast_hdbscan  # optional extra: uv sync --extra fast
+
+        n = len(red)
+        mcs = max(2, min(int(fine["hdbscan_min_cluster_size"]), max(2, n // 2)))
+        ms = max(1, min(int(fine["hdbscan_min_samples"]), mcs))
+        return np.asarray(fast_hdbscan.HDBSCAN(min_cluster_size=mcs, min_samples=ms).fit_predict(red), dtype=int)
     from sklearn.cluster import HDBSCAN
 
     n = len(red)
@@ -105,11 +113,10 @@ def coarse_groups(C: np.ndarray, n_groups: int) -> np.ndarray:
 
 def cluster(cfg: dict) -> np.ndarray:
     work = Path(cfg["pipeline"]["work_dir"])
-    df = read_table(work / "02_docs.parquet")
-    emb = np.load(work / "03_embeddings.npy")
+    df, emb = load_aligned(work)
     ccfg, seed = cfg["clustering"], int(cfg["pipeline"]["seed"])
 
-    raw = hdbscan_labels(reduce_embeddings(emb, ccfg, seed), ccfg["fine"])
+    raw = hdbscan_labels(reduce_embeddings(emb, ccfg, seed), ccfg["fine"], ccfg["hdbscan_backend"])
     n_raw = len(set(raw.tolist()) - {-1})
     labels = merge_similar(raw, emb, float(ccfg["merge_similarity"]))
     labels = assign_outliers(labels, emb, float(ccfg["outlier_min_similarity"]))
