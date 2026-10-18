@@ -1,0 +1,26 @@
+# Core data
+pandas>=2.0
+numpy>=1.24
+pyarrow>=14
+pyyaml>=6
+tqdm
+
+# Clustering / topic modeling
+scikit-learn>=1.3
+umap-learn>=0.5
+hdbscan>=0.8.33        # ถ้าติดตั้งไม่ผ่าน ใช้: pip install hdbscan --no-build-isolation หรือ conda install -c conda-forge hdbscan
+bertopic>=0.16
+
+# Embedding — local (เลือกติดตั้งถ้าใช้โหมด local)
+# sentence-transformers>=2.7
+# torch>=2.1
+
+# Embedding/LLM — API (เลือกติดตั้งถ้าใช้โหมด api; รองรับ OpenAI-compatible ทุกเจ้า รวมถึง Gemini/OpenRouter/Ollama)
+openai>=1.30
+
+# Forecasting
+statsmodels>=0.14
+# prophet>=1.1         # optional — ติดตั้งยากบนบางเครื่อง; pipeline จะ fallback อัตโนมัติ
+
+# Thai NLP (optional — ใช้ normalize ข้อความไทย)
+# pythainlp>=5.0

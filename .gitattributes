@@ -1,0 +1,8 @@
+# keep LF everywhere (bash scripts break on CRLF; consistent diffs across OS)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.npy binary
+*.parquet binary
+*.bin binary
+*.woff2 binary

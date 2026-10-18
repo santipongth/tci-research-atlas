@@ -1,0 +1,142 @@
+# ============================================================
+# TCI Research Atlas — Pipeline Configuration
+# คัดลอกเป็น config.yaml แล้วแก้ตามสภาพแวดล้อมของคุณ
+# ============================================================
+
+pipeline:
+  name: tci-research-atlas
+  work_dir: ./work            # checkpoint ทั้งหมดอยู่ที่นี่ (ลบทิ้งได้ รันใหม่ได้)
+  output_dir: ./output        # ผลลัพธ์สุดท้ายสำหรับเว็บ
+  seed: 42
+
+# ---------- Phase 1: Input ----------
+input:
+  # รองรับ .csv / .json / .jsonl / .parquet — กำหนด mapping คอลัมน์ด้านล่าง
+  path: ./data/tci_articles.csv
+  columns:
+    article_id: id
+    title_th: title_th
+    title_en: title_en
+    abstract_th: abstract_th
+    abstract_en: abstract_en
+    keywords_th: keywords_th        # คั่นด้วย ; หรือ ,
+    keywords_en: keywords_en
+    authors: authors                # คั่นด้วย ;
+    affiliations: affiliations
+    journal_name: journal
+    year: year
+    volume: volume
+    issue: issue
+    tci_tier: tci_tier              # ถ้าไม่มี ให้ลบออกจาก mapping
+    doi: doi
+    url: url
+  min_year: 2000                    # ตัดข้อมูลปีที่ผิดปกติทิ้ง
+  dedup:
+    enabled: true
+    title_similarity: 0.95          # rapidfuzz ratio /100 — เรื่องซ้ำให้เก็บ record ที่ metadata ครบกว่า
+
+# ---------- Phase 2: Embedding ----------
+embedding:
+  provider: api                     # api | local
+
+  # --- โหมด API: OpenAI-compatible (OpenAI, Gemini, OpenRouter, vLLM, Ollama ฯลฯ) ---
+  api:
+    base_url: https://api.openai.com/v1     # Gemini: https://generativelanguage.googleapis.com/v1beta/openai/
+    api_key_env: ATLAS_API_KEY              # ชื่อ env var ที่เก็บ key (ไม่ใส่ key ในไฟล์นี้)
+    model: text-embedding-3-large           # Gemini: text-embedding-004
+    dimensions: 1024                        # ลดมิติตั้งแต่ต้นทาง (รองรับใน text-embedding-3-*; ถ้าโมเดลไม่รองรับให้ลบบรรทัดนี้)
+    batch_size: 512
+    max_retries: 6
+    checkpoint_every: 5000                  # เซฟ checkpoint ทุก n เรื่อง
+
+  # --- โหมด Local: รันเองบน GPU/CPU ---
+  local:
+    model: BAAI/bge-m3                      # multilingual แข็งแรง ไทยดี; ทางเลือก: intfloat/multilingual-e5-large
+    device: cuda                            # cuda | cpu | mps
+    batch_size: 64
+    fp16: true
+    max_seq_length: 512
+
+  # ประกอบข้อความต่อเรื่อง (เรียงตามความสำคัญ — abstract อาจถูกตัดถ้ายาวเกิน)
+  doc_fields: [title_th, title_en, keywords_th, keywords_en, abstract_th, abstract_en]
+  max_chars_per_doc: 6000
+
+# ---------- Phase 3: Clustering ----------
+clustering:
+  # ทำ 2 ชั้น: coarse = กลุ่มใหญ่บนหน้าแผนที่, fine = topic สำหรับ drill-down
+  coarse:
+    umap_n_components: 10
+    umap_n_neighbors: 30
+    umap_min_dist: 0.0
+    hdbscan_min_cluster_size: 1500
+    hdbscan_min_samples: 50
+  fine:
+    umap_n_components: 10
+    umap_n_neighbors: 15
+    umap_min_dist: 0.0
+    hdbscan_min_cluster_size: 150
+    hdbscan_min_samples: 20
+  outlier_strategy: nearest_centroid        # outlier ของ HDBSCAN → assign เข้า centroid ใกล้สุด
+  ctfidf_top_n: 20
+
+# ---------- Phase 4: LLM Labeling ----------
+labeling:
+  provider: api                   # api (OpenAI-compatible) | off
+  api:
+    base_url: https://api.openai.com/v1
+    api_key_env: ATLAS_API_KEY
+    model: gpt-4o-mini            # หรือโมเดลไทยที่แข็งแรง เช่น typhoon, gpt-4o, gemini-2.0-flash
+    temperature: 0.2
+    max_retries: 5
+    concurrency: 8
+  # ส่งให้ LLM ต่อ cluster: top c-TF-IDF terms + representative titles
+  n_repr_titles: 8
+  merge_duplicates: true          # ให้ LLM รวม cluster ที่ความหมายซ้ำ (ระดับ coarse)
+
+# ---------- Phase 5: Emerging Topic — นิยามของ TCI ----------
+# นิยามเต็มอยู่ใน README.md หัวข้อ "นิยาม Emerging"
+emerging:
+  min_year_complete: null         # null = ตัดปีล่าสุดออกอัตโนมัติถ้ายอด < 60% ของค่ามัธยฐาน (backfill guard)
+  recent_window: 3                # หน้าต่างปีล่าสุด (R)
+  baseline_window: 5              # หน้าต่างอ้างอิงก่อน R (B)
+  min_articles_recent: 30         # กัน noise: topic ต้องมีอย่างน้อย n เรื่องในช่วง R
+  emerging:
+    max_recent_share: 0.015       # share ช่วง R < 1.5% (ยังเล็ก)
+    min_cagr_recent: 0.25         # CAGR ช่วง R >= 25%/ปี
+    min_share_ratio: 1.8          # share(R) / share(B) >= 1.8
+  hot:
+    min_recent_share: 0.015       # share >= 1.5% และ
+    min_slope_share: 0.0          # slope ของ share ทั้งช่วง > 0
+  declining:
+    consecutive_negative_years: 3 # slope ติดลบต่อเนื่อง n ปี
+  # คะแนนรวม 0–100 = weighted sum ของมิติที่ normalize ต่อรอบรัน
+  score_weights:
+    growth: 0.35
+    acceleration: 0.25
+    burst: 0.20                   # Kleinberg burst intensity
+    novelty: 0.20                 # 1 - max cosine sim กับ centroid รอบก่อน (ถ้าไม่มีรอบก่อน → ใช้ 0.5)
+  burst:
+    kleinberg_states: 2
+    gamma: 1.0                    # transition cost — สูง = หา burst ที่ยาว/ชัดเจนขึ้น
+
+# ---------- Phase 6: Forecast ----------
+forecast:
+  horizon: 2                      # ทำนายล่วงหน้า n ปี
+  min_history_years: 6            # topic ต้องมีประวัติอย่างน้อย n ปีถึงจะทำนาย
+  models: [linear, poisson]       # เพิ่ม prophet ได้ถ้าติดตั้งแล้ว
+  backtest_years: 3               # train ≤ Y-3 แล้ววัดผล 3 ปีสุดท้าย
+  metric: mape                    # เลือกโมเดลที่ดีสุดต่อ topic ด้วย metric นี้
+  winsorize_quantile: 0.98        # ตัด outlier รายปี (เช่น ปีที่วารสาร backfill)
+
+# ---------- Phase 7: Layout & Export ----------
+layout:
+  umap_2d_neighbors: 12
+  umap_2d_min_dist: 0.35
+  view_w: 1680
+  view_h: 1040
+  edge_similarity_threshold: 0.55 # edge ระหว่าง topic = cosine sim ของ centroid ≥ ค่านี้
+  max_edges_per_node: 4
+
+export:
+  formats: [json, csv]            # json สำหรับเว็บ, csv สำหรับนักวิเคราะห์
+  include_forecast_in_json: true
