@@ -117,7 +117,8 @@ def embed(cfg: dict, embedder=None) -> np.ndarray:
         stats = run_embedding(texts, embedder, store, runner_cfg(cfg))
         if stats["status"] != "done":
             raise RunStopped(f"embedding stopped with {stats['total'] - stats['cached'] - stats['embedded']:,} "
-                             f"documents left — run the same command again to resume")
+                             f"documents left — run the same command again to resume",
+                             abandoned=int(stats.get("abandoned") or 0))
         arr, model_id = store.get([text_key(embedder.model_id, t) for t in texts]), embedder.model_id
         meta = {"store_id": embedder.model_id, "n_retries": stats["retries"], "n_truncated": stats["truncated"]}
     arr = _normalize(arr)

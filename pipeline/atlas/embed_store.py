@@ -15,7 +15,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from atlas.io_utils import fsync_dir, read_table, replace_with_retry, unlink_with_retry, write_table
+from atlas.io_utils import (
+    fsync_dir,
+    read_table,
+    replace_blocked,
+    replace_with_retry,
+    unlink_with_retry,
+    write_table,
+)
 
 
 def text_key(model_id: str, text: str) -> str:
@@ -38,12 +45,20 @@ class EmbeddingStore:
         self.dir = store_dir(root, model_id)
         self.dir.mkdir(parents=True, exist_ok=True)
         self._index_path = self.dir / "index.parquet"
+        self.reload()
+
+    def reload(self) -> None:
+        """Re-read index.parquet (call after taking the run lock: another run may have written since)."""
         try:
             self.index = read_table(self._index_path)
         except FileNotFoundError:
             self.index = pd.DataFrame({"key": pd.Series(dtype=str), "shard": pd.Series(dtype="int64"),
                                        "row": pd.Series(dtype="int64")})
         self._lookup = dict(zip(self.index["key"], zip(self.index["shard"], self.index["row"])))
+
+    def index_replace_blocked(self) -> bool:
+        """Windows: another program holds index.parquet so that a checkpoint would fail right now."""
+        return replace_blocked(self._index_path)
 
     def __len__(self) -> int:
         return len(self._lookup)
@@ -83,10 +98,12 @@ class EmbeddingStore:
             break
         add = pd.DataFrame({"key": [k for k, _ in new], "shard": shard, "row": np.arange(len(new))})
         index = pd.concat([self.index, add], ignore_index=True)
-        written = write_table(index, self.dir / "index.tmp.parquet")       # .pkl here if no pyarrow
-        with open(written, "rb+") as f:                                     # durable before it replaces the
-            _fsync(f)                                                       # old index (power loss safe)
-        try:
+        tmp = self.dir / "index.tmp.parquet"
+        written = tmp
+        try:                                                                # until the new index is in place,
+            written = write_table(index, tmp)                               # any failure removes the shard
+            with open(written, "rb+") as f:                                 # durable before it replaces the
+                _fsync(f)                                                   # old index (power loss safe)
             replace_with_retry(written, self.dir / written.name.replace(".tmp", ""), timeout=replace_timeout)
         except BaseException:
             unlink_with_retry(shard_path, timeout=1.0)                      # not referenced by any index

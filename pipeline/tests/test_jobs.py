@@ -1,6 +1,7 @@
 """Long-job plumbing (atlas.jobs): PID liveness, run lock, stop flag, atomic progress, background spawn."""
 from __future__ import annotations
 
+import errno
 import json
 import os
 import socket
@@ -329,3 +330,63 @@ def test_fmt_duration():
 
     assert fmt_duration(0.34) == "0.3s" and fmt_duration(42) == "42s"
     assert fmt_duration(80) == "1m 20s" and fmt_duration(3 * 3600 + 120) == "3h 02m" and fmt_duration(None) == "-"
+
+
+# ---------- fix round 2
+def _lock_func():
+    if os.name == "nt":
+        import msvcrt
+
+        return msvcrt, "locking"
+    import fcntl
+
+    return fcntl, "flock"
+
+
+@pytest.mark.parametrize("err", [errno.ENOLCK, getattr(errno, "EOPNOTSUPP", 95), errno.EIO])
+def test_a_filesystem_without_locking_is_a_clear_error(tmp_path, monkeypatch, err):
+    from atlas.jobs import LockUnsupported
+
+    mod, name = _lock_func()
+
+    def broken(*a, **k):
+        raise OSError(err, os.strerror(err))
+    monkeypatch.setattr(mod, name, broken)
+    with pytest.raises(LockUnsupported, match="local disk"):
+        RunLock(tmp_path / "run.lock", wait=0).acquire()
+
+
+@pytest.mark.parametrize("err", [errno.EACCES, errno.EAGAIN, getattr(errno, "EDEADLK", 36)])
+def test_lock_conflict_errnos_mean_held(tmp_path, monkeypatch, err):
+    mod, name = _lock_func()
+
+    def held(*a, **k):
+        raise OSError(err, os.strerror(err))
+    monkeypatch.setattr(mod, name, held)
+    with pytest.raises(LockHeld):
+        RunLock(tmp_path / "run.lock", wait=0).acquire()
+
+
+def test_os_lock_held_probe(tmp_path):
+    from atlas.jobs import os_lock_held
+
+    assert os_lock_held(tmp_path) is False                     # never ran: no .lock, nothing created
+    assert not (tmp_path / ".lock").exists()
+    with RunLock(tmp_path / "run.lock"):
+        (tmp_path / "run.lock").unlink()                       # the informational file may be missing
+        assert os_lock_held(tmp_path) is True
+        st = job_status(tmp_path)
+        assert st["lock_alive"] is True
+    assert os_lock_held(tmp_path) is False
+
+
+def test_acquire_releases_the_os_lock_when_writing_run_lock_fails(tmp_path, monkeypatch):
+    import atlas.jobs as jobs
+
+    def boom(*a, **k):
+        raise ValueError("disk exploded")
+    monkeypatch.setattr(jobs, "write_json_atomic", boom)
+    with pytest.raises(ValueError):
+        RunLock(tmp_path / "run.lock").acquire()
+    monkeypatch.undo()
+    RunLock(tmp_path / "run.lock", wait=0).acquire().release()  # not leaked: acquirable again at once

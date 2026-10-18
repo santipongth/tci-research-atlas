@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import threading
 import time
 
@@ -12,7 +13,7 @@ import yaml
 from typer.testing import CliRunner
 
 from atlas.cli import app
-from atlas.embed_store import EmbeddingStore, store_dir
+from atlas.embed_store import EmbeddingStore, store_dir, text_key
 from atlas.io_utils import write_table
 from atlas.jobs import RunLock, now_iso, pid_alive, read_json, write_json_atomic
 from tests.conftest import FIXTURES
@@ -260,3 +261,105 @@ def test_abandoned_requests_exit_at_once(tmp_path, monkeypatch):
     with pytest.raises(SystemExit):
         cli._run_guarded(load_config(write_cfg(tmp_path)), ["embed"], None)
     assert codes == [130]                                   # no wait for the abandoned requests' threads
+
+
+# ---------- fix round 2
+def test_status_liveness_comes_from_the_os_lock_not_run_lock(tmp_path, monkeypatch):
+    import atlas.embed_runner as er
+    from atlas.cli import render_status
+    from atlas.config import load_config
+
+    cfg = load_config(write_cfg(tmp_path))
+    sdir = EmbeddingStore(tmp_path / "state" / "embeddings", STORE_ID).dir
+
+    def forbidden(*a, **k):
+        raise AssertionError("status opened the files of a live run")
+    monkeypatch.setattr(er, "store_status_lines", forbidden)
+    with RunLock(sdir / "run.lock"):
+        (sdir / "run.lock").unlink()                         # e.g. its write failed: information only
+        write_json_atomic(sdir / "progress.json", {"kind": "embedding", "store_id": STORE_ID, "status": "running",
+                                                   "pid": os.getpid(), "total": 4, "remaining": 2, "embedded": 2,
+                                                   "store_vectors": 2, "updated_at": now_iso()})
+        text = render_status(cfg)
+    assert "running" in text and "2 vectors" in text
+
+
+def test_final_store_failure_is_explained_not_a_traceback(tmp_path, monkeypatch):
+    import atlas.cli as cli
+    import atlas.pipeline as pl
+    from atlas.config import load_config
+    from atlas.embed_runner import StoreBusy
+
+    def busy(cfg, steps):
+        raise StoreBusy("index.parquet is held by another program; 120 vectors are kept in journal.bin")
+    monkeypatch.setattr(pl, "run", busy)
+    r = CliRunner().invoke(cli.app, ["run", "-c", write_cfg(tmp_path), "-s", "embed"])
+    assert r.exit_code == 1 and "journal.bin" in r.output and "run the same command again" in r.output
+    assert "Traceback" not in r.output
+    assert cli._run_guarded(load_config(write_cfg(tmp_path)), ["embed"], None) == 1
+
+
+def test_unsupported_locking_exits_2(tmp_path, key, monkeypatch):
+    import atlas.jobs as jobs
+
+    write_docs(tmp_path, 10)
+
+    def unsupported(fd):
+        raise jobs.LockUnsupported("cannot lock; put state_dir on a local disk")
+    monkeypatch.setattr(jobs, "_os_lock", unsupported)
+    r = invoke("embed", "-c", write_cfg(tmp_path))
+    assert r.exit_code == 2 and "local disk" in r.output
+
+
+DOUBLE_CTRL_C = """
+import _thread, sys, threading, time
+from pathlib import Path
+cfg, trigger = sys.argv[1], Path(sys.argv[2])
+
+def presses():
+    while not trigger.exists():
+        time.sleep(0.02)
+    print("CHILD Ctrl-C 1", flush=True)
+    _thread.interrupt_main()
+    time.sleep(1.0)
+    print("CHILD Ctrl-C 2", flush=True)
+    _thread.interrupt_main()
+
+threading.Thread(target=presses, daemon=True).start()
+from atlas.cli import app
+app(["embed", "-c", cfg], prog_name="atlas")
+"""
+
+
+def test_second_ctrl_c_exits_the_cli_at_once_end_to_end(tmp_path, key):
+    from atlas.jobs import python_command
+
+    texts = write_docs(tmp_path, 400)
+    trigger = tmp_path / "press-now"
+    with StubEmbedServer(latency=0.02) as srv:
+        cfg = write_cfg(tmp_path, srv.url, batch_size=8, concurrency=2, checkpoint_every=10_000,
+                        request_timeout=120.0)
+        exe, env = python_command()
+        p = subprocess.Popen([exe, "-c", DOUBLE_CTRL_C, cfg, str(trigger)], env=env, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+        try:
+            for _ in range(600):                              # let some batches complete ...
+                if len(srv.texts_served) >= 48:
+                    break
+                time.sleep(0.05)
+            srv.latency = 60.0                                # ... then every request hangs for a minute
+            time.sleep(0.3)
+            trigger.write_text("go", encoding="utf-8")
+            t_press = time.monotonic()
+            out, _ = p.communicate(timeout=60)
+            after_second = time.monotonic() - t_press - 1.0   # the 2nd press comes 1 s after the 1st
+            served = set(srv.texts_served)                    # snapshot: slow requests never completed
+        finally:
+            if p.poll() is None:
+                p.kill()
+                p.wait()
+    assert p.returncode == 130, out
+    assert "abandoning" in out and after_second < 6.0, (after_second, out)
+    store = EmbeddingStore(tmp_path / "state" / "embeddings", STORE_ID)
+    stored = {t for t in texts if store.has(text_key(STORE_ID, t))}
+    assert stored == served and len(stored) >= 48            # everything that completed was saved

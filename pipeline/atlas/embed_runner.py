@@ -53,6 +53,23 @@ FSYNC_EVERY_S = 10.0
 PROGRESS_EVERY_S = 5.0                           # progress.json heartbeat (spec: at least every 30 s)
 CHECKPOINT_REPLACE_S = 20.0                      # how long a checkpoint waits for index.parquet readers
 FINAL_REPLACE_S = 60.0                           # ... and the final flush
+POSTPONE_GATE = 3                                # after this many postponements in a row, only retry the
+                                                 # checkpoint once index.parquet is free (no shard rewrites)
+
+
+class StoreBusy(PermissionError):
+    """The final save into the store failed (index.parquet held by another program). Nothing is lost:
+    journal.bin is kept and the next run replays it."""
+
+
+def say(text: str) -> None:
+    """print() that can never break the run: a console that cannot show Thai (cp1252 when used as a library
+    without atlas.console.use_utf8_stdio) gets replacement characters instead of a UnicodeEncodeError."""
+    try:
+        print(text, flush=True)
+    except UnicodeEncodeError:
+        enc = getattr(sys.stdout, "encoding", None) or "ascii"
+        print(text.encode(enc, "replace").decode(enc, "replace"), flush=True)
 
 
 # ---------- journal
@@ -150,7 +167,7 @@ def journal_records(path: str | Path) -> int:
     return (size - HEADER) // (KEY_BYTES + 4 * struct.unpack("<I", head[4:])[0])
 
 
-def recover_journal(store: EmbeddingStore, log=print) -> int:
+def recover_journal(store: EmbeddingStore, log=say) -> int:
     """Replay <store>/journal.bin into the store, then remove it. Returns the number of vectors recovered."""
     path = store.dir / JOURNAL
     if not path.exists():
@@ -241,6 +258,7 @@ def run_embedding(texts: list[str], embedder, store: EmbeddingStore, rcfg: dict,
                    heartbeat=store.dir / PROGRESS)
     lock.acquire()
     try:
+        store.reload()                                    # the previous holder may have written since we opened it
         return _Run(texts, embedder, store, rcfg, progress,
                     process_started_epoch() if run_started is None else run_started).run()
     finally:
@@ -256,6 +274,7 @@ class _Run:
         self.concurrency = max(1, int(rcfg.get("concurrency") or 1))
         self.checkpoint_every = max(1, int(rcfg.get("checkpoint_every") or 2000))
         self.next_flush_at = self.checkpoint_every
+        self.postponed = 0                        # checkpoints postponed in a row (index.parquet held)
         self.show = progress
         self.run_started = run_started
         self.stop_flag = StopFlag(store.dir / STOP)
@@ -327,6 +346,7 @@ class _Run:
                 "truncated": int(getattr(self.embedder, "n_truncated", 0)),
                 "truncated_total": self.truncated_total,
                 "store_vectors": len(self.store), "journal_pending": self.journal.records,
+                "checkpoint_postponed": self.postponed,
                 "last_error": last_error, "last_error_at": last_error_at, "last_event": last_event,
                 "recovered": self.recovered, "concurrency": self.concurrency, "in_flight": len(self.in_flight),
                 "started_at": self.started_at, "updated_at": now_iso()}
@@ -362,8 +382,23 @@ class _Run:
         if self.buffered >= self.next_flush_at:
             self.flush()
 
+    def postpone(self, why: str) -> None:
+        """A reader (antivirus, backup, a file viewer) holds index.parquet: everything stays in the journal and
+        the buffer; try again after the next checkpoint_every vectors."""
+        self.postponed += 1
+        self.next_flush_at = self.buffered + self.checkpoint_every
+        with self._ev:
+            self.last_event = f"checkpoint postponed {self.postponed}x — something holds index.parquet"
+        if self.postponed <= POSTPONE_GATE or self.postponed % 10 == 0:
+            say(f"[embed] checkpoint postponed ({self.postponed}x) — index.parquet is held by another program "
+                f"({why}); {self.buffered:,} vectors stay in journal.bin and are stored at the next checkpoint")
+        self.tick(force=True)
+
     def flush(self, final: bool = False) -> None:
         if self.buffer:
+            if not final and self.postponed >= POSTPONE_GATE and self.store.index_replace_blocked():
+                self.postpone("still held")                    # no shard/index rewrite while it is held
+                return
             keys = [k for ks, _ in self.buffer for k in ks]
             try:
                 self.store.add(keys, np.vstack([v for _, v in self.buffer]),
@@ -371,15 +406,10 @@ class _Run:
             except PermissionError as e:
                 if final:
                     raise
-                # a reader (antivirus, backup, an old `atlas status`) holds index.parquet: everything stays in
-                # the journal and the buffer; try again after the next checkpoint_every vectors
-                self.next_flush_at = self.buffered + self.checkpoint_every
-                print(f"[embed] checkpoint postponed — index.parquet is held by another program ({e.strerror}); "
-                      f"{self.buffered:,} vectors stay in journal.bin and are stored at the next checkpoint",
-                      flush=True)
-                self.tick(force=True)
+                self.postpone(e.strerror or str(e))
                 return
             self.buffer, self.buffered, self.next_flush_at = [], 0, self.checkpoint_every
+            self.postponed = 0
             self.save_truncations(set(keys), final)
         self.journal.truncate()
         self.tick(force=True)
@@ -394,7 +424,7 @@ class _Run:
             self.truncated_total = append_truncated(self.store.dir, rows)
         except PermissionError:
             if final:
-                print(f"[embed] WARNING: could not update {TRUNCATED} (held by another program)", flush=True)
+                say(f"[embed] WARNING: could not update {TRUNCATED} (held by another program)")
             return                                           # retried at the next checkpoint
         with self._ev:
             for r in rows:
@@ -411,8 +441,8 @@ class _Run:
             cancel()                                          # workers in a backoff/rate-limit wait give up
         running = sum(1 for f in self.in_flight if not f.done())
         if why != "error":
-            print(f"[embed] \N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK} ({why}): \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER O ANG} request \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} {running} \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER RO RUA} / stopping ({why}): waiting for "
-                  f"{running} in-flight request(s) — Ctrl-C again to abandon them", flush=True)
+            say(f"[embed] \N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK} ({why}): \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER O ANG} request \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} {running} \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER RO RUA} / stopping ({why}): waiting for "
+                  f"{running} in-flight request(s) — Ctrl-C again to abandon them")
 
     def fail(self, e: BaseException) -> None:
         if isinstance(e, (Cancelled, CancelledError)):
@@ -472,7 +502,7 @@ class _Run:
             text_of.setdefault(k, t)
         todo = [k for k in text_of if not self.store.has(k)]
         self.total, self.cached, self.remaining = len(text_of), len(text_of) - len(todo), len(todo)
-        print(f"[embed] {self.cached:,} cached, {len(todo):,} to embed ({self.store_id})", flush=True)
+        say(f"[embed] {self.cached:,} cached, {len(todo):,} to embed ({self.store_id})")
         self.tick(force=True)                                 # totals known: `atlas status` shows them now
         batches = pack_batches([len(text_of[k]) for k in todo], self.batch_size, self.max_chars)
         hooked = hasattr(self.embedder, "on_event")          # ApiEmbedder reports retries/splits/truncation
@@ -512,9 +542,10 @@ class _Run:
         try:
             while True:
                 if self.interrupts >= 2:
+                    self.begin_stop("Ctrl-C")                 # both presses may land before we looked: cancel too
                     self.abandoned = sum(1 for f in self.in_flight if not f.done())
-                    print(f"[embed] abandoning {self.abandoned} in-flight request(s); their texts are sent "
-                          f"again by the next run", flush=True)
+                    say(f"[embed] abandoning {self.abandoned} in-flight request(s); their texts are sent "
+                          f"again by the next run")
                     for fut in [f for f in self.in_flight if f.done()]:
                         self.collect(fut, self.in_flight.pop(fut))
                     break
@@ -535,16 +566,26 @@ class _Run:
                     self.collect(fut, self.in_flight.pop(fut))
                 self.tick()
         finally:
+            if any(not f.done() for f in self.in_flight):    # leaving with work in flight (abandon, crash):
+                cancel = getattr(self.embedder, "cancel", None)   # no worker may keep retrying after we return
+                if cancel:
+                    cancel()
             ex.shutdown(wait=False, cancel_futures=True)     # never joins a request that was abandoned
 
     def finish(self) -> None:
         """Flush everything paid for; the journal is removed only once the store holds it."""
         try:
             self.flush(final=True)
-        except BaseException:
+        except BaseException as e:
             self.journal.close(delete=False)                 # keep journal.bin: the next run replays it
             self.final = "failed"
+            msg = (f"could not save {self.buffered:,} vectors into the store ({type(e).__name__}: {e}) — they are "
+                   f"kept in journal.bin; run the same command again to store them (nothing is paid twice)")
+            with self._ev:
+                self.last_error, self.last_error_at = msg, now_iso()
             self.tick(force=True)
+            if isinstance(e, PermissionError):
+                raise StoreBusy(f"index.parquet is held by another program — {msg}") from e
             raise
         self.journal.close(delete=True)
         left = self.remaining - self.embedded
@@ -560,6 +601,6 @@ class _Run:
         self.stop_flag.clear()                               # served (or moot): never carried to the next run
         self.tick(force=True)
         if self.final == "stopped":
-            print(f"[embed] \N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN} — \N{THAI CHARACTER SARA E}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER BO BAIMAI} {self.embedded:,} \N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER NGO NGU} store; \N{THAI CHARACTER SARA E}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER O ANG} {left:,} \N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU} — "
+            say(f"[embed] \N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN} — \N{THAI CHARACTER SARA E}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER BO BAIMAI} {self.embedded:,} \N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER NGO NGU} store; \N{THAI CHARACTER SARA E}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER O ANG} {left:,} \N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU} — "
                   f"\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER PHO PHAN}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG} / stopped: {self.embedded:,} vectors of this run are in the store, "
-                  f"{left:,} left — run the same command again to resume", flush=True)
+                  f"{left:,} left — run the same command again to resume")

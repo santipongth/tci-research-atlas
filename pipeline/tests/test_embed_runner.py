@@ -537,3 +537,159 @@ def test_second_ctrl_c_abandons_in_flight_requests_at_once(tmp_path):
     assert time.monotonic() - t0 < 10
     assert stats["status"] == "stopped" and stats["abandoned"] >= 1
     assert len(store_for(tmp_path)) == stats["embedded"]
+
+
+# ---------- fix round 2
+def test_two_ctrl_c_during_a_slow_checkpoint_still_cancel_and_stop(tmp_path, monkeypatch):
+    # both presses are counted while the main thread is busy in a checkpoint: the loop jumps 0 -> 2
+    import atlas.embed_store as es
+
+    calls = {"n": 0}
+    lock = threading.Lock()
+
+    def transport(url, headers, body, timeout):
+        inp = json.loads(body)["input"]
+        with lock:
+            calls["n"] += 1
+            n = calls["n"]
+        if n <= 2:
+            return 200, {}, json.dumps({"data": [{"index": i, "embedding": fake_vec(x).tolist()}
+                                                 for i, x in enumerate(inp)]}).encode()
+        time.sleep(0.05)
+        return 503, {}, b"down"                           # then the server is down: retry forever
+
+    orig_add, fired = es.EmbeddingStore.add, []
+
+    def slow_add(self, keys, vectors, **kw):
+        if not fired:
+            fired.append(1)
+
+            def twice():
+                time.sleep(0.2)
+                _thread.interrupt_main()
+                time.sleep(0.4)
+                _thread.interrupt_main()
+            threading.Thread(target=twice, daemon=True).start()
+            for _ in range(30):                            # a slow checkpoint (short sleeps, so each
+                time.sleep(0.05)                           # Ctrl-C is handled while it lasts)
+        return orig_add(self, keys, vectors, **kw)
+    monkeypatch.setattr(es.EmbeddingStore, "add", slow_add)
+    emb = ApiEmbedder(_api_cfg(backoff_initial=0.2, backoff_max=0.4), transport=transport)
+    store = store_for(tmp_path, emb.model_id)
+    try:
+        stats = run_embedding(TEXTS, emb, store, rcfg(batch_size=5, concurrency=2, checkpoint_every=10),
+                              progress=False)
+        cancelled = emb.policy.cancelled
+        time.sleep(1.0)                                    # workers finish their current wait and give up
+        c0 = calls["n"]
+        time.sleep(1.5)
+        c1 = calls["n"]
+    finally:
+        emb.cancel()                                       # never leave retrying workers behind (hangs pytest)
+    assert stats["status"] == "stopped" and stats["abandoned"] >= 0 and cancelled
+    assert read_json(store.dir / "progress.json")["status"] == "stopped"
+    assert c1 == c0                                        # nobody keeps retrying after the run returned
+
+
+def test_store_index_is_reloaded_after_taking_the_lock(tmp_path):
+    # B opens the store, then A checkpoints and releases while B waits for the lock: B must not re-pay
+    store_b = store_for(tmp_path)
+    lock_a = RunLock(store_b.dir / "run.lock", log=lambda m: None).acquire()
+    store_for(tmp_path).add(keys_of(TEXTS[:20]), np.stack([fake_vec(t) for t in TEXTS[:20]]))
+    threading.Timer(0.2, lock_a.release).start()
+    fake = Fake()
+    stats = run_embedding(TEXTS, fake, store_b, rcfg(), progress=False)
+    assert stats["cached"] == 20 and len(fake.texts) == 20
+    again = store_for(tmp_path)
+    shards = {int(p.stem.split("_")[1]) for p in again.dir.glob("shard_*.npy")}
+    assert len(again) == 40 and shards == set(int(x) for x in again.index["shard"].unique())   # no orphan
+
+
+def test_store_add_removes_its_shard_when_writing_the_index_fails(tmp_path, monkeypatch):
+    import atlas.embed_store as es
+
+    store = store_for(tmp_path)
+    store.add(["a" * 40], np.ones((1, 3), dtype=np.float32))
+
+    def broken(df, path):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(es, "write_table", broken)
+    with pytest.raises(OSError):
+        store.add(["b" * 40], np.ones((1, 3), dtype=np.float32))
+    assert sorted(p.name for p in store.dir.glob("shard_*.npy")) == ["shard_00000.npy"]
+    assert len(store) == 1
+
+
+@pytest.mark.skipif(os.name != "nt", reason="only Windows blocks replacing a file that is open")
+def test_final_flush_failure_keeps_the_journal_and_says_so(tmp_path, monkeypatch):
+    import atlas.embed_runner as er
+    from atlas.embed_runner import StoreBusy
+
+    monkeypatch.setattr(er, "CHECKPOINT_REPLACE_S", 0.2)
+    monkeypatch.setattr(er, "FINAL_REPLACE_S", 0.3)
+    store = store_for(tmp_path)
+    store.add(keys_of(TEXTS[:1]), fake_vec(TEXTS[0])[None])
+    f = open(store.dir / "index.parquet", "rb")                # held for the whole run
+    try:
+        with pytest.raises(StoreBusy) as e:
+            run_embedding(TEXTS, Fake(), store, rcfg(checkpoint_every=1000), progress=False)
+        assert "journal" in str(e.value)
+        prog = read_json(store.dir / "progress.json")
+        assert prog["status"] == "failed" and "journal" in prog["last_error"]
+        assert (store.dir / JOURNAL).exists()
+    finally:
+        f.close()
+    again = Fake()
+    stats = run_embedding(TEXTS, again, store_for(tmp_path), rcfg(), progress=False)
+    assert stats["recovered"] == 39 and again.calls == 0 and len(store_for(tmp_path)) == 40
+
+
+@pytest.mark.skipif(os.name != "nt", reason="only Windows blocks replacing a file that is open")
+def test_a_persistent_holder_does_not_cause_repeated_shard_rewrites(tmp_path, monkeypatch):
+    import atlas.embed_runner as er
+    import atlas.embed_store as es
+
+    monkeypatch.setattr(er, "CHECKPOINT_REPLACE_S", 0.1)
+    adds = []
+    orig_add = es.EmbeddingStore.add
+
+    def counting_add(self, keys, vectors, **kw):
+        adds.append(len(keys))
+        return orig_add(self, keys, vectors, **kw)
+    monkeypatch.setattr(es.EmbeddingStore, "add", counting_add)
+    store = store_for(tmp_path)
+    store.add(keys_of(TEXTS[:1]), fake_vec(TEXTS[0])[None])
+    adds.clear()
+    released, seen, held_adds = threading.Event(), [], []
+    f = open(store.dir / "index.parquet", "rb")
+
+    def hook(n):
+        if n == 30:                                        # long after 3 postponements
+            seen.append(read_json(store.dir / "progress.json"))
+            held_adds.append(len(adds))                    # store.add attempts while the file was held
+            f.close()
+            released.set()
+    texts = [f"text {i}" for i in range(200)]
+    try:
+        stats = run_embedding(texts, Fake(hook=hook), store, rcfg(batch_size=4, checkpoint_every=4), progress=False)
+    finally:
+        if not released.is_set():
+            f.close()
+    assert stats["status"] == "done" and len(store_for(tmp_path)) == 201      # + the pre-seeded vector
+    assert seen and seen[0]["checkpoint_postponed"] >= 10   # ~30 checkpoints were due while it was held ...
+    assert held_adds[0] <= 4                                # ... but only the first 3 rewrote a shard + index
+
+
+def test_runner_messages_never_break_on_a_cp1252_console(tmp_path, monkeypatch):
+    import io
+
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp1252"))   # a library caller's console
+    store = store_for(tmp_path)
+
+    def hook(n):
+        if n == 2:
+            (store.dir / "stop.flag").write_text("x", encoding="utf-8")   # triggers the Thai stop messages
+    stats = run_embedding(TEXTS, Fake(hook=hook), store, rcfg(checkpoint_every=1000), progress=False)
+    sys.stdout.flush()
+    assert stats["status"] == "stopped" and b"stopping (stop.flag)" in raw.getvalue()

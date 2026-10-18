@@ -11,6 +11,7 @@ Each job owns a folder under state_dir with:
 """
 from __future__ import annotations
 
+import errno
 import json
 import os
 import socket
@@ -191,7 +192,19 @@ def write_json_atomic(path: str | Path, obj: dict, *, timeout: float = 1.0) -> b
 
 
 # ---------- the lock
+class LockUnsupported(RuntimeError):
+    """The filesystem cannot lock files (some network shares): one-writer-per-store cannot be guaranteed."""
+
+
+# errnos that mean "another handle holds the lock"; anything else = locking itself does not work here
+_HELD_ERRNOS = {errno.EACCES, errno.EAGAIN, getattr(errno, "EWOULDBLOCK", errno.EAGAIN),
+                getattr(errno, "EDEADLK", -1), getattr(errno, "EDEADLOCK", -1)}
+_HELD_WINERRORS = {33, 36}                                    # ERROR_LOCK_VIOLATION, ERROR_SHARING_BUFFER_EXCEEDED
+
+
 def _os_lock(fd: int) -> bool:
+    """Try to lock byte 0 of `fd` without blocking: True = we hold it, False = someone else does.
+    Any other failure raises LockUnsupported."""
     try:
         if os.name == "nt":
             import msvcrt
@@ -202,8 +215,11 @@ def _os_lock(fd: int) -> bool:
             import fcntl
 
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        return False
+    except OSError as e:
+        if e.errno in _HELD_ERRNOS or getattr(e, "winerror", None) in _HELD_WINERRORS:
+            return False
+        raise LockUnsupported(f"\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA A}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER FO FAN}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER THANTHAKHAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER FO FAN}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER THANTHAKHAT}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER MAI THO} ({e}) — \N{THAI CHARACTER YO YAK}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER YO YAK} state_dir \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER THANTHAKHAT}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU} / this filesystem "
+                              f"does not support file locking ({e}); put state_dir on a local disk") from None
     return True
 
 
@@ -222,6 +238,29 @@ def _os_unlock(fd: int) -> None:
         pass
     finally:
         os.close(fd)
+
+
+def os_lock_held(job_dir: str | Path) -> bool | None:
+    """Is a live process holding `<job_dir>/.lock` right now? (A non-blocking try-and-release; a run that is
+    starting at that instant retries for RunLock.wait.) False when the folder never held a run; None when
+    the filesystem cannot lock."""
+    path = Path(job_dir) / OSLOCK
+    try:
+        fd = os.open(path, os.O_RDWR)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return None
+    try:
+        got = _os_lock(fd)
+    except LockUnsupported:
+        os.close(fd)
+        return None
+    if got:
+        _os_unlock(fd)                                          # also closes fd
+        return False
+    os.close(fd)
+    return True
 
 
 class RunLock:
@@ -244,7 +283,12 @@ class RunLock:
 
     def _try(self) -> bool:
         fd = os.open(self.os_path, os.O_RDWR | os.O_CREAT, 0o644)
-        if _os_lock(fd):
+        try:
+            got = _os_lock(fd)
+        except LockUnsupported as e:
+            os.close(fd)
+            raise LockUnsupported(f"{e} — lock file {self.os_path}") from None
+        if got:
             self._fd = fd
             return True
         os.close(fd)
@@ -256,24 +300,30 @@ class RunLock:
         while not self._try():
             if time.monotonic() >= deadline:
                 st = lock_state(self.path, self.heartbeat, self.stale_seconds)
-                pid = st["pid"]
-                if st["hung"]:
-                    msg = (f"\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} (hung) — \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II} heartbeat \N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU} {fmt_duration(st['heartbeat_age'])} \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK} process \N{THAI CHARACTER YO YAK}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} "
-                           f"(PID {pid}) / hung — no heartbeat for {fmt_duration(st['heartbeat_age'])} but the "
+                pid, age = st["pid"], st["heartbeat_age"]
+                hung = age is not None and age > self.stale_seconds        # the holder is alive by definition
+                if hung:
+                    msg = (f"\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU} (hung) — \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II} heartbeat \N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU} {fmt_duration(age)} \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK} process \N{THAI CHARACTER YO YAK}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} "
+                           f"(PID {pid}) / hung — no heartbeat for {fmt_duration(age)} but the "
                            f"process (PID {pid}) still holds the lock; it is never taken over while it lives — check "
                            f"it, or end it (taskkill /F /PID {pid}) and run again")
                 else:
                     msg = f"\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} (PID {pid}) / another run is in progress (PID {pid})"
-                raise LockHeld(f"{msg} — lock {self.os_path}", pid, hung=st["hung"])
+                raise LockHeld(f"{msg} — lock {self.os_path}", pid, hung=hung)
             time.sleep(0.05)
-        prev = read_json(self.path)
-        if prev is not None:
-            self.log(f"[lock] previous run (PID {prev.get('pid')}, started {prev.get('started_at')}) ended without "
-                     f"releasing run.lock (stale) — taking over: {self.path}")
-        info = {"pid": os.getpid(), "host": socket.gethostname(), "started_at": now_iso(),
-                "pid_started": process_start_time(os.getpid())}
-        if not write_json_atomic(self.path, info, timeout=10.0):
-            self.log(f"[lock] WARNING: could not write {self.path} (information only)")
+        try:
+            prev = read_json(self.path)
+            if prev is not None:
+                self.log(f"[lock] previous run (PID {prev.get('pid')}, started {prev.get('started_at')}) ended "
+                         f"without releasing run.lock (stale) — taking over: {self.path}")
+            info = {"pid": os.getpid(), "host": socket.gethostname(), "started_at": now_iso(),
+                    "pid_started": process_start_time(os.getpid())}
+            if not write_json_atomic(self.path, info, timeout=10.0):
+                self.log(f"[lock] WARNING: could not write {self.path} (information only)")
+        except BaseException:
+            _os_unlock(self._fd)                                # never leak the OS lock
+            self._fd = None
+            raise
         self.held = True
         return self
 
@@ -482,15 +532,23 @@ def job_status(job_dir: str | Path, stale_seconds: float = 300) -> dict:
     job_dir = Path(job_dir)
     prog = read_json(job_dir / PROGRESS) or {}
     lock = lock_state(job_dir / LOCK, job_dir / PROGRESS, stale_seconds)
+    held = os_lock_held(job_dir) if (job_dir / OSLOCK).exists() else None
+    alive = held if held is not None else lock["alive"]        # the OS lock decides; run.lock only informs
+    age = lock["heartbeat_age"]
+    if held and age is None:                                   # run.lock missing: heartbeat from progress.json
+        upd = parse_iso(prog.get("updated_at"))
+        age = time.time() - upd if upd else None
+    hung = bool(alive and age is not None and age > stale_seconds)
     status = prog.get("status", "unknown")
     if status in ACTIVE:
-        if not lock["alive"]:
+        if not alive:
             status = "interrupted"
-        elif lock["hung"]:
+        elif hung:
             status = "hung"
     return {**prog, "status": status, "recorded_status": prog.get("status"), "dir": str(job_dir),
-            "lock_pid": lock["pid"], "lock_alive": lock["alive"] if lock["exists"] else None,
-            "heartbeat_age": lock["heartbeat_age"], "stop_requested": (job_dir / STOP).exists()}
+            "lock_pid": lock["pid"] or (prog.get("pid") if alive else None),
+            "lock_alive": alive if (lock["exists"] or held is not None) else None,
+            "heartbeat_age": age, "stop_requested": (job_dir / STOP).exists()}
 
 
 def format_job_status(info: dict, extra: list[str] | None = None) -> str:
@@ -502,6 +560,9 @@ def format_job_status(info: dict, extra: list[str] | None = None) -> str:
     alive = info.get("lock_alive")
     pid_txt = f" — PID {pid} ({'alive' if alive else 'not running'})" if pid else ""
     lines.append(f"  \N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status        : {status} ({_STATUS_TH.get(status, '?')}){pid_txt}")
+    if info.get("checkpoint_postponed"):
+        lines.append(f"  checkpoint            : postponed {int(info['checkpoint_postponed'])} times in a row — something "
+                     f"holds index.parquet (antivirus/backup?); results are safe in journal.bin")
     if status == "hung":
         lines.append(f"  heartbeat             : none for {fmt_duration(info.get('heartbeat_age'))} "
                      f"(lock_stale_seconds) — the process is alive and keeps the lock")

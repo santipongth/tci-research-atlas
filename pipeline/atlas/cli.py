@@ -112,13 +112,22 @@ def _ensure_docs(cfg: dict) -> None:
 def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure_docs: bool = False) -> int:
     """Run pipeline steps; map the long-run outcomes to exit codes (0 ok, 1 failed, 2 config, 3 locked, 130 stopped)."""
     from atlas.api_http import ApiConfigError, TransientGaveUp
-    from atlas.jobs import LockHeld, RunStopped
+    from atlas.embed_runner import StoreBusy
+    from atlas.jobs import LockHeld, LockUnsupported, RunStopped
     from atlas.pipeline import run
 
     try:
         if ensure_docs:
             _ensure_docs(cfg)
         run(cfg, steps)
+    except StoreBusy as e:
+        typer.echo(f"[embed] \N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA UE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER NGO NGU} store \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER MAI THO} (\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER SARA O}\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER DO DEK} index.parquet \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU}) — \N{THAI CHARACTER PHO PHUNG}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER NO NU} journal.bin \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER BO BAIMAI}; "
+                   f"\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA O}\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER NGO NGU} / could not save into the store: {e}\n"
+                   f"  run the same command again: uv run atlas embed -c {_cfg_arg(config)}", err=True)
+        return EXIT_FAILED
+    except LockUnsupported as e:
+        typer.echo(f"[embed] ERROR: {e}", err=True)
+        return EXIT_CONFIG
     except ApiConfigError as e:
         typer.echo(f"[embed] ERROR — \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI THO} config \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK} / fix the config and rerun:\n  {e}", err=True)
         return EXIT_CONFIG
@@ -259,7 +268,7 @@ def _embed_background(cfg: dict, config: Path | None, concurrency: int | None) -
 
     from atlas.embed import store_id_for, store_root
     from atlas.embed_store import store_dir
-    from atlas.jobs import LOCK, LOG, PROGRESS, lock_state, now_iso, spawn_background
+    from atlas.jobs import LOCK, LOG, PROGRESS, lock_state, now_iso, os_lock_held, spawn_background
 
     sid = store_id_for(cfg)
     if sid is None:
@@ -269,7 +278,7 @@ def _embed_background(cfg: dict, config: Path | None, concurrency: int | None) -
     sdir.mkdir(parents=True, exist_ok=True)
     lock = lock_state(sdir / LOCK, sdir / PROGRESS, _lock_stale(cfg))
     c = _cfg_arg(config)
-    if lock["alive"]:
+    if os_lock_held(sdir):
         typer.echo(f"[embed] \N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} (PID {lock['pid']}) / already running (PID {lock['pid']})"
                    f"{' — hung (no heartbeat)' if lock['hung'] else ''}\n"
                    f"  \N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status: uv run atlas status -c {c}", err=True)
@@ -313,7 +322,7 @@ def embed_stop_cmd(
     from atlas.config import load_config
     from atlas.embed import store_id_for, store_root
     from atlas.embed_store import store_dir
-    from atlas.jobs import LOCK, PROGRESS, STOP, StopFlag, lock_state
+    from atlas.jobs import LOCK, PROGRESS, STOP, StopFlag, lock_state, os_lock_held
 
     cfg = load_config(config)
     sid = store_id_for(cfg)
@@ -323,7 +332,7 @@ def embed_stop_cmd(
     sdir = store_dir(store_root(cfg), sid)
     lock = lock_state(sdir / LOCK, sdir / PROGRESS, _lock_stale(cfg))
     StopFlag(sdir / STOP).request()
-    if lock["alive"]:
+    if os_lock_held(sdir):
         typer.echo(f"[embed-stop] \N{THAI CHARACTER SO SUA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA UE}\N{THAI CHARACTER NGO NGU} PID {lock['pid']} \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN} — request \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER CHO CHAN}\N{THAI CHARACTER SARA A}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER CHO CHAN}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER SARA A}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA UE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER KO KAI} / "
                    f"stop requested: PID {lock['pid']} finishes in-flight requests, saves and exits (status: stopped)")
     else:

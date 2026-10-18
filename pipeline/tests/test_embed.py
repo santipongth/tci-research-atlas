@@ -154,3 +154,16 @@ def test_lite_provider_warns_above_lite_max_docs(make_cfg, tmp_path, capsys):
     embed(cfg)
     out = capsys.readouterr().out
     assert "WARNING" in out and "lite" in out and "embedding.provider" in out
+
+
+def test_stopped_run_reports_abandoned_requests(make_cfg, tmp_path, monkeypatch):
+    import atlas.embed as em
+    from atlas.jobs import RunStopped
+
+    cfg, _ = _docs(make_cfg, tmp_path)
+    monkeypatch.setattr(em, "run_embedding", lambda *a, **k: {"status": "stopped", "total": 10, "cached": 0,
+                                                               "embedded": 4, "retries": 0, "truncated": 0,
+                                                               "abandoned": 2})
+    with pytest.raises(RunStopped) as e:
+        embed(cfg, embedder=FakeEmbedder())
+    assert e.value.abandoned == 2                       # the CLI's prompt-exit path depends on it

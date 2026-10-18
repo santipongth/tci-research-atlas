@@ -48,6 +48,28 @@ def unlink_with_retry(path: str | Path, *, timeout: float = 5.0) -> bool:
     return True
 
 
+def replace_blocked(path: str | Path) -> bool:
+    """Windows: True when another process holds `path` open without delete-sharing, so os.replace onto it
+    would fail right now (a cheap check: open for DELETE access only, no data written). Always False on
+    POSIX and when the file does not exist."""
+    if os.name != "nt" or not Path(path).exists():
+        return False
+    import ctypes
+    from ctypes import wintypes
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.restype = wintypes.HANDLE
+    k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    # DELETE access, share read|write|delete, OPEN_EXISTING
+    handle = k32.CreateFileW(str(path), 0x00010000, 0x7, None, 3, 0x80, None)
+    if handle in (None, wintypes.HANDLE(-1).value):
+        return ctypes.get_last_error() in (5, 32)              # access denied / sharing violation
+    k32.CloseHandle(handle)
+    return False
+
+
 def fsync_dir(path: str | Path) -> None:
     """Make a rename inside `path` durable (POSIX); a no-op on Windows, where NTFS journals the rename."""
     if os.name == "nt":
