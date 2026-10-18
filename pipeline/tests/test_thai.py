@@ -21,6 +21,11 @@ def test_clean_text_strips_html_and_collapses_space():
     assert clean_text(None) == ""
 
 
+def test_clean_text_keeps_comparison_signs():
+    assert clean_text("ค่า p < 0.05 และ n > 10") == "ค่า p < 0.05 และ n > 10"
+    assert clean_text("<p>ข้อความ</p>") == "ข้อความ"
+
+
 def test_repair_glyphs_keeps_space_runs():
     assert repair_glyphs("ก   B") == "ก   B"
 

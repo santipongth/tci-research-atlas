@@ -54,7 +54,7 @@ def clean_text(s: str | None) -> str:
     if not s:
         return ""
     s = _SPACE_BEFORE_MARK.sub(r"\1", s)          # "เจ้าหน้าท ี่" → "เจ้าหน้าที่"
-    s = re.sub(r"<[^>]+>", " ", s)
+    s = re.sub(r"</?[A-Za-z][^<>]*>", " ", s)
     return re.sub(r"\s+", " ", s).strip()
 
 
