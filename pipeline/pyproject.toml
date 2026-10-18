@@ -1,0 +1,48 @@
+[project]
+name = "tci-atlas"
+version = "2.0.0.dev0"
+description = "TCI Research Atlas batch pipeline"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.2",
+  "numpy>=1.26",
+  "pyarrow>=15",
+  "pyyaml>=6",
+  "pydantic>=2.7",
+  "typer>=0.12",
+  "tqdm>=4.66",
+  "scikit-learn>=1.5",
+  "umap-learn>=0.5.6",
+  "pythainlp>=5.0",
+  "statsmodels>=0.14",
+]
+
+[project.optional-dependencies]
+api = ["openai>=1.40"]
+local = ["sentence-transformers>=3.0"]
+
+[project.scripts]
+atlas = "atlas.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8", "hypothesis>=6.100", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["atlas"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: end-to-end tests on the synthetic corpus (run with: pytest -m slow)"]
+addopts = "-m 'not slow'"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B008", "B905"]   # B905: zip(strict=) not required — inputs are aligned by construction

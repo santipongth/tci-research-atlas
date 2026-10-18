@@ -1,0 +1,20 @@
+# ประสิทธิผลของนวัตกรรมการสื่อสารการตลาดเพื่อสังคม ของกรีนพีซประเทศไทย ที่มีต่อกลุ่มคนเจนเนอเรชั่น ซี
+
+**Journal:** BECJournal
+**Published:** 2016-06-29
+**Pages:** 151-172
+**Article URL:** https://so02.tci-thaijo.org/index.php/BECJournal/article/view/62409
+**Issue URL:** https://so02.tci-thaijo.org/index.php/BECJournal/issue/view/5964
+
+**Authors:**
+- ชนม์ชนก เพ็งกุล (นักศึกษาปริญญาโท ภาควิชานวัตกรรมการสื่อสารการตลาด คณะนิเทศศาสตร์และนวัตกรรมการจัดการ สถาบันบัณฑิตพัฒนบริหารศาสตร์ (Graduate student Department of Innovative Marketing Communication, Graduate School of Communication Arts and Management Innovation National Institute of Development Administration (NIDA), Thailand))
+- วรัชญ์ ครุจิต (ผู้ช่วยศาสตราจารย์ คณะนิเทศศาสตร์และนวัตกรรมการจัดการ สถาบันบัณฑิตพัฒนบริหารศาสตร์ (Assistant Professor, Graduate School of Communication Arts and Management InnovationNational Institute of Development Administration (NIDA), Thailand))
+
+**Keywords:** นวัตกรรมการสื่อสารการตลาดเพื่อสังคม, กรีนพีซประเทศไทย, เจนเนอเรชั่นซี, เฟสบุ๊ค แฟนเพจ, จุดจูงใจในการตลาดเพื่อสังคม, Innovative Social Marketing Communication, Greenpeace Thailand, Generation C, Facebook Fanpage, Appeals in soci
+
+## Abstract
+
+การวิจัยนี้มีวัตถุประสงค์เพื่อศึกษาเกี่ยวกับประสิทธิผลของนวัตกรรมการสื่อสารการตลาดเพื่อสังคมของกรีนพีซ ประเทศไทย ที่มีต่อกลุ่มคนเจนเนอเรชั่น ซี โดยเน้นศึกษาเฉพาะรูปแบบสารของโครงการรณรงค์ ที่เผยแพร่ผ่านเฟสบุ๊คแฟนเพจ ช่วงปี พ.ศ. 2554-2557 การศึกษาวิจัยใช้ระเบียบวิจัยเชิงคุณภาพ โดยใช้กรณีศึกษาเชิงเปรียบเทียบ แบ่งออกเป็น 2 ส่วน ส่วนที่หนึ่ง เป็นการวิเคราะห์เนื้อหา ผลการศึกษาพบว่า รูปแบบสารของโครงการกรณีศึกษา 3 โครงการ มีความโดดเด่นในการใช้จุดจูงใจด้านต่างๆ คือ (1) โครงการปกป้องอาร์กติก โดดเด่นด้านการใช้จุดจูงใจโดยใช้อารมณ์ (2) โครงการปกป้องกระบี่จากถ่านหิน โดดเด่นด้านการใช้จุดจูงใจโดยใช้เหตุผล (3) โครงการปฏิวัติพลังงาน โดดเด่นด้านการใช้จุดจูงใจโดยใช้อัตลักษณ์บุคคล ส่วนที่ 2 เป็นการสัมภาษณ์แบบเจาะลึก เพื่อทดสอบประสิทธิผลของรูปแบบสารในด้านการรับรู้ ทัศนคติ และแนวโน้มการมีส่วนร่วม ของกลุ่มผู้ให้ข้อมูลหลัก จำนวน 10 คน ที่มาจากการคัดเลือกแบบเจาะจง ผลการศึกษาพบว่า รูปแบบสารของโครงการปกป้องกระบี่จากถ่านหิน ส่งผลต่อการรับรู้ของกลุ่มผู้ให้ข้อมูลหลักมากที่สุด ทำให้เกิดทัศนคติ  ในแง่บวก โดยเกิดความชอบ และยังทำให้เกิดความคล้อยตาม แต่ยังไม่ต้องการมีส่วนร่วม   Effectiveness of Innovative Social Marketing Communication of Greenpeace Thailand towards Generation C Audience    This research aimed to study the effectiveness of innovative Social Marketing communication of Greenpeace Thailand towards generation C audience by focusing on the types of campaign messages which were distributed through Facebook Fan Page, during the period from B.E. 2554 to 2557. A Comparative Case Study was the methodology used in this qualitative research, which was divided into two parts. The first part was the contents analysis under which three cases for comparisons were studied, and it was found that they had different dominant incentives i.e. (1) Pathos (emotional incentives which have fear appeals as key features) in Save the Arctic campaign, (2) Logos, in Protect Krabi campaign, and (3) Ethos, in Energy Revolution campaign. The second part was the in-depth interview which was applied to verify the Effectiveness of the type of campaign message regarding perception, attitude and participating trends of the generation C audience. Ten people, were are selected as key informants using criterion based selection method were interviewed. The results revealed that the type of campaign message of Protect Krabi affected the perception of the key informants the most. It created a positive attitude and made them feel affectionate and convinced. However, the feeling of participation was lacking in those people.      DOI:   http://dx.doi.org/10.14456/becj.2016.13
+
+## References
+- ชนม์ชนก เพ็งกุล และ วรัชญ์ ครุจิต. (2559). ประสิทธิผลของนวัตกรรมการสื่อสารการตลาดเพื่อสังคม ของกรีนพีซประเทศไทย ที่มีต่อกลุ่มคนเจนเนอเรชั่น ซี. วารสารบริหารธุรกิจ เศรษฐศาสตร์และการสื่อสาร, 11(1), 151-172
