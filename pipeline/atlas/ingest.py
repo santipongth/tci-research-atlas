@@ -156,15 +156,40 @@ def _drop_dup_keys(df: pd.DataFrame, key: pd.Series) -> pd.DataFrame:
     return pd.concat([df[has].loc[~key[has].duplicated()], df[~has]])
 
 
-def dedup(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """article_id → DOI → normalised title + year; keep the most complete record."""
+def _most_complete_first(df: pd.DataFrame) -> pd.DataFrame:
+    return (df.assign(_c=_completeness(df)).sort_values(["_c", "article_id"], ascending=[False, True], kind="stable")
+            .drop(columns="_c"))
+
+
+def doi_key(df: pd.DataFrame) -> pd.Series:
+    return df["doi"].fillna("").astype(str).str.lower().str.strip()
+
+
+def title_key(titles: pd.Series) -> pd.Series:
+    return titles.fillna("").astype(str).map(norm_key).str[:80]
+
+
+def drop_duplicate_ids(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Always applied (even with dedup off): duplicate article_ids would inflate series counts."""
+    out = _most_complete_first(df).drop_duplicates("article_id", keep="first")
+    return out.sort_values("article_id").reset_index(drop=True), len(df) - len(out)
+
+
+def dedup(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """article_id → DOI (+ same normalised title) → normalised title + year; keep the most complete record.
+
+    A DOI shared by articles with DIFFERENT titles is a metadata error (journals reuse or mistype
+    DOIs), not a duplicate: those articles are all kept and counted in `doi_title_conflicts`.
+    """
     n0 = len(df)
-    df = df.assign(_c=_completeness(df)).sort_values(["_c", "article_id"], ascending=[False, True], kind="stable")
-    df = df.drop_duplicates("article_id", keep="first")
-    df = _drop_dup_keys(df, df["doi"].str.lower().str.strip())
-    title_key = df["title"].map(norm_key).str[:80]
-    df = _drop_dup_keys(df, title_key.where(title_key == "", title_key + "|" + df["year"].astype(str)))
-    return df.drop(columns="_c").sort_values("article_id").reset_index(drop=True), n0 - len(df)
+    df = _most_complete_first(df).drop_duplicates("article_id", keep="first")
+    doi, tkey = doi_key(df), title_key(df["title"])
+    df = _drop_dup_keys(df, doi.where(doi == "", doi + "|" + tkey))
+    doi, tkey = doi_key(df), title_key(df["title"])
+    conflicts = int((tkey[doi != ""].groupby(doi[doi != ""]).nunique() > 1).sum())
+    df = _drop_dup_keys(df, tkey.where(tkey == "", tkey + "|" + df["year"].astype(str)))
+    out = df.sort_values("article_id").reset_index(drop=True)
+    return out, {"dropped": n0 - len(out), "doi_title_conflicts": conflicts}
 
 
 # ------------------------------------------------------------------ step
@@ -179,9 +204,14 @@ def ingest(cfg: dict) -> pd.DataFrame:
     articles = normalize_years(articles, int(icfg["min_year"]), icfg["max_year"])
     articles = add_convenience_columns(articles)
     articles = articles[articles["title"] != ""]
-    n_dup = 0
     if icfg["dedup"]["enabled"]:
-        articles, n_dup = dedup(articles)
+        articles, stats = dedup(articles)
+        n_dup = stats["dropped"]
+        if stats["doi_title_conflicts"]:
+            print(f"[ingest] {stats['doi_title_conflicts']:,} DOIs are shared by articles with different titles "
+                  f"— kept as separate articles (see `atlas profile` → DOI collisions)")
+    else:
+        articles, n_dup = drop_duplicate_ids(articles)
     keep = set(articles["article_id"])
     authors = authors[authors["article_id"].isin(keep)].drop_duplicates(["article_id", "position"])
     refs = refs[refs["article_id"].isin(keep)].drop_duplicates(["article_id", "position"])

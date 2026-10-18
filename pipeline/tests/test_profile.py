@@ -60,3 +60,20 @@ def test_cli_profile_writes_json(thaijo_dir, tmp_path):
     assert res.exit_code == 0, res.stdout
     assert json.loads(out.read_text(encoding="utf-8"))["files"] == 11
 
+
+def _md(title: str, view: int, doi: str) -> str:
+    return (f"# {title}\n\n**Journal:** J\n**Published:** 2020-01-01\n"
+            f"**Article URL:** https://so01.tci-thaijo.org/index.php/J/article/view/{view}\n\n"
+            f"## Abstract\n\nAn English abstract for testing.  DOI: {doi}\n")
+
+
+def test_profile_reports_doi_collisions_with_different_titles(tmp_path):
+    (tmp_path / "a.md").write_text(_md("Rice yield under drought", 1, "10.1234/j.2020.1"), encoding="utf-8")
+    (tmp_path / "b.md").write_text(_md("Tourism in Nan province", 2, "10.1234/j.2020.1"), encoding="utf-8")
+    (tmp_path / "c.md").write_text(_md("Unrelated third paper", 3, "10.1234/j.2020.3"), encoding="utf-8")
+    r = profile_corpus(tmp_path)
+    col = r["doi_title_collisions"]
+    assert col["count"] == 1 and len(col["examples"]) == 1
+    ex = col["examples"][0]
+    assert ex["doi"] == "10.1234/j.2020.1" and sorted(ex["article_ids"]) == ["so01:J:1", "so01:J:2"]
+    assert "DOI collisions" in render_markdown(r)

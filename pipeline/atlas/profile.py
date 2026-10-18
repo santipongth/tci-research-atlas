@@ -12,11 +12,23 @@ from pathlib import Path
 
 import pandas as pd
 
-from atlas.ingest import read_thaijo_corpus, records_to_tables
+from atlas.ingest import doi_key, read_thaijo_corpus, records_to_tables, title_key
 
 
 def _pct(mask: pd.Series) -> float:
     return round(100 * float(mask.mean()), 1) if len(mask) else 0.0
+
+
+def doi_title_collisions(arts: pd.DataFrame, max_examples: int = 10) -> dict:
+    """DOIs shared by different articles whose normalised titles differ (kept apart by ingest)."""
+    a = arts.drop_duplicates("article_id")
+    title = a["title_th"].fillna("").astype(str).where(a["title_th"].fillna("") != "", a["title_en"])
+    d = pd.DataFrame({"doi": doi_key(a), "tkey": title_key(title), "title": title, "article_id": a["article_id"]})
+    d = d[d["doi"] != ""]
+    groups = [(doi, g) for doi, g in d.groupby("doi") if g["tkey"].nunique() > 1]
+    return {"count": len(groups),
+            "examples": [{"doi": doi, "titles": g["title"].tolist(), "article_ids": g["article_id"].tolist()}
+                         for doi, g in groups[:max_examples]]}
 
 
 def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1) -> dict:
@@ -49,6 +61,7 @@ def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1)
         "unique_articles": int(arts["article_id"].nunique()),
         "duplicate_files": int(n - arts["article_id"].nunique()),
         "missing_article_url": int(arts["article_id"].str.startswith("file:").sum()),
+        "doi_title_collisions": doi_title_collisions(arts),
         "years": {
             "min": int(years.min()) if years.notna().any() else None,
             "max": int(years.max()) if years.notna().any() else None,
@@ -103,6 +116,11 @@ def render_markdown(r: dict) -> str:
         "## Text-quality flags",
         "",
         *([f"- {k}: {v:,}" for k, v in r["text_quality"].items()] or ["- ไม่พบ"]),
+        "",
+        "## DOI collisions (same DOI, different titles — kept as separate articles)",
+        "",
+        f"- groups: {r['doi_title_collisions']['count']:,}",
+        *[f"- {ex['doi']}: " + " | ".join(ex["titles"]) for ex in r["doi_title_collisions"]["examples"]],
         "",
         "## Articles per year (vs previous year)",
         "",

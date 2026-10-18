@@ -78,3 +78,35 @@ def test_dedup_keeps_most_complete_record(make_cfg, tmp_path):
                   "year": ["2020", "2020"]}).to_csv(csv, index=False)
     df = ingest(make_cfg(csv, "table"))
     assert df["article_id"].tolist() == ["x2"]
+
+
+# ---- F7: DOI dedup must not drop distinct articles; duplicate ids are always dropped
+def test_same_doi_different_titles_are_both_kept_and_counted(make_cfg, tmp_path):
+    from atlas.ingest import add_convenience_columns, dedup
+
+    csv = tmp_path / "t.csv"
+    pd.DataFrame({"id": ["y1", "y2", "y3"],
+                  "title_en": ["Rice yield under drought", "Tourism in Nan province", "Rice yield under drought!"],
+                  "doi": ["10.1/shared", "10.1/SHARED", "10.1/shared "], "year": ["2020", "2020", "2021"]}
+                 ).to_csv(csv, index=False)
+    df = ingest(make_cfg(csv, "table"))
+    assert sorted(df["article_id"]) == ["y1", "y2"]              # y3 = same DOI + same normalised title
+    raw = add_convenience_columns(pd.DataFrame({
+        "article_id": ["a", "b"], "title_th": ["", ""], "title_en": ["One title here", "Another title"],
+        "abstract_th": "", "abstract_en": "", "keywords_th": "", "keywords_en": "", "doi": ["10.9/x", "10.9/x"],
+        "authors": "", "year": [2020, 2020]}))
+    out, stats = dedup(raw)
+    assert len(out) == 2 and stats == {"dropped": 0, "doi_title_conflicts": 1}
+
+
+def test_duplicate_article_ids_are_dropped_even_with_dedup_off(make_cfg, tmp_path):
+    csv = tmp_path / "t.csv"
+    pd.DataFrame({"id": ["d1", "d1", "d2"], "title_en": ["Same paper", "Same paper", "Other paper"],
+                  "abstract_en": ["", "has an abstract", ""], "year": ["2020", "2020", "2020"]}
+                 ).to_csv(csv, index=False)
+    cfg = make_cfg(csv, "table")
+    cfg["input"]["dedup"]["enabled"] = False
+    df = ingest(cfg).set_index("article_id")
+    assert sorted(df.index) == ["d1", "d2"]
+    assert df.loc["d1", "abstract_en"] == "has an abstract"      # the most complete record is kept
+
