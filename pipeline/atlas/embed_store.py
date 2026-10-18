@@ -22,10 +22,20 @@ def text_key(model_id: str, text: str) -> str:
     return hashlib.sha1(f"{model_id}\n{text}".encode()).hexdigest()
 
 
+def _fsync(f) -> None:
+    f.flush()
+    os.fsync(f.fileno())
+
+
+def store_dir(root: str | Path, model_id: str) -> Path:
+    """The folder of the store for `model_id` (not created)."""
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", model_id)[:80]
+    return Path(root) / f"{slug}-{hashlib.sha1(model_id.encode()).hexdigest()[:8]}"
+
+
 class EmbeddingStore:
     def __init__(self, root: str | Path, model_id: str):
-        slug = re.sub(r"[^A-Za-z0-9._-]+", "_", model_id)[:80]
-        self.dir = Path(root) / f"{slug}-{hashlib.sha1(model_id.encode()).hexdigest()[:8]}"
+        self.dir = store_dir(root, model_id)
         self.dir.mkdir(parents=True, exist_ok=True)
         self._index_path = self.dir / "index.parquet"
         try:
@@ -53,12 +63,25 @@ class EmbeddingStore:
         if not new:
             return
         shard = int(self.index["shard"].max()) + 1 if len(self.index) else 0
-        np.save(self.dir / f"shard_{shard:05d}.npy", vectors[[i for _, i in new]])
+        with open(self.dir / f"shard_{shard:05d}.npy", "wb") as f:
+            np.save(f, vectors[[i for _, i in new]])
+            _fsync(f)
         add = pd.DataFrame({"key": [k for k, _ in new], "shard": shard, "row": np.arange(len(new))})
-        self.index = pd.concat([self.index, add], ignore_index=True)
-        written = write_table(self.index, self.dir / "index.tmp.parquet")   # .pkl here if no pyarrow
+        index = pd.concat([self.index, add], ignore_index=True)
+        written = write_table(index, self.dir / "index.tmp.parquet")       # .pkl here if no pyarrow
+        with open(written, "rb+") as f:                                     # durable before it replaces the
+            _fsync(f)                                                       # old index (power loss safe)
         os.replace(written, self.dir / written.name.replace(".tmp", ""))    # atomic: never half-written
+        self.index = index
         self._lookup.update({k: (shard, int(r)) for k, r in zip(add["key"], add["row"])})
+
+    @property
+    def dim(self) -> int | None:
+        """Vector length of the stored vectors (None while empty)."""
+        if not len(self.index):
+            return None
+        shard = int(self.index["shard"].iloc[0])
+        return int(np.load(self.dir / f"shard_{shard:05d}.npy", mmap_mode="r").shape[1])
 
     def get(self, keys: list[str]) -> np.ndarray:
         missing = [k for k in keys if k not in self._lookup]

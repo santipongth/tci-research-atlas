@@ -80,6 +80,239 @@ def run_cmd(
 ) -> None:
     """Run the batch pipeline (all steps, or the given --step list)."""
     from atlas.config import load_config
+
+    raise typer.Exit(_run_guarded(load_config(config), step or None, config))
+
+
+# ---------- long embedding run: atlas embed / status / embed-status / embed-stop
+EXIT_FAILED, EXIT_CONFIG, EXIT_LOCKED, EXIT_STOPPED = 1, 2, 3, 130
+
+
+def _cfg_arg(config: Path | None) -> str:
+    return str(config) if config else "config.yaml"
+
+
+def _ensure_docs(cfg: dict) -> None:
+    work = Path(cfg["pipeline"]["work_dir"])
+    if not ((work / "02_docs.parquet").exists() or (work / "02_docs.pkl").exists()):
+        typer.echo("[embed] work/02_docs not found — running ingest + preprocess first")
+        from atlas.pipeline import run
+
+        run(cfg, ["ingest", "preprocess"])
+
+
+def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure_docs: bool = False) -> int:
+    """Run pipeline steps; map the long-run outcomes to exit codes (0 ok, 1 failed, 2 config, 3 locked, 130 stopped)."""
+    from atlas.api_http import ApiConfigError, TransientGaveUp
+    from atlas.jobs import LockHeld, RunStopped
     from atlas.pipeline import run
 
-    run(load_config(config), step or None)
+    try:
+        if ensure_docs:
+            _ensure_docs(cfg)
+        run(cfg, steps)
+    except ApiConfigError as e:
+        typer.echo(f"[embed] ERROR — \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI THO} config \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK} / fix the config and rerun:\n  {e}", err=True)
+        return EXIT_CONFIG
+    except LockHeld as e:
+        typer.echo(f"[embed] {e}\n  \N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status: uv run atlas status -c {_cfg_arg(config)}", err=True)
+        return EXIT_LOCKED
+    except (RunStopped, KeyboardInterrupt) as e:
+        typer.echo(f"[embed] \N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER CHO CHAN} / stopped before completion{': ' + str(e) if str(e) else ''}\n"
+                   f"  \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG} / resume: uv run atlas embed -c {_cfg_arg(config)}", err=True)
+        return EXIT_STOPPED
+    except TransientGaveUp as e:
+        typer.echo(f"[embed] ERROR: {e}\n  (embedding.api.max_retries is set; null = retry forever)", err=True)
+        return EXIT_FAILED
+    return 0
+
+
+@app.command("embed")
+def embed_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+    check: bool = typer.Option(False, "--check", help="send one test request: model, vector size, latency "
+                                                      "(checks the key and base_url before a long run)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="count cached / to embed / characters / ~tokens — "
+                                                          "no API call"),
+    background: bool = typer.Option(False, "--background", help="run detached from this window (you may close it); "
+                                                                "log in <store>/run.log"),
+    concurrency: int = typer.Option(None, "--concurrency", min=1, help="override embedding.api.concurrency"),
+) -> None:
+    """Embed the whole corpus into state_dir once (API or local model). Retries server errors forever,
+    stops at once on config errors, resumes with no re-paid work: just run the same command again.
+
+    Exit codes: 0 done, 2 config/permanent error, 3 another run holds the lock, 130 stopped (resume later).
+    """
+    from atlas.config import load_config
+
+    cfg = load_config(config)
+    if concurrency:
+        if cfg["embedding"]["provider"] == "api":
+            cfg["embedding"]["api"]["concurrency"] = concurrency
+        else:
+            typer.echo("[embed] --concurrency applies to embedding.provider: api only — ignored")
+    if check:
+        raise typer.Exit(_embed_check(cfg))
+    if dry_run:
+        raise typer.Exit(_embed_dry_run(cfg))
+    if background:
+        raise typer.Exit(_embed_background(cfg, config, concurrency))
+    raise typer.Exit(_run_guarded(cfg, ["embed"], config, ensure_docs=True))
+
+
+def _embed_check(cfg: dict) -> int:
+    from atlas.api_http import ApiConfigError, TransientGaveUp
+    from atlas.embed import store_root
+    from atlas.embed_api import ApiEmbedder, dim_mismatch
+    from atlas.embed_store import EmbeddingStore, store_dir
+
+    if cfg["embedding"]["provider"] != "api":
+        typer.echo("[check] --check \N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER CHO CHANG}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER BO BAIMAI} embedding.provider: api \N{THAI CHARACTER SARA E}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER NO NU} / --check needs embedding.provider: api",
+                   err=True)
+        return EXIT_CONFIG
+    emb = ApiEmbedder(cfg)
+    try:
+        info = emb.check()
+    except ApiConfigError as e:
+        typer.echo(f"[check] FAILED — \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI THO} config / fix the config:\n  {e}", err=True)
+        return EXIT_CONFIG
+    except TransientGaveUp as e:
+        typer.echo(f"[check] FAILED — server \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER BO BAIMAI} / the server is not answering: {e}", err=True)
+        return EXIT_CONFIG
+    key = "set" if info["api_key_set"] else "NOT set (no Authorization header sent)"
+    typer.echo(f"[check] OK  model={info['model']}  dim={info['dim']}  latency={info['latency_ms']:.0f} ms")
+    typer.echo(f"[check] base_url={info['base_url']}  store_id={info['store_id']}  ${info['api_key_env']}: {key}")
+    if store_dir(store_root(cfg), info["store_id"]).exists():
+        store = EmbeddingStore(store_root(cfg), info["store_id"])
+        if store.dim is not None and store.dim != info["dim"]:
+            typer.echo(f"[check] {dim_mismatch(store.dim, info['dim'], info['store_id'])}", err=True)
+            return EXIT_CONFIG
+        typer.echo(f"[check] store: {len(store):,} vectors already in {store.dir}")
+    return 0
+
+
+def _embed_dry_run(cfg: dict) -> int:
+    import re
+
+    from atlas.embed import runner_cfg, store_id_for, store_root
+    from atlas.embed_runner import JOURNAL, pack_batches, read_journal
+    from atlas.embed_store import EmbeddingStore, store_dir, text_key
+    from atlas.io_utils import read_table
+
+    _ensure_docs(cfg)
+    texts = read_table(Path(cfg["pipeline"]["work_dir"]) / "02_docs.parquet")["doc_text"].tolist()
+    sid = store_id_for(cfg)
+    row = "  {:<15}: {}".format
+    typer.echo(f"[dry-run] provider={cfg['embedding']['provider']}  store_id={sid}  (no API call is made)")
+    typer.echo(row("documents", f"{len(texts):,}"))
+    if sid is None:
+        typer.echo("  provider lite: TF-IDF+SVD on this machine, nothing to pay and nothing stored")
+        return 0
+    uniq: dict[str, str] = {}
+    for k, t in zip((text_key(sid, t) for t in texts), texts):
+        uniq.setdefault(k, t)
+    sdir = store_dir(store_root(cfg), sid)
+    store = EmbeddingStore(store_root(cfg), sid) if sdir.exists() else None
+    journaled = set(read_journal(sdir / JOURNAL)[0]) if (sdir / JOURNAL).exists() else set()
+    todo = [k for k in uniq if not (store and store.has(k)) and k not in journaled]
+    thai = re.compile(f"[{chr(0x0E00)}-{chr(0x0E7F)}]")
+    chars = sum(len(uniq[k]) for k in todo)
+    thai_chars = sum(len(thai.findall(uniq[k])) for k in todo)
+    rc = runner_cfg(cfg)
+    n_req = len(pack_batches([len(uniq[k]) for k in todo], int(rc.get("batch_size") or 32), rc.get("max_batch_chars")))
+    cached = len(uniq) - len(todo)
+    typer.echo(row("unique texts", f"{len(uniq):,}"))
+    typer.echo(row("cached", f"{cached:,}" + (f" (incl. {len(journaled):,} in journal.bin)" if journaled else "")))
+    typer.echo(row("to embed", f"{len(todo):,}"))
+    typer.echo(row("characters", f"{chars:,} (Thai {thai_chars:,})"))
+    typer.echo(row("~tokens", f"{round(thai_chars + 0.3 * (chars - thai_chars)):,} "
+                              f"(rough: Thai ≈ 1 token/char, other ≈ 0.3)"))
+    typer.echo(row("requests", f"~{n_req:,} (batch_size {rc.get('batch_size')}, "
+                               f"max_batch_chars {rc.get('max_batch_chars')})"))
+    return 0
+
+
+def _embed_background(cfg: dict, config: Path | None, concurrency: int | None) -> int:
+    from atlas.embed import store_id_for, store_root
+    from atlas.embed_store import store_dir
+    from atlas.jobs import LOCK, LOG, PROGRESS, inspect_lock, now_iso, spawn_background
+
+    sid = store_id_for(cfg)
+    if sid is None:
+        typer.echo("[embed] provider lite \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU} / provider lite needs no background run", err=True)
+        return EXIT_CONFIG
+    sdir = store_dir(store_root(cfg), sid)
+    sdir.mkdir(parents=True, exist_ok=True)
+    lock = inspect_lock(sdir / LOCK, sdir / PROGRESS, float(cfg["embedding"]["api"]["lock_stale_seconds"]))
+    if lock["exists"] and not lock["stale"]:
+        typer.echo(f"[embed] \N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} (PID {lock['pid']}) / already running (PID {lock['pid']})\n"
+                   f"  \N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status: uv run atlas status -c {_cfg_arg(config)}", err=True)
+        return EXIT_LOCKED
+    args = ["-m", "atlas", "embed"]
+    if config:
+        args += ["-c", str(Path(config).resolve())]
+    if concurrency:
+        args += ["--concurrency", str(concurrency)]
+    log = sdir / LOG
+    with open(log, "a", encoding="utf-8") as f:
+        f.write(f"\n=== background run requested {now_iso()} ===\n")
+    pid = spawn_background(args, log, cwd=Path.cwd())
+    c = _cfg_arg(config)
+    typer.echo(f"[embed] \N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN} / running in the background: PID {pid} — \N{THAI CHARACTER PO PLA}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER MAI THO} / "
+               f"you may close this window")
+    typer.echo(f"  log           : {log}")
+    typer.echo(f"  \N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status: uv run atlas status -c {c}")
+    typer.echo(f"  \N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK} / stop   : uv run atlas embed-stop -c {c}   (\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG} / resume: uv run atlas embed -c {c})")
+    return 0
+
+
+@app.command("embed-stop")
+def embed_stop_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+) -> None:
+    """Ask the running embedding job to stop cleanly: in-flight requests finish, everything is saved."""
+    from atlas.config import load_config
+    from atlas.embed import store_id_for, store_root
+    from atlas.embed_store import store_dir
+    from atlas.jobs import LOCK, PROGRESS, STOP, StopFlag, inspect_lock
+
+    cfg = load_config(config)
+    sid = store_id_for(cfg)
+    if sid is None:
+        typer.echo("[embed-stop] provider lite has no embedding run to stop")
+        raise typer.Exit(0)
+    sdir = store_dir(store_root(cfg), sid)
+    lock = inspect_lock(sdir / LOCK, sdir / PROGRESS, float(cfg["embedding"]["api"]["lock_stale_seconds"]))
+    if not lock["exists"] or lock["stale"]:
+        typer.echo(f"[embed-stop] \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU} embed \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK} / no embedding run is active ({sid})")
+        raise typer.Exit(0)
+    StopFlag(sdir / STOP).request()
+    typer.echo(f"[embed-stop] \N{THAI CHARACTER SO SUA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA UE}\N{THAI CHARACTER NGO NGU} PID {lock['pid']} \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN} — request \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER CHO CHAN}\N{THAI CHARACTER SARA A}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER CHO CHAN}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER SARA A}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA UE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER KO KAI} / "
+               f"stop requested: PID {lock['pid']} finishes in-flight requests, saves and exits (status: stopped)")
+    typer.echo(f"  \N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status: uv run atlas status -c {_cfg_arg(config)}")
+
+
+def status_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+) -> None:
+    """Status of every long job under state_dir (embedding runs; LLM runs from P1): progress, rate, ETA,
+    retries, last error, and whether the run is still alive."""
+    from atlas.config import load_config
+    from atlas.embed_runner import store_status_lines
+    from atlas.jobs import find_jobs, format_job_status, job_status
+
+    cfg = load_config(config)
+    state = Path(cfg["pipeline"]["state_dir"])
+    jobs = find_jobs(state)
+    if not jobs:
+        typer.echo(f"\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU} / nothing has run yet (no progress.json under {state})")
+        return
+    stale = float(cfg["embedding"]["api"]["lock_stale_seconds"])
+    for job in jobs:
+        info = job_status(job, stale)
+        extra = store_status_lines(job) if info.get("kind") == "embedding" else []
+        typer.echo(format_job_status(info, extra) + "\n")
+
+
+app.command("status")(status_cmd)
+app.command("embed-status", help="Alias of `atlas status`.")(status_cmd)

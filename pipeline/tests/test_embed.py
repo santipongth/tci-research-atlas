@@ -62,23 +62,30 @@ def test_lite_embed_is_deterministic():
 def _docs(make_cfg, tmp_path, n=10):
     cfg = make_cfg(tmp_path)
     cfg["embedding"]["provider"] = "api"
-    cfg["embedding"]["api"].update(batch_size=2, checkpoint_every=2)
+    cfg["embedding"]["api"].update(batch_size=2, checkpoint_every=2, concurrency=1)
     texts = [f"เอกสารทดสอบหมายเลข {i} for embedding" for i in range(n)]
     write_table(pd.DataFrame({"article_id": [f"a{i}" for i in range(n)], "doc_text": texts}),
                 f"{cfg['pipeline']['work_dir']}/02_docs.parquet")
     return cfg, texts
 
 
+def _stored(cfg, model_id="fake|1") -> int:
+    return len(EmbeddingStore(f"{cfg['pipeline']['state_dir']}/embeddings", model_id))
+
+
 def test_embed_resumes_after_interruption(make_cfg, tmp_path):
     cfg, texts = _docs(make_cfg, tmp_path)
     with pytest.raises(RuntimeError):
         embed(cfg, embedder=FakeEmbedder(fail_on_call=3))        # crashes on the 3rd batch
+    kept = _stored(cfg)
+    assert kept >= 4                                              # batches 1-2 (and any in flight) are kept
     fake = FakeEmbedder()
     arr = embed(cfg, embedder=fake)
-    assert fake.calls == 3                                        # 10 texts − 4 already stored = 3 batches of 2
+    assert fake.calls * 2 == 10 - kept                            # only the rest is embedded (batches of 2)
     assert np.allclose(arr, _norm(FakeEmbedder().embed_batch(texts)), atol=1e-6)
     meta = json.loads(open(f"{cfg['pipeline']['work_dir']}/03_meta.json", encoding="utf-8").read())
-    assert meta == {"model_id": "fake|1", "n": 10, "dim": 16}
+    assert meta == {"model_id": "fake|1", "store_id": "fake|1", "n": 10, "dim": 16, "n_retries": 0,
+                    "n_truncated": 0}
 
 
 def test_embed_second_run_uses_store_only(make_cfg, tmp_path):
@@ -94,47 +101,43 @@ def test_embed_crash_with_partial_buffer_keeps_paid_vectors(make_cfg, tmp_path):
     cfg["embedding"]["api"].update(batch_size=2, checkpoint_every=4)
     with pytest.raises(RuntimeError):
         embed(cfg, embedder=FakeEmbedder(fail_on_call=4))   # batches 1-3 succeed, flush at 4 vectors, 2 buffered
+    kept = _stored(cfg)
+    assert kept >= 6                                         # the buffered batch was flushed on the way out
     fake = FakeEmbedder()
     embed(cfg, embedder=fake)
-    assert fake.calls == 2                                   # 10 texts − 6 kept = 4 → 2 batches
+    assert fake.calls * 2 == 10 - kept
 
 
-# ---- F9: API responses are re-ordered by `index` and must have one vector per input
-class _FakeEmbeddingsAPI:
-    def __init__(self, shuffle: bool = False, drop: int = 0):
-        self.shuffle, self.drop, self.calls = shuffle, drop, 0
+def test_embed_stopped_run_raises_run_stopped(make_cfg, tmp_path):
+    from atlas.embed_store import store_dir
+    from atlas.jobs import RunStopped
 
-    def create(self, model, input, **kw):
-        from types import SimpleNamespace
+    cfg, _ = _docs(make_cfg, tmp_path)
+    sdir = store_dir(f"{cfg['pipeline']['state_dir']}/embeddings", "fake|1")
 
-        self.calls += 1
-        items = [SimpleNamespace(index=i, embedding=[float(i), 1.0]) for i in range(len(input))]
-        if self.shuffle:
-            items = items[::-1]
-        return SimpleNamespace(data=items[:len(items) - self.drop])
+    class Stopper(FakeEmbedder):
+        def embed_batch(self, texts):
+            if self.calls == 1:
+                (sdir / "stop.flag").write_text("x", encoding="utf-8")
+            return super().embed_batch(texts)
+    with pytest.raises(RunStopped):
+        embed(cfg, embedder=Stopper())
+    assert not (tmp_path / "work" / "03_embeddings.npy").exists()   # no partial matrix for the next step
 
 
-def _api_embedder(make_cfg, tmp_path, api):
-    from types import SimpleNamespace
-
-    from atlas.embed import ApiEmbedder
+def test_runner_cfg_per_provider(make_cfg, tmp_path):
+    from atlas.embed import runner_cfg, store_id_for
 
     cfg = make_cfg(tmp_path)
-    cfg["embedding"]["api"]["max_retries"] = 3
-    return ApiEmbedder(cfg, client=SimpleNamespace(embeddings=api))
-
-
-def test_api_embedder_sorts_response_by_index(make_cfg, tmp_path):
-    emb = _api_embedder(make_cfg, tmp_path, _FakeEmbeddingsAPI(shuffle=True))
-    assert emb.embed_batch(["a", "b", "c"])[:, 0].tolist() == [0.0, 1.0, 2.0]
-
-
-def test_api_embedder_rejects_a_short_response_without_retrying(make_cfg, tmp_path):
-    api = _FakeEmbeddingsAPI(drop=1)
-    emb = _api_embedder(make_cfg, tmp_path, api)
-    with pytest.raises(ValueError, match="2 vectors for a batch of 3"):
-        emb.embed_batch(["a", "b", "c"])
-    assert api.calls == 1
+    cfg["embedding"]["provider"] = "local"
+    rc = runner_cfg(cfg)
+    assert rc["concurrency"] == 1 and rc["batch_size"] == cfg["embedding"]["local"]["batch_size"]
+    assert store_id_for(cfg) == "local|BAAI/bge-m3|1024"
+    cfg["embedding"]["provider"] = "api"
+    assert runner_cfg(cfg)["concurrency"] == cfg["embedding"]["api"]["concurrency"]
+    assert store_id_for(cfg) == "api|text-embedding-3-large|1024"
+    cfg["embedding"]["provider"] = "lite"
+    assert store_id_for(cfg) is None
 
 
 # ---- F6(a): lite embeddings on a large corpus are never silent

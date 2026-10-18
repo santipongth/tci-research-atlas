@@ -1,63 +1,31 @@
 """Embedding step. Providers:
 
-  api   : any OpenAI-compatible endpoint (OpenAI, Gemini, OpenRouter, vLLM, Ollama)
+  api   : any OpenAI-compatible /embeddings endpoint (BGE-M3 on TEI/vLLM/Infinity/Ollama, DeepInfra,
+          OpenAI, ...) — see atlas.embed_api
   local : sentence-transformers (default BAAI/bge-m3, max_seq_length 1024)
   lite  : TF-IDF char n-grams + TruncatedSVD on CPU — for tests/CI/demos (lower quality)
 
-api/local vectors are cached in state_dir/embeddings (EmbeddingStore): resumable and
-incremental across quarters. Output: work/03_embeddings.npy (+ 03_meta.json).
+api/local vectors go through atlas.embed_runner into state_dir/embeddings (EmbeddingStore + journal):
+resumable after Ctrl-C, a closed window, a crash or power loss, and incremental across quarters.
+For the big one-off run use `atlas embed -c config.yaml` (status: `atlas status`, stop: `atlas embed-stop`).
+Output: work/03_embeddings.npy (+ 03_meta.json).
 """
 from __future__ import annotations
 
 import json
-import os
-import time
 from pathlib import Path
 
 import numpy as np
-from tqdm import tqdm
 
+from atlas.embed_api import ApiEmbedder, api_store_id
+from atlas.embed_runner import run_embedding
 from atlas.embed_store import EmbeddingStore, text_key
 from atlas.io_utils import read_table
+from atlas.jobs import RunStopped
 
 
-class ApiEmbedder:
-    def __init__(self, cfg: dict, client=None):
-        acfg = cfg["embedding"]["api"]
-        if client is None:
-            from openai import OpenAI  # optional dependency: uv sync --extra api
-
-            api_key = os.environ.get(acfg["api_key_env"], "")
-            if not api_key:
-                raise OSError(f"set ${acfg['api_key_env']} before running with embedding.provider=api")
-            client = OpenAI(base_url=acfg["base_url"], api_key=api_key, timeout=120)
-        self.client = client
-        self.model, self.dimensions = acfg["model"], acfg.get("dimensions")
-        self.max_retries = int(acfg.get("max_retries", 6))
-        self.model_id = f"api|{acfg['base_url']}|{self.model}|{self.dimensions}"
-
-    def embed_batch(self, texts: list[str]) -> np.ndarray:
-        kwargs = {"model": self.model, "input": texts}
-        if self.dimensions:
-            kwargs["dimensions"] = self.dimensions
-        delay = 2.0
-        for attempt in range(self.max_retries):
-            try:
-                resp = self.client.embeddings.create(**kwargs)
-            except Exception as e:  # noqa: BLE001 — retry any transport/API error
-                if attempt == self.max_retries - 1:
-                    raise
-                print(f"[embed] retry {attempt + 1}/{self.max_retries}: {e}")
-                time.sleep(delay)
-                delay *= 2
-                continue
-            # a malformed response is not retried: storing vectors under the wrong text keys is unrecoverable
-            items = sorted(resp.data, key=lambda d: d.index)
-            if [d.index for d in items] != list(range(len(texts))):
-                raise ValueError(f"embedding API returned {len(items)} vectors for a batch of {len(texts)} "
-                                 f"(indices {[d.index for d in items][:10]}…)")
-            return np.array([d.embedding for d in items], dtype=np.float32)
-        raise RuntimeError("unreachable")
+def local_store_id(lcfg: dict) -> str:
+    return f"local|{lcfg['model']}|{lcfg['max_seq_length']}"
 
 
 class LocalEmbedder:
@@ -70,7 +38,7 @@ class LocalEmbedder:
         self.batch_size = int(lcfg["batch_size"])
         if lcfg.get("fp16") and lcfg["device"] == "cuda":
             self.model.half()
-        self.model_id = f"local|{lcfg['model']}|{lcfg['max_seq_length']}"
+        self.model_id = local_store_id(lcfg)
 
     def embed_batch(self, texts: list[str]) -> np.ndarray:
         vec = self.model.encode(texts, batch_size=self.batch_size, convert_to_numpy=True,
@@ -85,6 +53,30 @@ def get_embedder(cfg: dict):
     if provider == "local":
         return LocalEmbedder(cfg)
     raise ValueError(f"no embedder object for provider {provider!r}")
+
+
+def store_id_for(cfg: dict) -> str | None:
+    """The store id the configured provider writes to (None for lite, which has no store)."""
+    provider = cfg["embedding"]["provider"]
+    if provider == "api":
+        return api_store_id(cfg["embedding"]["api"])
+    if provider == "local":
+        return local_store_id(cfg["embedding"]["local"])
+    return None
+
+
+def store_root(cfg: dict) -> Path:
+    return Path(cfg["pipeline"]["state_dir"]) / "embeddings"
+
+
+def runner_cfg(cfg: dict) -> dict:
+    """The runner settings of the configured provider (local: one batch at a time on the GPU/CPU)."""
+    provider = cfg["embedding"]["provider"]
+    if provider == "api":
+        return dict(cfg["embedding"]["api"])
+    if provider == "local":
+        return {**cfg["embedding"]["local"], "concurrency": 1}
+    return {}
 
 
 def lite_embed(texts: list[str], lite_cfg: dict, seed: int) -> np.ndarray:
@@ -107,6 +99,7 @@ def embed(cfg: dict, embedder=None) -> np.ndarray:
     work = Path(cfg["pipeline"]["work_dir"])
     texts = read_table(work / "02_docs.parquet")["doc_text"].tolist()
     provider = cfg["embedding"]["provider"]
+    meta: dict = {}
     if embedder is None and provider == "lite":
         lcfg = cfg["embedding"]["lite"]
         if len(texts) > int(cfg["embedding"]["lite_max_docs"]):
@@ -117,33 +110,20 @@ def embed(cfg: dict, embedder=None) -> np.ndarray:
         model_id = f"lite|char{lcfg['ngram_min']}-{lcfg['ngram_max']}|svd{arr.shape[1]}"
     else:
         embedder = embedder or get_embedder(cfg)
-        pcfg = cfg["embedding"].get(provider, {}) if provider in ("api", "local") else {}
-        batch, every = int(pcfg.get("batch_size", 64)), int(pcfg.get("checkpoint_every", 5000))
-        store = EmbeddingStore(Path(cfg["pipeline"]["state_dir"]) / "embeddings", embedder.model_id)
-        keys = [text_key(embedder.model_id, t) for t in texts]
-        text_of = dict(zip(keys, texts))
-        todo = list(dict.fromkeys(k for k in keys if not store.has(k)))
-        print(f"[embed] {len(keys) - len(todo):,} cached, {len(todo):,} to embed ({embedder.model_id})")
-        buf_k: list[str] = []
-        buf_v: list[np.ndarray] = []
-        try:
-            for i in tqdm(range(0, len(todo), batch), desc="embed", disable=not todo):
-                chunk = todo[i:i + batch]
-                vec = embedder.embed_batch([text_of[k] for k in chunk])   # paid for only once it returns
-                buf_k += chunk
-                buf_v.append(vec)
-                if len(buf_k) >= every:
-                    store.add(buf_k, np.vstack(buf_v))
-                    buf_k, buf_v = [], []
-        finally:
-            # keep vectors already paid for, even when a later batch raises or Ctrl-C arrives
-            if buf_k:
-                store.add(buf_k, np.vstack(buf_v))
-        arr, model_id = store.get(keys), embedder.model_id
+        if isinstance(embedder, ApiEmbedder) and not embedder.has_key:
+            print(f"[embed] ${embedder.key_env} is not set — requests go without an Authorization header "
+                  f"(fine for a self-hosted server; a server that needs a key answers 401)")
+        store = EmbeddingStore(store_root(cfg), embedder.model_id)
+        stats = run_embedding(texts, embedder, store, runner_cfg(cfg))
+        if stats["status"] != "done":
+            raise RunStopped(f"embedding stopped with {stats['total'] - stats['cached'] - stats['embedded']:,} "
+                             f"documents left — run the same command again to resume")
+        arr, model_id = store.get([text_key(embedder.model_id, t) for t in texts]), embedder.model_id
+        meta = {"store_id": embedder.model_id, "n_retries": stats["retries"], "n_truncated": stats["truncated"]}
     arr = _normalize(arr)
     work.mkdir(parents=True, exist_ok=True)
     np.save(work / "03_embeddings.npy", arr)
     (work / "03_meta.json").write_text(json.dumps({"model_id": model_id, "n": int(arr.shape[0]),
-                                                   "dim": int(arr.shape[1])}), encoding="utf-8")
+                                                   "dim": int(arr.shape[1]), **meta}), encoding="utf-8")
     print(f"[embed] {arr.shape} → 03_embeddings.npy")
     return arr
