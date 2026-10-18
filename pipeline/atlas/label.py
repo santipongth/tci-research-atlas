@@ -58,6 +58,14 @@ def _cache_key(model: str, prompt: str) -> str:
     return hashlib.sha256(f"{model}\n{prompt}".encode()).hexdigest()[:16]
 
 
+def _extract_json(text: str) -> dict:
+    """Parse a JSON object from a reply that may carry prose or ```json fences around it."""
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end <= start:
+        raise ValueError("no JSON object in reply")
+    return json.loads(text[start:end + 1])
+
+
 def _call_llm(client, model: str, prompt: str, temperature: float, max_retries: int) -> dict:
     delay = 2.0
     for attempt in range(max_retries):
@@ -67,9 +75,12 @@ def _call_llm(client, model: str, prompt: str, temperature: float, max_retries: 
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
             )
-            data = json.loads(resp.choices[0].message.content)
+            data = _extract_json(resp.choices[0].message.content)
+            name_th, name_en = str(data.get("name_th", "")).strip(), str(data.get("name_en", "")).strip()
+            if not name_th or not name_en:
+                raise ValueError("blank name_th or name_en")
             kws = data.get("keywords", [])
-            return {"name_th": str(data.get("name_th", "")), "name_en": str(data.get("name_en", "")),
+            return {"name_th": name_th, "name_en": name_en,
                     "description": str(data.get("description", "")),
                     "keywords": "; ".join(kws) if isinstance(kws, list) else str(kws)}
         except Exception:  # noqa: BLE001 — retry transport/JSON errors
@@ -139,16 +150,30 @@ def label(cfg: dict, client=None) -> pd.DataFrame:
 
         def one(item):
             key, prompt = item
-            return {"cache_key": key, **_call_llm(client, model, prompt, float(acfg["temperature"]),
-                                                  int(acfg["max_retries"]))}
+            try:
+                return {"cache_key": key, **_call_llm(client, model, prompt, float(acfg["temperature"]),
+                                                      int(acfg["max_retries"]))}
+            except Exception as exc:  # noqa: BLE001 — keep the other topics' paid results
+                print(f"[label] WARNING: call failed for one topic ({type(exc).__name__}: {exc}); keyword fallback")
+                return None
 
         with ThreadPoolExecutor(max_workers=int(acfg["concurrency"])) as ex:
-            new = list(ex.map(one, todo))
-        cache = pd.concat([cache, pd.DataFrame(new, columns=CACHE_COLUMNS)], ignore_index=True)
-        write_table(cache.drop_duplicates("cache_key", keep="last"), cache_path)
+            new = [r for r in ex.map(one, todo) if r is not None]
+        if new:
+            cache = pd.concat([cache, pd.DataFrame(new, columns=CACHE_COLUMNS)], ignore_index=True)
+            write_table(cache.drop_duplicates("cache_key", keep="last"), cache_path)
 
     by_key = cache.drop_duplicates("cache_key", keep="last").set_index("cache_key")
-    out = pd.DataFrame([{"level": "fine", "topic_id": tid, **by_key.loc[key, CACHE_COLUMNS[1:]].to_dict(),
-                         "cache_key": key} for tid, (key, _) in sorted(prompts.items())], columns=LABEL_COLUMNS)
+    info_by_tid = {int(r.topic_id): r for r in info.itertuples()}
+    rows = []
+    for tid, (key, _) in sorted(prompts.items()):
+        if key in by_key.index:
+            rows.append({"level": "fine", "topic_id": tid, **by_key.loc[key, CACHE_COLUMNS[1:]].to_dict(),
+                         "cache_key": key})
+        else:  # failed after retries: not cached, so a rerun retries it
+            r = info_by_tid[tid]
+            rows.append({"level": "fine", "topic_id": tid,
+                         **_fallback(r.top_keywords, r.top_terms, tid), "cache_key": "fallback"})
+    out = pd.DataFrame(rows, columns=LABEL_COLUMNS)
     write_table(out, work / "05_labels.parquet")
     return out

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -83,3 +84,71 @@ def test_llm_labels_cached_by_prompt_content(make_cfg, tmp_path):
     out = label(cfg, client=third)
     assert third.calls == 1                                    # only the topic whose members changed
     assert len(out) == 2 and set(out["topic_id"]) == {0, 1}
+
+
+class ScriptedClient:
+    """Fake OpenAI-compatible client: content_fn(prompt) returns the raw message text or raises."""
+
+    def __init__(self, content_fn):
+        self.calls = 0
+        self.content_fn = content_fn
+        self.chat = self
+        self.completions = self
+
+    def create(self, **kwargs):
+        self.calls += 1
+        prompt = kwargs["messages"][0]["content"]
+        return _Resp(self.content_fn(prompt))
+
+
+VALID = json.dumps({"name_th": "ข้าวไทย", "name_en": "Thai rice",
+                    "description": "d", "keywords": ["ข้าว", "rice"]}, ensure_ascii=False)
+
+
+def test_fenced_json_with_preamble_is_parsed(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    cfg["labeling"]["provider"] = "api"
+    cfg["labeling"]["api"]["max_retries"] = 1
+    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"]})
+    client = ScriptedClient(lambda p: "Here is the label:\n```json\n" + VALID + "\n```")
+    out = label(cfg, client=client)
+    assert out.loc[0, "name_th"] == "ข้าวไทย"
+    assert out.loc[0, "name_en"] == "Thai rice"
+    assert out.loc[0, "cache_key"] != "fallback"
+
+
+def test_partial_failure_keeps_successes_and_falls_back(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    cfg["labeling"]["provider"] = "api"
+    cfg["labeling"]["api"]["max_retries"] = 1
+    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 1: ["เรื่องเบาหวาน 1", "เรื่องเบาหวาน 2"]})
+
+    def fail_topic1(prompt):
+        if "เรื่องเบาหวาน" in prompt:
+            raise RuntimeError("boom")
+        return VALID
+
+    out = label(cfg, client=ScriptedClient(fail_topic1))
+    assert len(out) == 2 and set(out["topic_id"]) == {0, 1}
+    assert out.set_index("topic_id").loc[0, "cache_key"] != "fallback"
+    assert out.set_index("topic_id").loc[1, "cache_key"] == "fallback"
+    assert out.set_index("topic_id").loc[1, "name_en"] == "rice"
+    cache = read_table(Path(cfg["pipeline"]["state_dir"]) / "label_cache.parquet")
+    assert len(cache) == 1                                     # only the successful topic is cached
+    rerun = ScriptedClient(lambda p: VALID)
+    out2 = label(cfg, client=rerun)
+    assert rerun.calls == 1                                    # only the failed topic is retried
+    assert (out2["cache_key"] != "fallback").all()
+
+
+def test_blank_labels_are_not_cached(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    cfg["labeling"]["provider"] = "api"
+    cfg["labeling"]["api"]["max_retries"] = 1
+    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"]})
+    blank = json.dumps({"name_th": "", "name_en": "", "description": "d", "keywords": []})
+    client = ScriptedClient(lambda p: blank)
+    out = label(cfg, client=client)
+    assert client.calls == 1
+    assert out.loc[0, "cache_key"] == "fallback"
+    assert not (Path(cfg["pipeline"]["state_dir"]) / "label_cache.parquet").exists()
