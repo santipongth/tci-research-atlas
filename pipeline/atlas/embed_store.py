@@ -56,9 +56,8 @@ class EmbeddingStore:
         np.save(self.dir / f"shard_{shard:05d}.npy", vectors[[i for _, i in new]])
         add = pd.DataFrame({"key": [k for k, _ in new], "shard": shard, "row": np.arange(len(new))})
         self.index = pd.concat([self.index, add], ignore_index=True)
-        tmp = self.dir / "index.tmp.parquet"
-        write_table(self.index, tmp)
-        os.replace(tmp, self._index_path)      # atomic: the index is never half-written
+        written = write_table(self.index, self.dir / "index.tmp.parquet")   # .pkl here if no pyarrow
+        os.replace(written, self.dir / written.name.replace(".tmp", ""))    # atomic: never half-written
         self._lookup.update({k: (shard, int(r)) for k, r in zip(add["key"], add["row"])})
 
     def get(self, keys: list[str]) -> np.ndarray:
