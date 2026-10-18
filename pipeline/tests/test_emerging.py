@@ -1,97 +1,91 @@
-"""Unit tests for the emerging-metrics engine — run with plain python or pytest.
-
-Covers: CAGR, OLS slope, Kleinberg burst, and the TCI EMERGING/HOT/DECLINING rules.
-"""
-from __future__ import annotations
-
-import sys
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
+import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from atlas.config import load_config
+from atlas.emerging import STATUSES, compute_emerging, kleinberg_burst, share_growth
 
-from atlas.emerging import _cagr, _ols_slope, kleinberg_burst, emerging  # noqa: E402
-
-MINI_CFG = {
-    "pipeline": {"work_dir": "/tmp/atlas_test_work", "seed": 42},
-    "emerging": {
-        "min_year_complete": 2024,
-        "recent_window": 3, "baseline_window": 5, "min_articles_recent": 30,
-        "emerging": {"max_recent_share": 0.015, "min_cagr_recent": 0.25, "min_share_ratio": 1.8},
-        "hot": {"min_recent_share": 0.015, "min_slope_share": 0.0},
-        "declining": {"consecutive_negative_years": 3},
-        "score_weights": {"growth": 0.35, "acceleration": 0.25, "burst": 0.20, "novelty": 0.20},
-        "burst": {"kleinberg_states": 2, "gamma": 1.0},
-    },
-}
+ECFG = load_config(None)["emerging"]          # tests lock the shipped defaults
+YEARS = list(range(2015, 2025))               # last complete 2024 → R 2022–24, W 2020–24, B 2017–21
+OLD4 = [("j_old_a", .25), ("j_old_b", .25), ("j_old_c", .25), ("j_old_d", .25)]
 
 
-def make_series(topic_counts: dict[int, dict[int, int]], corpus_per_year: int = 100_000) -> pd.DataFrame:
-    """topic_counts: {topic_id: {year: count}}"""
-    rows = []
-    years = sorted({y for c in topic_counts.values() for y in c})
-    for tid, per_year in topic_counts.items():
+def make_inputs(specs, years=YEARS, corpus=100_000):
+    rows, jrows, orows = [], [], []
+    for tid, sp in specs.items():
+        orgs = sp.get("orgs", 5)
         for y in years:
-            c = per_year.get(y, 0)
-            rows.append({"topic_id": tid, "year": y, "count": c,
-                         "corpus_total": corpus_per_year, "share": c / corpus_per_year})
-    return pd.DataFrame(rows)
+            c = int(sp["counts"].get(y, 0))
+            rows.append(dict(topic_id=tid, year=y, count=c, corpus_total=corpus, share=c / corpus,
+                             count_with_org=c if orgs else 0))
+            for j, frac in sp.get("journals", OLD4):
+                if round(c * frac):
+                    jrows.append(dict(topic_id=tid, journal=j, year=y, count=round(c * frac)))
+            for o in range(orgs):
+                if c:
+                    orows.append(dict(topic_id=tid, org_key=f"org{o}", year=y, count=max(1, c // orgs)))
+    js = pd.DataFrame(jrows, columns=["topic_id", "journal", "year", "count"])
+    os_ = pd.DataFrame(orows, columns=["topic_id", "org_key", "year", "count"])
+    jf = js.groupby("journal")["year"].min().rename("first_year").reset_index()
+    return pd.DataFrame(rows), js, os_, jf
 
 
-def run_tests() -> None:
-    work = Path(MINI_CFG["pipeline"]["work_dir"])
-    work.mkdir(parents=True, exist_ok=True)
-    pd.Series({"last_complete_year": 2024}).to_json(work / "06_meta.json")
+EM = {**{y: 10 for y in range(2015, 2020)}, 2020: 15, 2021: 25, 2022: 60, 2023: 120, 2024: 240}
+SPECS = {
+    1: {"counts": EM},                                                            # EMERGING
+    2: {"counts": {2022: 60, 2023: 120, 2024: 240}, "journals": [("j_new", 1.0)], "orgs": 1},  # new journal → WATCH
+    3: {"counts": {y: round(3000 * 1.03 ** (y - 2015)) for y in YEARS}},          # large & growing → HOT
+    4: {"counts": {y: round(2000 * 0.85 ** (y - 2015)) for y in YEARS}},          # → DECLINING
+    5: {"counts": {y: 2500 for y in YEARS}},                                      # perfectly flat → STABLE
+    6: {"counts": {2022: 3, 2023: 5, 2024: 8}},                                   # tiny → LOW_DATA
+    7: {"counts": {2015: 40, 2016: 40}},                                          # nothing in W → LOW_DATA, no crash
+    8: {"counts": EM, "journals": [("j_old_a", 1.0)]},                            # one journal → WATCH
+    9: {"counts": EM, "orgs": 0},                                                 # affiliations unknown → rule skipped
+}
+EXPECTED = {1: "EMERGING", 2: "WATCH", 3: "HOT", 4: "DECLINING", 5: "STABLE", 6: "LOW_DATA",
+            7: "LOW_DATA", 8: "WATCH", 9: "EMERGING"}
 
-    # --- primitives ---
-    assert abs(_cagr(100, 400, 3) - ((4.5 / 1.5) ** (1 / 3) - 1)) < 1e-6 or _cagr(100, 400, 3) > 0.5
-    assert _cagr(100, 100, 3) < 0.01
-    assert _ols_slope(np.arange(5.0), np.arange(5.0) * 2) > 0
-    assert _ols_slope(np.arange(5.0), np.arange(5.0)[::-1]) < 0
 
-    # burst: flat 5/y then jump to 50/y for 2 years must burst
-    cnt = np.array([5, 5, 5, 5, 5, 50, 50, 5], dtype=float)
+@pytest.fixture(scope="module")
+def result():
+    s, js, os_, jf = make_inputs(SPECS)
+    return compute_emerging(s, 2024, ECFG, js, os_, jf, coherence={1: 0.9, 5: 0.8}).set_index("topic_id")
+
+
+@pytest.mark.parametrize("tid", sorted(EXPECTED))
+def test_status_rules(result, tid):
+    assert result.loc[tid, "status"] == EXPECTED[tid]
+
+
+def test_journal_driven_flag(result):
+    assert bool(result.loc[2, "journal_driven"]) and bool(result.loc[8, "journal_driven"])
+    assert not bool(result.loc[1, "journal_driven"])
+    assert result.loc[2, "new_journal_share"] == 1.0
+
+
+def test_scores_bounded_and_ranked(result):
+    assert result["emerging_score"].between(0, 100.0001).all()
+    assert result.loc[1, "emerging_score"] > result.loc[5, "emerging_score"]
+    assert set(result["status"]) <= set(STATUSES)
+    assert (result["definition_version"] == 2).all()
+
+
+def test_two_year_corpus_does_not_crash():
+    s, js, os_, jf = make_inputs({1: {"counts": {2023: 50, 2024: 80}}, 2: {"counts": {2023: 5, 2024: 9}}},
+                                 years=[2023, 2024])
+    m = compute_emerging(s, 2024, ECFG, js, os_, jf)
+    assert set(m["status"]) == {"LOW_DATA"}
+
+
+def test_share_growth_recovers_known_rate():
+    years = np.arange(2020, 2025)
+    counts = 100 * 1.2 ** (years - 2020)
+    g, lo, hi = share_growth(counts, np.full(5, 10_000.0), years, z=1.645)
+    assert abs(g - 0.2) < 0.01 and lo < g < hi
+    assert all(np.isnan(share_growth([0, 0, 0], [10, 10, 10], [1, 2, 3], 1.645)))
+
+
+def test_kleinberg_detects_planted_burst_and_ignores_flat():
     corp = np.full(8, 10_000.0)
-    intensity, idx = kleinberg_burst(cnt, corp, gamma=1.0)
-    assert 5 in idx and 6 in idx, f"burst years wrong: {idx}"
-    assert intensity > 0
-    # flat series must not burst
-    intensity2, idx2 = kleinberg_burst(np.full(8, 20.0), corp, gamma=1.0)
-    assert idx2 == [] or intensity2 == 0.0
-
-    # --- classification ---
-    years = list(range(2017, 2025))  # B=2017–2021, R=2022–2024
-    topics = {
-        # EMERGING: tiny share, explosive growth in R
-        1: {y: (10 if y < 2022 else c) for y, c in zip(years, [10, 12, 11, 10, 12, 60, 120, 240])},
-        # HOT: big share, steadily rising
-        2: {y: c for y, c in zip(years, [3000, 3100, 3200, 3300, 3400, 3500, 3600, 3700])},
-        # DECLINING: shrinking share every year
-        3: {y: c for y, c in zip(years, [2000, 1800, 1600, 1400, 1200, 1000, 800, 600])},
-        # STABLE
-        4: {y: 500 for y in years},
-        # too few recent articles → never EMERGING even if explosive
-        5: {y: c for y, c in zip(years, [0, 0, 0, 0, 1, 2, 4, 8])},
-    }
-    s = make_series(topics)
-    result = emerging(MINI_CFG, series=s)
-    st = result.set_index("topic_id")["status"].to_dict()
-
-    assert st[1] == "EMERGING", f"topic1 should be EMERGING, got {st[1]}"
-    assert st[2] == "HOT", f"topic2 should be HOT, got {st[2]}"
-    assert st[3] == "DECLINING", f"topic3 should be DECLINING, got {st[3]}"
-    assert st[4] == "STABLE", f"topic4 should be STABLE, got {st[4]}"
-    assert st[5] != "EMERGING", f"topic5 (noise) must not be EMERGING, got {st[5]}"
-
-    # score sanity: emerging topic should outscore the stable one
-    sc = result.set_index("topic_id")["emerging_score"].to_dict()
-    assert sc[1] > sc[4], "emerging topic should score above stable"
-    assert 0 <= min(sc.values()) and max(sc.values()) <= 100.001
-
-    print("all emerging-engine tests passed ✓")
-
-
-if __name__ == "__main__":
-    run_tests()
+    assert kleinberg_burst(np.array([5, 5, 5, 5, 5, 50, 50, 5.0]), corp) == [5, 6]
+    assert kleinberg_burst(np.full(8, 20.0), corp) == []
