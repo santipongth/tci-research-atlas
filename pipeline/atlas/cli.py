@@ -5,6 +5,7 @@ Commands are added by later modules: run, synth, profile, schema.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import typer
 
@@ -28,3 +29,16 @@ def version() -> None:
     from atlas import __version__
 
     typer.echo(__version__)
+
+
+@app.command()
+def synth(
+    out: Path = typer.Option(..., help="output folder for the synthetic .md corpus"),
+    n: int = typer.Option(20_000, help="approximate number of articles"),
+    seed: int = typer.Option(7),
+) -> None:
+    """Generate a synthetic ThaiJO-style corpus with planted trends (+ _truth.csv)."""
+    from atlas.synth import generate
+
+    truth = generate(out, n=n, seed=seed)
+    typer.echo(f"wrote {len(truth):,} articles → {out}")
