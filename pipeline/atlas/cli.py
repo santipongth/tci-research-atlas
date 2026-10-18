@@ -4,16 +4,13 @@ Commands are added by later modules: run, synth, profile, schema.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import typer
 
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except (AttributeError, ValueError):
-        pass
+from atlas.console import use_utf8_stdio
+
+use_utf8_stdio()
 
 app = typer.Typer(help="TCI Research Atlas pipeline", no_args_is_help=True, add_completion=False)
 

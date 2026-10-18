@@ -13,6 +13,7 @@ import sys
 import time
 
 from atlas import config as cfg_mod
+from atlas.console import use_utf8_stdio
 
 STEPS = ["ingest", "preprocess", "embed", "cluster", "label", "series", "emerging", "forecast", "layout", "export"]
 _FUNCS = {
@@ -45,6 +46,7 @@ def run(cfg: dict, steps: list[str] | None = None) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    use_utf8_stdio()                     # redirected output on Windows would crash on "≤" otherwise
     ap = argparse.ArgumentParser(description="TCI Research Atlas batch pipeline")
     ap.add_argument("--config", default=None)
     ap.add_argument("--steps", nargs="*", default=None, help=f"subset of {STEPS}")
