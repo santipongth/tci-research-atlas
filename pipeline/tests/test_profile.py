@@ -77,3 +77,16 @@ def test_profile_reports_doi_collisions_with_different_titles(tmp_path):
     ex = col["examples"][0]
     assert ex["doi"] == "10.1234/j.2020.1" and sorted(ex["article_ids"]) == ["so01:J:1", "so01:J:2"]
     assert "DOI collisions" in render_markdown(r)
+
+
+def test_profile_reports_files_with_errors_and_replaced_bytes(thaijo_dir, tmp_path):
+    import shutil
+
+    raw = (thaijo_dir / "so02_BECJournal_54895.md").read_bytes()
+    (tmp_path / "broken_bytes.md").write_bytes(raw.replace(b"## Abstract\n", b"## Abstract\n\x80\x81 ", 1))
+    shutil.copyfile(thaijo_dir / "so02_BECJournal_62642.md", tmp_path / "clean.md")
+    (tmp_path / "bad.md").mkdir()
+    r = profile_corpus(tmp_path)
+    assert r["files"] == 2 and r["text_quality"]["decode_replaced"] == 1
+    assert r["files_with_errors"]["count"] == 1 and r["files_with_errors"]["examples"][0]["path"].endswith("bad.md")
+    assert "Files with errors" in render_markdown(r)

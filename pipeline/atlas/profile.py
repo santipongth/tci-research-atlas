@@ -32,7 +32,8 @@ def doi_title_collisions(arts: pd.DataFrame, max_examples: int = 10) -> dict:
 
 
 def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1) -> dict:
-    arts, auths, _ = records_to_tables(read_thaijo_corpus(root, pattern, workers))
+    recs, errors = read_thaijo_corpus(root, pattern, workers)
+    arts, auths, _ = records_to_tables(recs)
     n = len(arts)
     years = pd.to_numeric(arts["year"], errors="coerce")
     nonempty = {c: arts[c].fillna("").astype(str).str.len() > 0
@@ -57,7 +58,8 @@ def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1)
                     "vs_prev": round(int(c) / int(by_year[y - 1]), 3) if (y - 1) in by_year.index else None}
                    for y, c in by_year.items()]
     return {
-        "files": n,
+        "files": n,                                  # files parsed into a record
+        "files_with_errors": {"count": len(errors), "examples": errors[:20]},   # unreadable/unparsable: skipped
         "unique_articles": int(arts["article_id"].nunique()),
         "duplicate_files": int(n - arts["article_id"].nunique()),
         "missing_article_url": int(arts["article_id"].str.startswith("file:").sum()),
@@ -116,6 +118,11 @@ def render_markdown(r: dict) -> str:
         "## Text-quality flags",
         "",
         *([f"- {k}: {v:,}" for k, v in r["text_quality"].items()] or ["- ไม่พบ"]),
+        "",
+        "## Files with errors (could not be read or parsed — skipped by ingest)",
+        "",
+        f"- files: {r['files_with_errors']['count']:,}",
+        *[f"- {e['path']}: {e['error']}" for e in r["files_with_errors"]["examples"]],
         "",
         "## DOI collisions (same DOI, different titles — kept as separate articles)",
         "",

@@ -110,3 +110,48 @@ def test_duplicate_article_ids_are_dropped_even_with_dedup_off(make_cfg, tmp_pat
     assert sorted(df.index) == ["d1", "d2"]
     assert df.loc["d1", "abstract_en"] == "has an abstract"      # the most complete record is kept
 
+
+# ---- F11: a file that cannot be read or parsed is recorded and skipped, never aborts the run
+def test_parser_failure_is_recorded_and_skipped(make_cfg, thaijo_dir, tmp_path, monkeypatch):
+    import atlas.ingest as ing
+
+    src = tmp_path / "in"
+    src.mkdir()
+    for name in ("so02_BECJournal_54895.md", "so02_BECJournal_62642.md"):
+        shutil.copyfile(thaijo_dir / name, src / name)
+    real = ing.parse_markdown
+
+    def flaky(text, source_path=""):
+        if source_path.endswith("62642.md"):
+            raise IndexError("parser bug on this layout")
+        return real(text, source_path=source_path)
+    monkeypatch.setattr(ing, "parse_markdown", flaky)
+    df = ingest(make_cfg(src))
+    assert df["article_id"].tolist() == ["so02:BECJournal:54895"]
+    errs = read_table(tmp_path / "work" / "01_ingest_errors.parquet")
+    assert len(errs) == 1 and errs.loc[0, "path"].endswith("62642.md")
+    assert errs.loc[0, "error"] == "IndexError: parser bug on this layout"
+
+
+def test_unreadable_path_is_recorded_with_a_process_pool(thaijo_dir, tmp_path, monkeypatch):
+    import atlas.ingest as ing
+
+    shutil.copyfile(thaijo_dir / "so02_BECJournal_54895.md", tmp_path / "good.md")
+    (tmp_path / "bad.md").mkdir()                    # matches the glob, cannot be read as a file
+    monkeypatch.setattr(ing, "POOL_MIN_FILES", 0)    # force the ProcessPoolExecutor path
+    recs, errors = ing.read_thaijo_corpus(tmp_path, workers=2)
+    assert [r["article_id"] for r in recs] == ["so02:BECJournal:54895"]
+    assert len(errors) == 1 and errors[0]["path"].endswith("bad.md")
+    assert errors[0]["error"].split(":")[0] in {"IsADirectoryError", "PermissionError"}
+
+
+def test_invalid_utf8_is_kept_with_decode_replaced_flag(make_cfg, thaijo_dir, tmp_path):
+    src = tmp_path / "in"
+    src.mkdir()
+    raw = (thaijo_dir / "so02_BECJournal_54895.md").read_bytes()
+    (src / "broken_bytes.md").write_bytes(raw.replace(b"## Abstract\n", b"## Abstract\n\x80\x81 ", 1))
+    shutil.copyfile(thaijo_dir / "so02_BECJournal_62642.md", src / "clean.md")
+    df = ingest(make_cfg(src)).set_index("article_id")
+    assert "decode_replaced" in df.loc["so02:BECJournal:54895", "text_quality"]
+    assert "decode_replaced" not in df.loc["so02:BECJournal:62642", "text_quality"]
+    assert len(read_table(tmp_path / "work" / "01_ingest_errors.parquet")) == 0

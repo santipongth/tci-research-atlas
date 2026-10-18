@@ -19,7 +19,8 @@ def test_generate_writes_parseable_corpus(tmp_path):
     truth = generate(tmp_path, n=600, seed=3)
     assert (tmp_path / "_truth.csv").exists()
     assert set(truth["role"]) >= {"stable", "hot", "declining"}
-    recs = read_thaijo_corpus(tmp_path)
+    recs, errors = read_thaijo_corpus(tmp_path)
+    assert errors == []
     parsed = pd.DataFrame(recs).drop_duplicates("article_id").set_index("article_id")
     t = truth.set_index("article_id")
     assert set(parsed.index) == set(t.index)
@@ -40,7 +41,7 @@ def test_topics_have_six_terms_each():
 
 def test_dois_are_unique(tmp_path):
     generate(tmp_path, n=3000, seed=2)
-    dois = [r["doi"] for r in read_thaijo_corpus(tmp_path) if r["doi"] and "_dup" not in r["source_path"]]
+    dois = [r["doi"] for r in read_thaijo_corpus(tmp_path)[0] if r["doi"] and "_dup" not in r["source_path"]]
     assert len(dois) == len(set(dois))
 
 

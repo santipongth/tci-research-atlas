@@ -33,23 +33,45 @@ _TEXT = ["source_path", "url", "issue_url", "journal_name", "published", "year_s
 
 
 # ------------------------------------------------------------------ markdown corpus
+POOL_MIN_FILES = 2000          # below this, parsing in-process is faster than starting worker processes
+ERROR_COLUMNS = ["path", "error"]
+REPLACEMENT_CHAR = "\N{REPLACEMENT CHARACTER}"
+
+
 def _parse_file(path_str: str) -> dict:
     p = Path(path_str)
-    rec = parse_markdown(p.read_text(encoding="utf-8-sig", errors="replace"), source_path=str(p))
+    text = p.read_text(encoding="utf-8-sig", errors="replace")   # one bad byte must not drop the article
+    rec = parse_markdown(text, source_path=str(p))
+    if REPLACEMENT_CHAR in text:
+        rec["text_quality"].append("decode_replaced")
     if not rec["article_id"]:                     # broken scrape: stable id from the file name
         rec["article_id"] = "file:" + hashlib.sha1(p.name.encode("utf-8")).hexdigest()[:16]
     return rec
 
 
-def read_thaijo_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1) -> list[dict]:
-    files = sorted(str(p) for p in Path(root).glob(pattern) if p.is_file() and not p.name.startswith("_"))
-    if workers > 1 and len(files) > 2000:
+def _parse_file_safe(path_str: str) -> tuple[dict | None, dict | None]:
+    """(record, None) or (None, {path, error}) — top-level so worker processes can pickle it."""
+    try:
+        return _parse_file(path_str), None
+    except Exception as e:  # noqa: BLE001 — one unreadable/unparsable file must not abort a 250K run;
+        return None, {"path": path_str, "error": f"{type(e).__name__}: {e}"}   # it is recorded, never silent
+
+
+def read_thaijo_corpus(root: str | Path, pattern: str = "**/*.md",
+                       workers: int = 1) -> tuple[list[dict], list[dict]]:
+    """Parse every matching file → (records, errors); a file that cannot be read or parsed is
+    recorded in `errors` ({path, error: "Type: message"}) and skipped."""
+    files = sorted(str(p) for p in Path(root).glob(pattern) if not p.name.startswith("_"))
+    if workers > 1 and len(files) > POOL_MIN_FILES:
         with ProcessPoolExecutor(max_workers=workers) as ex:
-            recs = list(tqdm(ex.map(_parse_file, files, chunksize=256), total=len(files), desc="parse"))
+            results = list(tqdm(ex.map(_parse_file_safe, files, chunksize=max(1, min(256, len(files) // workers))),
+                                total=len(files), desc="parse"))
     else:
-        recs = [_parse_file(f) for f in tqdm(files, desc="parse", disable=len(files) < 2000)]
+        results = [_parse_file_safe(f) for f in tqdm(files, desc="parse", disable=len(files) < POOL_MIN_FILES)]
+    recs = [r for r, _ in results if r is not None]
+    errors = [e for _, e in results if e is not None]
     fill_years_from_issue(recs)
-    return recs
+    return recs, errors
 
 
 def records_to_tables(records: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -195,9 +217,10 @@ def dedup(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 # ------------------------------------------------------------------ step
 def ingest(cfg: dict) -> pd.DataFrame:
     icfg = cfg["input"]
+    errors: list[dict] = []
     if icfg["format"] == "thaijo_md":
-        articles, authors, refs = records_to_tables(
-            read_thaijo_corpus(icfg["path"], icfg["glob"], int(icfg["workers"])))
+        recs, errors = read_thaijo_corpus(icfg["path"], icfg["glob"], int(icfg["workers"]))
+        articles, authors, refs = records_to_tables(recs)
     else:
         articles, authors, refs = read_table_input(cfg)
     n_raw = len(articles)
@@ -220,6 +243,10 @@ def ingest(cfg: dict) -> pd.DataFrame:
     write_table(articles.reset_index(drop=True), work / "01_articles.parquet")
     write_table(authors.reset_index(drop=True), work / "01_authors.parquet")
     write_table(refs.reset_index(drop=True), work / "01_references.parquet")
+    write_table(pd.DataFrame(errors, columns=ERROR_COLUMNS), work / "01_ingest_errors.parquet")
+    if errors:
+        print(f"[ingest] WARNING: {len(errors):,} files could not be read or parsed and were skipped "
+              f"(first: {errors[0]['path']} — {errors[0]['error']}) → 01_ingest_errors")
     print(f"[ingest] {n_raw:,} records → {len(articles):,} articles (duplicates dropped: {n_dup:,}; "
-          f"year missing: {int(articles['year'].isna().sum()):,}) → {work}")
+          f"year missing: {int(articles['year'].isna().sum()):,}; files with errors: {len(errors):,}) → {work}")
     return articles
