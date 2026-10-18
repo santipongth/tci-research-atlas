@@ -31,17 +31,18 @@
 | `01_references` | ingest | article_id, position, text, year, lang, translated, self_citation |
 | `02_docs` | preprocess | 01_articles + doc_text |
 | `03_embeddings.npy`, `03_meta.json` | embed | matrix (แถวตรงกับ 02_docs), model_id |
-| `04_fine_topics`, `04_coarse_topics` | cluster | article_id → topic (−1 = ยังไม่จัดหมวด) |
+| `04_fine_topics` | cluster | article_id, fine_topic (−1 = ยังไม่จัดหมวด) |
+| `04_coarse_topics` | cluster | article_id, coarse_topic (−1 = ยังไม่จัดหมวด) |
 | `04_topic_info` | cluster | topic_id, size, top_terms, top_keywords, coarse_topic, coherence |
 | `04_centroids.npy`, `04_centroid_ids.json` | cluster | centroid ต่อหัวข้อ |
-| `05_labels` | label | topic_id, name_th, name_en, description, keywords, cache_key (`cache_key` = sha256(model + prompt) 16 ตัวแรก; `"fallback"` เมื่อ `label.provider: "off"`) |
+| `05_labels` | label | level, topic_id, name_th, name_en, description, keywords, cache_key (`cache_key` = sha256(model + prompt) 16 ตัวแรก; `"fallback"` เมื่อ `label.provider: "off"`) |
 | `06_series` | series | topic_id, year, count, count_with_org, corpus_total, share |
 | `06_topic_journal_year`, `06_topic_org_year`, `06_journal_first_year`, `06_meta.json` | series | ใช้คำนวณความกว้าง + ปีสมบูรณ์ล่าสุด |
 | `07_emerging` | emerging | ดู docs/EMERGING_SPEC.md §3 + status, journal_driven, emerging_score, definition_version |
 | `08_forecasts` | forecast | model, backtest_mae/mape, mase, skill_vs_naive, show, hist/fc (JSON) |
 | `09_layout`, `09_edges` | layout | id, kind, x, y, r, parent · s, t, w |
-| `state/embeddings/<model>/` | embed | index + shards (ถาวร) |
-| `state/label_cache` | label | cache_key → ชื่อหัวข้อ |
+| `state/embeddings/<slug>-<hash>/` | embed | index.parquet + shard_NNNNN.npy (ถาวร; slug จาก model_id, hash = sha1 8 ตัวแรก) |
+| `state/label_cache.parquet` | label | cache_key → ชื่อหัวข้อ |
 | `state/prev/centroids.npy` | export | centroid รอบนี้ สำหรับรอบหน้า |
 
 ## 3. Output: `atlas_data.json` (สัญญากับเว็บ)

@@ -21,10 +21,9 @@
 
 ```bash
 cd pipeline
-uv sync --extra local                      # หรือ --extra api
-uv run atlas profile /path/to/corpus --md ../logs/profile.md   # ขั้น 1: อ่านรายงานก่อนเสมอ
-uv run atlas run --config config.yaml      # ขั้น 2: ทั้งสาย (หรือ bash ../scripts/quarterly_run.sh)
-bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้าเว็บ + build
+uv sync --extra local                      # หรือ --extra api (ครั้งแรก/เมื่อ lock เปลี่ยน)
+uv run atlas profile /path/to/corpus --md ../logs/profile.md   # อ่านรายงานคุณภาพคลังก่อนเสมอ
+uv run atlas run --config config.yaml      # ทั้งสาย (หรือ bash ../scripts/quarterly_run.sh ซึ่ง profile ให้ด้วย)
 ```
 
 (`python -m atlas.pipeline` ยังใช้ได้เป็น alias ของ `atlas run` แต่เอกสารนี้ใช้ `atlas` CLI)

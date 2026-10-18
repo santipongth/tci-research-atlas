@@ -14,7 +14,7 @@ Emerging Topic Analysis → Trend Forecasting → export JSON เข้าหน
                                                                       ↓
 ┌─────────┐  ┌────────┐  ┌──────────┐                          ┌──────────┐
 │ export  │← │ layout │← │ forecast │←─────────────────────────│ emerging │
-│ JSON/CSV│  │ UMAP2D │  │naive/lin/ps│                         │ TCI spec │
+│ JSON/CSV│  │ UMAP2D │  │ 3 models │                          │ TCI spec │
 └─────────┘  └────────┘  └──────────┘                          └──────────┘
 ```
 

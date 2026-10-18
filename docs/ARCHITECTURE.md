@@ -6,7 +6,7 @@
 2. **ไม่มี backend/database** — ลดภาระ infra ของทีมเป็นศูนย์; เว็บ static ใช้ได้ทุกที่ (Kimi publish, GitHub Pages, nginx)
 3. **ทุกอย่าง resume ได้** — pipeline เขียน checkpoint หลังทุก step ลง `work_dir`; รันใหม่ = ข้าม step ที่ทำแล้ว (เลือกด้วย `--step/-s`)
 4. **ตัวเลขต้องอธิบายได้** — ทุก metric ที่ขึ้นหน้าเว็บมีนิยามเขียนไว้ใน `EMERGING_SPEC.md` และทดสอบใน `tests/` เพราะผู้บริหารจะถือตัวเลขนี้ไปคุยต่อ
-5. **ภาษาไทยเป็นพลเมืองชั้นหนึ่ง** — embedding multilingual, c-TF-IDF แบบ char n-gram, UI สองภาษา, ปี ค.ศ. เป็นมาตรฐานกลาง (แปลงจาก พ.ศ. ที่ ingest)
+5. **ภาษาไทยเป็นพลเมืองชั้นหนึ่ง** — embedding multilingual, c-TF-IDF ตัดคำด้วย pythainlp + author keywords, UI สองภาษา, ปี ค.ศ. เป็นมาตรฐานกลาง (แปลงจาก พ.ศ. ที่ ingest)
 6. **state แยกจาก work** — `work_dir` ลบได้เสมอ; `state_dir` เก็บสิ่งที่ต้องอยู่ข้ามรอบ (embedding store, label cache, centroids รอบก่อน)
 
 ## 2. การไหลของข้อมูล (data flow)

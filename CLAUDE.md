@@ -36,7 +36,7 @@ tci-research-atlas/
 │   ├── config.example.yaml ← คัดลอกเป็น config.yaml แล้วแก้
 │   ├── tests/              ← pytest (มี test_emerging.py ครอบคลุมนิยาม emerging)
 │   ├── scripts/            ← run_all.sh
-│   └── requirements.txt
+│   └── requirements.txt    ← export จาก uv.lock สำหรับติดตั้งแบบไม่ใช้ uv (ทางหลักคือ `uv sync`)
 ├── web/                    ← React + TypeScript + Vite + Tailwind (Phase 3)
 │   ├── src/sections/       ← AtlasMap, EmergingThemes, GroupRanking, Insights, ...
 │   ├── src/lib/loader.ts   ← โหลด /data/atlas_data.json → normalize → fallback ข้อมูล bundle
@@ -143,7 +143,7 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 
 - ข้อความไทยจาก PDF อาจมีอักษร Private-Use (U+F700–F71A) — `atlas.thai.clean_text` ซ่อมให้; ห้ามลบทิ้ง
 - ข้อมูล TCI เป็นไทย+อังกฤษปนกัน — embedding ต้อง multilingual (default: API `text-embedding-3-large` หรือ local `BAAI/bge-m3`)
-- c-TF-IDF ใช้ `char_wb` n-gram 3–5 เพราะภาษาไทยไม่มีช่องว่างระหว่างคำ
+- c-TF-IDF ตัดคำไทยด้วย pythainlp (newmm) และนับคำสำคัญของผู้เขียน (author keywords) เป็นวลีทั้งก้อน — `char_wb` n-gram (2–4) ใช้เฉพาะ embedder โหมด `lite` (TF-IDF + SVD) ไม่ใช่ c-TF-IDF
 - ปีในข้อมูลอาจเป็น พ.ศ. — `ingest.py` แปลงเป็น ค.ศ. แล้ว (ทุกอย่าง downstream เป็น ค.ศ.)
 - UI ภาษาไทยห้ามใช้ italic (ภาษาไทยไม่มีตัวเอียงแท้)
 
