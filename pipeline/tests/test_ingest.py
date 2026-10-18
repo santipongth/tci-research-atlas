@@ -126,7 +126,9 @@ def test_parser_failure_is_recorded_and_skipped(make_cfg, thaijo_dir, tmp_path, 
             raise IndexError("parser bug on this layout")
         return real(text, source_path=source_path)
     monkeypatch.setattr(ing, "parse_markdown", flaky)
-    df = ingest(make_cfg(src))
+    cfg = make_cfg(src)
+    cfg["input"]["max_error_ratio"] = 0.6            # 1 of 2 files fails: allow it deliberately
+    df = ingest(cfg)
     assert df["article_id"].tolist() == ["so02:BECJournal:54895"]
     errs = read_table(tmp_path / "work" / "01_ingest_errors.parquet")
     assert len(errs) == 1 and errs.loc[0, "path"].endswith("62642.md")
@@ -155,3 +157,110 @@ def test_invalid_utf8_is_kept_with_decode_replaced_flag(make_cfg, thaijo_dir, tm
     assert "decode_replaced" in df.loc["so02:BECJournal:54895", "text_quality"]
     assert "decode_replaced" not in df.loc["so02:BECJournal:62642", "text_quality"]
     assert len(read_table(tmp_path / "work" / "01_ingest_errors.parquet")) == 0
+
+
+# ---- Task 20 item 1: per-file error ceiling (input.max_error_ratio)
+def _md_corpus(root, n_good: int, n_bad: int):
+    root.mkdir(parents=True, exist_ok=True)
+    for i in range(n_good):
+        (root / f"g{i}.md").write_text(
+            f"# Paper number {i}\n\n**Journal:** J\n**Published:** 2020-01-01\n"
+            f"**Article URL:** https://so01.tci-thaijo.org/index.php/J/article/view/{i}\n\n"
+            f"## Abstract\n\nAn English abstract {i}.\n", encoding="utf-8")
+    for i in range(n_bad):
+        (root / f"bad{i}.md").mkdir()                # matches the glob, cannot be read as a file
+
+
+def test_error_ratio_below_ceiling_passes(make_cfg, tmp_path):
+    _md_corpus(tmp_path / "in", 199, 1)              # 1 bad of 200 = 0.5% <= 1%
+    df = ingest(make_cfg(tmp_path / "in"))
+    assert len(df) == 199
+
+
+def test_error_ratio_above_ceiling_raises_after_writing_errors(make_cfg, tmp_path):
+    import pytest
+
+    _md_corpus(tmp_path / "in", 95, 5)               # 5 of 100 = 5% > 1%
+    with pytest.raises(RuntimeError) as ei:
+        ingest(make_cfg(tmp_path / "in"))
+    msg = str(ei.value)
+    assert "0.05" in msg and "0.01" in msg and "01_ingest_errors" in msg and "max_error_ratio" in msg
+    assert "IsADirectoryError" in msg or "PermissionError" in msg
+    assert len(read_table(tmp_path / "work" / "01_ingest_errors.parquet")) == 5     # inspectable
+
+
+def test_all_files_failing_raises(make_cfg, tmp_path):
+    import pytest
+
+    _md_corpus(tmp_path / "in", 0, 3)
+    with pytest.raises(RuntimeError, match="01_ingest_errors"):
+        ingest(make_cfg(tmp_path / "in"))
+    assert len(read_table(tmp_path / "work" / "01_ingest_errors.parquet")) == 3
+
+
+def test_error_ceiling_is_configurable(make_cfg, tmp_path):
+    _md_corpus(tmp_path / "in", 95, 5)
+    cfg = make_cfg(tmp_path / "in")
+    cfg["input"]["max_error_ratio"] = 0.10
+    assert len(ingest(cfg)) == 95
+
+
+def test_error_ratio_config_is_validated():
+    import pytest
+
+    from atlas.config import AtlasConfig
+
+    assert AtlasConfig().input.max_error_ratio == 0.01
+    with pytest.raises(ValueError):
+        AtlasConfig.model_validate({"input": {"max_error_ratio": 1.5}})
+
+
+# ---- Task 20 item 2: same DOI, one-sided / partly different titles
+def _dedup_frame(rows):
+    from atlas.ingest import add_convenience_columns
+
+    base = {"title_th": "", "title_en": "", "abstract_th": "", "abstract_en": "", "keywords_th": "",
+            "keywords_en": "", "doi": "10.9/x", "authors": "", "year": 2020}
+    return add_convenience_columns(pd.DataFrame([{**base, **r} for r in rows]))
+
+
+def test_same_doi_same_english_title_one_copy_missing_thai_is_deduped():
+    from atlas.ingest import dedup
+
+    th = "\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER KHO KHUAT}"
+    out, stats = dedup(_dedup_frame([
+        {"article_id": "a", "title_th": th, "title_en": "Rice yield under drought"},
+        {"article_id": "b", "title_th": "", "title_en": "Rice yield under drought"}]))
+    assert out["article_id"].tolist() == ["a"] and stats == {"dropped": 1, "doi_title_conflicts": 0}
+
+
+def test_same_doi_different_thai_and_english_titles_are_kept_and_counted():
+    from atlas.ingest import dedup
+
+    th1 = "\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER KHO KHAI}"
+    th2 = "\N{THAI CHARACTER KHO KHUAT}\N{THAI CHARACTER KHO KHWAI}"
+    out, stats = dedup(_dedup_frame([
+        {"article_id": "a", "title_th": th1, "title_en": "Rice yield"},
+        {"article_id": "b", "title_th": th2, "title_en": "Tourism in Nan"}]))
+    assert sorted(out["article_id"]) == ["a", "b"] and stats == {"dropped": 0, "doi_title_conflicts": 1}
+
+
+def test_same_doi_same_thai_title_different_english_is_deduped_keeping_most_complete():
+    from atlas.ingest import dedup
+
+    th = "\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER KHO KHAI}\N{THAI CHARACTER KHO KHUAT}"
+    out, stats = dedup(_dedup_frame([
+        {"article_id": "a", "title_th": th, "title_en": "Rice yield"},
+        {"article_id": "b", "title_th": th, "title_en": "Rice yield under drought", "abstract_en": "has one"}]))
+    assert out["article_id"].tolist() == ["b"] and stats == {"dropped": 1, "doi_title_conflicts": 0}
+
+
+def test_dedup_beyond_first_80_chars_of_thai_title_via_english_key():
+    from atlas.ingest import dedup
+
+    th_a = "\N{THAI CHARACTER KO KAI}" * 90 + "\N{THAI CHARACTER KHO KHAI}"
+    th_b = "\N{THAI CHARACTER KO KAI}" * 90 + "\N{THAI CHARACTER KHO KHUAT}"       # same first 80, differ later
+    out, _ = dedup(_dedup_frame([
+        {"article_id": "a", "title_th": th_a, "title_en": "Same english"},
+        {"article_id": "b", "title_th": th_b, "title_en": "Same english"}]))
+    assert len(out) == 1

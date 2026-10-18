@@ -22,6 +22,8 @@ import pandas as pd
 from atlas.io_utils import read_table
 
 SCHEMA_VERSION = "1.1"
+_NO_ORGS_FLAG_TH = (
+    "\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER THANTHAKHAT}")   # "has no column ..." (pre-v3 work_dir)
 # Thai fallback prefixes (written with code point names, never literal escapes)
 _GROUP_TH = ("\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER SARA U}"
              "\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA} ")
@@ -176,10 +178,14 @@ def export(cfg: dict) -> dict:
     for name in ("04_centroids.npy", "04_centroid_ids.json"):
         if not (work / name).exists():
             raise FileNotFoundError(f"export needs {work / name} (written by the cluster step); nothing was exported")
+    em = read_table(work / "07_emerging.parquet")
+    if "orgs_unverified" not in em.columns:       # never default it: a missing flag would publish unverified
+        raise RuntimeError(                        # breadth as verified
+            f"07_emerging {_NO_ORGS_FLAG_TH} orgs_unverified (definition v3) - "
+            "re-run: atlas run -c <config.yaml> -s emerging -s forecast -s export")
     outdir.mkdir(parents=True, exist_ok=True)
     info = read_table(work / "04_topic_info.parquet")
     labels = read_table(work / "05_labels.parquet")
-    em = read_table(work / "07_emerging.parquet")
     fc = read_table(work / "08_forecasts.parquet")
     meta = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
     atlas = build_atlas(info, labels, read_table(work / "09_layout.parquet"), read_table(work / "09_edges.parquet"),
@@ -217,7 +223,7 @@ def export(cfg: dict) -> dict:
     }
     (outdir / "manifest.json").write_text(json.dumps(clean_json(manifest), ensure_ascii=False, indent=2,
                                                      allow_nan=False), encoding="utf-8")
-    prev = state / "prev"                          # next run's novelty/lineage input - persistent
+    prev = state / "prev"                          # P1 lineage input - persistent
     prev.mkdir(parents=True, exist_ok=True)
     shutil.copy(work / "04_centroids.npy", prev / "centroids.npy")
     shutil.copy(work / "04_centroid_ids.json", prev / "centroid_ids.json")

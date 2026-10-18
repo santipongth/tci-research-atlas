@@ -25,16 +25,19 @@ def doi_title_collisions(arts: pd.DataFrame, max_examples: int = 10) -> dict:
     title = a["title_th"].fillna("").astype(str).where(a["title_th"].fillna("") != "", a["title_en"])
     d = pd.DataFrame({"doi": doi_key(a), "tkey": title_key(title), "title": title, "article_id": a["article_id"]})
     d = d[d["doi"] != ""]
-    groups = [(doi, g) for doi, g in d.groupby("doi") if g["tkey"].nunique() > 1]
-    return {"count": len(groups),
-            "examples": [{"doi": doi, "titles": g["title"].tolist(), "article_ids": g["article_id"].tolist()}
-                         for doi, g in groups[:max_examples]]}
+    n_keys = d.groupby("doi")["tkey"].nunique()                  # vectorised: no Python loop over 250K DOIs
+    colliding = n_keys.index[n_keys > 1]
+    examples = [{"doi": doi, "titles": g["title"].tolist(), "article_ids": g["article_id"].tolist()}
+                for doi, g in d[d["doi"].isin(colliding[:max_examples])].groupby("doi")]
+    return {"count": int(len(colliding)), "examples": examples}
 
 
-def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1) -> dict:
+def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1,
+                   max_error_ratio: float = 0.01) -> dict:
     recs, errors = read_thaijo_corpus(root, pattern, workers)
     arts, auths, _ = records_to_tables(recs)
     n = len(arts)
+    n_files = n + len(errors)
     years = pd.to_numeric(arts["year"], errors="coerce")
     nonempty = {c: arts[c].fillna("").astype(str).str.len() > 0
                 for c in ("title_th", "title_en", "abstract_th", "abstract_en", "keywords_th", "keywords_en", "doi")}
@@ -59,7 +62,9 @@ def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1)
                    for y, c in by_year.items()]
     return {
         "files": n,                                  # files parsed into a record
-        "files_with_errors": {"count": len(errors), "examples": errors[:20]},   # unreadable/unparsable: skipped
+        "files_with_errors": {"count": len(errors), "examples": errors[:20],     # unreadable/unparsable: skipped
+                              "ratio": round(len(errors) / n_files, 6) if n_files else 0.0,
+                              "threshold": max_error_ratio},     # profile never raises; ingest does above it
         "unique_articles": int(arts["article_id"].nunique()),
         "duplicate_files": int(n - arts["article_id"].nunique()),
         "missing_article_url": int(arts["article_id"].str.startswith("file:").sum()),
@@ -121,7 +126,11 @@ def render_markdown(r: dict) -> str:
         "",
         "## Files with errors (could not be read or parsed — skipped by ingest)",
         "",
-        f"- files: {r['files_with_errors']['count']:,}",
+        f"- files: {r['files_with_errors']['count']:,} (ratio {r['files_with_errors']['ratio']:.4f}, "
+        f"ingest ceiling input.max_error_ratio {r['files_with_errors']['threshold']:g})",
+        *(["- \N{WARNING SIGN} above the ceiling: `atlas run` will stop at ingest until these are fixed "
+           "or input.max_error_ratio is raised deliberately"]
+          if r["files_with_errors"]["ratio"] > r["files_with_errors"]["threshold"] else []),
         *[f"- {e['path']}: {e['error']}" for e in r["files_with_errors"]["examples"]],
         "",
         "## DOI collisions (same DOI, different titles — kept as separate articles)",

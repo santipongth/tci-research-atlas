@@ -19,7 +19,7 @@
 
 ตรวจคลังก่อนรัน: `uv run atlas profile /path/to/corpus --md ../logs/profile.md` (รายงานคุณภาพคลัง: จำนวนไฟล์ ไฟล์ที่อ่าน/parse ไม่ได้ ช่วงปี บทความลงวันที่ล่วงหน้า ยอดต่อปีเทียบปีก่อน ฟิลด์ว่าง วารสารที่อัปโหลดย้อนหลัง DOI ซ้ำแต่ชื่อเรื่องต่างกัน)
 
-กฎความสะอาดที่ ingest ทำให้: ตัดแถวที่ `year` < `input.min_year` · article_id ซ้ำถูกตัดเสมอ (แม้ปิด dedup) · dedup ด้วย article_id → DOI **ที่ชื่อเรื่อง normalize แล้ว (80 ตัวแรก) ตรงกันด้วย** (DOI เดียวกันแต่ชื่อต่างกัน = metadata ผิด เก็บทุกเรื่องและนับไว้) → ชื่อเรื่องที่ normalize แล้ว + ปี · พ.ศ. → ค.ศ. (พ.ศ. − 543) อัตโนมัติ · ไฟล์ที่อ่านหรือ parse ไม่ได้ (OSError, parser error) ถูกบันทึกใน `01_ingest_errors` แล้วข้าม — ไม่หยุดทั้งรอบ
+กฎความสะอาดที่ ingest ทำให้: ตัดแถวที่ `year` < `input.min_year` · article_id ซ้ำถูกตัดเสมอ (แม้ปิด dedup) · dedup ด้วย article_id → DOI **ที่ชื่อเรื่องไทย หรือชื่อเรื่องอังกฤษ ที่ normalize แล้ว (80 ตัวแรก) ตรงกันอย่างน้อยฝั่งหนึ่งด้วย** (ฝั่งที่ว่างไม่นับ; DOI เดียวกันแต่ทั้งไทยและอังกฤษต่างกัน = metadata ผิด เก็บทุกเรื่องและนับเป็น `doi_title_conflicts`) → ชื่อเรื่องที่ normalize แล้ว + ปี · พ.ศ. → ค.ศ. (พ.ศ. − 543) อัตโนมัติ · ไฟล์ที่อ่านหรือ parse ไม่ได้ (OSError, parser error) ถูกบันทึกใน `01_ingest_errors` แล้วข้าม — แต่ถ้าสัดส่วนเกิน `input.max_error_ratio` (default 0.01) หรือไม่มีไฟล์ใด parse ได้ ingest จะหยุดด้วย RuntimeError (หลังเขียน `01_ingest_errors` แล้ว)
 
 ## 2. Checkpoints (work_dir — ลบได้) และ state (state_dir — ห้ามลบ)
 ไฟล์ตารางใช้ `io_utils.write_table/read_table` (parquet ถ้ามี pyarrow, ไม่งั้น pickle)

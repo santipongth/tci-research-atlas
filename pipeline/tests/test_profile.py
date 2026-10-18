@@ -1,5 +1,6 @@
 import json
 
+import pandas as pd
 from typer.testing import CliRunner
 
 from atlas.cli import app
@@ -90,3 +91,43 @@ def test_profile_reports_files_with_errors_and_replaced_bytes(thaijo_dir, tmp_pa
     assert r["files"] == 2 and r["text_quality"]["decode_replaced"] == 1
     assert r["files_with_errors"]["count"] == 1 and r["files_with_errors"]["examples"][0]["path"].endswith("bad.md")
     assert "Files with errors" in render_markdown(r)
+
+
+# ---- Task 20 items 1 and 5
+def test_profile_reports_error_ratio_and_warns_above_threshold(tmp_path):
+    for i in range(3):
+        (tmp_path / f"g{i}.md").write_text(_md(f"Paper {i}", i, f"10.1/{i}"), encoding="utf-8")
+    (tmp_path / "bad.md").mkdir()
+    r = profile_corpus(tmp_path)                     # does not raise: it is the inspection tool
+    fe = r["files_with_errors"]
+    assert fe["count"] == 1 and fe["ratio"] == 0.25 and fe["threshold"] == 0.01
+    assert "\N{WARNING SIGN}" in render_markdown(r)
+    ok = profile_corpus(tmp_path, max_error_ratio=0.5)
+    assert "\N{WARNING SIGN}" not in render_markdown(ok)
+
+
+def test_doi_title_collisions_exact_output():
+    from atlas.profile import doi_title_collisions
+
+    arts = pd.DataFrame({
+        "article_id": ["a", "b", "c", "d", "e", "f"],
+        "doi": ["10.1/X", "10.1/x ", "10.2/y", "10.2/y", "10.3/z", ""],
+        "title_th": ["", "", "Same title", "Same title", "", ""],
+        "title_en": ["Rice yield", "Tourism in Nan", "", "", "Solo", "No doi"]})
+    r = doi_title_collisions(arts)
+    assert r == {"count": 1, "examples": [{"doi": "10.1/x", "titles": ["Rice yield", "Tourism in Nan"],
+                                           "article_ids": ["a", "b"]}]}
+    assert doi_title_collisions(arts, max_examples=0) == {"count": 1, "examples": []}
+
+
+def test_doi_title_collisions_is_fast_on_250k_scale():
+    import time
+
+    from atlas.profile import doi_title_collisions
+
+    n = 50_000
+    arts = pd.DataFrame({"article_id": [f"id{i}" for i in range(n)], "doi": [f"10.1/{i}" for i in range(n)],
+                         "title_th": "", "title_en": [f"Title number {i}" for i in range(n)]})
+    t0 = time.perf_counter()
+    assert doi_title_collisions(arts)["count"] == 0
+    assert time.perf_counter() - t0 < 3.0

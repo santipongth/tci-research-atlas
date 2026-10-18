@@ -26,8 +26,10 @@ def last_complete_year(totals: pd.Series, ecfg: dict) -> int:
     1. `min_year_complete` set → it wins.
     2. candidate = min(last year with data, as_of_year − 1) — the running year is never complete
        and forward-dated issues are never the last complete year.
-    3. while candidate's total < backfill_min_ratio × median(totals of the backfill_ref_years data
-       years before it) and fewer than backfill_max_trim years were trimmed: candidate −= 1.
+    3. while candidate's total < backfill_min_ratio × median(totals of the years in the calendar window
+       candidate − backfill_ref_years … candidate − 1) and fewer than backfill_max_trim years were
+       trimmed: candidate −= 1. A year in that window with no articles has no row in `totals`, so it is
+       absent from the median (not counted as 0); if no year of the window has data, nothing is trimmed.
     """
     if ecfg.get("min_year_complete") is not None:
         return int(ecfg["min_year_complete"])

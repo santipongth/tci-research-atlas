@@ -15,6 +15,7 @@ input:
   path: ../corpus             # โฟลเดอร์ .md (หรือไฟล์ตารางถ้า format: table)
   glob: "**/*.md"
   workers: 4                  # จำนวน process ตอน parse (ใช้เมื่อไฟล์ > 2,000)
+  max_error_ratio: 0.01       # สัดส่วนไฟล์ที่อ่าน/parse ไม่ได้ที่ยอมรับได้ (เกินนี้ ingest หยุดด้วย error — ดู work/01_ingest_errors); 0 = ห้ามพลาดแม้แต่ไฟล์เดียว
   min_year: 1990              # ตัดปีผิดปกติ (หลังแปลง พ.ศ.→ค.ศ.)
   max_year: null              # null = ปีปัจจุบัน + 1
   columns:                    # ใช้เฉพาะ format: table — ชื่อคอลัมน์มาตรฐาน: ชื่อคอลัมน์ในไฟล์

@@ -121,6 +121,22 @@ def test_export_checks_centroids_before_writing_anything(tmp_path):
     assert not out.exists() or not any(out.iterdir())
 
 
+def test_export_on_pre_v3_emerging_table_raises_clear_error(tmp_path):
+    import pytest
+
+    from atlas.export import export
+    from atlas.io_utils import read_table, write_table
+
+    cfg, out, _ = _write_work(tmp_path)
+    work = tmp_path / "work"
+    write_table(read_table(work / "07_emerging.parquet").drop(columns=["orgs_unverified"]),
+                work / "07_emerging.parquet")
+    with pytest.raises(RuntimeError, match="orgs_unverified") as ei:
+        export(cfg)
+    assert "atlas run" in str(ei.value)
+    assert not out.exists() or not any(out.iterdir())
+
+
 def test_low_data_topic_never_gets_a_forecast():
     frames = list(_frames())
     fc = frames[5].copy()

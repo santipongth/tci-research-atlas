@@ -35,6 +35,7 @@ _TEXT = ["source_path", "url", "issue_url", "journal_name", "published", "year_s
 # ------------------------------------------------------------------ markdown corpus
 POOL_MIN_FILES = 2000          # below this, parsing in-process is faster than starting worker processes
 ERROR_COLUMNS = ["path", "error"]
+_NONE_PARSED_TH = "\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER FO FAN}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER THANTHAKHAT}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER DO DEK} parse \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER MAI THO}"   # "no file could be parsed"
 REPLACEMENT_CHAR = "\N{REPLACEMENT CHARACTER}"
 
 
@@ -197,29 +198,69 @@ def drop_duplicate_ids(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return out.sort_values("article_id").reset_index(drop=True), len(df) - len(out)
 
 
-def dedup(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """article_id → DOI (+ same normalised title) → normalised title + year; keep the most complete record.
+def _drop_doi_duplicates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Same DOI = duplicate when the Thai title keys match OR the English title keys match (empty keys
+    never match). `df` is most-complete-first, so the first record seen of a duplicate set is kept.
+    Returns (df, number of DOIs that still hold several records = different titles)."""
+    df = df.reset_index(drop=True)
+    doi = doi_key(df)
+    cand = (doi != "") & doi.duplicated(keep=False)          # only DOIs that occur twice or more
+    if not cand.any():
+        return df, 0
+    th, en = title_key(df["title_th"]), title_key(df["title_en"])
+    drop: list[int] = []
+    conflicts = 0
+    for rows in doi[cand].groupby(doi[cand]).indices.values():   # groups are tiny; positions keep df order
+        pos = doi[cand].index[rows]
+        kept: list[int] = []
+        for i in sorted(pos):
+            if any((th[i] != "" and th[i] == th[k]) or (en[i] != "" and en[i] == en[k]) for k in kept):
+                drop.append(i)
+            else:
+                kept.append(i)
+        conflicts += len(kept) > 1
+    return df.drop(index=drop), int(conflicts)
 
-    A DOI shared by articles with DIFFERENT titles is a metadata error (journals reuse or mistype
-    DOIs), not a duplicate: those articles are all kept and counted in `doi_title_conflicts`.
+
+def dedup(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """article_id → DOI (+ same Thai or same English title) → normalised title + year; keep the most complete.
+
+    A DOI shared by articles whose Thai titles differ AND whose English titles differ is a metadata
+    error (journals reuse or mistype DOIs), not a duplicate: those articles are all kept and counted in
+    `doi_title_conflicts`. A missing title on one copy never makes it distinct.
     """
     n0 = len(df)
     df = _most_complete_first(df).drop_duplicates("article_id", keep="first")
-    doi, tkey = doi_key(df), title_key(df["title"])
-    df = _drop_dup_keys(df, doi.where(doi == "", doi + "|" + tkey))
-    doi, tkey = doi_key(df), title_key(df["title"])
-    conflicts = int((tkey[doi != ""].groupby(doi[doi != ""]).nunique() > 1).sum())
+    df, conflicts = _drop_doi_duplicates(df)
+    tkey = title_key(df["title"])
     df = _drop_dup_keys(df, tkey.where(tkey == "", tkey + "|" + df["year"].astype(str)))
     out = df.sort_values("article_id").reset_index(drop=True)
     return out, {"dropped": n0 - len(out), "doi_title_conflicts": conflicts}
+
+
+def check_error_ceiling(n_files: int, errors: list[dict], max_ratio: float, errors_path: Path) -> None:
+    """Stop the run when too many files failed — a parser bug must not publish a silently thinned corpus."""
+    if n_files == 0 or not errors:
+        return
+    if len(errors) == n_files:
+        raise RuntimeError(f"{_NONE_PARSED_TH} (none of {n_files:,} files could be parsed) - see {errors_path}")
+    ratio = len(errors) / n_files
+    if ratio > max_ratio:
+        kinds = ", ".join(e["error"].split(":")[0] for e in errors[:3])
+        raise RuntimeError(
+            f"{len(errors):,} of {n_files:,} files failed to read/parse (ratio {ratio:.4f} > input.max_error_ratio "
+            f"{max_ratio:g}); first error types: {kinds}. Inspect {errors_path}, fix the files or the parser, "
+            f"or raise input.max_error_ratio deliberately.")
 
 
 # ------------------------------------------------------------------ step
 def ingest(cfg: dict) -> pd.DataFrame:
     icfg = cfg["input"]
     errors: list[dict] = []
+    n_files = 0
     if icfg["format"] == "thaijo_md":
         recs, errors = read_thaijo_corpus(icfg["path"], icfg["glob"], int(icfg["workers"]))
+        n_files = len(recs) + len(errors)
         articles, authors, refs = records_to_tables(recs)
     else:
         articles, authors, refs = read_table_input(cfg)
@@ -244,6 +285,7 @@ def ingest(cfg: dict) -> pd.DataFrame:
     write_table(authors.reset_index(drop=True), work / "01_authors.parquet")
     write_table(refs.reset_index(drop=True), work / "01_references.parquet")
     write_table(pd.DataFrame(errors, columns=ERROR_COLUMNS), work / "01_ingest_errors.parquet")
+    check_error_ceiling(n_files, errors, float(icfg["max_error_ratio"]), work / "01_ingest_errors.parquet")
     if errors:
         print(f"[ingest] WARNING: {len(errors):,} files could not be read or parsed and were skipped "
               f"(first: {errors[0]['path']} — {errors[0]['error']}) → 01_ingest_errors")

@@ -50,13 +50,15 @@ def profile(
     md: Path = typer.Option(None, help="write a Markdown report here"),
     pattern: str = typer.Option("**/*.md"),
     workers: int = typer.Option(1),
+    max_error_ratio: float = typer.Option(0.01, help="warn when more files than this share fail to parse "
+                                                     "(same as input.max_error_ratio)"),
 ) -> None:
     """Corpus quality report — run before the pipeline on every new corpus."""
     import json
 
     from atlas.profile import profile_corpus, render_markdown
 
-    report = profile_corpus(path, pattern, workers)
+    report = profile_corpus(path, pattern, workers, max_error_ratio)
     if out:
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     text = render_markdown(report)
