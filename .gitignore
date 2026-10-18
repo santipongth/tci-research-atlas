@@ -36,3 +36,5 @@ data-release/
 pipeline/.ci/
 .hypothesis/
 pipeline/.hypothesis/
+# editors' label corrections (real topic names) — back up with pipeline/state/, never commit
+pipeline/registry/

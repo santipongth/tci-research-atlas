@@ -1,14 +1,15 @@
 # Prompt: ตั้งชื่อหัวข้อวิจัย (topic labeling)
 
-> **สถานะ: ใช้งานจริง** — สำเนาฝังอยู่ใน `pipeline/atlas/label.py` (ตัวแปร `PROMPT_TEMPLATE`)
-> แก้ไฟล์นี้แล้วต้อง sync กลับเข้าโค้ดด้วย (และในทางกลับกัน) — การเปลี่ยน prompt เปลี่ยน `cache_key` (hash ของ model + prompt) → label ทุก topic จะถูกสร้างใหม่ในรอบถัดไป (จ่ายค่า API อีกครั้ง)
+> **สถานะ: ใช้งานจริง — ไฟล์นี้คือต้นฉบับเดียว** `pipeline/atlas/label.py` อ่าน block ใต้ "Prompt (master)" ตอนรัน (ไม่มีสำเนาในโค้ด)
+> แก้ข้อความใน block = `prompt_version` เปลี่ยน → ทุก topic ถูกตั้งชื่อใหม่ในรอบถัดไป (จ่ายค่า API อีกครั้ง); แก้หมายเหตุนอก block ไม่มีผลต่อ cache
 
 ## บริบทการใช้
 
 - เรียกต่อ **fine topic** 1 ครั้ง — input คือ top c-TF-IDF terms + ชื่อบทความตัวแทน
 - inputs: `{keywords}` = top author keywords (คั่นด้วย "; "), `{terms}` = c-TF-IDF words (คั่นด้วย "; "), `{titles}` = MMR representative titles (บรรทัดละ 1 ชื่อเรื่อง)
-- cache key = sha256(model + prompt) (ตัดเหลือ 16 hex) เก็บใน `state/label_cache.parquet` — เปลี่ยน prompt หรือ model หรือ members ของ topic → label ถูกสร้างใหม่เฉพาะ topic นั้น
-- ผลที่คาด: **JSON เท่านั้น** ตาม schema — โค้ด parse ด้วย `json.loads` + ตัด markdown fence ออก
+- cache key = sha256(model + prompt_version + prompt ที่เติมค่าแล้ว) (16 hex) เก็บใน `state/llm_cache/label.jsonl` — เปลี่ยน template หรือ model หรือ members ของ topic → label ถูกสร้างใหม่เฉพาะ topic นั้น
+- ผลที่คาด: **JSON เท่านั้น** ตาม schema — โค้ดตัด markdown fence แล้วตรวจด้วย pydantic (`LabelOut`); ผิดรูปแบบ → ขอให้แก้ ≤ `llm.max_repairs` ครั้ง → ไม่ได้ก็ใช้ชื่อจากคำสำคัญ (ไม่ cache — รอบหน้าลองใหม่)
+- ชื่อที่บรรณาธิการแก้ใน `labeling.overrides_path` (topic_id แบบ T000123) ชนะผลของ prompt นี้เสมอ
 
 ## Prompt (master)
 

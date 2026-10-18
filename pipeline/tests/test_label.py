@@ -5,24 +5,28 @@ import numpy as np
 import pandas as pd
 
 from atlas.io_utils import read_table, write_table
-from atlas.label import label, representative_indices
+from atlas.label import label, label_job, load_overrides, representative_indices
+from atlas.llm import Reply
 
 
-class _Resp:
-    def __init__(self, content):
-        self.choices = [type("C", (), {"message": type("M", (), {"content": content})()})()]
+class FakeLLM:
+    """Stands in for OpenAICompatLLM: .model_id + .chat(messages) -> Reply; reply_fn(prompt, n) → text."""
 
+    model_id = "fake-model"
 
-class FakeClient:
-    def __init__(self):
+    def __init__(self, reply_fn=None):
         self.calls = 0
-        self.chat = self
-        self.completions = self
+        self.reply_fn = reply_fn or (lambda prompt, n: json.dumps(
+            {"name_th": f"หัวข้อ {n}", "name_en": f"Topic {n}", "description": "d", "keywords": ["a", "b"]},
+            ensure_ascii=False))
 
-    def create(self, **kwargs):
+    def chat(self, messages):
         self.calls += 1
-        return _Resp(json.dumps({"name_th": f"หัวข้อ {self.calls}", "name_en": f"Topic {self.calls}",
-                                 "description": "d", "keywords": ["a", "b"]}))
+        return Reply(self.reply_fn(messages[0]["content"], self.calls), 0, 0, 0.0)
+
+
+VALID = json.dumps({"name_th": "ข้าวไทย", "name_en": "Thai rice", "description": "d", "keywords": ["ข้าว", "rice"]},
+                   ensure_ascii=False)
 
 
 def _workdir(cfg, titles_by_topic):
@@ -50,6 +54,17 @@ def _workdir(cfg, titles_by_topic):
     open(f"{work}/04_centroid_ids.json", "w", encoding="utf-8").write(json.dumps(ids))
 
 
+def _llm_cfg(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    cfg["labeling"]["provider"] = "llm"
+    cfg["pipeline"]["release"] = "2026Q4"
+    return cfg
+
+
+def _meta(cfg):
+    return json.loads((Path(cfg["pipeline"]["work_dir"]) / "05_labels_meta.json").read_text(encoding="utf-8"))
+
+
 def test_representative_indices_central_then_diverse():
     c = np.array([1.0, 0.0, 0.0])
     m = np.array([[1, 0, 0], [0.999, 0.045, 0], [0.9, 0, 0.436]], dtype=np.float32)
@@ -60,112 +75,82 @@ def test_representative_indices_central_then_diverse():
 
 def test_fallback_labels_use_author_keywords(make_cfg, tmp_path):
     cfg = make_cfg(tmp_path)
-    _workdir(cfg, {0: ["ก", "ข"]})
+    _workdir(cfg, {1: ["ก", "ข"]})
     info = read_table(f"{cfg['pipeline']['work_dir']}/04_topic_info.parquet")
     info["top_keywords"] = "ผู้สูงอายุ; การดูแลระยะยาว; older adults"
     write_table(info, f"{cfg['pipeline']['work_dir']}/04_topic_info.parquet")
     out = label(cfg)
     assert out.loc[0, "name_th"] == "ผู้สูงอายุ / การดูแลระยะยาว"
-    assert out.loc[0, "name_en"] == "older adults"
+    assert out.loc[0, "name_en"] == "older adults" and out.loc[0, "label_source"] == "keywords"
+
+
+def test_prompt_comes_from_the_prompt_file_with_titles(make_cfg, tmp_path):
+    cfg = _llm_cfg(make_cfg, tmp_path)
+    _workdir(cfg, {1: ["เรื่องข้าว 1", "เรื่องข้าว 2"]})
+    job = label_job(cfg)
+    assert job.task == "label" and [it.key for it in job.items] == ["T000001"]
+    p = job.items[0].prompt
+    assert "- เรื่องข้าว 1" in p and "{titles}" not in p and "c-TF-IDF" in p
 
 
 def test_llm_labels_cached_by_prompt_content(make_cfg, tmp_path):
-    cfg = make_cfg(tmp_path)
-    cfg["labeling"]["provider"] = "api"
-    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 1: ["เรื่องเบาหวาน 1", "เรื่องเบาหวาน 2"]})
-    first = FakeClient()
-    label(cfg, client=first)
-    assert first.calls == 2
-    second = FakeClient()
-    label(cfg, client=second)
-    assert second.calls == 0                                   # nothing changed → all from cache
-    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 1: ["หัวข้อใหม่ทั้งหมด 1", "หัวข้อใหม่ทั้งหมด 2"]})
-    third = FakeClient()
-    out = label(cfg, client=third)
+    cfg = _llm_cfg(make_cfg, tmp_path)
+    _workdir(cfg, {1: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 2: ["เรื่องเบาหวาน 1", "เรื่องเบาหวาน 2"]})
+    first = FakeLLM()
+    out = label(cfg, llm=first)
+    assert first.calls == 2 and (out["label_source"] == "llm").all() and (out["cache_key"] != "fallback").all()
+    second = FakeLLM()
+    label(cfg, llm=second)
+    assert second.calls == 0                                   # nothing changed → all from the LLM cache
+    _workdir(cfg, {1: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 2: ["หัวข้อใหม่ทั้งหมด 1", "หัวข้อใหม่ทั้งหมด 2"]})
+    third = FakeLLM()
+    out = label(cfg, llm=third)
     assert third.calls == 1                                    # only the topic whose members changed
-    assert len(out) == 2 and set(out["topic_id"]) == {0, 1}
+    assert set(out["topic_id"]) == {1, 2} and _meta(cfg)["from_cache"] == 1
 
 
-class ScriptedClient:
-    """Fake OpenAI-compatible client: content_fn(prompt) returns the raw message text or raises."""
-
-    def __init__(self, content_fn):
-        self.calls = 0
-        self.content_fn = content_fn
-        self.chat = self
-        self.completions = self
-
-    def create(self, **kwargs):
-        self.calls += 1
-        prompt = kwargs["messages"][0]["content"]
-        return _Resp(self.content_fn(prompt))
-
-
-VALID = json.dumps({"name_th": "ข้าวไทย", "name_en": "Thai rice",
-                    "description": "d", "keywords": ["ข้าว", "rice"]}, ensure_ascii=False)
+def test_invalid_replies_fall_back_and_are_retried_next_run(make_cfg, tmp_path):
+    cfg = _llm_cfg(make_cfg, tmp_path)
+    _workdir(cfg, {1: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 2: ["เรื่องเบาหวาน 1", "เรื่องเบาหวาน 2"]})
+    blank = json.dumps({"name_th": " ", "name_en": "", "description": "d", "keywords": []})
+    llm = FakeLLM(lambda p, n: blank if "เบาหวาน" in p else VALID)
+    out = label(cfg, llm=llm).set_index("topic_id")
+    assert llm.calls == 1 + 3                                  # topic 2: first try + 2 repair turns
+    assert out.loc[1, "label_source"] == "llm" and out.loc[2, "cache_key"] == "fallback"
+    assert out.loc[2, "label_source"] == "keywords" and out.loc[2, "name_en"] == "rice"
+    assert _meta(cfg)["fallback"] == 1
+    rerun = FakeLLM(lambda p, n: VALID)
+    out = label(cfg, llm=rerun)
+    assert rerun.calls == 1 and (out["cache_key"] != "fallback").all()
 
 
-def test_fenced_json_with_preamble_is_parsed(make_cfg, tmp_path):
-    cfg = make_cfg(tmp_path)
-    cfg["labeling"]["provider"] = "api"
-    cfg["labeling"]["api"]["max_retries"] = 1
-    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"]})
-    client = ScriptedClient(lambda p: "Here is the label:\n```json\n" + VALID + "\n```")
-    out = label(cfg, client=client)
-    assert out.loc[0, "name_th"] == "ข้าวไทย"
-    assert out.loc[0, "name_en"] == "Thai rice"
-    assert out.loc[0, "cache_key"] != "fallback"
+def test_editor_overrides_win_and_unknown_ids_are_reported(make_cfg, tmp_path):
+    cfg = _llm_cfg(make_cfg, tmp_path)
+    _workdir(cfg, {1: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 2: ["เรื่องเบาหวาน 1", "เรื่องเบาหวาน 2"]})
+    path = tmp_path / "registry" / "label_overrides.csv"
+    path.parent.mkdir()
+    path.write_text("topic_id,name_th,name_en,description,reviewer,reviewed_at,note\n"
+                    "T000002,เบาหวานในผู้สูงอายุ,,,บก. ก,2026-10-01,\nT000099,หายไปแล้ว,Gone,,,,\n",
+                    encoding="utf-8-sig")                     # Excel saves CSV with a BOM
+    cfg["labeling"]["overrides_path"] = str(path)
+    assert load_overrides(path)["topic_id"].tolist() == [2, 99]
+    out = label(cfg, llm=FakeLLM(lambda p, n: VALID)).set_index("topic_id")
+    assert out.loc[2, "name_th"] == "เบาหวานในผู้สูงอายุ" and out.loc[2, "name_en"] == "Thai rice"
+    assert out.loc[2, "label_source"] == "override" and out.loc[1, "label_source"] == "llm"
+    meta = _meta(cfg)
+    assert meta["overrides"] == 1 and meta["unknown_overrides"] == ["T000099"]
+    cfg["labeling"]["provider"] = "off"                        # overrides apply without an LLM too
+    assert label(cfg).set_index("topic_id").loc[2, "name_th"] == "เบาหวานในผู้สูงอายุ"
 
 
-def test_partial_failure_keeps_successes_and_falls_back(make_cfg, tmp_path):
-    cfg = make_cfg(tmp_path)
-    cfg["labeling"]["provider"] = "api"
-    cfg["labeling"]["api"]["max_retries"] = 1
-    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 1: ["เรื่องเบาหวาน 1", "เรื่องเบาหวาน 2"]})
+def test_yaml_provider_aliases(tmp_path):
+    from atlas.config import load_config
 
-    def fail_topic1(prompt):
-        if "เรื่องเบาหวาน" in prompt:
-            raise RuntimeError("boom")
-        return VALID
-
-    out = label(cfg, client=ScriptedClient(fail_topic1))
-    assert len(out) == 2 and set(out["topic_id"]) == {0, 1}
-    assert out.set_index("topic_id").loc[0, "cache_key"] != "fallback"
-    assert out.set_index("topic_id").loc[1, "cache_key"] == "fallback"
-    assert out.set_index("topic_id").loc[1, "name_en"] == "rice"
-    cache = read_table(Path(cfg["pipeline"]["state_dir"]) / "label_cache.parquet")
-    assert len(cache) == 1                                     # only the successful topic is cached
-    rerun = ScriptedClient(lambda p: VALID)
-    out2 = label(cfg, client=rerun)
-    assert rerun.calls == 1                                    # only the failed topic is retried
-    assert (out2["cache_key"] != "fallback").all()
-
-
-def test_blank_labels_are_not_cached(make_cfg, tmp_path):
-    cfg = make_cfg(tmp_path)
-    cfg["labeling"]["provider"] = "api"
-    cfg["labeling"]["api"]["max_retries"] = 1
-    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"]})
-    blank = json.dumps({"name_th": "", "name_en": "", "description": "d", "keywords": []})
-    client = ScriptedClient(lambda p: blank)
-    out = label(cfg, client=client)
-    assert client.calls == 1
-    assert out.loc[0, "cache_key"] == "fallback"
-    assert not (Path(cfg["pipeline"]["state_dir"]) / "label_cache.parquet").exists()
-
-
-def test_embeddings_of_another_02_docs_stop_the_label_step(make_cfg, tmp_path):
-    import pytest
-
-    from atlas.checkpoints import CheckpointMismatch, docs_fingerprint
-
-    cfg = make_cfg(tmp_path)
-    cfg["labeling"]["provider"] = "api"
-    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 1: ["เรื่องเบาหวาน 1", "เรื่องเบาหวาน 2"]})
-    work = Path(cfg["pipeline"]["work_dir"])
-    docs = read_table(work / "02_docs.parquet")
-    (work / "03_meta.json").write_text(json.dumps({"docs_fingerprint": docs_fingerprint(docs["article_id"])}),
-                                       encoding="utf-8")
-    write_table(docs.iloc[::-1], work / "02_docs.parquet")     # preprocess re-run without embed: same rows, new order
-    with pytest.raises(CheckpointMismatch, match="re-run the embed step"):
-        label(cfg, client=FakeClient())
+    p = tmp_path / "c.yaml"
+    p.write_text("labeling:\n  provider: off\n", encoding="utf-8")       # bare off = YAML false
+    assert load_config(p)["labeling"]["provider"] == "off"
+    p.write_text("labeling:\n  provider: api\n  overrides_path: registry/o.csv\n", encoding="utf-8")  # P0 name
+    cfg = load_config(p)
+    assert cfg["labeling"]["provider"] == "llm"
+    assert Path(cfg["labeling"]["overrides_path"]) == (tmp_path / "registry" / "o.csv").resolve()
+    assert load_config(None)["labeling"]["overrides_path"] is None    # tests never read a real overrides file

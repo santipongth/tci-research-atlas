@@ -102,14 +102,8 @@ clustering:
   ctfidf_max_docs_per_topic: 400
 
 labeling:
-  provider: "off"             # api | "off" (ต้องใส่เครื่องหมายคำพูด — YAML อ่าน off เปล่า ๆ เป็น false) — off = ตั้งชื่อจากคำสำคัญของผู้เขียน + c-TF-IDF
-  api:
-    base_url: https://api.openai.com/v1
-    api_key_env: ATLAS_API_KEY
-    model: gpt-5-mini         # ตั้งเป็นโมเดลรุ่นปัจจุบันที่ถนัดไทยได้ เช่น Claude Haiku / Gemini Flash / Typhoon
-    temperature: 0.2
-    max_retries: 5
-    concurrency: 8
+  provider: "off"             # llm | "off" (ต้องใส่เครื่องหมายคำพูด — YAML อ่าน off เปล่า ๆ เป็น false) — llm = ตั้งชื่อด้วย llm.tasks.label; off = จากคำสำคัญของผู้เขียน + c-TF-IDF
+  overrides_path: ./registry/label_overrides.csv   # ชื่อที่บรรณาธิการแก้ (topic_id แบบ T000123) — ชนะชื่อจาก LLM ทุกรอบ; ไม่มีไฟล์ = ไม่มีการแก้
   n_repr_docs: 8              # บทความตัวแทน (ใกล้ centroid + กระจายด้วย MMR)
   mmr_lambda: 0.7
 

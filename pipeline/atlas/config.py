@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _Strict(BaseModel):
@@ -133,20 +133,18 @@ class ClusteringCfg(_Strict):
     ctfidf_max_docs_per_topic: int = 400
 
 
-class LabelApiCfg(_Strict):
-    base_url: str = "https://api.openai.com/v1"
-    api_key_env: str = "ATLAS_API_KEY"
-    model: str = "gpt-5-mini"
-    temperature: float = 0.2
-    max_retries: int = 5
-    concurrency: int = 8
-
-
 class LabelingCfg(_Strict):
-    provider: Literal["api", "off"] = "off"
-    api: LabelApiCfg = Field(default_factory=LabelApiCfg)
+    provider: Literal["llm", "off"] = "off"
+    overrides_path: str | None = None     # editors' CSV keyed by T000123; the example config sets ./registry/…
     n_repr_docs: int = 8
     mmr_lambda: float = Field(0.7, ge=0.0, le=1.0)
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def _provider_alias(cls, v):
+        if v is False:                    # YAML reads a bare `off` as boolean false
+            return "off"
+        return "llm" if v == "api" else v     # P0 name
 
 
 class TopicsCfg(_Strict):
@@ -401,6 +399,8 @@ def load_config(path: str | Path | None = None) -> dict:
     for key in ("work_dir", "output_dir", "state_dir"):
         cfg["pipeline"][key] = _resolve(cfg["pipeline"][key], base)
     cfg["input"]["path"] = _resolve(cfg["input"]["path"], base)
+    if cfg["labeling"]["overrides_path"]:
+        cfg["labeling"]["overrides_path"] = _resolve(cfg["labeling"]["overrides_path"], base)
     if cfg["llm"]["prompts_dir"]:
         cfg["llm"]["prompts_dir"] = _resolve(cfg["llm"]["prompts_dir"], base)
     if cfg["taxonomy"]["reference_path"]:
