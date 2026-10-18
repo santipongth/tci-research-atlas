@@ -44,6 +44,19 @@ def test_pid_alive_for_self_and_dead_process():
     assert not pid_alive(0) and not pid_alive(-5)
 
 
+@pytest.mark.skipif(not Path("/proc/self/stat").exists(), reason="Linux /proc only")
+def test_unreaped_exited_child_is_not_alive():
+    p = subprocess.Popen([sys.executable, "-c", "pass"])
+    try:
+        for _ in range(100):                           # exited but not waited for = zombie
+            if Path(f"/proc/{p.pid}/stat").read_text().rsplit(")", 1)[-1].split()[0] == "Z":
+                break
+            time.sleep(0.05)
+        assert not pid_alive(p.pid)
+    finally:
+        p.wait()
+
+
 def test_pid_alive_does_not_kill_the_process():
     # on Windows os.kill(pid, 0) would TerminateProcess — pid_alive must only query
     p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])

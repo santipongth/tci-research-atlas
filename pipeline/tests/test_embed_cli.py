@@ -55,7 +55,10 @@ def invoke(*args):
 
 
 def test_embed_help_lists_options():
-    out = invoke("embed", "--help").output
+    import re
+
+    # rich colours help on CI (GITHUB_ACTIONS) and styles "-" and "-check" separately — compare plain text
+    out = re.sub(r"\x1b\[[0-9;]*m", "", invoke("embed", "--help").output)
     for opt in ("--check", "--dry-run", "--background", "--concurrency", "--config"):
         assert opt in out
     assert invoke("status", "--help").exit_code == 0

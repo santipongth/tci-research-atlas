@@ -107,7 +107,18 @@ def pid_alive(pid: Any) -> bool:
         return False
     except PermissionError:
         return True
-    return True
+    return not _is_zombie(pid)
+
+
+def _is_zombie(pid: int) -> bool:
+    """An exited child that nobody reaped yet still answers kill(pid, 0) on POSIX — it is not running.
+    Linux only (/proc); elsewhere assume it is not a zombie."""
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="ascii", errors="replace")
+    except OSError:
+        return False
+    fields = stat.rsplit(")", 1)[-1].split()            # comm may contain ")" — state follows the last one
+    return bool(fields) and fields[0] == "Z"
 
 
 def process_start_time(pid: Any) -> int | None:
