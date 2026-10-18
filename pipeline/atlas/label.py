@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from atlas.checkpoints import load_aligned
 from atlas.io_utils import read_table, write_table
 from atlas.thai import thai_ratio
 
@@ -113,10 +114,9 @@ def label(cfg: dict, client=None) -> pd.DataFrame:
         print(f"[label] provider=off → keyword-based labels for {len(out)} topics")
         return out
 
-    df = read_table(work / "02_docs.parquet")
+    df, emb = load_aligned(work)                       # CheckpointMismatch when 03 belongs to another 02_docs
     labels = (df[["article_id"]].merge(read_table(work / "04_fine_topics.parquet"), on="article_id", how="left")
               ["fine_topic"].fillna(-1).astype(int).to_numpy())
-    emb = np.load(work / "03_embeddings.npy")
     C = np.load(work / "04_centroids.npy")
     pos = {t: i for i, t in enumerate(json.loads((work / "04_centroid_ids.json").read_text(encoding="utf-8")))}
     acfg = lcfg["api"]

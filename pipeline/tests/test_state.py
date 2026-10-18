@@ -31,3 +31,11 @@ def test_bad_release_name_rejected(make_cfg, tmp_path):
     cfg["pipeline"]["release"] = "../evil"
     with pytest.raises(ValueError):
         current_release(cfg)
+
+
+def test_explicit_release_name_is_validated_too(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    for bad in ("../x", "2026Q1\n"):
+        with pytest.raises(ValueError, match="invalid release name"):
+            release_dir(cfg, bad, create=True)
+    assert not (tmp_path / "state" / "x").exists() and known_releases(cfg) == []

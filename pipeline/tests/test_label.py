@@ -152,3 +152,20 @@ def test_blank_labels_are_not_cached(make_cfg, tmp_path):
     assert client.calls == 1
     assert out.loc[0, "cache_key"] == "fallback"
     assert not (Path(cfg["pipeline"]["state_dir"]) / "label_cache.parquet").exists()
+
+
+def test_embeddings_of_another_02_docs_stop_the_label_step(make_cfg, tmp_path):
+    import pytest
+
+    from atlas.checkpoints import CheckpointMismatch, docs_fingerprint
+
+    cfg = make_cfg(tmp_path)
+    cfg["labeling"]["provider"] = "api"
+    _workdir(cfg, {0: ["เรื่องข้าว 1", "เรื่องข้าว 2"], 1: ["เรื่องเบาหวาน 1", "เรื่องเบาหวาน 2"]})
+    work = Path(cfg["pipeline"]["work_dir"])
+    docs = read_table(work / "02_docs.parquet")
+    (work / "03_meta.json").write_text(json.dumps({"docs_fingerprint": docs_fingerprint(docs["article_id"])}),
+                                       encoding="utf-8")
+    write_table(docs.iloc[::-1], work / "02_docs.parquet")     # preprocess re-run without embed: same rows, new order
+    with pytest.raises(CheckpointMismatch, match="re-run the embed step"):
+        label(cfg, client=FakeClient())

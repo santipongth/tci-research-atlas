@@ -12,9 +12,12 @@ reads the *previous* release, so re-running any step is idempotent.
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date
 from pathlib import Path
+
+from atlas.io_utils import replace_with_retry
 
 RELEASE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
@@ -23,11 +26,15 @@ def release_from_date(d: date) -> str:
     return f"{d.year}Q{(d.month - 1) // 3 + 1}"
 
 
-def current_release(cfg: dict) -> str:
-    rel = cfg["pipeline"].get("release") or release_from_date(date.today())
-    if not RELEASE_RE.match(rel):
+def _checked(rel: str) -> str:
+    """A release name is a single path component (never "../x", never a trailing newline)."""
+    if not RELEASE_RE.fullmatch(rel):
         raise ValueError(f"invalid release name {rel!r}")
     return rel
+
+
+def current_release(cfg: dict) -> str:
+    return _checked(cfg["pipeline"].get("release") or release_from_date(date.today()))
 
 
 def _index_path(cfg: dict) -> Path:
@@ -50,12 +57,15 @@ def previous_release(cfg: dict) -> str | None:
 
 def release_dir(cfg: dict, release: str | None = None, create: bool = False) -> Path:
     """state_dir/releases/<release>; create=True also registers the release in index.json."""
-    rel = release or current_release(cfg)
+    rel = _checked(release) if release else current_release(cfg)
     d = Path(cfg["pipeline"]["state_dir"]) / "releases" / rel
     if create:
         d.mkdir(parents=True, exist_ok=True)
         rels = known_releases(cfg)
         if rel not in rels:
             rels.append(rel)
-            _index_path(cfg).write_text(json.dumps(rels), encoding="utf-8")
+            index = _index_path(cfg)
+            tmp = index.with_name(f"{index.name}.{os.getpid()}.tmp")   # tmp + replace: never a half-written index
+            tmp.write_text(json.dumps(rels), encoding="utf-8")
+            replace_with_retry(tmp, index)
     return d
