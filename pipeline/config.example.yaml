@@ -113,6 +113,47 @@ labeling:
   n_repr_docs: 8              # บทความตัวแทน (ใกล้ centroid + กระจายด้วย MMR)
   mmr_lambda: 0.7
 
+# ---------- LLM (ทุกงานผ่าน API แบบ OpenAI-compatible: POST {base_url}/chat/completions) ----------
+llm:
+  prompts_dir: null           # null = โฟลเดอร์ prompts/ ของ repo (ไฟล์ .md เป็นต้นฉบับเดียวของ prompt)
+  budget_usd: null            # งบต่อรอบข้อมูล (USD) รวมทุกงาน — เกินงบ = หยุดอย่างสะอาด; เพิ่มงบแล้วรันซ้ำ = ทำต่อ (ต้องใส่ราคา)
+  max_repairs: 2              # คำตอบไม่ใช่ JSON ตาม schema → ขอให้แก้ได้กี่ครั้ง
+  max_regenerations: 1        # ข้อความไม่ผ่านการตรวจตัวเลข/ชื่อหัวข้อ → ให้เขียนใหม่ได้กี่ครั้ง (แล้วใช้ประโยคแม่แบบ)
+  lock_stale_seconds: 300     # ไม่มี heartbeat นานเกินนี้ → atlas status แสดง hung (lock ของ process ที่ยังอยู่ไม่ถูกยึด)
+  endpoints:
+    default:
+      base_url: ""            # เช่น https://openrouter.ai/api/v1 · https://api.opentyphoon.ai/v1 · http://localhost:8000/v1 (vLLM) — ว่าง = ยังไม่ตั้งค่า LLM
+      api_key_env: ATLAS_LLM_API_KEY   # ชื่อ env var ที่เก็บ key (ห้ามใส่ key ในไฟล์) — ใช้ key เดียวกับ embedding ได้
+      json_mode: true         # ส่ง response_format json_object (ปิดถ้า server ไม่รองรับ — โค้ดตรวจ JSON เองเสมอ)
+      concurrency: 4
+      request_timeout: 120
+      max_retries: null       # null = server ล่ม/429 ลองใหม่ไม่จำกัด (backoff); key/model/URL/โควตาผิด = หยุดทันที (exit 2); ตั้งค่า = ครบแล้วหัวข้อนั้นใช้ fallback
+      backoff_initial: 2
+      backoff_max: 300
+      price_per_mtok_in: null # USD ต่อ 1 ล้าน token ขาเข้า (ดูราคาของผู้ให้บริการ) — จำเป็นเมื่อตั้ง budget_usd
+      price_per_mtok_out: null
+  tasks:                      # model ว่าง = งานนั้นยังไม่ได้ตั้งค่า
+    label:                    # ตั้งชื่อหัวข้อ (TH/EN)
+      endpoint: default
+      model: ""
+      temperature: 0.2
+      max_output_tokens: 600
+    merge:                    # ตรวจคู่หัวข้อที่อาจซ้ำ (ข้อเสนอให้บรรณาธิการ — ไม่รวมอัตโนมัติ)
+      endpoint: default
+      model: ""
+      temperature: 0.0
+      max_output_tokens: 300
+    narrative:                # คำอธิบายหัวข้อ emerging/hot/declining จากตัวเลขของ pipeline
+      endpoint: default
+      model: ""
+      temperature: 0.3
+      max_output_tokens: 900
+    brief:                    # บทสรุปผู้บริหาร
+      endpoint: default
+      model: ""
+      temperature: 0.3
+      max_output_tokens: 1200
+
 # ---------- หัวข้อที่มี ID ถาวรข้ามรอบ (T000123) ----------
 topics:
   mode: auto                  # auto | fit | assign — auto: assign ทุกไตรมาส, fit ใหม่เมื่อครบรอบ/โมเดล embedding เปลี่ยน/บทความใหม่หาที่ลงไม่ได้

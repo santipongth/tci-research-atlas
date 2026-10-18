@@ -315,12 +315,64 @@ class BakeoffCfg(_Strict):
     embedding_candidates: list[BakeoffCandidate] = Field(default_factory=list)
 
 
+class LlmEndpointCfg(_Strict):
+    base_url: str = ""                # e.g. https://openrouter.ai/api/v1 — empty = LLM not configured
+    api_key_env: str = "ATLAS_LLM_API_KEY"
+    json_mode: bool = True
+    concurrency: int = Field(4, ge=1)
+    request_timeout: float = Field(120.0, gt=0.0)
+    max_retries: int | None = Field(None, ge=0)       # None = retry transient errors without limit
+    backoff_initial: float = Field(2.0, gt=0.0)
+    backoff_max: float = Field(300.0, gt=0.0)
+    price_per_mtok_in: float | None = Field(None, ge=0.0)
+    price_per_mtok_out: float | None = Field(None, ge=0.0)
+
+    @model_validator(mode="after")
+    def _backoff_order(self) -> LlmEndpointCfg:
+        if self.backoff_max < self.backoff_initial:
+            raise ValueError("llm.endpoints.<name>.backoff_max must be >= backoff_initial")
+        return self
+
+
+class LlmTaskCfg(_Strict):
+    endpoint: str = "default"
+    model: str = ""
+    temperature: float = Field(0.2, ge=0.0, le=2.0)
+    max_output_tokens: int = Field(600, ge=16)
+
+
+class LlmTasksCfg(_Strict):
+    label: LlmTaskCfg = Field(default_factory=lambda: LlmTaskCfg(temperature=0.2, max_output_tokens=600))
+    merge: LlmTaskCfg = Field(default_factory=lambda: LlmTaskCfg(temperature=0.0, max_output_tokens=300))
+    narrative: LlmTaskCfg = Field(default_factory=lambda: LlmTaskCfg(temperature=0.3, max_output_tokens=900))
+    brief: LlmTaskCfg = Field(default_factory=lambda: LlmTaskCfg(temperature=0.3, max_output_tokens=1200))
+
+
+class LlmCfg(_Strict):
+    prompts_dir: str | None = None    # None = the repo's prompts/ folder
+    budget_usd: float | None = Field(None, ge=0.0)
+    max_repairs: int = Field(2, ge=0)
+    max_regenerations: int = Field(1, ge=0)
+    lock_stale_seconds: float = Field(300.0, gt=0.0)
+    endpoints: dict[str, LlmEndpointCfg] = Field(default_factory=lambda: {"default": LlmEndpointCfg()})
+    tasks: LlmTasksCfg = Field(default_factory=LlmTasksCfg)
+
+    @model_validator(mode="after")
+    def _known_endpoints(self):
+        for name in LlmTasksCfg.model_fields:
+            ep = getattr(self.tasks, name).endpoint
+            if ep not in self.endpoints:
+                raise ValueError(f"llm.tasks.{name}.endpoint {ep!r} is not defined in llm.endpoints")
+        return self
+
+
 class AtlasConfig(_Strict):
     pipeline: PipelineCfg = Field(default_factory=PipelineCfg)
     input: InputCfg = Field(default_factory=InputCfg)
     embedding: EmbeddingCfg = Field(default_factory=EmbeddingCfg)
     clustering: ClusteringCfg = Field(default_factory=ClusteringCfg)
     labeling: LabelingCfg = Field(default_factory=LabelingCfg)
+    llm: LlmCfg = Field(default_factory=LlmCfg)
     topics: TopicsCfg = Field(default_factory=TopicsCfg)
     taxonomy: TaxonomyCfg = Field(default_factory=TaxonomyCfg)
     emerging: EmergingCfg = Field(default_factory=EmergingCfg)
@@ -349,6 +401,8 @@ def load_config(path: str | Path | None = None) -> dict:
     for key in ("work_dir", "output_dir", "state_dir"):
         cfg["pipeline"][key] = _resolve(cfg["pipeline"][key], base)
     cfg["input"]["path"] = _resolve(cfg["input"]["path"], base)
+    if cfg["llm"]["prompts_dir"]:
+        cfg["llm"]["prompts_dir"] = _resolve(cfg["llm"]["prompts_dir"], base)
     if cfg["taxonomy"]["reference_path"]:
         cfg["taxonomy"]["reference_path"] = _resolve(cfg["taxonomy"]["reference_path"], base)
     return cfg

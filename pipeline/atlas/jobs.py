@@ -585,7 +585,7 @@ def format_job_status(info: dict, extra: list[str] | None = None) -> str:
         done = int(total) - int(remaining or 0)
         pct = 100.0 * done / total if total else 100.0
         lines.append(f"  \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA} / progress : {done:,} / {int(total):,} {unit} ({pct:.1f}%) · "
-                     f"cached {int(info.get('cached') or 0):,} · this run {int(info.get('embedded') or 0):,} · "
+                     f"cached {int(info.get('cached') or 0):,} · this run {int(info.get('this_run', info.get('embedded')) or 0):,} · "
                      f"remaining {int(remaining or 0):,}")
     if status in ACTIVE:
         rate = info.get("rate_per_s")

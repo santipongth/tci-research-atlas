@@ -85,7 +85,7 @@ def run_cmd(
     """Run the batch pipeline (all steps, or the given --step list)."""
     from atlas.config import load_config
 
-    raise typer.Exit(_run_guarded(load_config(config), step or None, config))
+    raise typer.Exit(_run_guarded(load_config(config), step or None, config, tag="run", resume="run"))
 
 
 # ---------- long embedding run: atlas embed / status / embed-status / embed-stop
@@ -111,8 +111,10 @@ def _ensure_docs(cfg: dict) -> None:
         run(cfg, ["ingest", "preprocess"])
 
 
-def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure_docs: bool = False) -> int:
+def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure_docs: bool = False,
+                 tag: str = "embed", resume: str = "embed") -> int:
     """Run pipeline steps; map the long-run outcomes to exit codes (0 ok, 1 failed, 2 config, 3 locked, 130 stopped).
+    `tag` prefixes the messages ([embed] / [llm] / [run]); `resume` names the command that continues a stopped run.
 
     After a second Ctrl-C abandoned in-flight requests (the exception carries `abandoned`), EVERY outcome
     exits the process at once (os._exit, after flushing) instead of waiting up to request_timeout for the
@@ -134,25 +136,27 @@ def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure
             _ensure_docs(cfg)
         run(cfg, steps)
     except StoreSaveFailed as e:
-        typer.echo(f"[embed] \N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA UE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER NGO NGU} store \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER MAI THO} — \N{THAI CHARACTER PHO PHUNG}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER NO NU} journal.bin \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER BO BAIMAI}; \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER SARA U} (\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER THANTHAKHAT}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER MO MA} / \N{THAI CHARACTER SARA O}\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER DO DEK} "
+        typer.echo(f"[{tag}] \N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA UE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER NGO NGU} store \N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER MAI THO} — \N{THAI CHARACTER PHO PHUNG}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER NO NU} journal.bin \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER BO BAIMAI}; \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER SARA U} (\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER THANTHAKHAT}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER MO MA} / \N{THAI CHARACTER SARA O}\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER PO PLA}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER DO DEK} "
                    f"index.parquet \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NGO NGU}) \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER NGO NGU} / could not save into the store: {e}\n"
-                   f"  run the same command again: uv run atlas embed -c {_cfg_arg(config)}", err=True)
+                   f"  run the same command again: uv run atlas {resume} -c {_cfg_arg(config)}", err=True)
         return done(EXIT_FAILED, e)
     except LockUnsupported as e:
-        typer.echo(f"[embed] ERROR: {e}", err=True)
+        typer.echo(f"[{tag}] ERROR: {e}", err=True)
         return done(EXIT_CONFIG, e)
     except ApiConfigError as e:
-        typer.echo(f"[embed] ERROR — \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI THO} config \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK} / fix the config and rerun:\n  {e}", err=True)
+        typer.echo(f"[{tag}] ERROR —\N{THAI CHARACTER SARA AE}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI THO} config \N{THAI CHARACTER SARA AE}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA AI MAIMUAN}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK} / fix the config and rerun:\n  {e}", err=True)
         return done(EXIT_CONFIG, e)
     except LockHeld as e:
-        typer.echo(f"[embed] {e}\n  \N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status: uv run atlas status -c {_cfg_arg(config)}", err=True)
+        typer.echo(f"[{tag}] {e}\n\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER SARA UU}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status: uv run atlas status -c {_cfg_arg(config)}", err=True)
         return done(EXIT_LOCKED, e)
     except (RunStopped, KeyboardInterrupt) as e:
-        typer.echo(f"[embed] \N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER CHO CHAN} / stopped before completion{': ' + str(e) if str(e) else ''}\n"
-                   f"  \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG} / resume: uv run atlas embed -c {_cfg_arg(config)}", err=True)
+        typer.echo(f"[{tag}]\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER SARA U}\N{THAI CHARACTER DO DEK}\N{THAI CHARACTER KO KAI}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAITAIKHU}\N{THAI CHARACTER CHO CHAN} / stopped before completion{': ' + str(e) if str(e) else ''}\n"
+                   f"  \N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER TO TAO}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER O ANG} / resume: uv run atlas {resume} -c {_cfg_arg(config)}", err=True)
         return done(EXIT_STOPPED, e)
     except TransientGaveUp as e:
-        typer.echo(f"[embed] ERROR: {e}\n  (embedding.api.max_retries is set; null = retry forever)", err=True)
+        where = ("embedding.api.max_retries is set" if tag == "embed"      # `atlas embed`: P0 text, unchanged
+                 else "max_retries is set in embedding.api / llm.endpoints")
+        typer.echo(f"[{tag}] ERROR: {e}\n  ({where}; null = retry forever)", err=True)
         return done(EXIT_FAILED, e)
     except BaseException as e:                       # unexpected: the usual traceback, but never wait for
         if getattr(e, "abandoned", 0):               # abandoned worker threads
@@ -368,9 +372,14 @@ def render_status(cfg: dict) -> str:
         return f"\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA AI MAIMALAI}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER THO THAHAN}\N{THAI CHARACTER SARA II}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER YO YAK}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NO NU} / nothing has run yet (no progress.json under {state})"
     blocks = []
     for job in jobs:
-        info = job_status(job, _lock_stale(cfg))
+        llm_job = job.name == "llm_cache"
+        info = job_status(job, float(cfg["llm"]["lock_stale_seconds"]) if llm_job else _lock_stale(cfg))
         extra: list[str] = []
-        if info.get("kind") == "embedding":
+        if info.get("kind") == "llm":
+            from atlas.llm_runner import status_extra
+
+            extra = status_extra(info)
+        elif info.get("kind") == "embedding":
             if info.get("lock_alive"):
                 extra = er.store_lines(int(info.get("store_vectors") or 0), int(info.get("journal_pending") or 0),
                                        int(info.get("truncated_total") or 0), active=True)
@@ -392,3 +401,103 @@ def status_cmd(
 
 app.command("status")(status_cmd)
 app.command("embed-status", help="Alias of `atlas status`.")(status_cmd)
+
+
+# ---------- LLM work: atlas llm / llm-stop (progress: `atlas status`)
+@app.command("llm")
+def llm_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+    check: bool = typer.Option(False, "--check", help="one tiny request per endpoint/model: reachable, JSON, Thai"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="estimate calls, tokens and cost — no network"),
+    task: list[str] = typer.Option(None, "--task", "-t", help="limit --dry-run to these tasks"),
+    background: bool = typer.Option(False, "--background", help="run detached from this window (you may close it); "
+                                                                "log in state_dir/llm_cache/run.log"),
+) -> None:
+    """LLM work (labels, merge checks, narratives, brief). Without flags: run the label and narrate steps.
+
+    Exit codes (as `atlas embed`): 0 done, 2 endpoint/config error, 3 another LLM job runs, 130 stopped
+    (`atlas llm-stop`, Ctrl-C or llm.budget_usd) — run the same command again to continue.
+    """
+    from atlas.config import load_config
+    from atlas.llm_runner import check_endpoints, dry_run_all
+    from atlas.pipeline import STEPS
+
+    cfg = load_config(config)
+    if check:
+        rows = check_endpoints(cfg)
+        if not rows:
+            typer.echo("no llm.tasks.<task>.model is set — nothing to check")
+            raise typer.Exit(EXIT_CONFIG)
+        for r in rows:
+            state = "OK  " if r["json_ok"] and r["thai_ok"] else "FAIL"
+            typer.echo(f"{state} {r['endpoint']} · {r['model']} ({r['tasks']}): json={r['json_ok']} "
+                       f"thai={r['thai_ok']} {r['seconds']}s {r['error']}")
+        raise typer.Exit(0 if all(r["json_ok"] and r["thai_ok"] for r in rows) else EXIT_CONFIG)
+    if dry_run:
+        rows = dry_run_all(cfg, task or None)
+        if not rows:
+            typer.echo("no LLM tasks are registered yet")
+        for r in rows:
+            if "skipped" in r:
+                typer.echo(f"{r['task']:<10} skipped — {r['skipped']}")
+                continue
+            cost = "unknown (set price_per_mtok_in/out)" if r["est_cost_usd"] is None else f"≤ {r['est_cost_usd']} USD"
+            typer.echo(f"{r['task']:<10} {r['model'] or '(no model)'}: {r['items']} items, {r['cached']} cached, "
+                       f"{r['to_call']} to call · ~{r['est_input_tokens']:,} input tokens, ≤ {r['max_output_tokens']:,} "
+                       f"output · cost {cost} · spent this release {r['release_spend_usd']} USD"
+                       + (f" of {r['budget_usd']}" if r["budget_usd"] is not None else ""))
+        return
+    if background:
+        raise typer.Exit(_llm_background(cfg, config))
+    code = _run_guarded(cfg, [s for s in ("label", "narrate") if s in STEPS], config, tag="llm", resume="llm")
+    if code == 0:
+        typer.echo(f"[llm] done — publish with: uv run atlas run -c {_cfg_arg(config)} --step export")
+    raise typer.Exit(code)
+
+
+def _llm_background(cfg: dict, config: Path | None) -> int:
+    """`atlas llm` in a detached process (P0 spawn_background); a child that dies at once is reported."""
+    import time
+
+    from atlas.jobs import LOG, os_lock_held, spawn_background
+    from atlas.llm_runner import llm_dir
+
+    d, c = llm_dir(cfg), _cfg_arg(config)
+    d.mkdir(parents=True, exist_ok=True)
+    if os_lock_held(d):
+        typer.echo(f"[llm] another LLM job is running — status: uv run atlas status -c {c}", err=True)
+        return EXIT_LOCKED
+    args = ["-m", "atlas", "llm"] + (["-c", str(Path(config).resolve())] if config else [])
+    spawned = spawn_background(args, d / LOG, cwd=Path.cwd())
+    deadline = time.monotonic() + float(os.environ.get("ATLAS_BACKGROUND_CHECK_S", "3"))
+    while time.monotonic() < deadline:
+        code = spawned.proc.poll()
+        if code is not None:
+            typer.echo(f"[llm] background run ended at once — exit code {code}; last lines of {d / LOG}:\n"
+                       f"{_tail(d / LOG)}", err=code != 0)
+            return code
+        time.sleep(0.1)
+    typer.echo(f"[llm] running in the background: PID {spawned.pid} — you may close this window")
+    if spawned.warning:
+        typer.echo(f"[llm] WARNING: {spawned.warning}", err=True)
+    typer.echo(f"  log    : {d / LOG}\n  status : uv run atlas status -c {c}\n  stop   : uv run atlas llm-stop -c {c}")
+    return 0
+
+
+@app.command("llm-stop")
+def llm_stop_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+) -> None:
+    """Ask the LLM job to stop after the calls in flight (run `atlas llm` again to continue)."""
+    from atlas.config import load_config
+    from atlas.jobs import os_lock_held
+    from atlas.llm_runner import llm_dir, request_stop
+
+    cfg = load_config(config)
+    flag = request_stop(cfg)
+    if os_lock_held(llm_dir(cfg)):
+        typer.echo(f"[llm-stop] stop requested ({flag}): the LLM job finishes the calls in flight, saves and exits")
+    else:
+        typer.echo(f"[llm-stop] stop requested ({flag}); no LLM job is running now — a pipeline that is still at an "
+                   f"earlier step stops when its LLM step starts")
+    typer.echo(f"  status: uv run atlas status -c {_cfg_arg(config)}")
