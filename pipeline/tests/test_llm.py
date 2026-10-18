@@ -188,7 +188,7 @@ def test_transient_give_up_falls_back_and_is_not_cached(make_cfg, tmp_path):
 
 def test_budget_stops_cleanly_and_a_rerun_continues(make_cfg, tmp_path):
     cfg = _cfg(make_cfg, tmp_path, price_per_mtok_in=1.0, price_per_mtok_out=1.0)
-    cfg["llm"]["budget_usd"] = 0.0012                         # one call costs 120 tokens ≈ 0.00012 USD
+    cfg["llm"]["budget_usd"] = 0.0036                         # reserve per item ≈ 0.0024 (4 × est); a real call ≈ 0.00012
     keys = [f"k{i}" for i in range(12)]
     server = FakeServer(default=lambda p: ok('{"name": "n"}'))
     with pytest.raises(RunStopped, match="budget"):
@@ -215,6 +215,61 @@ def test_stop_flag_ends_the_job_after_the_calls_in_flight(make_cfg, tmp_path):
     assert len(server.requests) == 1 and not (llm_dir(cfg) / "stop.flag").exists()
     res, stats = run_job(cfg, _job(["a", "b", "c"]), llm=_llm(cfg, FakeServer(default=ok('{"name": "n"}'))))
     assert stats["from_cache"] == 1 and stats["generated"] == 2
+
+
+def test_failed_item_keeps_the_cost_of_its_paid_turns(make_cfg, tmp_path):
+    cfg = _cfg(make_cfg, tmp_path, price_per_mtok_in=1.0, price_per_mtok_out=1.0)
+    server = FakeServer(ok("not json"), (404, {}, b"model not found"))      # one paid repair turn, then a permanent error
+    with pytest.raises(LlmConfigError):
+        run_job(cfg, _job(["a"]), llm=_llm(cfg, server))
+    recs = [json.loads(x) for x in (llm_dir(cfg) / "label.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert len(recs) == 1 and recs[0]["output"] is None and recs[0]["cost_usd"] > 0
+    assert recs[0]["error"] == "LlmConfigError" and recs[0]["item"] == "a"
+    runner = LlmRunner(cfg, _job(["a"]), llm=_llm(cfg, FakeServer()))
+    assert runner.spent == pytest.approx(recs[0]["cost_usd"]) and not runner.cache
+
+
+def test_budget_reserves_the_worst_case_per_item(make_cfg, tmp_path):
+    cfg = _cfg(make_cfg, tmp_path, price_per_mtok_in=1.0, price_per_mtok_out=1.0)
+    runner = LlmRunner(cfg, _job(["a"]), llm=_llm(cfg, FakeServer()))
+    one = runner.estimate("name item a")
+    cfg["llm"]["budget_usd"] = one * 3                       # fits one call, not 1 + repairs + regenerations
+    server = FakeServer(default=lambda p: ok('{"name": "n"}'))
+    with pytest.raises(RunStopped, match="budget"):
+        run_job(cfg, _job(["a"]), llm=_llm(cfg, server))
+    assert not server.requests
+
+
+def test_journal_with_a_cut_record_or_cut_utf8_still_loads_and_stays_appendable(make_cfg, tmp_path):
+    cfg = _cfg(make_cfg, tmp_path)
+    good = json.dumps({"key": "k1", "output": {"name": "ข้าว"}, "cost_usd": 0.0, "release": "2026Q4"},
+                      ensure_ascii=False)
+    half = json.dumps({"key": "k2", "output": {"name": "ข้าวหอม"}}, ensure_ascii=False).encode("utf-8")[:-9]
+    path = llm_dir(cfg) / "label.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(good.encode("utf-8") + b"\n" + half)         # ends inside a Thai character, no newline
+    runner = LlmRunner(cfg, _job(["a"]), llm=_llm(cfg, FakeServer()))
+    assert set(runner.cache) == {"k1"}
+    runner._append({"key": "k3", "output": {"name": "n"}, "cost_usd": 0.0, "release": "2026Q4"})
+    again = LlmRunner(cfg, _job(["a"]), llm=_llm(cfg, FakeServer()))
+    assert set(again.cache) == {"k1", "k3"}
+
+
+def test_stop_requested_at_the_very_end_still_stops_the_next_task(make_cfg, tmp_path, monkeypatch):
+    from atlas import llm_runner
+
+    cfg = _cfg(make_cfg, tmp_path)
+    real = llm_runner.StopFlag.is_set
+
+    def reply(payload):
+        request_stop(cfg)                                     # `atlas llm-stop` lands after the loop's last check
+        return ok('{"name": "n"}')
+
+    monkeypatch.setattr(llm_runner.StopFlag, "is_set", lambda self: False)
+    run_job(cfg, _job(["a"]), llm=_llm(cfg, FakeServer(default=reply)))
+    monkeypatch.setattr(llm_runner.StopFlag, "is_set", real)
+    with pytest.raises(RunStopped, match="stop.flag"):
+        run_job(cfg, _job(["b"]), llm=_llm(cfg, FakeServer(default=ok('{"name": "n"}'))))
 
 
 def test_permanent_error_stops_the_job_and_keeps_finished_items(make_cfg, tmp_path):

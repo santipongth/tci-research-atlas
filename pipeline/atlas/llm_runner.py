@@ -88,11 +88,14 @@ def llm_dir(cfg: dict) -> Path:
 def _read_jsonl(path: Path) -> list[dict]:
     out = []
     if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
+        # bytes + errors="replace": a hard kill can cut a Thai multibyte character; that must not fail the load
+        for line in path.read_bytes().decode("utf-8", errors="replace").splitlines():
             try:
-                out.append(json.loads(line))
+                rec = json.loads(line)
             except ValueError:
                 continue                                  # a line cut by a crash is skipped
+            if isinstance(rec, dict):
+                out.append(rec)
     return out
 
 
@@ -130,9 +133,16 @@ class LlmRunner:
         return hashlib.sha256(f"{self.model_id}\n{self.job.prompt_version}\n{prompt}".encode()).hexdigest()[:16]
 
     def _append(self, rec: dict) -> None:
-        with self._mutex, open(self.cache_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-            f.flush()
+        with self._mutex:
+            lead = b""
+            if self.cache_path.exists() and self.cache_path.stat().st_size:
+                with open(self.cache_path, "rb") as r:
+                    r.seek(-1, 2)
+                    if r.read(1) != b"\n":
+                        lead = b"\n"                        # a record cut by a crash: start a fresh line
+            with open(self.cache_path, "ab") as f:
+                f.write(lead + (json.dumps(rec, ensure_ascii=False) + "\n").encode("utf-8"))
+                f.flush()
             if rec.get("output") is not None:
                 self.cache[rec["key"]] = rec
 
@@ -177,6 +187,15 @@ class LlmRunner:
                     messages = [{"role": "user", "content": item.prompt + "\n\n" + REGENERATE.format(error=error)}]
                     continue
                 result = LlmResult(data, "llm", repairs, k)
+        except Exception as e:
+            # paid turns of an item that then failed (give-up, config error, cancel): journal the cost so it
+            # counts against the release budget after a restart; output=None keeps it out of the cache
+            if cost > 0:
+                self._append({"key": k, "item": item.key, "task": self.job.task, "model": self.model_id,
+                              "prompt_version": self.job.prompt_version, "release": self.release,
+                              "output": None, "cost_usd": round(cost, 6), "repaired": repairs,
+                              "error": type(e).__name__, "at": now_iso()})
+            raise
         finally:
             with self._mutex:
                 self.spent += cost
@@ -267,7 +286,9 @@ class LlmRunner:
                     begin_stop("stop.flag")
                 while self.stopping is None and nxt is not None and len(in_flight) < n:
                     k, it = nxt
-                    est = self.estimate(it.prompt)
+                    # worst case for one item: the first call + every repair + every regeneration, each at the
+                    # full estimate (real cost is almost always far below it)
+                    est = self.estimate(it.prompt) * (1 + self.max_repairs + self.max_regen)
                     if self.budget is not None and self.spent + reserved + est > float(self.budget):
                         if not in_flight:                     # nothing will free budget: stop here
                             begin_stop("budget")
@@ -320,7 +341,8 @@ class LlmRunner:
                    f"{self.release}) — raise it" if self.stopping == "budget" else f"{self.stopping}")
             raise RunStopped(f"LLM task {self.job.task}: {why}; {left} of {len(todo)} items not done — run the same "
                              f"command again to continue (finished calls are cached, nothing is paid twice)")
-        stop_flag.clear()                                     # served (or moot): never carried to the next run
+        # no stop_flag.clear() here: a stop requested as the job ends must still stop the next task; a flag older
+        # than this process is discarded by clear_if_older at the next job start
         pf.write(self._snapshot("done"), force=True)
 
     def dry_run(self) -> dict:
