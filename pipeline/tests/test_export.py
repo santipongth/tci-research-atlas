@@ -116,3 +116,14 @@ def test_export_checks_centroids_before_writing_anything(tmp_path):
         export(cfg)
     assert not out.exists() or not any(out.iterdir())
 
+
+def test_low_data_topic_never_gets_a_forecast():
+    frames = list(_frames())
+    fc = frames[5].copy()
+    fc["show"] = [True, True]                         # t1 passes the skill gate but is LOW_DATA
+    frames[5] = fc
+    atlas = build_atlas(*frames, meta=META, n_articles=50, include_forecast=True, definition_version=3)
+    t = {n["nodeId"]: n for n in atlas["nodes"] if n["kind"] == "topic"}
+    assert t["t1"]["status"] == "LOW_DATA"
+    assert t["t1"]["forecast"] is None and t["t1"]["forecast_uncertain"] is True
+    assert t["t0"]["forecast"] is not None and t["t0"]["forecast_uncertain"] is False

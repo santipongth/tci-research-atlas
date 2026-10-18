@@ -74,7 +74,11 @@ def forecast_topic(yrs, cnt, last_year: int, horizon: int, backtest_years: int,
         except Exception:  # noqa: BLE001 — a failing model is skipped, never fatal
             continue
         p = np.maximum(p, 0)
-        maes[name], mapes[name] = _mae(cnt[te], p), _mape(cnt[te], p)
+        mae = _mae(cnt[te], p)
+        if math.isfinite(mae):                                   # NaN/inf would poison min() and the skill
+            maes[name], mapes[name] = mae, _mape(cnt[te], p)
+    if "naive" not in maes:                                       # no baseline → skill undefined → no forecast
+        return None
     best = min(maes, key=maes.get)
     skill = 1 - maes[best] / maes["naive"] if maes["naive"] > 0 else 0.0
     scale = float(np.mean(np.abs(np.diff(cnt[tr]))))

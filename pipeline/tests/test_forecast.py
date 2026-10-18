@@ -26,3 +26,16 @@ def test_history_is_raw_not_winsorized():
 
 def test_too_short_history_returns_none():
     assert forecast_topic(np.arange(2021, 2025), np.array([1, 2, 3, 4]), 2024, 2, 3, MODELS, 0.0) is None
+
+
+def test_non_finite_backtest_mae_is_never_chosen(monkeypatch):
+    import math
+
+    import atlas.forecast as F
+
+    nan_model = lambda yrs, cnt, future: (np.full(len(future), np.nan), 1.0)  # noqa: E731
+    monkeypatch.setitem(F.MODELS, "poisson", nan_model)
+    r = forecast_topic(YRS, np.arange(10, 110, 10), 2024, 2, 3, MODELS, 0.0)
+    assert r["model"] == "linear" and math.isfinite(r["backtest_mae"])
+    monkeypatch.setitem(F.MODELS, "naive", nan_model)           # no finite baseline → no skill → no forecast
+    assert forecast_topic(YRS, np.arange(10, 110, 10), 2024, 2, 3, MODELS, 0.0) is None

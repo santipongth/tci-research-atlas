@@ -108,7 +108,8 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
         lb = labels.loc[tid] if tid in labels.index else None
         e = em.loc[tid] if tid in em.index else None
         f = fcm.loc[tid] if len(fcm) and tid in fcm.index else None
-        passes_gate = f is not None and _is_true(f["show"])
+        low_data = e is None or e["status"] == "LOW_DATA"
+        passes_gate = f is not None and _is_true(f["show"]) and not low_data   # no trend claim → no forecast
         show = passes_gate and include_forecast
         nodes.append({
             "nodeId": f"t{tid}", "kind": "topic", "group": f"g{int(row['parent'])}",
@@ -138,7 +139,7 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
                 "fc_years": json.loads(f["fc_years"]), "fc_mean": json.loads(f["fc_mean"]),
                 "fc_lo": json.loads(f["fc_lo"]), "fc_hi": json.loads(f["fc_hi"]),
             } if show else None),
-            "forecast_uncertain": bool(f is not None and not passes_gate),
+            "forecast_uncertain": bool((f is not None or low_data) and not passes_gate),
         })
 
     assigned = int(info["size"].sum())
