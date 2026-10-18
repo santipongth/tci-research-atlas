@@ -183,3 +183,15 @@ def test_job_status_running_with_live_lock(tmp_path):
         assert job_status(tmp_path)["status"] == "running"
     write_json_atomic(tmp_path / "progress.json", {"status": "done", "updated_at": now_iso()})
     assert job_status(tmp_path)["status"] == "done"
+
+
+def test_format_shows_starting_before_totals_are_known():
+    text = format_job_status({"kind": "embedding", "store_id": "s", "status": "running", "total": 0, "remaining": 0})
+    assert "starting" in text and "0 / 0 docs" not in text
+
+
+def test_fmt_duration():
+    from atlas.jobs import fmt_duration
+
+    assert fmt_duration(0.34) == "0.3s" and fmt_duration(42) == "42s"
+    assert fmt_duration(80) == "1m 20s" and fmt_duration(3 * 3600 + 120) == "3h 02m" and fmt_duration(None) == "-"

@@ -49,7 +49,9 @@ def parse_iso(value: Any) -> float | None:
 def fmt_duration(seconds: float | None) -> str:
     if seconds is None:
         return "-"
-    s = int(max(0, round(seconds)))
+    if seconds < 10:
+        return f"{max(0.0, seconds):.1f}s"
+    s = int(round(seconds))
     if s >= 3600:
         return f"{s // 3600}h {s % 3600 // 60:02d}m"
     if s >= 60:
@@ -324,7 +326,9 @@ def format_job_status(info: dict, extra: list[str] | None = None) -> str:
     pid_txt = f" — PID {pid} ({'alive' if alive else 'not running'})" if pid else ""
     lines.append(f"  \N{THAI CHARACTER SO SUA}\N{THAI CHARACTER THO THUNG}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER SARA A} / status        : {status} ({_STATUS_TH.get(status, '?')}){pid_txt}")
     total, remaining = info.get("total"), info.get("remaining")
-    if total is not None:
+    if not total and status in ACTIVE:
+        lines.append("  \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA} / progress : \N{THAI CHARACTER KO KAI}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER LO LING}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA E}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA I}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER MO MA} (\N{THAI CHARACTER O ANG}\N{THAI CHARACTER MAI EK}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU} journal / \N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI HAN-AKAT}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER NGO NGU}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER NO NU}) / starting (journal replay, counting work)")
+    elif total is not None:
         done = int(total) - int(remaining or 0)
         pct = 100.0 * done / total if total else 100.0
         lines.append(f"  \N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER SARA AA}\N{THAI CHARACTER MO MA}\N{THAI CHARACTER KHO KHWAI}\N{THAI CHARACTER SARA UEE}\N{THAI CHARACTER BO BAIMAI}\N{THAI CHARACTER HO HIP}\N{THAI CHARACTER NO NU}\N{THAI CHARACTER MAI THO}\N{THAI CHARACTER SARA AA} / progress : {done:,} / {int(total):,} {unit} ({pct:.1f}%) · "

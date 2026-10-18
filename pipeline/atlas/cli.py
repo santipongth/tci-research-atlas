@@ -310,7 +310,9 @@ def status_cmd(
     stale = float(cfg["embedding"]["api"]["lock_stale_seconds"])
     for job in jobs:
         info = job_status(job, stale)
-        extra = store_status_lines(job) if info.get("kind") == "embedding" else []
+        extra = []
+        if info.get("kind") == "embedding":
+            extra = store_status_lines(job, active=info["status"] in ("running", "backing_off"))
         typer.echo(format_job_status(info, extra) + "\n")
 
 

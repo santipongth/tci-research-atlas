@@ -351,3 +351,15 @@ def test_hard_kill_then_resume(tmp_path, capsys):
         final = EmbeddingStore(tmp_path / "state" / "embeddings", "api|stub-bge-m3|None")
         assert len(final) == n and final.index["key"].is_unique
         assert arr.shape[0] == n == np.load(tmp_path / "work" / "03_embeddings.npy").shape[0]
+
+
+def test_store_status_lines_word_the_journal_by_run_state(tmp_path):
+    from atlas.embed_runner import store_status_lines
+
+    store = store_for(tmp_path)
+    store.add(keys_of(TEXTS[:2]), np.stack([fake_vec(t) for t in TEXTS[:2]]))
+    _write_journal(store.dir / JOURNAL, keys_of(TEXTS[2:5]), np.stack([fake_vec(t) for t in TEXTS[2:5]]))
+    idle = store_status_lines(store.dir)[0]
+    live = store_status_lines(store.dir, active=True)[0]
+    assert "2 vectors" in idle and "3 vectors waiting" in idle and "next run" in idle
+    assert "next checkpoint" in live

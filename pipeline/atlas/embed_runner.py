@@ -120,8 +120,8 @@ def journal_records(path: str | Path) -> int:
     return (size - HEADER) // (KEY_BYTES + 4 * struct.unpack("<I", head[4:])[0])
 
 
-def store_status_lines(sdir: str | Path) -> list[str]:
-    """Extra `atlas status` lines for an embedding store folder."""
+def store_status_lines(sdir: str | Path, active: bool = False) -> list[str]:
+    """Extra `atlas status` lines for an embedding store folder (`active`: a live run owns the journal)."""
     from atlas.io_utils import read_table
 
     try:
@@ -131,7 +131,8 @@ def store_status_lines(sdir: str | Path) -> list[str]:
     pending = journal_records(Path(sdir) / JOURNAL)
     line = f"  store                 : {n:,} vectors"
     if pending:
-        line += f" · journal.bin: {pending:,} vectors waiting (the next run recovers them)"
+        line += (f" · journal.bin: {pending:,} vectors (go into the store at the next checkpoint)" if active
+                 else f" · journal.bin: {pending:,} vectors waiting (the next run recovers them)")
     return [line]
 
 
@@ -349,6 +350,7 @@ class _Run:
         todo = [k for k in text_of if not self.store.has(k)]
         self.total, self.cached, self.remaining = len(text_of), len(text_of) - len(todo), len(todo)
         print(f"[embed] {self.cached:,} cached, {len(todo):,} to embed ({self.store_id})", flush=True)
+        self.tick(force=True)                                 # totals known: `atlas status` shows them now
         batches = pack_batches([len(text_of[k]) for k in todo], self.batch_size, self.max_chars)
         hooked = hasattr(self.embedder, "on_event")          # ApiEmbedder reports retries/splits/truncation
         prev_handler = self.embedder.on_event if hooked else None
@@ -369,6 +371,8 @@ class _Run:
             if hooked:
                 self.embedder.on_event = prev_handler
             if self.pbar is not None:
+                self._shown_event, self._shown_at = None, 0.0  # final counters on the bar
+                self.tick()
                 self.pbar.close()
             self.finish()
         if self.error is not None:
