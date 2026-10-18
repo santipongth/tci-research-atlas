@@ -1,37 +1,38 @@
-"""Phase 2 — Embedding. Supports two providers:
+"""Embedding step. Providers:
 
-  - api   : any OpenAI-compatible embeddings endpoint (OpenAI, Gemini, OpenRouter,
-            vLLM, Ollama ...). Batched, retried, checkpointed — safe to Ctrl-C and rerun.
-  - local : sentence-transformers (default BAAI/bge-m3) on your own GPU/CPU.
+  api   : any OpenAI-compatible endpoint (OpenAI, Gemini, OpenRouter, vLLM, Ollama)
+  local : sentence-transformers (default BAAI/bge-m3, max_seq_length 1024)
+  lite  : TF-IDF char n-grams + TruncatedSVD on CPU — for tests/CI/demos (lower quality)
 
-Output: work/03_embeddings.npy  (float32, row-aligned with 02_docs.parquet)
-Checkpoint: work/emb_ckpt/chunk_*.npy
+api/local vectors are cached in state_dir/embeddings (EmbeddingStore): resumable and
+incremental across quarters. Output: work/03_embeddings.npy (+ 03_meta.json).
 """
 from __future__ import annotations
 
+import json
 import os
 import time
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
-
-from .io_utils import read_table, write_table
 from tqdm import tqdm
 
+from atlas.embed_store import EmbeddingStore, text_key
+from atlas.io_utils import read_table
 
-# ---------------------------------------------------------------- API provider
+
 class ApiEmbedder:
     def __init__(self, cfg: dict):
-        from openai import OpenAI  # lazy import
+        from openai import OpenAI  # optional dependency: uv sync --extra api
+
         acfg = cfg["embedding"]["api"]
         api_key = os.environ.get(acfg["api_key_env"], "")
         if not api_key:
-            raise EnvironmentError(f"set ${acfg['api_key_env']} before running with provider=api")
+            raise OSError(f"set ${acfg['api_key_env']} before running with embedding.provider=api")
         self.client = OpenAI(base_url=acfg["base_url"], api_key=api_key, timeout=120)
-        self.model = acfg["model"]
-        self.dimensions = acfg.get("dimensions")
+        self.model, self.dimensions = acfg["model"], acfg.get("dimensions")
         self.max_retries = int(acfg.get("max_retries", 6))
+        self.model_id = f"api|{acfg['base_url']}|{self.model}|{self.dimensions}"
 
     def embed_batch(self, texts: list[str]) -> np.ndarray:
         kwargs = {"model": self.model, "input": texts}
@@ -42,7 +43,7 @@ class ApiEmbedder:
             try:
                 resp = self.client.embeddings.create(**kwargs)
                 return np.array([d.embedding for d in resp.data], dtype=np.float32)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001 — retry any transport/API error
                 if attempt == self.max_retries - 1:
                     raise
                 print(f"[embed] retry {attempt + 1}/{self.max_retries}: {e}")
@@ -51,31 +52,22 @@ class ApiEmbedder:
         raise RuntimeError("unreachable")
 
 
-# ---------------------------------------------------------------- local provider
 class LocalEmbedder:
     def __init__(self, cfg: dict):
-        from sentence_transformers import SentenceTransformer  # lazy import
+        from sentence_transformers import SentenceTransformer  # optional: uv sync --extra local
+
         lcfg = cfg["embedding"]["local"]
         self.model = SentenceTransformer(lcfg["model"], device=lcfg["device"])
-        if lcfg.get("max_seq_length"):
-            self.model.max_seq_length = lcfg["max_seq_length"]
+        self.model.max_seq_length = int(lcfg["max_seq_length"])
         self.batch_size = int(lcfg["batch_size"])
-        self.fp16 = bool(lcfg.get("fp16", False))
-        self.max_retries = 1
+        if lcfg.get("fp16") and lcfg["device"] == "cuda":
+            self.model.half()
+        self.model_id = f"local|{lcfg['model']}|{lcfg['max_seq_length']}"
 
     def embed_batch(self, texts: list[str]) -> np.ndarray:
-        import torch
-        with torch.autocast("cuda", enabled=self.fp16) if self.fp16 else _nullctx():
-            vec = self.model.encode(
-                texts, batch_size=self.batch_size,
-                convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False,
-            )
+        vec = self.model.encode(texts, batch_size=self.batch_size, convert_to_numpy=True,
+                                normalize_embeddings=True, show_progress_bar=False)
         return vec.astype(np.float32)
-
-
-class _nullctx:
-    def __enter__(self): return self
-    def __exit__(self, *a): return False
 
 
 def get_embedder(cfg: dict):
@@ -84,77 +76,58 @@ def get_embedder(cfg: dict):
         return ApiEmbedder(cfg)
     if provider == "local":
         return LocalEmbedder(cfg)
-    raise ValueError(f"unknown embedding.provider: {provider}")
+    raise ValueError(f"no embedder object for provider {provider!r}")
 
 
-# ---------------------------------------------------------------- runner
-def embed(cfg: dict, df: pd.DataFrame | None = None) -> np.ndarray:
+def lite_embed(texts: list[str], lite_cfg: dict, seed: int) -> np.ndarray:
+    from sklearn.decomposition import TruncatedSVD
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    vec = TfidfVectorizer(analyzer="char_wb", ngram_range=(int(lite_cfg["ngram_min"]), int(lite_cfg["ngram_max"])),
+                          max_features=int(lite_cfg["max_features"]), sublinear_tf=True,
+                          min_df=min(int(lite_cfg["min_df"]), max(1, len(texts))))
+    X = vec.fit_transform(texts)
+    k = max(1, min(int(lite_cfg["dim"]), X.shape[1] - 1, len(texts) - 1))
+    return TruncatedSVD(k, random_state=seed).fit_transform(X).astype(np.float32)
+
+
+def _normalize(arr: np.ndarray) -> np.ndarray:
+    return (arr / np.maximum(np.linalg.norm(arr, axis=1, keepdims=True), 1e-9)).astype(np.float32)
+
+
+def embed(cfg: dict, embedder=None) -> np.ndarray:
     work = Path(cfg["pipeline"]["work_dir"])
-    if df is None:
-        df = read_table(work / "02_docs.parquet")
-
-    final = work / "03_embeddings.npy"
-    if final.exists():
-        arr = np.load(final)
-        if len(arr) == len(df):
-            print(f"[embed] reuse checkpoint {final} ({arr.shape})")
-            return arr
-        print("[embed] checkpoint shape mismatch — re-embedding")
-
-    ckpt_dir = work / "emb_ckpt"
-    ckpt_dir.mkdir(parents=True, exist_ok=True)
-
+    texts = read_table(work / "02_docs.parquet")["doc_text"].tolist()
     provider = cfg["embedding"]["provider"]
-    batch_size = int(cfg["embedding"][provider].get("batch_size", 128))
-    every = int(cfg["embedding"][provider].get("checkpoint_every", 5000))
-    embedder = get_embedder(cfg)
-
-    texts = df["doc_text"].tolist()
-    n = len(texts)
-    chunks: dict[int, np.ndarray] = {}
-
-    # load existing chunk checkpoints (resume)
-    done = 0
-    for f in sorted(ckpt_dir.glob("chunk_*.npy")):
-        start = int(f.stem.split("_")[1])
-        chunks[start] = np.load(f)
-        done += len(chunks[start])
-    if done:
-        print(f"[embed] resume: {done:,}/{n:,} already embedded")
-
-    pending = [i for i in range(0, n, batch_size)
-               if not any(s <= i < s + len(c) for s, c in chunks.items())]
-
-    buffer: dict[int, np.ndarray] = {}
-    buffered = 0
-    for i in tqdm(pending, desc=f"embedding ({provider})", unit="batch"):
-        batch = texts[i:i + batch_size]
-        vec = embedder.embed_batch(batch)
-        buffer[i] = vec
-        buffered += len(vec)
-        if buffered >= every:
-            _flush(ckpt_dir, chunks, buffer)
-            buffer, buffered = {}, 0
-    if buffer:
-        _flush(ckpt_dir, chunks, buffer)
-
-    # stitch in order
-    rows = []
-    for f in sorted(ckpt_dir.glob("chunk_*.npy")):
-        rows.append(np.load(f))
-    arr = np.vstack(rows).astype(np.float32)
-    assert len(arr) == n, f"stitched {len(arr)} != {n} docs — delete work/emb_ckpt and rerun"
-
-    # L2 normalize (cosine-ready) — local provider already normalizes; harmless to redo
-    norm = np.linalg.norm(arr, axis=1, keepdims=True)
-    arr = arr / np.maximum(norm, 1e-9)
-    np.save(final, arr)
-    print(f"[embed] {arr.shape} -> {final}")
+    if embedder is None and provider == "lite":
+        lcfg = cfg["embedding"]["lite"]
+        arr = lite_embed(texts, lcfg, int(cfg["pipeline"]["seed"]))
+        model_id = f"lite|char{lcfg['ngram_min']}-{lcfg['ngram_max']}|svd{arr.shape[1]}"
+    else:
+        embedder = embedder or get_embedder(cfg)
+        pcfg = cfg["embedding"].get(provider, {}) if provider in ("api", "local") else {}
+        batch, every = int(pcfg.get("batch_size", 64)), int(pcfg.get("checkpoint_every", 5000))
+        store = EmbeddingStore(Path(cfg["pipeline"]["state_dir"]) / "embeddings", embedder.model_id)
+        keys = [text_key(embedder.model_id, t) for t in texts]
+        text_of = dict(zip(keys, texts))
+        todo = list(dict.fromkeys(k for k in keys if not store.has(k)))
+        print(f"[embed] {len(keys) - len(todo):,} cached, {len(todo):,} to embed ({embedder.model_id})")
+        buf_k: list[str] = []
+        buf_v: list[np.ndarray] = []
+        for i in tqdm(range(0, len(todo), batch), desc="embed", disable=not todo):
+            chunk = todo[i:i + batch]
+            buf_k += chunk
+            buf_v.append(embedder.embed_batch([text_of[k] for k in chunk]))
+            if len(buf_k) >= every:
+                store.add(buf_k, np.vstack(buf_v))
+                buf_k, buf_v = [], []
+        if buf_k:
+            store.add(buf_k, np.vstack(buf_v))
+        arr, model_id = store.get(keys), embedder.model_id
+    arr = _normalize(arr)
+    work.mkdir(parents=True, exist_ok=True)
+    np.save(work / "03_embeddings.npy", arr)
+    (work / "03_meta.json").write_text(json.dumps({"model_id": model_id, "n": int(arr.shape[0]),
+                                                   "dim": int(arr.shape[1])}), encoding="utf-8")
+    print(f"[embed] {arr.shape} → 03_embeddings.npy")
     return arr
-
-
-def _flush(ckpt_dir: Path, chunks: dict, buffer: dict) -> None:
-    for start, vec in buffer.items():
-        np.save(ckpt_dir / f"chunk_{start:08d}.npy", vec)
-        chunks[start] = vec
-    print(f"[embed] checkpoint: {sum(len(c) for c in chunks.values()):,} vectors")
