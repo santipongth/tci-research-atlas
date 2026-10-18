@@ -23,6 +23,8 @@ def test_defaults_load_and_paths_are_absolute():
     for k in ("work_dir", "output_dir", "state_dir"):
         assert Path(cfg["pipeline"][k]).is_absolute()
     assert cfg["emerging"]["definition_version"] == 3
+    assert cfg["embedding"]["provider"] == "local"            # production default; lite is for CI/tests only
+    assert cfg["embedding"]["lite_max_docs"] == 50_000
 
 
 def test_example_yaml_is_valid_and_documents_every_key():

@@ -35,7 +35,8 @@ input:
     enabled: true             # ตัดซ้ำด้วย article_id → DOI → ชื่อเรื่อง+ปี (เก็บ record ที่ครบที่สุด)
 
 embedding:
-  provider: lite              # api | local | lite (lite = TF-IDF+SVD บน CPU สำหรับทดสอบ/CI — คุณภาพต่ำกว่า)
+  provider: local             # local = BGE-M3 บนเครื่องเรา (ค่าใช้งานจริง) | api = เสียเงินต่อเรื่อง | lite = TF-IDF+SVD บน CPU สำหรับ CI/ทดสอบเท่านั้น (คุณภาพต่ำ)
+  lite_max_docs: 50000        # ถ้าใช้ lite กับคลังใหญ่กว่านี้ จะพิมพ์ WARNING (ผลคุณภาพต่ำ ไม่ควรเผยแพร่)
   api:                        # OpenAI-compatible (OpenAI, Gemini, OpenRouter, vLLM, Ollama)
     base_url: https://api.openai.com/v1
     api_key_env: ATLAS_API_KEY

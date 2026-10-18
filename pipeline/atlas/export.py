@@ -69,6 +69,10 @@ def fine_labels(labels: pd.DataFrame) -> pd.DataFrame:
     return labels[labels["level"] == "fine"].drop_duplicates("topic_id", keep="last")
 
 
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
 def _is_true(v) -> bool:
     return bool(pd.notna(v) and bool(v))
 
@@ -189,11 +193,24 @@ def export(cfg: dict) -> dict:
         info.merge(lab, on="topic_id", how="left").to_csv(outdir / "topics.csv", index=False, encoding="utf-8")
         em.to_csv(outdir / "emerging.csv", index=False, encoding="utf-8")
         fc.to_csv(outdir / "forecasts.csv", index=False, encoding="utf-8")
+    emb_meta = _read_json(work / "03_meta.json")
+    try:
+        ingest_errors: int | None = len(read_table(work / "01_ingest_errors.parquet"))
+    except FileNotFoundError:                      # work_dir from a run before per-file error recording
+        ingest_errors = None
     manifest = {
         "pipeline_version": atlas["meta"]["pipeline_version"],
         "generated_at": atlas["meta"]["generated_at"],
         "schema_version": SCHEMA_VERSION,
         "definition_version": atlas["meta"]["definition_version"],
+        "ci_level": cfg["emerging"]["ci_level"],
+        "as_of_year": atlas["meta"]["as_of_year"],
+        "trimmed_years": atlas["meta"]["trimmed_years"],
+        "n_orgs_unverified": atlas["meta"]["n_orgs_unverified"],
+        "embedding_provider": cfg["embedding"]["provider"],
+        "embedding_model_id": emb_meta.get("model_id"),
+        "n_labels_fallback": int((fine_labels(labels)["cache_key"] == "fallback").sum()),
+        "ingest_errors": ingest_errors,
         "config_emerging": cfg["emerging"],
         "counts": atlas["meta"],
         "artifacts": sorted(p.name for p in outdir.iterdir()),

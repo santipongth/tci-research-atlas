@@ -86,12 +86,16 @@ def _write_work(tmp_path, with_centroids=True):
                      ("09_layout", layout), ("09_edges", edges), ("02_docs", pd.DataFrame({"article_id": range(50)}))]:
         write_table(df, work / f"{name}.parquet")
     (work / "06_meta.json").write_text(json.dumps(META), encoding="utf-8")
+    (work / "03_meta.json").write_text(json.dumps({"model_id": "lite|char2-4|svd8", "n": 50, "dim": 8}),
+                                       encoding="utf-8")
+    write_table(pd.DataFrame({"path": ["x/bad.md"], "error": ["PermissionError: denied"]}),
+                work / "01_ingest_errors.parquet")
     if with_centroids:
         np.save(work / "04_centroids.npy", np.zeros((2, 3)))
         (work / "04_centroid_ids.json").write_text("[0, 1]", encoding="utf-8")
     cfg = {"pipeline": {"work_dir": str(work), "output_dir": str(out), "state_dir": str(state)},
            "export": {"formats": ["json", "csv"], "include_forecast_in_json": True},
-           "emerging": load_config(None)["emerging"]}
+           "emerging": load_config(None)["emerging"], "embedding": {"provider": "lite"}}
     return cfg, out, state
 
 
@@ -127,3 +131,16 @@ def test_low_data_topic_never_gets_a_forecast():
     assert t["t1"]["status"] == "LOW_DATA"
     assert t["t1"]["forecast"] is None and t["t1"]["forecast_uncertain"] is True
     assert t["t0"]["forecast"] is not None and t["t0"]["forecast_uncertain"] is False
+
+
+def test_manifest_records_run_provenance(tmp_path):
+    from atlas.export import export
+
+    cfg, out, _ = _write_work(tmp_path)
+    export(cfg)
+    man = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert man["embedding_provider"] == "lite" and man["embedding_model_id"] == "lite|char2-4|svd8"
+    assert man["n_labels_fallback"] == 2                        # latest fine label of each topic is "fallback"
+    assert (man["definition_version"], man["ci_level"]) == (3, 0.9)
+    assert (man["trimmed_years"], man["as_of_year"]) == ([2025, 2026], 2026)
+    assert (man["n_orgs_unverified"], man["ingest_errors"]) == (1, 1)

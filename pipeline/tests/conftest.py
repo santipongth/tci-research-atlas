@@ -22,5 +22,6 @@ def make_cfg(tmp_path):
         cfg["pipeline"].update(work_dir=str(tmp_path / "work"), output_dir=str(tmp_path / "out"),
                                state_dir=str(tmp_path / "state"))
         cfg["input"].update(path=str(input_path), format=fmt, workers=1)
+        cfg["embedding"]["provider"] = "lite"           # CPU-only test embeddings (production default: local)
         return cfg
     return _make

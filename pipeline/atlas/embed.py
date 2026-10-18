@@ -109,6 +109,10 @@ def embed(cfg: dict, embedder=None) -> np.ndarray:
     provider = cfg["embedding"]["provider"]
     if embedder is None and provider == "lite":
         lcfg = cfg["embedding"]["lite"]
+        if len(texts) > int(cfg["embedding"]["lite_max_docs"]):
+            print(f"[embed] WARNING: embedding.provider is 'lite' (TF-IDF+SVD, CI/tests only) on {len(texts):,} "
+                  f"documents (> embedding.lite_max_docs = {int(cfg['embedding']['lite_max_docs']):,}) — topics "
+                  f"will be low quality; use embedding.provider: local or api for a real run")
         arr = lite_embed(texts, lcfg, int(cfg["pipeline"]["seed"]))
         model_id = f"lite|char{lcfg['ngram_min']}-{lcfg['ngram_max']}|svd{arr.shape[1]}"
     else:

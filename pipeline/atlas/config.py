@@ -73,7 +73,8 @@ class LiteEmbedCfg(_Strict):
 
 
 class EmbeddingCfg(_Strict):
-    provider: Literal["api", "local", "lite"] = "lite"
+    provider: Literal["api", "local", "lite"] = "local"   # lite = CI/tests only; api = paid
+    lite_max_docs: int = Field(50_000, ge=1)              # lite above this prints a WARNING (degraded run)
     api: ApiEmbedCfg = Field(default_factory=ApiEmbedCfg)
     local: LocalEmbedCfg = Field(default_factory=LocalEmbedCfg)
     lite: LiteEmbedCfg = Field(default_factory=LiteEmbedCfg)

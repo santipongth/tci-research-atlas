@@ -113,8 +113,14 @@ def cluster(cfg: dict) -> np.ndarray:
     n_raw = len(set(raw.tolist()) - {-1})
     labels = merge_similar(raw, emb, float(ccfg["merge_similarity"]))
     labels = assign_outliers(labels, emb, float(ccfg["outlier_min_similarity"]))
-    if (labels < 0).all():                    # tiny corpora: everything is one topic
-        labels = np.zeros(len(labels), dtype=int)
+    if (labels < 0).all():
+        mcs = int(ccfg["fine"]["hdbscan_min_cluster_size"])
+        if len(labels) >= 2 * mcs:
+            raise ValueError(
+                f"HDBSCAN found no clusters in {len(labels):,} documents (everything is noise). Lower "
+                f"clustering.fine.hdbscan_min_cluster_size (now {mcs}) / hdbscan_min_samples, or check the "
+                f"embeddings (embedding.provider, 03_meta.json) before publishing anything")
+        labels = np.zeros(len(labels), dtype=int)      # tiny corpus (< 2 × min_cluster_size): one topic
     labels = relabel_by_size(labels)
     ids, C = centroids(labels, emb)
     groups = coarse_groups(C, int(ccfg["n_groups"]))

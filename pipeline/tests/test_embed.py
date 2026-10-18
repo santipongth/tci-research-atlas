@@ -136,3 +136,18 @@ def test_api_embedder_rejects_a_short_response_without_retrying(make_cfg, tmp_pa
         emb.embed_batch(["a", "b", "c"])
     assert api.calls == 1
 
+
+# ---- F6(a): lite embeddings on a large corpus are never silent
+def test_lite_provider_warns_above_lite_max_docs(make_cfg, tmp_path, capsys):
+    cfg = make_cfg(tmp_path)
+    words = ["rice", "tourism", "diabetes", "solar", "poetry", "water", "nursing", "budget", "herbs", "media"]
+    texts = [f"study of {w} and {words[(i + 3) % 10]} in region {i}" for i, w in enumerate(words)]
+    write_table(pd.DataFrame({"article_id": [f"a{i}" for i in range(10)], "doc_text": texts}),
+                f"{cfg['pipeline']['work_dir']}/02_docs.parquet")
+    cfg["embedding"]["lite_max_docs"] = 10
+    embed(cfg)
+    assert "WARNING" not in capsys.readouterr().out
+    cfg["embedding"]["lite_max_docs"] = 5
+    embed(cfg)
+    out = capsys.readouterr().out
+    assert "WARNING" in out and "lite" in out and "embedding.provider" in out
