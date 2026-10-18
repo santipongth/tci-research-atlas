@@ -31,7 +31,7 @@
 | `01_ingest_errors` | ingest | path, error (`"ชนิด: ข้อความ"`) — ไฟล์ที่อ่าน/parse ไม่ได้และถูกข้าม (เขียนทุกรอบ อาจว่าง) |
 | `01_references` | ingest | article_id, position, text, year, lang, translated, self_citation |
 | `02_docs` | preprocess | 01_articles + doc_text |
-| `03_embeddings.npy`, `03_meta.json` | embed | matrix (แถวตรงกับ 02_docs), model_id |
+| `03_embeddings.npy`, `03_meta.json` | embed | matrix (แถวตรงกับ 02_docs, normalize แล้ว); meta: model_id (= store id), n, dim + สำหรับ api/local: store_id, n_retries, n_truncated |
 | `04_fine_topics` | cluster | article_id, fine_topic (−1 = ยังไม่จัดหมวด) |
 | `04_coarse_topics` | cluster | article_id, coarse_topic (−1 = ยังไม่จัดหมวด) |
 | `04_topic_info` | cluster | topic_id, size, top_terms, top_keywords, coarse_topic, coherence |
@@ -42,7 +42,12 @@
 | `07_emerging` | emerging | ดู docs/EMERGING_SPEC.md §3 + org_coverage_R, orgs_unverified, status, journal_driven, emerging_score, definition_version (คอลัมน์ครบแม้ไม่มีหัวข้อ) |
 | `08_forecasts` | forecast | model, backtest_mae/mape, mase, skill_vs_naive, show, hist/fc (JSON) |
 | `09_layout`, `09_edges` | layout | id, kind, x, y, r, parent · s, t, w |
-| `state/embeddings/<slug>-<hash>/` | embed | index.parquet + shard_NNNNN.npy (ถาวร; slug จาก model_id, hash = sha1 8 ตัวแรก) |
+| `state/embeddings/<slug>-<hash>/` | embed | index.parquet + shard_NNNNN.npy (ถาวร; slug/hash จาก store id: `api\|<model>\|<dimensions>` หรือ `embedding.api.store_id` — ไม่รวม base_url; `local\|<model>\|<max_seq_length>`; hash = sha1 8 ตัวแรก) |
+| `…/<store>/journal.bin` | embed | write-ahead log ของเวกเตอร์ที่ได้แล้วแต่ยังไม่เข้า store: header `ATJ1` + uint32 dim; record = sha1 key 40 ไบต์ ASCII + dim × float32 little-endian (flush ทุก batch, fsync ≤ ทุก 10 วินาที) — รันครั้งถัดไป replay เข้า store แล้วลบ (record ท้ายที่ขาด/เสียถูกข้าม) |
+| `…/<store>/progress.json` | embed | สถานะงาน (เขียนแบบ atomic ทุก ~5 วินาที + ทุก flush/เปลี่ยนสถานะ): kind, store_id, status (`running`/`backing_off`/`stopped`/`done`/`failed`), pid, total, cached, embedded, remaining, rate_per_s, eta_s, retries, truncated, last_error, last_error_at, last_event, recovered, started_at, updated_at — อ่านด้วย `atlas status` (แสดง `interrupted` เมื่อ lock ค้าง) |
+| `…/<store>/run.lock` | embed | `{pid, host, started_at}` สร้างแบบ O_EXCL กันรันซ้อน; PID ตาย หรือ heartbeat (progress.json `updated_at`) เก่ากว่า `lock_stale_seconds` = ค้าง → รันใหม่ยึดต่อ; ลบเมื่อจบ |
+| `…/<store>/run.log` | embed `--background` | stdout+stderr ของการรันเบื้องหลัง (ต่อท้ายทุกครั้ง) |
+| `…/<store>/stop.flag` | embed-stop | คำขอหยุด — runner หยุดสุภาพ (รอ request ที่ค้าง, flush) แล้วลบ; ไฟล์ที่ค้างอยู่ตอนเริ่มรันถูกลบทิ้ง |
 | `state/label_cache.parquet` | label | cache_key → ชื่อหัวข้อ |
 | `state/prev/centroids.npy` | export | centroid รอบนี้ สำหรับรอบหน้า |
 

@@ -26,7 +26,7 @@
 cd pipeline
 uv sync --extra local                      # หรือ --extra api
 cp config.example.yaml config.yaml         # แก้ input.path → โฟลเดอร์ .md
-export ATLAS_API_KEY=sk-...                # ถ้าใช้ embedding/labeling แบบ API
+export ATLAS_EMBED_API_KEY=...             # ถ้าใช้ embedding แบบ API (labeling แบบ API: ATLAS_API_KEY)
 uv run atlas profile /path/to/corpus --md ../logs/profile.md   # ขั้น 1: อ่านรายงานก่อนเสมอ
 uv run atlas run --config config.yaml      # ขั้น 2: ทั้งสาย (หรือ bash ../scripts/quarterly_run.sh)
 bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้าเว็บ + build

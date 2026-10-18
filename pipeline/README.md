@@ -32,7 +32,7 @@ bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้า�
 uv run pytest -q                           # ทดสอบ (เพิ่ม uv run pytest -m slow -q สำหรับ e2e ข้อมูลสังเคราะห์)
 ```
 
-Python ≥ 3.11 (dev/CI ใช้ 3.12) · `--extra api` ติดตั้ง `openai`, `--extra local` ติดตั้ง `sentence-transformers` (BGE-M3) · ดีฟอลต์ `embedding.provider: local`; โหมด `lite` (TF-IDF+SVD) ไม่ต้องใช้ extra ใด ๆ — ใช้ใน CI/ทดสอบเท่านั้น (เกิน `embedding.lite_max_docs` เรื่องจะขึ้น WARNING)
+Python ≥ 3.11 (dev/CI ใช้ 3.12) · embedding แบบ api ใช้ stdlib ไม่ต้องติดตั้งเพิ่ม · `--extra api` ติดตั้ง `openai` (ใช้กับ LLM labeling) · `--extra local` ติดตั้ง `sentence-transformers` (BGE-M3) · ดีฟอลต์ `embedding.provider: local`; โหมด `lite` (TF-IDF+SVD) ไม่ต้องใช้ extra ใด ๆ — ใช้ใน CI/ทดสอบเท่านั้น (เกิน `embedding.lite_max_docs` เรื่องจะขึ้น WARNING)
 **ข้อมูลจริงไม่เข้า git** — คลังบทความและ `atlas_data.json` ของจริงเก็บนอก repo (มีเฉพาะตัวอย่าง 11 ไฟล์ใน `tests/fixtures/thaijo_md/`)
 
 ## 2. เตรียมข้อมูล
@@ -52,15 +52,21 @@ uv run atlas profile /path/to/corpus --md ../logs/profile.md [--out ../logs/prof
 
 ```bash
 cp config.example.yaml config.yaml
-export ATLAS_API_KEY=sk-...     # ถ้าใช้โหมด api
+export ATLAS_EMBED_API_KEY=...  # embedding แบบ api (PowerShell: $env:ATLAS_EMBED_API_KEY="...")
+export ATLAS_API_KEY=...        # LLM labeling แบบ api
 ```
 
 จุดที่ต้องเลือกใน `config.yaml`:
 
-**Embedding — โหมด API** (`embedding.provider: api`) รองรับทุก endpoint แบบ OpenAI-compatible:
+**Embedding — โหมด API** (`embedding.provider: api`) รองรับทุก endpoint แบบ OpenAI-compatible (`POST {base_url}/embeddings`) —
+รันครั้งใหญ่ด้วย `atlas embed` (retry ไม่จำกัดเมื่อ server ล่ม, หยุดทันทีเมื่อ config ผิด, resume ได้ — ดู `../docs/OPERATIONS.md` §1A).
+ชื่อ base_url/model ด้านล่างเป็นตัวอย่าง ตรวจกับผู้ให้บริการก่อนใช้:
 
 | ผู้ให้บริการ | base_url | model |
 |---|---|---|
+| BGE-M3 บน server ตัวเอง (HF TEI / vLLM / Infinity / Ollama) | `http://host:port/v1` | `BAAI/bge-m3` หรือ `bge-m3` (`dimensions: null`) |
+| DeepInfra | `https://api.deepinfra.com/v1/openai` | `BAAI/bge-m3` (`dimensions: null`) |
+| SiliconFlow | `https://api.siliconflow.cn/v1` | `BAAI/bge-m3` (`dimensions: null`) |
 | OpenAI | `https://api.openai.com/v1` | `text-embedding-3-large` |
 | Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `text-embedding-004` |
 | OpenRouter | `https://openrouter.ai/api/v1` | เช่น `openai/text-embedding-3-large` |
@@ -76,6 +82,11 @@ export ATLAS_API_KEY=sk-...     # ถ้าใช้โหมด api
 uv run atlas run --config config.yaml                                   # ทั้งสาย
 uv run atlas run -c config.yaml -s embed -s cluster                     # บางขั้น (-s ซ้ำได้)
 uv run atlas run -c config.yaml -s emerging -s forecast -s export       # รันซ้ำเฉพาะท้ายสาย (ฟรี ไม่แตะ API)
+uv run atlas embed -c config.yaml --check                               # embedding API: ยิง 1 request ตรวจ key/URL/มิติ
+uv run atlas embed -c config.yaml --dry-run                             # นับที่ต้อง embed / ตัวอักษร / ~token (ไม่ยิง API)
+uv run atlas embed -c config.yaml [--background] [--concurrency N]      # embed ครั้งใหญ่ (resume = รันคำสั่งเดิมซ้ำ)
+uv run atlas status -c config.yaml                                      # สถานะงานยาว (alias: embed-status)
+uv run atlas embed-stop -c config.yaml                                  # หยุดอย่างสุภาพ (exit 130 → รันใหม่เพื่อทำต่อ)
 uv run atlas synth --out .ci/synth --n 20000                           # สร้างคลังสังเคราะห์สำหรับทดสอบ
 uv run atlas schema                                                     # เขียน JSON Schema ของ data contract v2
 ```
@@ -144,14 +155,17 @@ v3: share_growth ที่ประมาณไม่ได้ (เช่น บ
 
 ```
 atlas/
-  cli.py          typer CLI: run | profile | synth | schema
+  cli.py          typer CLI: run | embed | status (embed-status) | embed-stop | profile | synth | schema
   config.py       AtlasConfig (pydantic) — key ที่ไม่รู้จักถูกปฏิเสธ
   sources/        thaijo_md.py — parser ไฟล์ ThaiJO Markdown
   schema/         contract.py — data contract v2 (สร้าง JSON Schema)
   thai.py         ซ่อมข้อความไทย (PUA, สระอำ), แยก TH/EN
   ingest.py       อ่าน+normalize+dedup (article_id → DOI → ชื่อเรื่อง+ปี)
   preprocess.py   ประกอบ doc_text = title + keywords + abstract
-  embed.py        api | local | lite + embed_store.py (เก็บถาวรใน state/)
+  embed.py        ขั้น embed: api | local | lite → embed_runner.py (batch, concurrency, journal, lock, stop, progress)
+                  + embed_store.py (เก็บถาวรใน state/) + embed_api.py (OpenAI-compatible /embeddings)
+  api_http.py     แกน HTTP + retry ที่ใช้ร่วมกัน (classify, backoff, Retry-After, rate limit) — P1 LLM ใช้ต่อ
+  jobs.py         งานยาว: run.lock, stop.flag, progress.json, รันเบื้องหลัง, atlas status
   cluster.py      PCA → UMAP → HDBSCAN (sklearn) → merge ซ้ำ → outlier → กลุ่มใหญ่ (agglomerative); ctfidf.py
   label.py        LLM ตั้งชื่อ topic (cache_key = hash ของ model + prompt ใน state/label_cache) หรือ off
   topics_time.py  yearly series + backfill guard

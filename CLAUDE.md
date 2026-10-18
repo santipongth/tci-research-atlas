@@ -73,10 +73,13 @@ cp config.example.yaml config.yaml         # แก้ input.path → โฟล�
 uv run atlas profile ../corpus             # ตรวจคุณภาพคลังก่อนเสมอ
 uv run atlas run --config config.yaml      # ทั้งสาย
 uv run atlas run -c config.yaml -s emerging -s forecast -s export
+uv run atlas embed -c config.yaml [--check | --dry-run | --background]   # embedding ครั้งใหญ่: retry ไม่จำกัด, resume ได้
+uv run atlas status -c config.yaml         # สถานะงานยาว (alias: atlas embed-status)
+uv run atlas embed-stop -c config.yaml     # หยุดอย่างสุภาพ — ทำต่อ = รัน atlas embed เดิมซ้ำ
 uv run atlas synth --out .ci/synth --n 20000
 uv run pytest -q && uv run pytest -m slow -q
 ```
-(ตั้ง `ATLAS_API_KEY` ใน env ถ้าใช้ embedding/labeling แบบ API)
+(key อยู่ใน env var เท่านั้น: `ATLAS_EMBED_API_KEY` สำหรับ embedding แบบ API, `ATLAS_API_KEY` สำหรับ labeling แบบ API — ขั้นตอน embed ครั้งใหญ่ดู `docs/OPERATIONS.md` §1A)
 
 ### Web (ทำงานใน `web/`)
 
@@ -124,7 +127,7 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 - **DO** pandas 3: ห้ามทดสอบ `dtype == object`; normalise คอลัมน์ข้อความด้วย `.fillna("").astype(str)`
 - **DO** ใส่เครื่องหมายคำพูดให้ `"off"` ใน YAML (`provider: "off"`) — `off` เปล่า ๆ ถูกอ่านเป็น false
 - **DON'T** แก้นิยาม EMERGING/WATCH/HOT/DECLINING โดยไม่อัปเดต `docs/EMERGING_SPEC.md` + `config.example.yaml` + ทดสอบให้ตรงกัน
-- **DON'T** ใส่ API key ลงไฟล์ใด ๆ — ใช้ env var (`ATLAS_API_KEY`) เสมอ
+- **DON'T** ใส่ API key ลงไฟล์ใด ๆ — ใช้ env var เสมอ (`ATLAS_EMBED_API_KEY` embedding, `ATLAS_API_KEY` labeling; ชื่ออยู่ใน `api_key_env` ของ config)
 
 ### Web
 
