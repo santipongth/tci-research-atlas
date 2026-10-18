@@ -306,3 +306,25 @@ def test_cli_llm_background_reports_a_child_that_fails_at_once(tmp_path, monkeyp
                  f"  work_dir: {(tmp_path / 'work').as_posix()}\n", encoding="utf-8")
     r = CliRunner().invoke(app, ["llm", "-c", str(p), "--background"])
     assert r.exit_code == 1 and "04_topic_info" in r.output           # the tail of run.log is shown
+
+
+@pytest.mark.parametrize("tag", ["embed", "llm"])
+def test_run_guarded_keeps_the_p0_messages_and_names_the_resume_command(monkeypatch, capsys, tag):
+    import atlas.pipeline as pl
+    from atlas.api_http import ApiConfigError
+    from atlas.cli import _run_guarded
+
+    def outcome(exc):
+        def run(cfg, steps):
+            raise exc
+        monkeypatch.setattr(pl, "run", run)
+        code = _run_guarded({}, [], None, tag=tag, resume=tag)
+        return code, capsys.readouterr().err
+
+    code, err = outcome(ApiConfigError("bad key"))
+    assert code == 2 and err.startswith(f"[{tag}] ERROR \N{EM DASH} \N{THAI CHARACTER SARA AE}")
+    code, err = outcome(LockHeld("busy", 7))
+    assert code == 3 and f"[{tag}] busy\n  \N{THAI CHARACTER DO DEK}" in err
+    code, err = outcome(RunStopped("budget"))
+    assert code == 130 and err.startswith(f"[{tag}] \N{THAI CHARACTER HO HIP}")
+    assert f"resume: uv run atlas {tag} -c config.yaml" in err
