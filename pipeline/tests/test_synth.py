@@ -36,3 +36,9 @@ def test_confound_topic_uses_only_new_journal(tmp_path):
 def test_topics_have_six_terms_each():
     for _key, _role, th, en in TOPICS:
         assert len(th) == 6 and len(en) == 6
+
+
+def test_dois_are_unique(tmp_path):
+    generate(tmp_path, n=3000, seed=2)
+    dois = [r["doi"] for r in read_thaijo_corpus(tmp_path) if r["doi"] and "_dup" not in r["source_path"]]
+    assert len(dois) == len(set(dois))

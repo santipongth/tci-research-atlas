@@ -159,7 +159,7 @@ def _article_md(rng, idx, topic, year, journal, host) -> tuple[str, str]:
         abs_th = abs_th.replace("\N{THAI CHARACTER MAI THO}", PUA_MAI_THO)
     english_only = rng.random() < 0.05
     has_doi = rng.random() < 0.7
-    doi = f"10.14456/{journal}.{year}.{idx % 50 + 1}" if has_doi else ""
+    doi = f"10.14456/{journal}.{year}.{idx + 1}" if has_doi else ""
     published = f"{year}-{rng.integers(1, 13):02d}-{rng.integers(1, 29):02d}"
     if has_doi and rng.random() < 0.04:                       # scrape lost the date
         published = "1970-01-01"
