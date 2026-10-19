@@ -41,7 +41,7 @@ function SortGlyph({ dir }: { dir: SortDir | null }) {
  * Civic table: numbered caption, sortable headers with aria-sort, numbers right-aligned, a CSV button,
  * and (stack) label/value cards under 640 px. Sort is controlled (URL state) when `sort`/`onSort` are given.
  */
-export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, defaultSort, csvFilename, stack = true, wide = false, selectedKey = null, empty }: {
+export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, defaultSort, csvFilename, stack = true, wide = false, selectedKey = null, empty, footnote }: {
   caption: string
   rows: readonly R[]
   columns: readonly Column<R>[]
@@ -54,6 +54,8 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
   wide?: boolean
   selectedKey?: string | null
   empty?: string
+  /** a note under the table (e.g. what † means) */
+  footnote?: string
 }) {
   const { t } = useI18n()
   const [own, setOwn] = useState<SortState | null>(defaultSort ?? null)
@@ -128,6 +130,7 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
           </tbody>
         </table>
       </div>
+      {footnote ? <p className="note tbl-foot">{footnote}</p> : null}
     </div>
   )
 }

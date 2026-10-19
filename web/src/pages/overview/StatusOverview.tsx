@@ -65,7 +65,7 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
           source={t('source.line', { release: release.overview.release, v: release.definitionVersion })}
           view={state.st}
           onView={(st) => update({ st })}
-          chart={<ForestPlot groups={groups} axisLabel={t('ov.forest.axis')} refLabel={t('ov.forest.bar', { v: bar })} subtitle={(tp) => groupName(release, tp.group, lang)} />}
+          chart={<ForestPlot groups={groups} level={level} axisLabel={t('ov.forest.axis')} refLabel={t('ov.forest.bar', { v: bar })} subtitle={(tp) => groupName(release, tp.group, lang)} />}
           table={
             <DataTable
               caption={t('table.n', { n: 1, title: t('ov.forest.table', { n: 1 }) })}
@@ -73,6 +73,7 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
               columns={[idColumn(), topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx, level), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)]}
               rowKey={(r) => r.id}
               csvFilename={`atlas-${release.overview.release}-status-intervals.csv`}
+              footnote={rows.some((r) => r.metrics.orgs_unverified) ? t('orgsFoot') : undefined}
             />
           }
         />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dataDomain } from './scale'
+import { countTicks, dataDomain } from './scale'
 
 describe('dataDomain', () => {
   it('covers every value and the reference marks, with a margin', () => {
@@ -20,5 +20,14 @@ describe('dataDomain', () => {
     const [lo, hi] = dataDomain([], [-0.05, 0.05], [-1, 3])
     expect(lo).toBeLessThan(-0.05)
     expect(hi).toBeGreaterThan(0.05)
+  })
+})
+
+describe('countTicks', () => {
+  it('uses whole numbers only, from 0', () => {
+    expect(countTicks(2.1, 4)).toEqual([0, 1, 2])
+    expect(countTicks(1.05, 4)).toEqual([0, 1])
+    expect(countTicks(0.5, 4)).toEqual([0, 1])
+    for (const hi of [3.15, 7.35, 12, 880]) expect(countTicks(hi, 4).every(Number.isInteger)).toBe(true)
   })
 })

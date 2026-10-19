@@ -60,6 +60,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
       onSort={(s) => update({ sort: isSort(s.key) ? s.key : 'growth', dir: s.dir })}
       csvFilename={`atlas-${release.overview.release}-${st.toLowerCase()}.csv`}
       empty={t('em.none', { status: label })}
+      footnote={rows.some((r) => r.metrics.orgs_unverified) ? t('orgsFoot') : undefined}
     />
   )
   // every topic of the status, strongest first; topics without an interval are listed as text rows, never dropped
@@ -95,6 +96,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
               chart={
                 <ForestPlot
                   groups={[{ status: st, title: label, rows: forest.rows, total: forest.total, noCi: forest.noCi }]}
+                  level={level}
                   axisLabel={t('ov.forest.axis')}
                   refLabel={t('ov.forest.bar', { v: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0) })}
                   subtitle={(tp) => groupName(release, tp.group, lang)}

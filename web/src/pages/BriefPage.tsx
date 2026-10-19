@@ -1,3 +1,4 @@
+import { TopicName } from '../components/TopicName'
 import { Wordmark } from '../brand/Wordmark'
 import { DataBanner } from '../components/DataBanner'
 import { SegmentText } from '../components/SegmentText'
@@ -39,7 +40,7 @@ export default function BriefPage() {
 }
 
 function Brief({ release }: { release: AtlasRelease }) {
-  const { t, lang, name } = useI18n()
+  const { t, lang } = useI18n()
   const ov = release.overview
   const level = ciPct(release.ciLevel)
   const brief = ov.brief
@@ -64,7 +65,7 @@ function Brief({ release }: { release: AtlasRelease }) {
       ) : null}
       {headline ? (
         <p className="headline brief-headline">
-          <SegmentText segments={segmentHeadline(headline, release.topics)} />
+          <SegmentText segments={segmentHeadline(headline, release.topics)} links={false} />
         </p>
       ) : null}
       <section aria-labelledby="brief-kpi">
@@ -94,7 +95,7 @@ function Brief({ release }: { release: AtlasRelease }) {
           <h2 id="brief-points">{t('brief.points')}</h2>
           <ul className="brief-points">
             {bullets.map((b, i) => (
-              <li key={i}><SegmentText segments={segmentHeadline(b, release.topics, { figures: false })} mark={false} /></li>
+              <li key={i}><SegmentText segments={segmentHeadline(b, release.topics, { figures: false })} mark={false} links={false} /></li>
             ))}
           </ul>
         </section>
@@ -125,10 +126,10 @@ function Brief({ release }: { release: AtlasRelease }) {
             <tbody>
               {rows.map((tp) => (
                 <tr key={tp.id}>
-                  <th scope="row">{name(tp)}</th>
+                  <th scope="row"><TopicName topic={tp} /></th>
                   <td className="num">{fmtPct(tp.metrics.share_recent, 2)}</td>
                   <td className="num">{fmtSignedPct(tp.metrics.share_growth)}</td>
-                  <td className="num">{fmtSignedPct(tp.metrics.share_growth_lo, 0)} {t('to')} {fmtSignedPct(tp.metrics.share_growth_hi, 0)}</td>
+                  <td className="num">{fmtSignedPct(tp.metrics.share_growth_lo)} {t('to')} {fmtSignedPct(tp.metrics.share_growth_hi)}</td>
                 </tr>
               ))}
             </tbody>

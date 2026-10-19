@@ -2,6 +2,7 @@ import { defineStrings } from './define'
 
 export const overview = defineStrings({
   'ov.title': { th: 'ภาพรวมงานวิจัยไทย รอบข้อมูล {release}', en: 'Thai research overview, release {release}' },
+  'ov.lede.assigned': { th: 'บทความในวารสารไทย {articles} เรื่อง จัดเข้าหัวข้อวิจัยได้ {assigned} เรื่อง ใน {topics} หัวข้อ อีก {unassigned} เรื่องยังไม่จัดเข้าหัวข้อใด พร้อมสถานะการเติบโตของแต่ละหัวข้อ', en: '{articles} articles in Thai journals: {assigned} are assigned to {topics} research topics and {unassigned} are not assigned to any topic, with the growth status of each topic.' },
   'ov.lede': { th: 'บทความในวารสารไทย {articles} เรื่อง จัดเป็น {topics} หัวข้อวิจัย พร้อมสถานะการเติบโตของแต่ละหัวข้อ', en: '{articles} articles in Thai journals, grouped into {topics} research topics, with the growth status of each topic.' },
   'ov.meta.through': { th: 'ข้อมูลถึง', en: 'Data up to' },
   'ov.meta.throughV': { th: 'ปี {year}', en: '{year}' },

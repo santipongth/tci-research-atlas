@@ -31,6 +31,13 @@ export function niceTicks(lo: number, hi: number, count: number): number[] {
   return out
 }
 
+/** Ticks for a count axis from 0: whole numbers only, so a small series never shows "2, 2, 1, 1, 0". */
+export function countTicks(hi: number, count: number): number[] {
+  const whole = niceTicks(0, hi, count).filter(Number.isInteger)
+  if (whole.length >= 2) return whole
+  return Array.from({ length: Math.max(2, Math.ceil(hi) + 1) }, (_, i) => i)
+}
+
 /**
  * Axis domain from the data: every finite value plus the `include` marks (zero, a threshold), padded by `pad` × span,
  * and limited to `cap` — a value beyond the cap is drawn at the edge (with its number) instead of flattening the rest.

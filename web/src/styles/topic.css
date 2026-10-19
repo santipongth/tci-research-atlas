@@ -30,11 +30,12 @@
   .tr-band { fill: var(--link); opacity: 0.22; }
   .tr-fline { fill: none; stroke: var(--link); stroke-width: 3; stroke-dasharray: 6 4; }
   .tr-endlabel { font-size: 13px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
-  .tr-now { fill: var(--bg); stroke: var(--st-WATCH); stroke-width: 2.5; }
+  .tr-now { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
   .tr-cross { stroke: var(--ink); stroke-width: 1; }
   .tr-hit { fill: transparent; cursor: crosshair; }
   .lg-line { display: inline-block; width: 22px; border-top: 3px solid var(--link); }
   .lg-line.is-dashed { border-top-style: dashed; }
+  .lg-now { display: inline-block; vertical-align: -1px; fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
   .lg-band { display: inline-block; width: 22px; height: 10px; background: var(--link); opacity: 0.22; }
 
   .kw-list { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }

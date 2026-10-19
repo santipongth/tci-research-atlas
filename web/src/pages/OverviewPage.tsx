@@ -44,7 +44,11 @@ function Overview({ release }: { release: AtlasRelease }) {
     <div className="container">
       <PageHeader
         title={t('ov.title', { release: ov.release })}
-        lede={t('ov.lede', { articles: fmtInt(ov.kpis.articles), topics: fmtInt(ov.kpis.topics) })}
+        lede={
+          ov.kpis.assigned_articles != null
+            ? t('ov.lede.assigned', { articles: fmtInt(ov.kpis.articles), assigned: fmtInt(ov.kpis.assigned_articles), topics: fmtInt(ov.kpis.topics), unassigned: fmtInt(Math.max(0, ov.kpis.articles - ov.kpis.assigned_articles)) })
+            : t('ov.lede', { articles: fmtInt(ov.kpis.articles), topics: fmtInt(ov.kpis.topics) })
+        }
         meta={[
           { label: t('ov.meta.through'), value: t('ov.meta.throughV', { year: ov.last_complete_year }) },
           { label: t('ov.meta.release'), value: ov.release },

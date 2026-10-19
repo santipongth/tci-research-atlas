@@ -2,10 +2,10 @@ import { useState } from 'react'
 import type { TopicForecast, TopicNowcast } from '../data/types'
 import { forecastView } from '../lib/forecast'
 import { fmtCompact, fmtInt } from '../lib/format'
-import { glyphPath, type StatusId } from '../lib/status'
+import { NOWCAST_MARK, type StatusId } from '../lib/status'
 import { useTooltip } from '../lib/tooltip'
 import { useElementSize } from '../lib/useElementSize'
-import { linear, niceTicks } from './scale'
+import { countTicks, linear } from './scale'
 
 export interface TrendLabels {
   name: string
@@ -36,7 +36,7 @@ export function TrendChart({ status, years, counts, forecast, nowcast, labels }:
   const H = Math.round(Math.max(220, Math.min(320, W * 0.5)))
   const M = { t: 22, r: 18, b: 32, l: 48 }
   const maxV = Math.max(1, ...counts, ...(fc ? fc.hi95 : []), ...(nowcast ? [nowcast.mean] : []))
-  const ticks = niceTicks(0, maxV * 1.05, 4)
+  const ticks = countTicks(maxV * 1.05, 4)
   const yMax = Math.max(ticks[ticks.length - 1] ?? maxV, maxV * 1.08)
   const x = linear(first, end === first ? first + 1 : end, M.l, W - M.r)
   const y = linear(0, yMax, H - M.b, M.t)
@@ -91,7 +91,7 @@ export function TrendChart({ status, years, counts, forecast, nowcast, labels }:
         {fc ? <path d={meanLine} className="tr-fline" /> : null}
         <circle cx={x(last)} cy={y(lastV)} r={4} className="tr-end" />
         <text x={x(last) - 8} y={y(lastV) - 10} textAnchor="end" className="tr-endlabel">{fmtInt(lastV)}</text>
-        {nowcast ? <path transform={`translate(${x(nowcast.year)},${y(nowcast.mean)})`} d={glyphPath('WATCH', 4.4)} className="tr-now" /> : null}
+        {nowcast ? <path transform={`translate(${x(nowcast.year)},${y(nowcast.mean)})`} d={NOWCAST_MARK} className="tr-now" /> : null}
         {hover !== null ? <line x1={x(hover)} x2={x(hover)} y1={M.t} y2={H - M.b} className="tr-cross" /> : null}
         <rect
           x={M.l}

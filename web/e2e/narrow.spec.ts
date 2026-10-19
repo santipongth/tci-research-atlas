@@ -39,4 +39,15 @@ test.describe('360 px', () => {
       await pf.screenshot({ path: `test-results/pf-360-${lang}.png` })
     })
   }
+
+  test('atlas: zoom buttons sit below the sheet and the key lists every field with a swatch', async ({ page }) => {
+    await page.goto(`${EXAMPLE}#/atlas`)
+    await page.evaluate(() => document.fonts.ready)
+    const zoom = page.locator('.zoom')
+    await expect(zoom).toBeVisible()
+    const [z, sheet] = await Promise.all([zoom.boundingBox(), page.locator('.sheet-in').boundingBox()])
+    expect(z && sheet && z.y >= sheet.y + sheet.height - 1).toBe(true)
+    expect(await page.locator('.fieldkey li .swatch').count()).toBeGreaterThanOrEqual(2)
+    await page.locator('.sheet').screenshot({ path: 'test-results/atlas-360.png' })
+  })
 })

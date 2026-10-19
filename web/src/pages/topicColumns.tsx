@@ -1,3 +1,4 @@
+import { TopicName } from '../components/TopicName'
 import { Link } from 'react-router'
 import { CiWhisker } from '../components/CiWhisker'
 import type { Column } from '../components/DataTable'
@@ -28,7 +29,7 @@ export function topicColumn(ctx: ColumnContext, sub?: (r: Topic) => string): Col
     rowHeader: true,
     cell: (r) => (
       <>
-        <Link to={`/topics/${r.id}`} className="topic-link">{ctx.name(r)}</Link>
+        <Link to={`/topics/${r.id}`} className="topic-link"><TopicName topic={r} /></Link>
         <span className="topic-sub">{sub ? sub(r) : ctx.groupName(r.group)}</span>
       </>
     ),

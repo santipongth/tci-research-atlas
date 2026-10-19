@@ -1,3 +1,4 @@
+import { TopicName } from '../components/TopicName'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { CiWhisker } from '../components/CiWhisker'
@@ -31,11 +32,13 @@ const CAP: readonly [number, number] = [-1, 3]
  * grouped by status, with a dashed line at the EMERGING bar and a solid line at zero. Rows are links.
  * The axis covers every interval shown (plus zero and the bar) unless a `domain` is given.
  */
-export function ForestPlot({ groups, axisLabel, refLabel, subtitle, domain, refValue = DEFINITION.emergingMinGrowthLo }: {
+export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, domain, refValue = DEFINITION.emergingMinGrowthLo }: {
   groups: readonly ForestGroup[]
   axisLabel: string
   refLabel: string
   subtitle: (t: Topic) => string
+  /** interval level in percent (90), for the row's spoken name */
+  level: number
   domain?: readonly [number, number]
   refValue?: number
 }) {
@@ -79,9 +82,13 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, domain, refV
               const ci = hasCi(tp)
               return (
                 <li key={tp.id}>
-                  <Link className="fr-row" to={`/topics/${tp.id}`}>
+                  <Link
+                    className="fr-row"
+                    to={`/topics/${tp.id}`}
+                    aria-label={[name(tp), subtitle(tp), `${fmtSignedPct(tp.metrics.share_growth)}${tp.metrics.no_baseline ? ` (${t('noBaseline')})` : ''}`, ci ? t('ciRange', { level, lo: fmtSignedPct(tp.metrics.share_growth_lo), hi: fmtSignedPct(tp.metrics.share_growth_hi) }) : t('noCi')].join(', ')}
+                  >
                     <span className="fr-name">
-                      <b>{name(tp)}</b>
+                      <b><TopicName topic={tp} /></b>
                       {tp.metrics.no_baseline ? <span className="fr-new">{t('noBaseline')}</span> : null}
                       <span>{subtitle(tp)}</span>
                     </span>
@@ -94,7 +101,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, domain, refV
                     </span>
                     <span className="fr-val">
                       <b>{fmtSignedPct(tp.metrics.share_growth)}</b>
-                      {ci ? <span>{fmtSignedPct(tp.metrics.share_growth_lo, 0)} {t('to')} {fmtSignedPct(tp.metrics.share_growth_hi, 0)}</span> : null}
+                      {ci ? <span>{fmtSignedPct(tp.metrics.share_growth_lo)} {t('to')} {fmtSignedPct(tp.metrics.share_growth_hi)}</span> : null}
                     </span>
                   </Link>
                 </li>

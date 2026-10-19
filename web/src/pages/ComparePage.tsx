@@ -1,3 +1,4 @@
+import { TopicName } from '../components/TopicName'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { DataTable, type Column } from '../components/DataTable'
@@ -107,7 +108,7 @@ function Compare({ release }: { release: AtlasRelease }) {
               <li key={tp.id} className="cmp-chip">
                 <Swatch slot={slots[tp.id]} />
                 <StatusGlyph status={tp.status} size={12} />
-                <Link to={`/topics/${tp.id}`}>{name(tp)}</Link>
+                <Link to={`/topics/${tp.id}`}><TopicName topic={tp} /></Link>
                 <button type="button" className="cmp-remove" aria-label={t('cmp.remove', { n: name(tp) })} onClick={() => remove(tp.id)}>
                   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="2" /></svg>
                 </button>
@@ -137,7 +138,7 @@ function Compare({ release }: { release: AtlasRelease }) {
                   <li key={tp.id}>
                     <button type="button" className="btn-secondary" onClick={() => add(tp.id)}>
                       <StatusGlyph status={tp.status} size={12} />
-                      {name(tp)}
+                      <TopicName topic={tp} />
                     </button>
                   </li>
                 ))}
@@ -186,6 +187,7 @@ function Compare({ release }: { release: AtlasRelease }) {
               columns={[idColumn(), topicColumn(ctx), statusColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx, ciPct(release.ciLevel)), journalsColumn(ctx), orgsColumn(ctx)]}
               rowKey={(r) => r.id}
               csvFilename={`atlas-${release.overview.release}-compare-figures.csv`}
+              footnote={chosen.some((r) => r.metrics.orgs_unverified) ? t('orgsFoot') : undefined}
             />
           </Section>
         </>

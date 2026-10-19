@@ -1,3 +1,4 @@
+import { TopicName } from '../components/TopicName'
 import { Link, useNavigate, useParams } from 'react-router'
 import { CiWhisker } from '../components/CiWhisker'
 import { DataTable } from '../components/DataTable'
@@ -11,6 +12,7 @@ import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
 import { TopicLink } from '../components/TopicLink'
 import { TopicSearch } from '../components/TopicSearch'
 import { TrendChart } from '../charts/TrendChart'
+import { NOWCAST_MARK } from '../lib/status'
 import { useTopicDetail } from '../data/atlasContext'
 import { groupName, neighborsOf, seriesOf, type AtlasRelease } from '../data/release'
 import type { CountItem, Topic } from '../data/types'
@@ -123,7 +125,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
 
   return (
     <div className="container">
-      <PageHeader title={name(topic)} lede={topic.description || undefined}>
+      <PageHeader title={name(topic)} titleLang={lang === 'en' && !topic.en ? 'th' : undefined} lede={topic.description || undefined}>
         <p className="tp-alt" lang={otherLang}>{other(topic)}</p>
         <div className="tp-tags">
           <StatusChip status={topic.status} label={statusName(t, topic.status)} />
@@ -138,7 +140,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
             return (
               <span key={p}>
                 {i ? ', ' : ' '}
-                {parent ? <Link to={`/topics/${p}`}>{name(parent)}</Link> : p}
+                {parent ? <Link to={`/topics/${p}`}><TopicName topic={parent} /></Link> : p}
               </span>
             )
           })}
@@ -211,7 +213,12 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                     <span><i className="lg-line" aria-hidden="true" />{t('actual')}</span>
                     {showFc ? <span><i className="lg-line is-dashed" aria-hidden="true" />{t('forecast')}</span> : null}
                     {showFc ? <span><i className="lg-band" aria-hidden="true" />{t('tp.legend.band')}</span> : null}
-                    {nowcast ? <span><StatusGlyph status="WATCH" size={12} />{t('tp.nowcastLabel')}</span> : null}
+                    {nowcast ? (
+                      <span>
+                        <svg className="lg-now" viewBox="-6 -6 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d={NOWCAST_MARK} /></svg>
+                        {t('tp.nowcastLabel')}
+                      </span>
+                    ) : null}
                   </div>
                 }
                 chart={

@@ -266,12 +266,12 @@ function buildExample() {
     bullets_th: [
       `หัวข้อกำลังมาแรง ${by('HOT').length} หัวข้อ นำโดย${topHot.th} (${pct(topHot.metrics.share_recent)} ของบทความช่วง 2022–2024)`,
       `หัวข้อที่ลดลง ${by('DECLINING').length} หัวข้อ เช่น ${decl.th} ซึ่งสัดส่วนเปลี่ยนแปลง ${signed(decl.metrics.share_growth)} ต่อปี`,
-      `หัวข้อจับตา ${by('WATCH').length} หัวข้อโตจากวารสารเดียว เช่น ${watch.th} ควรตรวจสอบก่อนอ้างอิง`,
+      `หัวข้อจับตา ${by('WATCH').length} หัวข้อเติบโตแต่ไม่ผ่านเกณฑ์ความกว้าง เช่น ${watch.th} ควรตรวจสอบก่อนอ้างอิง`,
     ],
     bullets_en: [
       `${by('HOT').length} topics are hot, led by ${topHot.en} (${pct(topHot.metrics.share_recent)} of articles in 2022–2024)`,
       `${by('DECLINING').length} topics are declining, such as ${decl.en}, whose share is changing ${signed(decl.metrics.share_growth)} a year`,
-      `${by('WATCH').length} watch topics grew from a single journal, such as ${watch.en}; check them before citing`,
+      `${by('WATCH').length} watch topics are growing but did not pass the breadth test, such as ${watch.en}; check them before citing`,
     ],
     source: 'template',
   }

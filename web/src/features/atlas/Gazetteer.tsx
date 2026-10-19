@@ -1,3 +1,4 @@
+import { TopicName } from '../../components/TopicName'
 import { useMemo } from 'react'
 import { CiWhisker } from '../../components/CiWhisker'
 import { StatusGlyph } from '../../components/StatusGlyph'
@@ -48,7 +49,7 @@ export function Gazetteer({ release, points, query, onQuery, onPick, selected }:
                 <button type="button" className="grow" aria-pressed={tp.id === selected} onClick={() => onPick(tp.id)}>
                   <span className="g-name">
                     <StatusGlyph status={tp.status} size={12} />
-                    {name(tp)}
+                    <TopicName topic={tp} />
                   </span>
                   <span className="g-ref">{refOf.get(tp.id) ?? ''}</span>
                   <span className="g-sub">{statusName(t, tp.status)} · {groupName(release, tp.group, lang)}</span>

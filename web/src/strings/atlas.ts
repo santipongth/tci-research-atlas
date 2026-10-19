@@ -15,6 +15,7 @@ export const atlas = defineStrings({
   'map.grid': { th: 'พิกัด', en: 'Grid' },
   'map.key.h': { th: 'คำอธิบายสัญลักษณ์', en: 'Map key' },
   'map.key.statuses': { th: 'แสดงสถานะ', en: 'Show statuses' },
+  'map.key.fields': { th: 'สีพื้นแผนที่ = สาขา', en: 'Map colour = field' },
   'map.key.layers': { th: 'ชั้นข้อมูล', en: 'Layers' },
   'layer.contours': { th: 'เส้นชั้น', en: 'Contours' },
   'layer.tints': { th: 'สีสาขา', en: 'Field tints' },

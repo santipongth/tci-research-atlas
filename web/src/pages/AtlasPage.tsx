@@ -1,3 +1,4 @@
+import { TopicName } from '../components/TopicName'
 import { useMemo, useRef } from 'react'
 import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
@@ -25,7 +26,7 @@ export default function AtlasPage() {
 }
 
 function Atlas({ release }: { release: AtlasRelease }) {
-  const { t, name, other, otherLang, lang } = useI18n()
+  const { t, other, otherLang, lang } = useI18n()
   const [state, update] = useUrlState(atlasCodec)
   const mapRef = useRef<TerrainMapHandle>(null)
   const points = useMemo(() => toMapPoints(release.topics, release.taxonomy.groups), [release])
@@ -98,7 +99,7 @@ function Atlas({ release }: { release: AtlasRelease }) {
             {sel ? (
               <>
                 <p className="sel-name">
-                  <b>{name(sel)}</b>
+                  <b><TopicName topic={sel} /></b>
                   {selPoint ? <span className="g-ref">{gridRef(selPoint.x, selPoint.y)}</span> : null}
                 </p>
                 <p className="tp-alt" lang={otherLang}>{other(sel)}</p>
@@ -132,6 +133,17 @@ function Atlas({ release }: { release: AtlasRelease }) {
                   </label>
                 ))}
               </div>
+            </fieldset>
+            <fieldset className="keyset">
+              <legend>{t('map.key.fields')}</legend>
+              <ul className="fieldkey">
+                {groups.filter((g) => g.n > 0).map((g) => (
+                  <li key={g.name}>
+                    <i className="swatch" style={{ background: `var(--${g.color})` }} aria-hidden="true" />
+                    <span>{g.name}</span>
+                  </li>
+                ))}
+              </ul>
             </fieldset>
             <fieldset className="keyset">
               <legend>{t('map.key.layers')}</legend>

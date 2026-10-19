@@ -33,3 +33,6 @@ export function glyphPath(status: StatusId, r: number): string {
       return `M${f(-r)},0A${f(r)},${f(r)} 0 1,0 ${f(r)},0A${f(r)},${f(r)} 0 1,0 ${f(-r)},0Z`
   }
 }
+
+/** The nowcast marker: a neutral ink cross (centred path) — status glyphs and colours are reserved for statuses. */
+export const NOWCAST_MARK = 'M-4.5,-4.5L4.5,4.5M4.5,-4.5L-4.5,4.5'

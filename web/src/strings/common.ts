@@ -65,6 +65,7 @@ export const common = defineStrings({
   noCi: { th: 'ไม่มีช่วงเชื่อมั่น', en: 'No confidence interval' },
   'lowData.few_articles': { th: 'บทความน้อยกว่า {n} เรื่องใน {ry} ปีล่าสุด จึงยังไม่จัดสถานะ', en: 'Fewer than {n} articles in the last {ry} years, so no status is assigned' },
   'lowData.not_estimable': { th: 'ข้อมูลรายปียังไม่พอจะประมาณอัตราการเติบโต', en: 'Too few yearly data points to estimate growth' },
+  orgsFoot: { th: '† ยังตรวจความกว้างของสถาบันไม่ได้ เพราะข้อมูลสังกัดผู้แต่งไม่ครบ จำนวนสถาบันจึงไม่ถูกใช้ตัดสินสถานะ', en: '† Institution breadth not verified: author affiliations are incomplete, so the institution count was not used to decide the status.' },
   orgsUnverified: { th: 'ยังตรวจความกว้างของสถาบันไม่ได้ เพราะข้อมูลสังกัดผู้แต่งไม่ครบ', en: 'Institution breadth not verified: author affiliations are incomplete' },
   journalDriven: { th: 'ไม่ผ่านเกณฑ์ความกว้าง — ต้องตรวจสอบ', en: 'Did not pass the breadth test — check before citing' },
   journalDrivenBody: { th: 'อัตราการเติบโตเข้าเกณฑ์ แต่ไม่ผ่านเกณฑ์ความกว้าง (วารสารอย่างน้อย {j} ฉบับ สถาบันอย่างน้อย {o} แห่ง และสัดส่วนบทความจากวารสารที่เพิ่งเข้าระบบต่ำกว่า {ns}) ควรตรวจสอบก่อนอ้างเป็นแนวโน้มระดับประเทศ', en: 'Growth meets the bar but the breadth test is not passed (at least {j} journals, at least {o} institutions, and fewer than {ns} of articles from newly indexed journals). Check before citing this as a national trend.' },
