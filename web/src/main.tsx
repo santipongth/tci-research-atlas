@@ -1,3 +1,4 @@
+import { TooltipProvider } from './components/TooltipProvider'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router'
@@ -15,7 +16,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
       <AtlasProvider source={source}>
-        <App />
+        <TooltipProvider>
+          <App />
+        </TooltipProvider>
       </AtlasProvider>
     </HashRouter>
   </StrictMode>,

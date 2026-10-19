@@ -1,9 +1,10 @@
-import { Link, NavLink } from 'react-router'
+import { Link, NavLink, useNavigate } from 'react-router'
 import { Wordmark } from '../brand/Wordmark'
 import { useI18n } from '../lib/i18n'
 import type { StrKey } from '../strings'
 import { LangSwitch } from './LangSwitch'
 import { ThemeToggle } from './ThemeToggle'
+import { TopicSearch } from './TopicSearch'
 
 const NAV: readonly { to: string; key: StrKey }[] = [
   { to: '/overview', key: 'nav.overview' },
@@ -13,6 +14,12 @@ const NAV: readonly { to: string; key: StrKey }[] = [
   { to: '/data', key: 'nav.data' },
   { to: '/about', key: 'nav.about' },
 ]
+
+function SiteSearch() {
+  const navigate = useNavigate()
+  const { t } = useI18n()
+  return <TopicSearch id="site-search" label={t('search.label')} hideLabel onPick={(id) => navigate(`/topics/${id}`)} />
+}
 
 export function Header() {
   const { t, lang } = useI18n()
@@ -40,7 +47,9 @@ export function Header() {
               </li>
             ))}
           </ul>
-          <div className="nav-search" />
+          <div className="nav-search">
+            <SiteSearch />
+          </div>
         </div>
       </nav>
     </>

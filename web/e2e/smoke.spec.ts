@@ -85,3 +85,12 @@ test('pages do not scroll sideways on a 360 px phone', async ({ page }) => {
     expect(overflow, path).toBeLessThanOrEqual(0)
   }
 })
+
+test('the header search finds a Thai topic typed without tone marks and opens it with the keyboard', async ({ page }) => {
+  await page.goto(`${EXAMPLE}#/overview`)
+  const box = page.getByRole('combobox', { name: 'ค้นหาหัวข้อวิจัย' })
+  await box.fill('ผูสูงอายุ')
+  await expect(page.getByRole('option').first()).toContainText('การดูแลผู้สูงอายุในชุมชน')
+  await box.press('Enter')
+  await expect(page).toHaveURL(/#\/topics\/T000101$/)
+})
