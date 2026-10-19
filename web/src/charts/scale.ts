@@ -31,6 +31,19 @@ export function niceTicks(lo: number, hi: number, count: number): number[] {
   return out
 }
 
+/**
+ * Axis domain from the data: every finite value plus the `include` marks (zero, a threshold), padded by `pad` × span,
+ * and limited to `cap` — a value beyond the cap is drawn at the edge (with its number) instead of flattening the rest.
+ */
+export function dataDomain(values: readonly (number | null | undefined)[], include: readonly number[], cap: readonly [number, number], pad = 0.05): [number, number] {
+  const v = [...values.filter((x): x is number => typeof x === 'number' && Number.isFinite(x)), ...include]
+  if (v.length === 0) return [cap[0], cap[1]]
+  const lo = Math.min(...v)
+  const hi = Math.max(...v)
+  const span = hi - lo || 0.1
+  return [Math.max(cap[0], lo - span * pad), Math.min(cap[1], hi + span * pad)]
+}
+
 export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
 }

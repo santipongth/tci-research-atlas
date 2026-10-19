@@ -15,6 +15,7 @@ import { useTopicDetail } from '../data/atlasContext'
 import { groupName, neighborsOf, seriesOf, type AtlasRelease } from '../data/release'
 import type { CountItem, Topic } from '../data/types'
 import { DEFINITION, fmtWindow, windows } from '../lib/definition'
+import { forecastView } from '../lib/forecast'
 import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { ciText, growthText, lowDataText, ratioText, statusName } from '../lib/topicText'
@@ -69,7 +70,9 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
   const years = release.series.years
   const counts = seriesOf(release, topic.id) ?? []
   const fc = topic.forecast ?? null
-  const showFc = Boolean(fc?.show && fc.years.length > 0)
+  // LOW_DATA never gets a band, even if the data carries one; the reason shown depends on why there is none
+  const fcView = forecastView(topic.status, fc)
+  const showFc = fcView === 'show'
   const nowcast = topic.nowcast ?? null
   const ready = detail.status === 'ready' ? detail.detail : null
   const relatedIds = ready?.neighbors?.length ? ready.neighbors : neighborsOf(release, topic.id)
@@ -211,6 +214,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 }
                 chart={
                   <TrendChart
+                    status={topic.status}
                     years={years}
                     counts={counts}
                     forecast={showFc ? fc : null}
@@ -243,7 +247,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                     ) : (
                       <div className="uncertain">
                         <b>{t('fc.uncertain')}</b>
-                        <p>{topic.status === 'LOW_DATA' || !fc ? t('fc.lowData') : t('fc.noSkill')}</p>
+                        <p>{t(fcView === 'lowData' ? 'fc.lowData' : fcView === 'noSkill' ? 'fc.noSkill' : 'fc.none')}</p>
                       </div>
                     )}
                     {nowcast ? <p className="note">{t('tp.nowcast', { year: nowcast.year, month: nowcast.as_of_month, ytd: fmtInt(nowcast.ytd), mean: fmtInt(nowcast.mean) })}</p> : null}

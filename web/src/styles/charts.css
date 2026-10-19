@@ -58,6 +58,8 @@
   .fr-name { min-width: 0; padding-left: 4px; }
   .fr-name b { display: block; font-weight: 600; font-size: 1rem; line-height: 1.5; color: var(--link); }
   .fr-name span { display: block; font-size: 0.8125rem; color: var(--ink-2); line-height: 1.5; }
+  .fr-name .fr-new { display: inline-block; margin: 2px 0; padding: 0 6px; border: 1px solid var(--ink-2); color: var(--ink); font-weight: 600; font-size: 0.75rem; }
+  .fr-noci { display: flex; align-items: center; height: 100%; padding-left: 6px; font-size: 0.8125rem; color: var(--ink-2); line-height: 1.5; }
   .fr-row:focus-visible .fr-name b, .fr-row:focus-visible .fr-name span, .fr-row:focus-visible .fr-val span { color: var(--focus-ink); }
   .fr-plot { min-width: 0; height: 26px; }
   .fr-val { text-align: right; padding-right: 4px; font-variant-numeric: tabular-nums; }
@@ -88,5 +90,6 @@
   .pf-node:hover .mk { stroke: var(--ink); stroke-width: 2.5; }
   .pf-node:focus-visible .hit { fill: var(--focus); }
   .pf-node:focus-visible .mk { stroke: var(--focus-ink); stroke-width: 3; }
+  .pf-edge { font-size: 12px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; font-variant-numeric: tabular-nums; }
   .pf-ltext { font-size: 13px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
 }

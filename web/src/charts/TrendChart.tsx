@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { TopicForecast, TopicNowcast } from '../data/types'
+import { forecastView } from '../lib/forecast'
 import { fmtCompact, fmtInt } from '../lib/format'
-import { glyphPath } from '../lib/status'
+import { glyphPath, type StatusId } from '../lib/status'
 import { useTooltip } from '../lib/tooltip'
 import { useElementSize } from '../lib/useElementSize'
 import { linear, niceTicks } from './scale'
@@ -13,8 +14,9 @@ export interface TrendLabels {
   range80: (lo: string, hi: string) => string
 }
 
-/** Articles a year (line + area), and — only when the release shows a forecast — 80 % and 95 % bands with a dashed mean. */
-export function TrendChart({ years, counts, forecast, nowcast, labels }: {
+/** Articles a year (line + area), and — only when the release shows a forecast (never for LOW_DATA) — 80 % and 95 % bands with a dashed mean. */
+export function TrendChart({ status, years, counts, forecast, nowcast, labels }: {
+  status: StatusId
   years: readonly number[]
   counts: readonly number[]
   forecast: TopicForecast | null
@@ -25,7 +27,7 @@ export function TrendChart({ years, counts, forecast, nowcast, labels }: {
   const tip = useTooltip()
   const [hover, setHover] = useState<number | null>(null)
   if (W === 0 || years.length === 0) return <div ref={ref} className="tr-host" />
-  const fc = forecast && forecast.show && forecast.years.length > 0 ? forecast : null
+  const fc = forecast && forecastView(status, forecast) === 'show' ? forecast : null
   const last = years[years.length - 1]
   const extra = [...(fc ? fc.years : []), ...(nowcast && !years.includes(nowcast.year) && !(fc?.years ?? []).includes(nowcast.year) ? [nowcast.year] : [])]
   const all = [...years, ...extra].sort((a, b) => a - b)

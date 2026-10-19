@@ -27,8 +27,25 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.kpi')).toHaveCount(6)
     await expect(page.locator('.kpi .d').first()).toContainText('2026Q3')
     await expect(page.locator('.fr-row').first()).toBeVisible()
+    // a topic new since the baseline is marked as such; the axis reaches its +129% upper bound instead of clipping it
+    await expect(page.locator('.fr-row', { hasText: 'โมเดลภาษาขนาดใหญ่' }).first()).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
+    await expect(page.locator('.fr-axis').first()).toContainText('+120%')
+    // portfolio labels sit beside the markers, never on one
+    await page.evaluate(() => document.fonts.ready)
+    await expect(page.locator('.pf-ltext').first()).toBeVisible()
+    const onMarkers = await page.evaluate(() => {
+      const marks = [...document.querySelectorAll('.pf-node .mk')].map((m) => m.getBoundingClientRect())
+      return [...document.querySelectorAll('.pf-ltext')]
+        .filter((l) => {
+          const r = l.getBoundingClientRect()
+          return marks.some((m) => r.left + 1 < m.right && m.left < r.right - 1 && r.top + 1 < m.bottom && m.top < r.bottom - 1)
+        })
+        .map((l) => l.textContent)
+    })
+    expect(onMarkers).toEqual([])
     await page.getByRole('tab', { name: 'ตาราง' }).first().click()
     await expect(page.getByRole('table').first()).toBeVisible()
+    await expect(page.getByRole('table').first()).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
     await expect(page).toHaveURL(/st=table/)
   },
   emerging: async (page) => {
@@ -50,6 +67,8 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#related')).toBeVisible()
     await page.goto(`${EXAMPLE}#/topics/T000701`)
     await expect(page.locator('.uncertain')).toContainText('แนวโน้มไม่แน่นอน')
+    await expect(page.locator('.uncertain')).not.toContainText('บทความยังน้อย')
+    await expect(page.locator('.tr-band')).toHaveCount(0)
     await expect(page.locator('.summary')).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
     await page.goto(`${EXAMPLE}#/topics/T123456`)
     await expect(page.locator('h1')).toContainText('T123456')

@@ -1,6 +1,6 @@
 import type { AtlasRelease } from '../../data/release'
 import type { Kpis } from '../../data/types'
-import { fmtInt, fmtNum, kpiDelta } from '../../lib/format'
+import { fmtInt, fmtNum, kpiDelta, kpiDir } from '../../lib/format'
 import { useI18n } from '../../lib/i18n'
 import type { StrKey } from '../../strings'
 
@@ -24,7 +24,8 @@ export function KpiGrid({ release }: { release: AtlasRelease }) {
         const value = now[k.key]
         const before = prev ? prev.kpis[k.key] : null
         const delta = kpiDelta(value, before, k.unit, lang)
-        const dir = before === null ? 0 : Math.sign(value - before)
+        // the arrow follows the change as printed: no arrow beside "±0.0"
+        const dir = kpiDir(value, before, k.unit)
         return (
           <div className="kpi" key={k.key}>
             <dt>{t(k.label)}</dt>

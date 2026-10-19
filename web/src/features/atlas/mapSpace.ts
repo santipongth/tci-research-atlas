@@ -1,5 +1,8 @@
 import type { GroupInfo, Topic } from '../../data/types'
+import { overlaps, type Box, type PlacedLabel } from '../../lib/labels'
 import type { StatusId } from '../../lib/status'
+
+export { overlaps, placeLabels, type Box, type LabelCandidate, type PlacedLabel } from '../../lib/labels'
 
 /** The map sheet: a fixed 1000 × 640 space with a 10 × 6 reference grid (A–J across, 1–6 down). */
 export const MAP_W = 1000
@@ -34,12 +37,6 @@ export interface UserView {
   dy: number
 }
 
-export interface Box {
-  x: number
-  y: number
-  w: number
-  h: number
-}
 
 /** Fit the topics' layout coordinates into the sheet (aspect kept, `pad` margin); radius grows with √share. */
 export function toMapPoints(topics: readonly Topic[], groups: readonly GroupInfo[], pad = 30): MapPoint[] {
@@ -117,58 +114,6 @@ export function groupCentroids(points: readonly MapPoint[]): Map<number, { x: nu
     acc.set(p.groupIndex, { x: a.x + p.x, y: a.y + p.y, n: a.n + 1 })
   }
   return new Map([...acc].map(([g, a]) => [g, { x: a.x / a.n, y: a.y / a.n, n: a.n }]))
-}
-
-export function overlaps(a: Box, b: Box, pad = 0): boolean {
-  return !(a.x + a.w + pad < b.x || b.x + b.w + pad < a.x || a.y + a.h + pad < b.y || b.y + b.h + pad < a.y)
-}
-
-export interface LabelCandidate {
-  id: string
-  text: string
-  width: number
-  height: number
-  x: number
-  y: number
-  radius: number
-}
-
-export interface PlacedLabel {
-  id: string
-  text: string
-  x: number
-  y: number
-  anchor: 'start' | 'middle' | 'end'
-  box: Box
-}
-
-/**
- * Greedy label placement around each mark (right, left, above, below), in candidate order. A label is skipped when
- * every position leaves the frame or hits a placed label or an obstacle (marks — except its own — and field labels).
- * Ids in `force` (hovered, selected) are always placed, above the mark if nothing else fits.
- */
-export function placeLabels(cands: readonly LabelCandidate[], obstacles: readonly (Box & { id?: string })[], frame: Box, force: ReadonlySet<string> = new Set()): PlacedLabel[] {
-  const placed: PlacedLabel[] = []
-  for (const c of cands) {
-    const options: [number, number, PlacedLabel['anchor']][] = [
-      [c.x + c.radius + 5, c.y + c.height / 3, 'start'],
-      [c.x - c.radius - 5, c.y + c.height / 3, 'end'],
-      [c.x, c.y - c.radius - 7, 'middle'],
-      [c.x, c.y + c.radius + c.height + 2, 'middle'],
-    ]
-    const boxOf = (x: number, y: number, anchor: PlacedLabel['anchor']): Box => ({
-      x: anchor === 'start' ? x : anchor === 'end' ? x - c.width : x - c.width / 2,
-      y: y - c.height,
-      w: c.width,
-      h: c.height + 3,
-    })
-    const inFrame = (b: Box) => b.x >= frame.x && b.y >= frame.y && b.x + b.w <= frame.x + frame.w && b.y + b.h <= frame.y + frame.h
-    const free = (b: Box) => !placed.some((p) => overlaps(p.box, b, 4)) && !obstacles.some((o) => o.id !== c.id && overlaps(o, b, 2))
-    const hit = options.find(([x, y, a]) => inFrame(boxOf(x, y, a)) && free(boxOf(x, y, a)))
-    const chosen = hit ?? (force.has(c.id) ? options[2] : undefined)
-    if (chosen) placed.push({ id: c.id, text: c.text, x: chosen[0], y: chosen[1], anchor: chosen[2], box: boxOf(chosen[0], chosen[1], chosen[2]) })
-  }
-  return placed
 }
 
 /**

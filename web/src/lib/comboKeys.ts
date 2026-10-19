@@ -20,7 +20,8 @@ export function comboKey(key: string, s: ComboState): ComboAction {
   const last = Math.max(s.count - 1, 0)
   switch (key) {
     case 'ArrowDown':
-      return { ...none, prevent: true, open: true, active: Math.min(s.active + 1, last) }
+      // a closed list opens on its first option; an open one moves down
+      return { ...none, prevent: true, open: true, active: s.showList ? Math.min(s.active + 1, last) : 0 }
     case 'ArrowUp':
       return { ...none, prevent: true, open: true, active: Math.max(s.active - 1, 0) }
     case 'Enter':

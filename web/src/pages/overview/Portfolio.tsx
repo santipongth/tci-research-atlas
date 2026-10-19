@@ -4,7 +4,7 @@ import { StatusLegend } from '../../components/StatusLegend'
 import { PortfolioMatrix } from '../../charts/PortfolioMatrix'
 import { groupName, type AtlasRelease } from '../../data/release'
 import type { Topic } from '../../data/types'
-import { fmtWindow, QUADRANTS, quadrantOf, windows, type Quadrant } from '../../lib/definition'
+import { DEFINITION, fmtWindow, QUADRANTS, quadrantOf, windows, type Quadrant } from '../../lib/definition'
 import { fmtInt, fmtPct } from '../../lib/format'
 import { useI18n } from '../../lib/i18n'
 import { STATUSES } from '../../lib/status'
@@ -73,7 +73,7 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
       />
       <details className="how">
         <summary>{t('howRead')}</summary>
-        <div>{t('ov.pf.how', { w })}</div>
+        <div>{t('ov.pf.how', { w, top: fmtPct(1 - DEFINITION.largeQuantile, 0) })}</div>
       </details>
     </>
   )

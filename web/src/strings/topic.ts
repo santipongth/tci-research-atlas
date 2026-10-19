@@ -33,6 +33,7 @@ export const topic = defineStrings({
   'fc.uncertain': { th: 'แนวโน้มไม่แน่นอน', en: 'Trend uncertain' },
   'fc.noSkill': { th: 'โมเดลยังคาดการณ์หัวข้อนี้ได้ไม่ดีกว่าการใช้ค่าของปีล่าสุด จึงไม่แสดงตัวเลขคาดการณ์', en: 'The models do not yet beat simply repeating last year’s value for this topic, so no forecast is shown.' },
   'fc.lowData': { th: 'บทความยังน้อยเกินกว่าจะคาดการณ์ได้', en: 'Too few articles to forecast.' },
+  'fc.none': { th: 'รอบข้อมูลนี้ไม่มีการคาดการณ์สำหรับหัวข้อนี้', en: 'This release has no forecast for this topic.' },
   'tp.noSeries': { th: 'ไม่มีข้อมูลรายปีของหัวข้อนี้', en: 'No yearly data for this topic' },
   'tp.keywords.h': { th: 'คำสำคัญเด่น', en: 'Top keywords' },
   'tp.articles.h': { th: 'บทความตัวแทน', en: 'Representative articles' },

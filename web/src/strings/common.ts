@@ -60,6 +60,7 @@ export const common = defineStrings({
   ciShort: { th: 'ช่วงเชื่อมั่น {level}%', en: '{level}% CI' },
   to: { th: 'ถึง', en: 'to' },
   noBaseline: { th: 'ใหม่ — ไม่มีในช่วงฐาน', en: 'New — not in the baseline window' },
+  noCi: { th: 'ไม่มีช่วงเชื่อมั่น', en: 'No confidence interval' },
   'lowData.few_articles': { th: 'บทความน้อยกว่า {n} เรื่องใน {y} ปีล่าสุด จึงยังไม่จัดสถานะ', en: 'Fewer than {n} articles in the last {y} years, so no status is assigned' },
   'lowData.not_estimable': { th: 'ข้อมูลรายปียังไม่พอจะประมาณอัตราการเติบโต', en: 'Too few yearly data points to estimate growth' },
   orgsUnverified: { th: 'ยังตรวจความกว้างของสถาบันไม่ได้ เพราะข้อมูลสังกัดผู้แต่งไม่ครบ', en: 'Institution breadth not verified: author affiliations are incomplete' },

@@ -5,6 +5,7 @@ import { useTheme } from '../../lib/theme'
 import { useTooltip } from '../../lib/tooltip'
 import type { Layer } from '../../lib/urlState'
 import { useElementSize } from '../../lib/useElementSize'
+import { useFontsVersion } from '../../lib/useFontsVersion'
 import { combineView, COLS, fitScreen, MAP_H, MAP_W, NEUTRAL_TINT, placeCentered, placeLabels, ROWS, zoomAt, type MapPoint, type UserView } from './mapSpace'
 import type { Terrain } from './terrain'
 
@@ -101,6 +102,7 @@ export function TerrainMap({ ref, points, groups, terrain, hidden, layers, selec
   const [hover, setHover] = useState<{ id: string | null; group: number | null }>({ id: null, group: null })
   const theme = useTheme()
   const tip = useTooltip()
+  useFontsVersion() // label boxes are measured in Sarabun: measure again once it has loaded
   const W = size.width
   const H = size.height
   const view = W > 0 && H > 0 ? combineView(fitScreen(W, H), user, W, H) : null

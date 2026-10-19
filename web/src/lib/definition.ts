@@ -16,6 +16,8 @@ export const DEFINITION = {
   recentYears: 3,
   baselineYears: 5,
   trendYears: 5,
+  /** keywords.min_active_years: an emerging keyword appears in at least this many years of the W window */
+  keywordMinActiveYears: 3,
 } as const
 
 export interface Windows {

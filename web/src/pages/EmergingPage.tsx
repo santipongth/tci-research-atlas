@@ -11,9 +11,9 @@ import { ForestPlot } from '../charts/ForestPlot'
 import { groupName, type AtlasRelease } from '../data/release'
 import type { EmergingKeyword, Topic } from '../data/types'
 import { DEFINITION, fmtWindow, windows } from '../lib/definition'
-import { ciPct, DASH, fmtInt, fmtNum, fmtRatio, fmtSignedPct } from '../lib/format'
+import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtRatio, fmtSignedPct } from '../lib/format'
+import { forestSelection } from '../lib/forest'
 import { useI18n, type I18n } from '../lib/i18n'
-import { sortBy } from '../lib/sort'
 import { isSignal, isStatus, STATUSES, type StatusId } from '../lib/status'
 import { statusName } from '../lib/topicText'
 import { EMERGING_SORTS, emergingCodec, type EmergingSort } from '../lib/urlState'
@@ -38,6 +38,7 @@ function ruleText(t: I18n['t'], status: StatusId, level: number): string {
     o: DEFINITION.minOrgs,
     n: DEFINITION.minArticlesRecent,
     y: DEFINITION.recentYears,
+    top: fmtPct(1 - DEFINITION.largeQuantile, 0),
   })
 }
 
@@ -71,11 +72,8 @@ function Emerging({ release }: { release: AtlasRelease }) {
       empty={t('em.none', { status: label })}
     />
   )
-  const plotRows = sortBy(
-    rows.filter((r) => r.metrics.share_growth_lo != null && r.metrics.share_growth_hi != null),
-    (tp) => tp.metrics.share_growth,
-    st === 'DECLINING' ? 'asc' : 'desc',
-  )
+  // every topic of the status, strongest first; topics without an interval are listed as text rows, never dropped
+  const forest = isSignal(st) ? forestSelection(release.topics, st) : null
   return (
     <div className="container">
       <PageHeader title={t('em.title')} lede={t('em.lede', { level })} />
@@ -96,7 +94,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
               <p>{t('journalDrivenBody')}</p>
             </div>
           ) : null}
-          {isSignal(st) && plotRows.length > 0 ? (
+          {forest && isSignal(st) && forest.rows.length > 0 ? (
             <Figure
               id="fig-em"
               number={1}
@@ -106,7 +104,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
               onView={(view) => update({ view })}
               chart={
                 <ForestPlot
-                  groups={[{ status: st, title: label, rows: plotRows, total: rows.length }]}
+                  groups={[{ status: st, title: label, rows: forest.rows, total: forest.total, noCi: forest.noCi }]}
                   axisLabel={t('ov.forest.axis')}
                   refLabel={t('ov.forest.bar', { v: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0) })}
                   subtitle={(tp) => groupName(release, tp.group, lang)}
@@ -156,7 +154,7 @@ function Keywords({ release }: { release: AtlasRelease }) {
     },
   ]
   return (
-    <Section id="keywords" title={t('em.kw.h')} intro={t('em.kw.intro', { b: fmtWindow(w.B), o: DEFINITION.minOrgs })}>
+    <Section id="keywords" title={t('em.kw.h')} intro={t('em.kw.intro', { b: fmtWindow(w.B), o: DEFINITION.minOrgs, y: DEFINITION.keywordMinActiveYears })}>
       <DataTable
         caption={t('table.n', { n: 2, title: t('em.kw.table', { n: fmtInt(rows.length) }) })}
         rows={rows}

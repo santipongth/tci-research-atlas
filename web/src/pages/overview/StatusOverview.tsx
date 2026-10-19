@@ -5,13 +5,13 @@ import { ForestPlot, type ForestGroup } from '../../charts/ForestPlot'
 import { groupName, type AtlasRelease } from '../../data/release'
 import { DEFINITION } from '../../lib/definition'
 import { ciPct, fmtInt, fmtSignedPct } from '../../lib/format'
+import { forestSelection } from '../../lib/forest'
 import { useI18n } from '../../lib/i18n'
-import { sortBy } from '../../lib/sort'
 import { SIGNAL_STATUSES, STATUSES } from '../../lib/status'
 import { statusName } from '../../lib/topicText'
 import { overviewCodec } from '../../lib/urlState'
 import { useUrlState } from '../../lib/useUrlState'
-import { ciColumn, ciHighColumn, growthColumn, idColumn, journalsColumn, orgsColumn, statusColumn, topicColumn, type ColumnContext } from '../topicColumns'
+import { ciColumn, ciHighColumn, growthColumn, idColumn, journalsColumn, orgsColumn, ratioColumn, statusColumn, topicColumn, type ColumnContext } from '../topicColumns'
 
 const PER_STATUS = 8
 
@@ -24,14 +24,14 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
   const bar = fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0)
   const ctx: ColumnContext = { t, name, groupName: (g) => groupName(release, g, lang) }
   const groups: ForestGroup[] = SIGNAL_STATUSES.map((st) => {
-    const all = release.topics.filter((tp) => tp.status === st && tp.metrics.share_growth_lo != null && tp.metrics.share_growth_hi != null)
-    const rows = sortBy(all, (tp) => tp.metrics.share_growth, st === 'DECLINING' ? 'asc' : 'desc').slice(0, PER_STATUS)
-    const total = counts[st] ?? all.length
+    // every topic of the status counts; one without an interval is listed as a text row, never dropped
+    const { rows, total, noCi } = forestSelection(release.topics, st, PER_STATUS)
     return {
       status: st,
       title: statusName(t, st),
       rows,
       total,
+      noCi,
       note: st === 'WATCH' && rows.length ? (
         <div className="inset">
           <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
@@ -70,7 +70,7 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
             <DataTable
               caption={t('table.n', { n: 1, title: t('ov.forest.table', { n: 1 }) })}
               rows={rows}
-              columns={[idColumn(), topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx, level), ciHighColumn(), journalsColumn(ctx), orgsColumn(ctx)]}
+              columns={[idColumn(), topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx, level), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)]}
               rowKey={(r) => r.id}
               csvFilename={`atlas-${release.overview.release}-status-intervals.csv`}
             />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DASH, fmtCompact, fmtDate, fmtInt, fmtPct, fmtPp, fmtRatio, fmtSignedInt, fmtSignedPct, kpiDelta } from './format'
+import { DASH, fmtCompact, fmtDate, fmtInt, fmtPct, fmtPp, fmtRatio, fmtSignedInt, fmtSignedPct, kpiDelta, kpiDir } from './format'
 import { segmentHeadline, type Segment } from './highlight'
 
 describe('number formatting', () => {
@@ -51,6 +51,15 @@ describe('number formatting', () => {
     expect(kpiDelta(248310, 242170, 'count', 'th')).toBe('+6,140 (+2.5%)')
     expect(kpiDelta(74.2, 73.6, 'pct', 'en')).toBe('+0.6 pp')
     expect(kpiDelta(10, null, 'count', 'th')).toBeNull()
+  })
+
+  it('points the KPI arrow by the change as printed, so "±0.0" never gets an arrow', () => {
+    expect(kpiDir(74.24, 74.2, 'pct')).toBe(0)
+    expect(kpiDir(74.3, 74.2, 'pct')).toBe(1)
+    expect(kpiDir(73.9, 74.2, 'pct')).toBe(-1)
+    expect(kpiDir(100.4, 100, 'count')).toBe(0)
+    expect(kpiDir(10, 8, 'count')).toBe(1)
+    expect(kpiDir(10, null, 'count')).toBe(0)
   })
 })
 

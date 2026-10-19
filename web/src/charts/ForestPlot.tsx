@@ -4,12 +4,12 @@ import { CiWhisker } from '../components/CiWhisker'
 import { StatusGlyph } from '../components/StatusGlyph'
 import type { Topic } from '../data/types'
 import { DEFINITION } from '../lib/definition'
-import { fmtSignedPct } from '../lib/format'
+import { fmtInt, fmtSignedPct } from '../lib/format'
+import { hasCi } from '../lib/forest'
 import { useI18n } from '../lib/i18n'
 import type { SignalStatus } from '../lib/status'
 import { useElementSize } from '../lib/useElementSize'
-import { FOREST_DOMAIN } from '../pages/topicColumns'
-import { linear } from './scale'
+import { dataDomain, linear, niceTicks } from './scale'
 
 export interface ForestGroup {
   status: SignalStatus
@@ -18,16 +18,20 @@ export interface ForestGroup {
   note?: ReactNode
   rows: readonly Topic[]
   total: number
+  /** topics of this status without a confidence interval (drawn as text rows when shown) */
+  noCi?: number
   more?: { to: string; label: string }
 }
 
-const TICKS = [-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1.0]
+/** Growth-axis limits: a share cannot fall faster than −100 %/yr; an interval beyond +300 %/yr runs to the edge as an arrow (its numbers are beside it). */
+const CAP: readonly [number, number] = [-1, 3]
 
 /**
  * CI forest plot (Editorial signature): one row per topic — name | interval on a shared axis | value —
  * grouped by status, with a dashed line at the EMERGING bar and a solid line at zero. Rows are links.
+ * The axis covers every interval shown (plus zero and the bar) unless a `domain` is given.
  */
-export function ForestPlot({ groups, axisLabel, refLabel, subtitle, domain = FOREST_DOMAIN, refValue = DEFINITION.emergingMinGrowthLo }: {
+export function ForestPlot({ groups, axisLabel, refLabel, subtitle, domain, refValue = DEFINITION.emergingMinGrowthLo }: {
   groups: readonly ForestGroup[]
   axisLabel: string
   refLabel: string
@@ -37,7 +41,9 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, domain = FOR
 }) {
   const [plotRef, { width }] = useElementSize<HTMLDivElement>()
   const { t, name } = useI18n()
-  const x = linear(domain[0], domain[1], 6, Math.max(width, 12) - 6)
+  const dom = domain ?? dataDomain(groups.flatMap((g) => g.rows.flatMap((tp) => [tp.metrics.share_growth_lo, tp.metrics.share_growth_hi, tp.metrics.share_growth])), [0, refValue], CAP)
+  const x = linear(dom[0], dom[1], 6, Math.max(width, 12) - 6)
+  const ticks = niceTicks(dom[0], dom[1], width < 420 ? 4 : 6).filter((v) => v >= dom[0] && v <= dom[1])
   return (
     <div className="forest">
       <div className="fr-axis" aria-hidden="true">
@@ -46,7 +52,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, domain = FOR
           {width > 0 ? (
             <svg width={width} height={34} viewBox={`0 0 ${width} 34`}>
               <text x={x(refValue)} y={10} textAnchor="middle" className="ax-ref">{refLabel}</text>
-              {TICKS.filter((v) => v >= domain[0] && v <= domain[1]).map((v) => (
+              {ticks.map((v) => (
                 <text key={v} x={x(v)} y={28} textAnchor="middle" className="ax-tick">{v === 0 ? '0%' : fmtSignedPct(v, 0)}</text>
               ))}
             </svg>
@@ -60,29 +66,40 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, domain = FOR
             <h3 className="fr-gname">
               <StatusGlyph status={g.status} size={16} />
               <span>{g.title}</span>
-              <small>{t('ov.forest.shown', { a: g.rows.length, b: g.total })}</small>
+              <small>
+                {t('ov.forest.shown', { a: g.rows.length, b: g.total })}
+                {g.noCi ? ` · ${t('ov.forest.noCi', { n: fmtInt(g.noCi) })}` : ''}
+              </small>
             </h3>
             {g.rule ? <p className="fr-grule">{g.rule}</p> : null}
           </div>
           {g.note}
           <ul className="fr-list">
-            {g.rows.map((tp) => (
-              <li key={tp.id}>
-                <Link className="fr-row" to={`/topics/${tp.id}`}>
-                  <span className="fr-name">
-                    <b>{name(tp)}</b>
-                    <span>{subtitle(tp)}</span>
-                  </span>
-                  <span className="fr-plot">
-                    <CiWhisker status={tp.status} value={tp.metrics.share_growth} lo={tp.metrics.share_growth_lo} hi={tp.metrics.share_growth_hi} domain={domain} refValue={refValue} width={width} height={26} />
-                  </span>
-                  <span className="fr-val">
-                    <b>{fmtSignedPct(tp.metrics.share_growth)}</b>
-                    <span>{fmtSignedPct(tp.metrics.share_growth_lo, 0)} {t('to')} {fmtSignedPct(tp.metrics.share_growth_hi, 0)}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
+            {g.rows.map((tp) => {
+              const ci = hasCi(tp)
+              return (
+                <li key={tp.id}>
+                  <Link className="fr-row" to={`/topics/${tp.id}`}>
+                    <span className="fr-name">
+                      <b>{name(tp)}</b>
+                      {tp.metrics.no_baseline ? <span className="fr-new">{t('noBaseline')}</span> : null}
+                      <span>{subtitle(tp)}</span>
+                    </span>
+                    <span className="fr-plot">
+                      {ci ? (
+                        <CiWhisker status={tp.status} value={tp.metrics.share_growth} lo={tp.metrics.share_growth_lo} hi={tp.metrics.share_growth_hi} domain={dom} refValue={refValue} width={width} height={26} />
+                      ) : (
+                        <span className="fr-noci">{t('noCi')}</span>
+                      )}
+                    </span>
+                    <span className="fr-val">
+                      <b>{fmtSignedPct(tp.metrics.share_growth)}</b>
+                      {ci ? <span>{fmtSignedPct(tp.metrics.share_growth_lo, 0)} {t('to')} {fmtSignedPct(tp.metrics.share_growth_hi, 0)}</span> : null}
+                    </span>
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
           {g.more ? (
             <p className="fr-more">

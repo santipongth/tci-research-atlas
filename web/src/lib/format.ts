@@ -87,6 +87,13 @@ export function ciPct(level: number): number {
 }
 
 /** "+6,140 (+2.5%)" for counts, "+0.6 จุด" for percentages; null when there is nothing to compare with. */
+/** Direction of a KPI change as printed by kpiDelta (pct to 0.1 point, counts to 1), so a change shown as ±0 gets no arrow. */
+export function kpiDir(value: number, prev: number | null | undefined, unit: 'count' | 'pct'): -1 | 0 | 1 {
+  if (!finite(prev) || !finite(value)) return 0
+  const d = unit === 'pct' ? Number((value - prev).toFixed(1)) : Math.round(value - prev)
+  return d > 0 ? 1 : d < 0 ? -1 : 0
+}
+
 export function kpiDelta(value: number, prev: number | null | undefined, unit: 'count' | 'pct', lang: Lang): string | null {
   if (!finite(prev) || !finite(value)) return null
   if (unit === 'pct') return fmtPp(value - prev, lang)

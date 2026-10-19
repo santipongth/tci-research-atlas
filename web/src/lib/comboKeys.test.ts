@@ -15,6 +15,9 @@ describe('comboKey', () => {
     expect(comboKey('ArrowUp', base).active).toBe(0)
     expect(comboKey('ArrowDown', base).active).toBe(2)
   })
+  it('ArrowDown on a closed list opens it on the first option', () => {
+    expect(comboKey('ArrowDown', { ...base, open: false, showList: false, active: 2 })).toMatchObject({ open: true, active: 0 })
+  })
   it('Escape closes an open list, then clears the query', () => {
     expect(comboKey('Escape', base)).toMatchObject({ open: false, clear: false })
     expect(comboKey('Escape', { ...base, open: false, showList: false })).toMatchObject({ clear: true })
