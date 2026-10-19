@@ -401,6 +401,60 @@ class ChangesCfg(_Strict):
     min_share_delta: float = Field(0.0005, ge=0.0)
 
 
+class InstitutionsCfg(_Strict):
+    """Institutions (P3): canonical institution, type, province and country from the curated alias table and an
+    optional local ROR dump; collaboration network; output per province. Institution level only (PDPA)."""
+    enabled: bool = True
+    aliases_path: str | None = None       # registry/institutions_aliases.csv (optional); the example config sets ./registry/…
+    ror_path: str | None = None           # a ROR data dump (.json or .zip, CC0) on local disk; null = no ROR matching
+    population_path: str | None = None    # registry/province_population.csv (optional) → articles per 100,000 people
+    alias_min_chars: int = Field(4, ge=2)
+    province_from_name: bool = True
+    window_years: int = Field(5, ge=1)
+    min_articles: int = Field(5, ge=1)    # fewer articles in the window → counted, never listed, linked or paired
+    network_min_articles: int = Field(3, ge=1)
+    network_max_edges: int = Field(300, ge=0)
+    top_topics: int = Field(15, ge=1)
+    max_partners: int = Field(15, ge=0)
+    suggest_k: int = Field(5, ge=0)
+    suggest_min_similarity: float = Field(0.3, ge=0.0, le=1.0)
+
+
+class RiskCfg(_Strict):
+    """E10 concentration risk over the emerging recent window R."""
+    min_articles: int = Field(30, ge=1)
+    max_top_share: float = Field(0.5, gt=0.0, le=1.0)
+    max_hhi: float = Field(0.25, gt=0.0, le=1.0)
+
+
+class GapsCfg(_Strict):
+    """R5 gap finder."""
+    statuses: list[Literal["EMERGING", "WATCH", "HOT"]] = Field(default_factory=lambda: ["EMERGING", "WATCH"])
+    max_institutions: int = Field(5, ge=0)
+    bridge_min_similarity: float = Field(0.6, ge=0.0, le=1.0)
+    bridge_max_jaccard: float = Field(0.1, ge=0.0, le=1.0)
+    max_items: int = Field(30, ge=1)
+
+
+class SdgCfg(_Strict):
+    """E8 SDGs + Thai frameworks, mapped at topic level (atlas/data/frameworks.yaml)."""
+    enabled: bool = True
+    frameworks_path: str | None = None    # null = the packaged atlas/data/frameworks.yaml
+    method: Literal["auto", "embedding", "lexical"] = "auto"
+    min_similarity: float = Field(0.45, ge=-1.0, le=1.0)
+    min_article_share: float = Field(0.15, gt=0.0, le=1.0)
+    max_goals_per_topic: int = Field(3, ge=1)
+    docs_per_topic: int = Field(400, ge=1)
+
+
+class BenchmarkCfg(_Strict):
+    """E9 Thailand vs the world (OpenAlex, through taxonomy.openalex). `global` is a Python keyword."""
+    enabled: bool = True
+    min_world_works: int = Field(1000, ge=1)
+    min_world_ratio: float = Field(1.2, gt=0.0)
+    max_activity_index: float = Field(0.5, gt=0.0)
+
+
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
@@ -525,6 +579,11 @@ class AtlasConfig(_Strict):
     methods: MethodsCfg = Field(default_factory=MethodsCfg)
     match: MatchCfg = Field(default_factory=MatchCfg)
     changes: ChangesCfg = Field(default_factory=ChangesCfg)
+    institutions: InstitutionsCfg = Field(default_factory=InstitutionsCfg)
+    risk: RiskCfg = Field(default_factory=RiskCfg)
+    gaps: GapsCfg = Field(default_factory=GapsCfg)
+    sdg: SdgCfg = Field(default_factory=SdgCfg)
+    benchmark: BenchmarkCfg = Field(default_factory=BenchmarkCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)
@@ -555,6 +614,11 @@ def load_config(path: str | Path | None = None) -> dict:
         cfg["llm"]["prompts_dir"] = _resolve(cfg["llm"]["prompts_dir"], base)
     if cfg["journals"]["registry_path"]:
         cfg["journals"]["registry_path"] = _resolve(cfg["journals"]["registry_path"], base)
+    for key in ("aliases_path", "ror_path", "population_path"):
+        if cfg["institutions"][key]:
+            cfg["institutions"][key] = _resolve(cfg["institutions"][key], base)
+    if cfg["sdg"]["frameworks_path"]:
+        cfg["sdg"]["frameworks_path"] = _resolve(cfg["sdg"]["frameworks_path"], base)
     if cfg["taxonomy"]["reference_path"]:
         cfg["taxonomy"]["reference_path"] = _resolve(cfg["taxonomy"]["reference_path"], base)
     return cfg
