@@ -1,0 +1,25 @@
+import { defineStrings } from './define'
+
+export const emerging = defineStrings({
+  'em.title': { th: 'สถานะของหัวข้อวิจัย', en: 'Status of research topics' },
+  'em.lede': { th: 'ทุกหัวข้อแยกตามสถานะ เรียงได้ทุกคอลัมน์ พร้อมช่วงเชื่อมั่น {level}% ของอัตราโต และดาวน์โหลดเป็น CSV ได้', en: 'Every topic by status, sortable on every column, with the {level}% confidence interval of its growth; download any table as CSV.' },
+  'em.tabs': { th: 'เลือกสถานะ', en: 'Choose a status' },
+  'em.fig.title': { th: 'อัตราโตของหัวข้อสถานะ “{status}” พร้อมช่วงเชื่อมั่น {level}%', en: 'Growth of “{status}” topics with {level}% confidence intervals' },
+  'em.table.title': { th: 'หัวข้อสถานะ “{status}” ({n} หัวข้อ)', en: 'Topics with status “{status}” ({n})' },
+  'em.none': { th: 'รอบนี้ไม่มีหัวข้อสถานะ “{status}”', en: 'No topics have the status “{status}” in this release' },
+  'em.dagger': { th: '† ยังตรวจความกว้างของสถาบันไม่ได้ เพราะข้อมูลสังกัดผู้แต่งไม่ครบ', en: '† Institution breadth not verified: author affiliations are incomplete' },
+  'em.kw.h': { th: 'คำสำคัญเกิดใหม่', en: 'Emerging keywords' },
+  'em.kw.intro': { th: 'คำที่แทบไม่พบในช่วง {b} ปรากฏต่อเนื่องอย่างน้อย 3 ปี และผู้แต่งจากอย่างน้อย {o} สถาบันใช้ วัดจากคำสำคัญที่ผู้แต่งให้มา จึงไม่ขึ้นกับการจัดกลุ่มหัวข้อ', en: 'Words that were rare in {b}, have appeared for at least 3 years and are used by authors from at least {o} institutions. They are measured on author keywords, so they do not depend on topic clustering.' },
+  'em.kw.table': { th: 'คำสำคัญเกิดใหม่ {n} คำ', en: '{n} emerging keywords' },
+  'em.kw.excluded': { th: 'ไม่นับ {n} คำที่โตจากวารสารเดียว', en: '{n} keywords that grew from a single journal are not listed' },
+  'col.term': { th: 'คำสำคัญ', en: 'Keyword' },
+  'col.years': { th: 'จำนวนปีที่ปรากฏ', en: 'Years present' },
+  'col.growthLo': { th: 'ขอบล่างของอัตราโต', en: 'Lower bound of growth' },
+  'col.linkedTopic': { th: 'หัวข้อที่เกี่ยวข้อง', en: 'Related topic' },
+  'rule.EMERGING': { th: 'หัวข้อเล็กที่โตเร็วอย่างมีนัย: ขอบล่างของช่วงเชื่อมั่น {level}% อย่างน้อย {bar} ต่อปี สัดส่วนเพิ่มอย่างน้อย {ratio} เท่าของช่วงฐาน และมาจากอย่างน้อย {j} วารสารและ {o} สถาบัน', en: 'A small topic growing fast with confidence: the lower end of its {level}% CI is at least {bar} a year, its share is at least {ratio}× the baseline, and it comes from at least {j} journals and {o} institutions.' },
+  'rule.WATCH': { th: 'เข้าเกณฑ์การเติบโตเหมือนหัวข้อกำลังเกิดใหม่ แต่ไม่ผ่านเกณฑ์ความกว้าง เพราะโตจากวารสารเดียวหรือวารสารที่เพิ่งเข้าระบบ จึงต้องตรวจสอบก่อนอ้างอิง', en: 'Meets the growth bar of an emerging topic but not the breadth test, because the growth comes from one journal or a newly indexed journal; check it before citing.' },
+  'rule.HOT': { th: 'หัวข้อใหญ่ (สัดส่วนอยู่ใน 25% บนสุด) ที่ยังโตต่อเนื่อง: ขอบล่างของช่วงเชื่อมั่น {level}% มากกว่า 0', en: 'A large topic (top 25% by share) that is still growing: the lower end of its {level}% CI is above zero.' },
+  'rule.DECLINING': { th: 'สัดส่วนลดลงอย่างมีนัย: ขอบบนของช่วงเชื่อมั่น {level}% ต่ำกว่า 0 และเหลือไม่เกิน {dratio} เท่าของช่วงฐาน', en: 'A share falling with confidence: the upper end of its {level}% CI is below zero and the share is at most {dratio}× the baseline.' },
+  'rule.STABLE': { th: 'ไม่เข้าเกณฑ์ใดข้างต้น', en: 'Meets none of the rules above.' },
+  'rule.LOW_DATA': { th: 'มีบทความน้อยกว่า {n} เรื่องใน {y} ปีล่าสุด หรือข้อมูลรายปีไม่พอจะประมาณอัตราโต จึงยังไม่จัดสถานะ', en: 'Fewer than {n} articles in the last {y} years, or too few yearly data points to estimate growth, so no status is assigned.' },
+})
