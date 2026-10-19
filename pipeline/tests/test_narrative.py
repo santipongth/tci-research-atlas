@@ -42,7 +42,8 @@ def _work(cfg):
         "n_journals_R": [12, 5, 20, 6], "n_orgs_R": [30, 8, 40, 9]})
     write_table(em, work / "07_emerging.parquet")
     (work / "06_meta.json").write_text(json.dumps({"last_complete_year": 2024, "trimmed_years": [2025],
-                                                   "totals": {str(y): 1000 for y in range(2015, 2025)}}),
+                                                   "totals": {str(y): 1000 for y in range(2015, 2025)},
+                                                   "n_articles": 10_500}),
                                        encoding="utf-8")
     write_table(pd.DataFrame([{"topic_id": 1, "show": True, "fc_years": "[2025, 2026]", "fc_mean": "[120.0, 130.0]",
                                "fc_lo80": "[100.0, 105.0]", "fc_hi80": "[140.0, 155.0]"}]),
@@ -67,6 +68,13 @@ def test_templates_without_an_llm(make_cfg, tmp_path):
     assert "ไม่มีบทความในช่วง" in by.loc[4, "th"] and "1.20%" in by.loc[1, "th"]
     brief = json.loads((work / "11_brief.json").read_text(encoding="utf-8"))["brief"]
     assert brief["source"] == "template" and "2024" in brief["headline_th"]
+    # the headline names the ANALYSED count (complete years) and says so — the KPI tile shows the whole corpus
+    assert "วิเคราะห์ 10,000 บทความ" in brief["headline_th"] and "2015–2024" in brief["headline_th"]
+    assert "10,000 articles analysed" in brief["headline_en"]
+    from atlas.narrative import brief_job
+
+    facts = brief_job(cfg).items[0].prompt
+    assert "บทความที่นำมาวิเคราะห์" in facts and "10,000" in facts and "10,500" in facts and "ทั้งคลัง" in facts
     item = {it.key: it for it in narrative_job(cfg).items}["T000004"]
     base = [ln for ln in item.prompt.splitlines() if ln.startswith("- ช่วงฐาน")][0]
     assert "ไม่มีฐานเปรียบเทียบ" in base and "เท่า" not in base
@@ -120,6 +128,56 @@ def test_word_form_multiples_and_fractions_are_rejected():
                 "เติบโตหลายเท่า", "เหลือครึ่งหนึ่ง", "a tenfold rise", "share fell by ½", "สิบเท่า"]:
         assert grounding_error([bad], facts, []) is not None, bad
     assert grounding_error(["โตเป็นสามเท่า", "tripled"], facts, []) is None            # 3 is in the facts
+
+
+RATIO_FACTS = ("- สัดส่วนของบทความทั้งหมด: ช่วงฐาน 2017–2021 (5 ปี) = 1.00% → ช่วงล่าสุด 2022–2024 (3 ปี) = 1.30% "
+               "(1.3 เท่า)\n- บทความช่วง 2022–2024 (3 ปี): 240 เรื่อง จาก 12 วารสาร 30 สถาบัน")
+
+
+def test_a_multiple_must_be_a_ratio_fact_never_a_window_length_or_count():
+    # reviewer probes on a 1.3× topic: 3 and 5 are window lengths, 12/240 are counts — none is a ratio
+    for bad in ["the share tripled", "สัดส่วนเพิ่มขึ้นสามเท่า", "สัดส่วนเพิ่มขึ้นห้าเท่า", "five times its baseline",
+                "สัดส่วนเพิ่มขึ้นร้อยเท่า", "สัดส่วนเพิ่มขึ้น 5 เท่า", "3 times the baseline share", "a 12-fold rise",
+                "สัดส่วนเพิ่มขึ้นสิบสองเท่า", "twenty times", "a hundredfold rise", "a thousandfold rise",
+                "doubled", "double the share", "up 5x", "×3", "สัดส่วนเพิ่มขึ้นยี่สิบเท่า", "๕ เท่า",
+                "สองร้อยสี่สิบเท่า", "twelve-fold", "two hundred and forty times", "many times higher"]:
+        assert grounding_error([bad], RATIO_FACTS, [], growth=0.1) is not None, bad
+    for good in ["สัดส่วนเพิ่มขึ้น 1.3 เท่า", "the share is about 1.3 times its baseline", "share rose 1.3x",
+                 "สัดส่วนเพิ่มขึ้นหนึ่งจุดสามเท่า", "240 เรื่องจาก 12 วารสารเท่านั้น", "สัดส่วนยังเท่าเดิมในบางปี"]:
+        assert grounding_error([good], RATIO_FACTS, [], growth=0.1) is None, good
+    # the exact share_ratio may be passed instead of reading "(x เท่า)" from the facts: 1.27 → "1.3 times"
+    assert grounding_error(["about 1.3 times"], "- 1.3", [], ratios=[1.27]) is None
+    assert grounding_error(["doubled"], "- x", [], ratios=[1.96]) is None                      # 1.96 → 2.0
+    assert grounding_error(["doubled"], "- x", [], ratios=[1.6]) is not None                   # never round 1.6 to 2
+    assert grounding_error(["5 เท่า"], "- (5 เท่า) in a title", [], ratios=[1.3]) is not None  # only the given ratio
+    # a topic's own name / keyword is not a claim ("Double burden of malnutrition")
+    assert grounding_error(["Double burden of malnutrition: 1.3 times"], RATIO_FACTS, [],
+                           own_terms=["Double burden of malnutrition"]) is None
+
+
+def test_number_words_before_a_multiple_are_parsed():
+    from atlas.narrative import multiples_in
+
+    cases = {"สิบสองเท่า": 12, "ยี่สิบเท่า": 20, "ร้อยเท่า": 100, "สามสิบห้าเท่า": 35, "พันห้าร้อยเท่า": 1500,
+             "ร้อยเอ็ดเท่า": 101, "หนึ่งจุดสามเท่า": 1.3, "twenty-five times": 25, "a hundred times": 100,
+             "hundredfold": 100, "thousandfold": 1000, "tenfold": 10, "two hundred and forty times": 240,
+             "tripled": 3, "quadrupling": 4, "double": 2, "twice": 2, "halved": 0.5, "2.5-fold": 2.5, "๑๒ เท่า": 12}
+    for text, n in cases.items():
+        assert multiples_in(text) == [n], (text, multiples_in(text))
+    assert multiples_in("ร้อยละ 5 ของบทความ เท่ากับ 0.4% และเท่ากัน") == []          # percent / equality words
+    assert multiples_in("published three times the year before") == [3]
+
+
+def test_brief_sentences_naming_several_topics_are_checked_with_exactly_one_rate_number():
+    ng = {"AI-assisted learning": 0.3, "Print media": -0.2, "Rice farming": 0.25}
+    facts = "- 12 8"
+    assert grounding_error(["AI-assisted learning and Print media both grew 12% per year."], facts, [],
+                           named_growth=ng) is not None
+    assert grounding_error(["AI-assisted learning and Rice farming grew 12% per year."], facts, [],
+                           named_growth=ng) is None
+    assert grounding_error(["AI-assisted learning grew 12% per year while Print media fell 8% per year."], facts, [],
+                           named_growth=ng) is None                       # two rate numbers: skipped
+    assert grounding_error(["AI-assisted learning and Print media grew."], facts, [], named_growth=ng) is None
 
 
 def test_no_baseline_rejects_any_multiple_wording():

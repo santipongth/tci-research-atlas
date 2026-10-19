@@ -40,7 +40,7 @@
 | `05_labels_meta.json` | label | provider, model_id, topics, from_cache, generated, repaired, fallback, overrides, unknown_overrides, cost_usd |
 | `05_merge_suggestions`, `05_merge_meta.json` | label | topic_a, topic_b, similarity, same_topic (True/False/None), reason, source · สถิติ LLM งาน merge |
 | `06_series` | series | topic_id, year, count, count_with_org, corpus_total, share |
-| `06_topic_journal_year`, `06_topic_org_year`, `06_journal_first_year`, `06_meta.json` | series | ใช้คำนวณความกว้าง + ปีสมบูรณ์ล่าสุด; `06_meta.json` = last_complete_year, as_of_year, trimmed_years (ปีที่มีข้อมูลแต่ไม่ใช้คำนวณแนวโน้ม), years, totals |
+| `06_topic_journal_year`, `06_topic_org_year`, `06_journal_first_year`, `06_meta.json` | series | ใช้คำนวณความกว้าง + ปีสมบูรณ์ล่าสุด; `06_meta.json` = last_complete_year, as_of_year, trimmed_years (ปีที่มีข้อมูลแต่ไม่ใช้คำนวณแนวโน้ม), years, totals (บทความที่นำมาวิเคราะห์ต่อปี), n_articles (ทั้งคลัง = `kpis.articles` — headline ของบทสรุปบอกจำนวนที่วิเคราะห์พร้อมป้ายกำกับ) |
 | `07_emerging` | emerging | ดู docs/EMERGING_SPEC.md §3 + org_coverage_R, orgs_unverified, status, journal_driven, emerging_score, definition_version (คอลัมน์ครบแม้ไม่มีหัวข้อ) |
 | `09_layout`, `09_edges` | layout | id, kind, x, y, r, parent · s, t, w |
 | `04_lineage`, `04_topics_meta.json` | cluster | event (new/continue/split/merge/retired), topic_id, parents · release, previous_release, mode (fit/assign), kept_fraction, events |

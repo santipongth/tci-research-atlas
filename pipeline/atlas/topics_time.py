@@ -73,6 +73,7 @@ def publication_months(docs: pd.DataFrame) -> pd.DataFrame:
 def build_series(cfg: dict) -> pd.DataFrame:
     work = Path(cfg["pipeline"]["work_dir"])
     docs = read_table(work / "02_docs.parquet")
+    n_articles = len(docs)
     docs = docs[[c for c in ("article_id", "year", "journal_name", "published") if c in docs.columns]]
     fine = read_table(work / "04_fine_topics.parquet")
     try:
@@ -123,6 +124,7 @@ def build_series(cfg: dict) -> pd.DataFrame:
     write_table(partial, work / "06_partial_year.parquet")
     (work / "06_meta.json").write_text(json.dumps({
         "last_complete_year": int(cutoff),
+        "n_articles": int(n_articles),                              # whole corpus = overview kpis.articles
         "as_of_year": as_of_year(cfg["emerging"]),
         "trimmed_years": trimmed,
         "years": [int(y) for y in totals.index],

@@ -8,6 +8,11 @@ The prompt carries a facts block built from 05_labels, 07_emerging, 08_forecasts
 reply is checked before it is accepted:
   numbers  every number in the text (Thai digits converted, thousands separators removed, sign ignored)
            must equal a number of the facts block — exactly, or rounded to 0 or 1 decimal;
+  multiples "N เท่า", "N times", "N-fold", "N×", spelled out (สามเท่า, สิบสองเท่า, ร้อยเท่า, five times,
+           hundredfold, tripled, doubled, halved …) must equal a RATIO fact — the "(x เท่า)" values of the
+           facts block or the topic's share_ratio, exactly or to 1 decimal — never a window length or a count;
+  direction rise/fall words in a rate sentence must agree with the topic's share growth (in the brief: per
+           sentence naming one topic, or naming several when the sentence has exactly one rate number);
   names    no topic name may appear unless it is in the facts block.
 A failed check → one regeneration that names the problem (llm.max_regenerations); still failing →
 a template sentence built from the same facts (source "template"). narrative.provider: template never
@@ -35,15 +40,35 @@ STATUS_TH = {"EMERGING": "กำลังเกิดใหม่", "WATCH": "�
              "STABLE": "คงที่", "LOW_DATA": "ข้อมูลน้อย"}
 _THAI_DIGITS = str.maketrans("".join(chr(0x0E50 + d) for d in range(10)), "0123456789")   # Thai digits 0-9
 _NUMBER = re.compile(r"\d+(?:,\d{3}(?!\d))*(?:\.\d+)?")      # "2022,2023" is two numbers, "1,234" one
-_TH_NUM = {"หนึ่ง": 1, "สอง": 2, "สาม": 3, "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9, "สิบ": 10}
-_WORD_MULT = [(re.compile(rf"{w}\s*เท่า"), float(n)) for w, n in _TH_NUM.items()] + [
-    (re.compile(p, re.I), n) for p, n in ((r"doubl(?:ed|ing)|\btwice\b|two-?fold", 2.0), (r"tripl(?:ed|ing)|three-?fold", 3.0),
-                                          (r"quadrupl(?:ed|ing)|four-?fold", 4.0),
-                                          (r"\bhalv(?:ed|ing)\b|\bby half\b|\ba half of\b|ครึ่งหนึ่ง", 0.5),
-                                          (r"ten-?fold", 10.0), ("½", 0.5), ("¼", 0.25), ("¾", 0.75))]
-_VAGUE_MULT = re.compile(r"เท่าตัว|หลายเท่า|many[- ]?fold|several times", re.I)
+_THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")
+# ---- multiples: numbers, Thai and English number words, verbs ("ratio claims" — checked against ratio facts only)
+_TH_DIGIT_WORDS = {"หนึ่ง": 1, "เอ็ด": 1, "สอง": 2, "ยี่": 2, "สาม": 3, "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7,
+                   "แปด": 8, "เก้า": 9}
+_TH_UNIT_WORDS = {"สิบ": 10, "ร้อย": 100, "พัน": 1_000, "หมื่น": 10_000, "แสน": 100_000, "ล้าน": 1_000_000}
+_TH_WORD = "|".join(sorted([*_TH_DIGIT_WORDS, *_TH_UNIT_WORDS], key=len, reverse=True))
+_TH_DIGIT_ALT = "|".join(sorted(_TH_DIGIT_WORDS, key=len, reverse=True))
+_TH_MULT = re.compile(rf"((?:{_TH_WORD})+)(?:\s*จุด\s*((?:{_TH_DIGIT_ALT})+))?\s*เท่า")   # สิบสองเท่า, หนึ่งจุดสามเท่า
+_EN_SMALL = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+                                        "fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+_EN_SMALL.update({w: 10 * i for i, w in enumerate("twenty thirty forty fifty sixty seventy eighty ninety".split(), 2)})
+_EN_SCALE = {"hundred": 100, "thousand": 1_000, "million": 1_000_000}
+_EN_WORD = "|".join(sorted([*_EN_SMALL, *_EN_SCALE], key=len, reverse=True))
+_EN_MULT = re.compile(rf"\b(?:an?[\s-]+)?((?:{_EN_WORD})(?:[\s-]+(?:and[\s-]+)?(?:{_EN_WORD}))*)[\s-]*(?:times\b|fold\b)",
+                      re.I)                                    # five times, twenty-five times, a hundredfold, tenfold
+_NUM_MULT = re.compile(r"(\d+(?:\.\d+)?)\s*-?\s*(?:เท่า|times\b|fold\b|×|x\b)", re.I)   # 1.3 เท่า, 3 times, 12-fold, 5x
+_NUM_MULT_PRE = re.compile(r"(?:×|\bx)\s*(\d+(?:\.\d+)?)", re.I)                         # ×3
+_VERB_MULT = [(re.compile(p, re.I), n) for p, n in (
+    (r"\bdoubl(?:e|ed|es|ing)\b(?!-blind)|\btwice\b", 2.0), (r"\btripl(?:e|ed|es|ing)\b|\bthrice\b", 3.0),
+    (r"\bquadrupl(?:e|ed|es|ing)\b", 4.0), (r"\bquintupl(?:e|ed|es|ing)\b", 5.0),
+    (r"\bhalv(?:e|ed|es|ing)\b|\bby half\b", 0.5))]
+_FRACTIONS = [(re.compile(p, re.I), n) for p, n in ((r"\ba half of\b|ครึ่งหนึ่ง", 0.5), ("½", 0.5), ("¼", 0.25),
+                                                    ("¾", 0.75))]                       # shares: any number of the facts
+_RATIO_FACT = re.compile(r"(\d+(?:\.\d+)?)\s*เท่า")              # "(1.3 เท่า)" in the facts block
+_VAGUE_MULT = re.compile(r"เท่าตัว|หลายเท่า|many[- ]?fold|several times|many times", re.I)
 _ANY_MULT = re.compile(r"เท่า|\btimes\b|-?fold\b|×|\d\s*x\b|\bx\s*\d", re.I)
-_NOT_MULT = re.compile(r"เท่ากับ|เท่ากัน|เทียบเท่า|เท่าเทียม")          # "equals", "equal", "equivalent": not multiples
+# "equals", "equal", "equivalent", "equality", "only", "how much", "as far as", "the same as before": not multiples
+_NOT_MULT = re.compile(r"เท่ากับ|เท่ากัน|เทียบเท่า|เท่าเทียม|เท่านั้น|เท่าใด|เท่าไร|เท่าไหร่|เท่าที่|เท่าเดิม")
+_RATE_NUMBER = re.compile(r"\d+(?:\.\d+)?\s*(?:%|เปอร์เซ็นต์|percent\b|per\s?cent\b)|ร้อยละ\s*\d+(?:\.\d+)?", re.I)
 _RISE = re.compile(r"เพิ่มขึ้น|สูงขึ้น|เติบโต|ขยายตัว|\b(?:grew|grows|growing|increas(?:e|ed|es|ing)|rose|rising)\b", re.I)
 _FALL = re.compile(r"ลดลง|หดตัว|ถดถอย|\b(?:declin(?:e|ed|es|ing)|fell|falling|decreas(?:e|ed|es|ing)|dropp(?:ed|ing)|drops?)\b",
                    re.I)
@@ -81,19 +106,80 @@ def numbers_in(text: str) -> list[float]:
     return [float(m.replace(",", "")) for m in _NUMBER.findall(str(text).translate(_THAI_DIGITS))]
 
 
+def _plain(text: str) -> str:
+    """Thai digits → ASCII, thousands separators removed (multiples and rate numbers are read from this)."""
+    return _THOUSANDS.sub("", str(text).translate(_THAI_DIGITS))
+
+
 def _grounded(x: float, allowed: set[float]) -> bool:
     return any(x == a or x == round(a) or x == round(a, 1) for a in allowed)
 
 
-def _multiple_error(texts: list[str], allowed: set[float], no_baseline: bool) -> str | None:
-    joined = _NOT_MULT.sub(" ", "\n".join(texts))
+def _thai_number(words: str, decimals: str | None = None) -> float:
+    """สิบสอง → 12, ยี่สิบ → 20, ร้อยเอ็ด → 101, พันห้าร้อย → 1500; หนึ่ง + จุด + สาม → 1.3."""
+    total, cur = 0, None
+    for w in re.findall(_TH_WORD, words):
+        if w in _TH_DIGIT_WORDS:
+            cur = _TH_DIGIT_WORDS[w]
+        elif w == "ล้าน":
+            total, cur = ((total + (cur or 0)) or 1) * 1_000_000, None
+        else:
+            total, cur = total + (1 if cur is None else cur) * _TH_UNIT_WORDS[w], None
+    total += cur or 0
+    if decimals:
+        return float(f"{total}." + "".join(str(_TH_DIGIT_WORDS[w]) for w in re.findall(_TH_DIGIT_ALT, decimals)))
+    return float(total)
+
+
+def _en_number(words: str) -> float:
+    """five → 5, twenty-five → 25, (a) hundred → 100, two hundred and forty → 240."""
+    total = cur = 0
+    for w in (x for x in re.split(r"[\s-]+", words.lower()) if x and x != "and"):
+        if w in _EN_SMALL:
+            cur += _EN_SMALL[w]
+        elif w == "hundred":
+            cur = (cur or 1) * 100
+        else:
+            total, cur = total + (cur or 1) * _EN_SCALE[w], 0
+    return float(total + cur)
+
+
+def multiples_in(text: str) -> list[float]:
+    """Every multiple the text claims, in order: 1.3 เท่า, 3 times, 12-fold, 5x, ×3, สามเท่า, สิบสองเท่า, ร้อยเท่า,
+    five times, a hundredfold, doubled/twice (2), tripled (3), quadrupled (4), halved / by half (0.5)."""
+    t = _NOT_MULT.sub(" ", _plain(text))
+    found = [(m.start(), float(m.group(1))) for pat in (_NUM_MULT, _NUM_MULT_PRE) for m in pat.finditer(t)]
+    found += [(m.start(), _thai_number(m.group(1), m.group(2))) for m in _TH_MULT.finditer(t)]
+    found += [(m.start(), _en_number(m.group(1))) for m in _EN_MULT.finditer(t)]
+    found += [(m.start(), n) for pat, n in _VERB_MULT for m in pat.finditer(t)]
+    return [v for _, v in sorted(found)]
+
+
+def ratio_facts(facts: str) -> list[float]:
+    """The ratio values of a facts block — the "(x เท่า)" numbers."""
+    return [float(x) for x in _RATIO_FACT.findall(_plain(facts))]
+
+
+def _ratio_grounded(x: float, ratios) -> bool:
+    return any(x == r or x == round(r, 1) or x == round(r, 2) for r in ratios)
+
+
+def _multiple_error(texts: list[str], ratios: list[float], allowed: set[float], no_baseline: bool,
+                    own_terms: list[str] = ()) -> str | None:
+    joined = _strip_terms(_NOT_MULT.sub(" ", "\n".join(texts)), list(own_terms))
     if no_baseline and _ANY_MULT.search(joined):
         return "multiple wording for a topic with no baseline (there is nothing to multiply)"
     if _VAGUE_MULT.search(joined):
         return "vague multiple wording (หลายเท่า / เท่าตัว / many-fold): use the numbers in the facts"
-    for pat, n in _WORD_MULT:
+    for n in multiples_in(joined):
+        if not _ratio_grounded(n, ratios):
+            given = (f"the only ratio given is {', '.join(f'{r:g}' for r in ratios)}" if ratios
+                     else "the facts give no ratio")
+            return (f"multiple {n:g}× is not a ratio in the facts ({given}; a window length or a count is not a "
+                    f"multiple) — quote the shares or the ratio as given")
+    for pat, n in _FRACTIONS:
         if pat.search(joined) and not _grounded(n, allowed):
-            return f"multiple or fraction in words ({n:g}) is not in the facts"
+            return f"fraction in words ({n:g}) is not in the facts"
     return None
 
 
@@ -121,32 +207,39 @@ def _direction_error(texts: list[str], growth: float | None, own_terms: list[str
 
 
 def _named_direction_error(texts: list[str], named_growth: dict[str, float]) -> str | None:
-    """Per sentence that names exactly one topic, the direction words must match that topic's growth."""
+    """Brief, per sentence: naming one topic → its direction words must match its growth; naming several → checked
+    against each of them only when the sentence has exactly one rate number ("A and B grew 12% a year"), else
+    skipped ("A grew 12% while B fell 8%" cannot be split reliably — false rejects stay low)."""
     for t in texts:
         for sent in re.split(r"(?<=[.!?])\s+|\n", str(t)):
             low = sent.lower()
-            hit = {n for n in named_growth if n.lower() in low}
-            if len(hit) == 1:
-                err = _direction_error([sent], named_growth[next(iter(hit))], sorted(hit))
+            hit = sorted(n for n in named_growth if n.lower() in low)
+            if len(hit) >= 2 and len(_RATE_NUMBER.findall(_plain(sent))) != 1:
+                continue
+            for name in hit:
+                err = _direction_error([sent], named_growth[name], hit)
                 if err:
-                    return err
+                    return f"{err} ({name})"
     return None
 
 
 def grounding_error(texts: list[str], facts: str, names: list[str], *, no_baseline: bool = False,
                     growth: float | None = None, named_growth: dict[str, float] | None = None,
-                    own_terms: list[str] = ()) -> str | None:
+                    own_terms: list[str] = (), ratios: list[float] | None = None) -> str | None:
     """Why the texts are not grounded in `facts`, or None. names: every topic name of the release.
 
-    no_baseline: the topic has no baseline articles → no multiple wording at all. growth: the topic's share growth
-    (direction words must agree, in rate sentences only, after removing own_terms = the topic's names and
-    keywords). named_growth: {topic name: growth} for the brief (checked per sentence).
+    no_baseline: the topic has no baseline articles → no multiple wording at all. ratios: the ratio facts a multiple
+    may quote (default: the "(x เท่า)" values of `facts`). growth: the topic's share growth (direction words must
+    agree, in rate sentences only, after removing own_terms = the topic's names and keywords). named_growth:
+    {topic name: growth} for the brief (checked per sentence).
     """
     allowed = set(numbers_in(facts))
     bad = sorted({n for t in texts for n in numbers_in(t) if not _grounded(n, allowed)})
     if bad:
         return "numbers not in the facts: " + ", ".join(f"{n:g}" for n in bad[:5])
-    err = _multiple_error(texts, allowed, no_baseline) or _direction_error(texts, growth, own_terms)
+    ratios = ratio_facts(facts) if ratios is None else [float(r) for r in ratios if math.isfinite(float(r))]
+    err = (_multiple_error(texts, ratios, allowed, no_baseline, own_terms)
+           or _direction_error(texts, growth, own_terms))
     if err is None and named_growth:
         err = _named_direction_error(texts, named_growth)
     if err:
@@ -246,10 +339,12 @@ def narrative_job(cfg: dict) -> LlmJob:
         f = fc.loc[tid] if len(fc) and tid in fc.index else None
         facts = topic_facts(cfg, lab, e, f, last)
         tl = "\n".join(f"- {t}" for t in titles.get(tid, []))
+        no_base = float(e.share_baseline) == 0
         items.append(LlmItem(topic_code(tid), render_prompt(template, facts=facts, titles=tl),
                              template_narrative(cfg, lab, e, last),
                              _checker(facts + "\n" + tl, names, ("th", "en"),
-                                      no_baseline=float(e.share_baseline) == 0,
+                                      no_baseline=no_base,
+                                      ratios=[] if no_base else [float(e.share_ratio)],    # never a title's "2 เท่า"
                                       growth=float(e.share_growth) if pd.notna(e.share_growth) else None,
                                       own_terms=[str(lab.name_th), str(lab.name_en),
                                                  *str(lab.keywords).split(";")])))
@@ -269,11 +364,15 @@ def brief_facts(cfg: dict, labels: pd.DataFrame, em: pd.DataFrame, last: int) ->
     years = sorted(int(y) for y in meta["totals"])
     counts = em["status"].value_counts()
     ci = round(float(cfg["emerging"]["ci_level"]) * 100)
+    analysed, n_all = sum(meta["totals"].values()), int(meta.get("n_articles") or 0)
     lines = [f"- ช่วงข้อมูลที่ใช้วิเคราะห์: {years[0]}–{last}"
              + (f" (ปีที่ยังไม่ครบและไม่นำมาวิเคราะห์: {', '.join(map(str, meta.get('trimmed_years', [])))})"
                 if meta.get("trimmed_years") else ""),
-             f"- บทความในช่วงนี้: {sum(meta['totals'].values()):,} เรื่อง · หัวข้อวิจัย {len(em)} หัวข้อ",
-             "- จำนวนหัวข้อตามสถานะ: " + ", ".join(f"{STATUS_TH[s]} ({s}) {int(counts.get(s, 0))}" for s in STATUS_TH)]
+             f"- บทความที่นำมาวิเคราะห์ (ปี {years[0]}–{last}): {analysed:,} เรื่อง · หัวข้อวิจัย {len(em)} หัวข้อ"]
+    if n_all > analysed:     # the KPI tile counts the whole corpus: give both, each with its label
+        lines.append(f"- บทความทั้งคลัง (รวมปีที่ยังไม่ครบและบทความที่ไม่ระบุปี): {n_all:,} เรื่อง")
+    lines.append("- จำนวนหัวข้อตามสถานะ: "
+                 + ", ".join(f"{STATUS_TH[s]} ({s}) {int(counts.get(s, 0))}" for s in STATUS_TH))
     _, R = _windows(cfg, last)
     for status in ("EMERGING", "HOT", "DECLINING"):
         g = em[em["status"] == status]
@@ -290,12 +389,15 @@ def brief_facts(cfg: dict, labels: pd.DataFrame, em: pd.DataFrame, last: int) ->
     return "\n".join(lines)
 
 
-def template_brief(cfg: dict, em: pd.DataFrame, last: int, total: int) -> dict:
+def template_brief(cfg: dict, em: pd.DataFrame, last: int, total: int, first: int | None = None) -> dict:
+    """total = the ANALYSED articles (complete years first–last) — labelled as such, because the Overview's KPI
+    tile counts the whole corpus (incl. the running year and undated articles)."""
     c = em["status"].value_counts()
     e, h, d = (int(c.get(s, 0)) for s in ("EMERGING", "HOT", "DECLINING"))
-    return {"headline_th": f"ข้อมูลถึงปี {last}: {total:,} บทความ {len(em)} หัวข้อ — กำลังเกิดใหม่ {e} หัวข้อ, "
+    span = f"{first}–{last}" if first is not None else f"≤ {last}"
+    return {"headline_th": f"ข้อมูลปี {span}: วิเคราะห์ {total:,} บทความใน {len(em)} หัวข้อ — กำลังเกิดใหม่ {e} หัวข้อ, "
                            f"กำลังร้อน {h} หัวข้อ, กำลังลดลง {d} หัวข้อ",
-            "headline_en": f"Data to {last}: {total:,} articles in {len(em)} topics — {e} emerging, {h} hot, "
+            "headline_en": f"Data {span}: {total:,} articles analysed in {len(em)} topics — {e} emerging, {h} hot, "
                            f"{d} declining",
             "bullets_th": [f"{STATUS_TH[s]} ({s}): {int(c.get(s, 0))} หัวข้อ" for s in STATUS_TH],
             "bullets_en": [f"{s}: {int(c.get(s, 0))} topics" for s in STATUS_TH]}
@@ -316,12 +418,14 @@ def _named_growth(labels: pd.DataFrame, em: pd.DataFrame) -> dict[str, float]:
 def brief_job(cfg: dict) -> LlmJob:
     labels, em, _, last = _inputs(cfg)
     work = Path(cfg["pipeline"]["work_dir"])
-    total = sum(json.loads((work / "06_meta.json").read_text(encoding="utf-8"))["totals"].values())
+    totals = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))["totals"]
+    first = min(int(y) for y in totals) if totals else None
     template = load_prompt(BRIEF_PROMPT, cfg["llm"]["prompts_dir"])
     facts = brief_facts(cfg, labels, em, last)
-    item = LlmItem("brief", render_prompt(template, facts=facts), template_brief(cfg, em, last, total),
+    item = LlmItem("brief", render_prompt(template, facts=facts),
+                   template_brief(cfg, em, last, sum(totals.values()), first),
                    _checker(facts, _names(labels), ("headline_th", "headline_en", "bullets_th", "bullets_en"),
-                            named_growth=_named_growth(labels, em)))
+                            named_growth=_named_growth(labels, em), ratios=[]))
     return LlmJob("brief", BriefOut, prompt_version(template), [item])
 
 

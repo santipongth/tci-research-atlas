@@ -29,6 +29,7 @@ def test_series_backfill_guard_and_tables(make_cfg, tmp_path):
     meta = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
     assert meta["last_complete_year"] == 2023 and s["year"].max() == 2023
     assert meta["trimmed_years"] == [2024] and meta["as_of_year"] == 2026
+    assert meta["n_articles"] == len(rows)                    # whole corpus (the KPI) next to the analysed totals
     assert set(s["topic_id"]) == {0}                          # unassigned (-1) never becomes a topic
     assert (s["corpus_total"] == 10).all()                    # ... but counts in the denominator
     assert (s["count"] == 5).all() and (s["count_with_org"] <= s["count"]).all()
