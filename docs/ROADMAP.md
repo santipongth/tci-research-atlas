@@ -37,7 +37,7 @@
    - เพิ่ม aggregation step ใน pipeline + หน้าใหม่ในเว็บ
 7. **Diff รอบรัน ("อะไรเปลี่ยนตั้งแต่ไตรมาสก่อน")** — หัวข้อใหม่, หัวข้อที่เปลี่ยนสถานะ, mover ที่ score ขึ้นแรงสุด
    - ข้อมูล prev centroids มีอยู่แล้ว; เพิ่มการเก็บ snapshot status รอบก่อน + section เล็กในเว็บ
-8. **Emerging narrative อัตโนมัติ** — ให้ LLM เขียนย่อหน้าสรุป "ทำไมหัวข้อนี้ emerging" จาก metric + ตัวอย่างบทความ (prompt พร้อมแล้วที่ `prompts/emerging_narrative.th.md`)
+8. **Emerging narrative อัตโนมัติ** — ให้ LLM เขียนย่อหน้าสรุป "ทำไมหัวข้อนี้ emerging" จาก metric + ตัวอย่างบทความ (prompt ใช้งานจริงที่ `prompts/topic_narrative.th.md` + `prompts/executive_brief.th.md`)
 
 ### 🔵 ใหญ่ ต้องวางแผน (เดือนขึ้นไป)
 

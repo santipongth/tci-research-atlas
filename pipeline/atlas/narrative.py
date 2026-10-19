@@ -16,6 +16,7 @@ calls the LLM. Outputs: work/11_narratives (topic_id, status, th, en, source), w
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 
@@ -33,7 +34,18 @@ NARRATIVE_COLUMNS = ["topic_id", "status", "th", "en", "source"]
 STATUS_TH = {"EMERGING": "กำลังเกิดใหม่", "WATCH": "จับตา", "HOT": "กำลังร้อน", "DECLINING": "กำลังลดลง",
              "STABLE": "คงที่", "LOW_DATA": "ข้อมูลน้อย"}
 _THAI_DIGITS = str.maketrans("".join(chr(0x0E50 + d) for d in range(10)), "0123456789")   # Thai digits 0-9
-_NUMBER = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")
+_NUMBER = re.compile(r"\d+(?:,\d{3}(?!\d))*(?:\.\d+)?")      # "2022,2023" is two numbers, "1,234" one
+_TH_NUM = {"หนึ่ง": 1, "สอง": 2, "สาม": 3, "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9, "สิบ": 10}
+_WORD_MULT = [(re.compile(rf"{w}\s*เท่า"), float(n)) for w, n in _TH_NUM.items()] + [
+    (re.compile(p, re.I), n) for p, n in ((r"doubl(?:ed|ing)|\btwice\b|two-?fold", 2.0), (r"tripl(?:ed|ing)|three-?fold", 3.0),
+                                          (r"quadrupl(?:ed|ing)|four-?fold", 4.0),
+                                          (r"\bhalv(?:ed|ing)\b|\bhalf\b|ครึ่งหนึ่ง", 0.5),
+                                          (r"ten-?fold", 10.0), ("½", 0.5), ("¼", 0.25), ("¾", 0.75))]
+_VAGUE_MULT = re.compile(r"เท่าตัว|หลายเท่า|many[- ]?fold|several times", re.I)
+_ANY_MULT = re.compile(r"เท่า|\btimes\b|-?fold\b|×|\d\s*x\b|\bx\s*\d", re.I)
+_RISE = re.compile(r"เพิ่ม(?!เติม)|โต(?!เกียว)|สูงขึ้น|\b(?:grow\w*|grew|rose|rising|increas\w*)\b", re.I)
+_FALL = re.compile(r"ลด|หดตัว|\b(?:declin\w*|fell|falling|decreas\w*|drop\w*)\b", re.I)
+_FLAT = 0.01                                    # |share growth| within ±1% per year: no direction claim is checked
 
 
 class NarrativeOut(BaseModel):
@@ -70,14 +82,60 @@ def _grounded(x: float, allowed: set[float]) -> bool:
     return any(x == a or x == round(a) or x == round(a, 1) for a in allowed)
 
 
-def grounding_error(texts: list[str], facts: str, names: list[str]) -> str | None:
-    """Why the texts are not grounded in `facts`, or None. names: every topic name of the release."""
+def _multiple_error(texts: list[str], allowed: set[float], no_baseline: bool) -> str | None:
+    joined = "\n".join(texts)
+    if no_baseline and _ANY_MULT.search(joined):
+        return "multiple wording for a topic with no baseline (there is nothing to multiply)"
+    if _VAGUE_MULT.search(joined):
+        return "vague multiple wording (หลายเท่า / เท่าตัว / many-fold): use the numbers in the facts"
+    for pat, n in _WORD_MULT:
+        if pat.search(joined) and not _grounded(n, allowed):
+            return f"multiple or fraction in words ({n:g}) is not in the facts"
+    return None
+
+
+def _direction_error(texts: list[str], growth: float | None) -> str | None:
+    if growth is None or not math.isfinite(growth) or abs(growth) <= _FLAT:
+        return None
+    joined = "\n".join(texts)
+    if growth < 0 and _RISE.search(joined):
+        return "direction: the text says the share rises but share growth is negative"
+    if growth > 0 and _FALL.search(joined):
+        return "direction: the text says the share falls but share growth is positive"
+    return None
+
+
+def _named_direction_error(texts: list[str], named_growth: dict[str, float]) -> str | None:
+    """Per sentence that names exactly one topic, the direction words must match that topic's growth."""
+    for t in texts:
+        for sent in re.split(r"(?<=[.!?])\s+|\n", str(t)):
+            low = sent.lower()
+            hit = {n for n in named_growth if n.lower() in low}
+            if len(hit) == 1:
+                err = _direction_error([sent], named_growth[next(iter(hit))])
+                if err:
+                    return err
+    return None
+
+
+def grounding_error(texts: list[str], facts: str, names: list[str], *, no_baseline: bool = False,
+                    growth: float | None = None, named_growth: dict[str, float] | None = None) -> str | None:
+    """Why the texts are not grounded in `facts`, or None. names: every topic name of the release.
+
+    no_baseline: the topic has no baseline articles → no multiple wording at all. growth: the topic's share growth
+    (direction words must agree). named_growth: {topic name: growth} for the brief (checked per sentence).
+    """
     allowed = set(numbers_in(facts))
     bad = sorted({n for t in texts for n in numbers_in(t) if not _grounded(n, allowed)})
     if bad:
         return "numbers not in the facts: " + ", ".join(f"{n:g}" for n in bad[:5])
-    joined = "\n".join(texts)
-    foreign = [n for n in names if len(n) >= 4 and n not in facts and n in joined]
+    err = _multiple_error(texts, allowed, no_baseline) or _direction_error(texts, growth)
+    if err is None and named_growth:
+        err = _named_direction_error(texts, named_growth)
+    if err:
+        return err
+    joined, low_facts = "\n".join(texts).lower(), facts.lower()
+    foreign = [n for n in names if len(n) >= 4 and n.lower() not in low_facts and n.lower() in joined]
     if foreign:
         return "names topics that are not in the facts: " + ", ".join(foreign[:3])
     return None
@@ -173,14 +231,16 @@ def narrative_job(cfg: dict) -> LlmJob:
         tl = "\n".join(f"- {t}" for t in titles.get(tid, []))
         items.append(LlmItem(topic_code(tid), render_prompt(template, facts=facts, titles=tl),
                              template_narrative(cfg, lab, e, last),
-                             _checker(facts + "\n" + tl, names, ("th", "en"))))
+                             _checker(facts + "\n" + tl, names, ("th", "en"),
+                                      no_baseline=float(e.share_baseline) == 0,
+                                      growth=float(e.share_growth) if pd.notna(e.share_growth) else None)))
     return LlmJob("narrative", NarrativeOut, prompt_version(template), items)
 
 
-def _checker(facts: str, names: list[str], fields: tuple[str, ...]):
+def _checker(facts: str, names: list[str], fields: tuple[str, ...], **kw):
     def check(out: dict) -> str | None:
         texts = [t for f in fields for t in (out[f] if isinstance(out[f], list) else [out[f]])]
-        return grounding_error(texts, facts, names)
+        return grounding_error(texts, facts, names, **kw)
     return check
 
 
@@ -202,9 +262,12 @@ def brief_facts(cfg: dict, labels: pd.DataFrame, em: pd.DataFrame, last: int) ->
                                                                                          ascending=False)
         for tid, e in g.head(3).iterrows():
             lab = labels.loc[tid]
-            lines.append(f"- {STATUS_TH[status]}: {lab.name_th} ({lab.name_en}) — {int(e.count_recent):,} เรื่องใน {R}, "
-                         f"สัดส่วนเปลี่ยน {_pct(e.share_growth, 1)}%/ปี (ช่วงเชื่อมั่น {ci}%: "
-                         f"{_pct(e.share_growth_lo, 1)}% ถึง {_pct(e.share_growth_hi, 1)}%)")
+            line = f"- {STATUS_TH[status]}: {lab.name_th} ({lab.name_en}) — {int(e.count_recent):,} เรื่องใน {R}"
+            if pd.notna(e.share_growth):
+                line += f", สัดส่วนเปลี่ยน {_pct(e.share_growth, 1)}%/ปี"
+                if pd.notna(e.share_growth_lo) and pd.notna(e.share_growth_hi):
+                    line += f" (ช่วงเชื่อมั่น {ci}%: {_pct(e.share_growth_lo, 1)}% ถึง {_pct(e.share_growth_hi, 1)}%)"
+            lines.append(line)
     return "\n".join(lines)
 
 
@@ -219,6 +282,18 @@ def template_brief(cfg: dict, em: pd.DataFrame, last: int, total: int) -> dict:
             "bullets_en": [f"{s}: {int(c.get(s, 0))} topics" for s in STATUS_TH]}
 
 
+def _named_growth(labels: pd.DataFrame, em: pd.DataFrame) -> dict[str, float]:
+    """{topic name (th and en): share growth} for topics with a finite growth - the brief's per-sentence check."""
+    out: dict[str, float] = {}
+    for tid, g in em["share_growth"].items():
+        if tid in labels.index and pd.notna(g):
+            for c in ("name_th", "name_en"):
+                n = str(labels.loc[tid, c]).strip()
+                if len(n) >= 4:
+                    out[n] = float(g)
+    return out
+
+
 def brief_job(cfg: dict) -> LlmJob:
     labels, em, _, last = _inputs(cfg)
     work = Path(cfg["pipeline"]["work_dir"])
@@ -226,7 +301,8 @@ def brief_job(cfg: dict) -> LlmJob:
     template = load_prompt(BRIEF_PROMPT, cfg["llm"]["prompts_dir"])
     facts = brief_facts(cfg, labels, em, last)
     item = LlmItem("brief", render_prompt(template, facts=facts), template_brief(cfg, em, last, total),
-                   _checker(facts, _names(labels), ("headline_th", "headline_en", "bullets_th", "bullets_en")))
+                   _checker(facts, _names(labels), ("headline_th", "headline_en", "bullets_th", "bullets_en"),
+                            named_growth=_named_growth(labels, em)))
     return LlmJob("brief", BriefOut, prompt_version(template), [item])
 
 

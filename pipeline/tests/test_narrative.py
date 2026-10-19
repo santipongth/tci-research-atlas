@@ -112,3 +112,54 @@ def test_llm_narratives_are_grounded_or_replaced(make_cfg, tmp_path):
 def test_step_and_jobs_are_registered():
     assert STEPS.index("forecast") < STEPS.index("narrate") < STEPS.index("export")
     assert set(JOBS) == {"label", "merge", "narrative", "brief"}
+
+
+def test_word_form_multiples_and_fractions_are_rejected():
+    facts = "- สัดส่วน: 1.20% → 3.60% (3.0 เท่า)\n- 12 วารสาร"
+    for bad in ["โตเป็นสองเท่า", "เพิ่มเป็นสองเท่าตัว", "grew many fold", "doubled in size", "halved", "twice as big",
+                "เติบโตหลายเท่า", "เหลือครึ่งหนึ่ง", "a tenfold rise", "share fell by ½", "สิบเท่า"]:
+        assert grounding_error([bad], facts, []) is not None, bad
+    assert grounding_error(["โตเป็นสามเท่า", "tripled"], facts, []) is None            # 3 is in the facts
+
+
+def test_no_baseline_rejects_any_multiple_wording():
+    facts = "- ช่วงฐาน 2017–2021 (5 ปี): ไม่มีบทความ | ช่วงล่าสุด 2022–2024 (3 ปี): 0.40%"
+    for bad in ["โต 3 เท่า", "grew 3 times", "a 3-fold rise", "up 3x", "×3"]:
+        assert grounding_error([bad], facts, [], no_baseline=True) is not None, bad
+    assert grounding_error(["หัวข้อใหม่ที่ไม่มีฐานเปรียบเทียบ 0.4%"], facts, [], no_baseline=True) is None
+
+
+def test_direction_must_match_growth():
+    facts = "- 5 ปี"
+    assert "direction" in grounding_error(["สัดส่วนเพิ่มขึ้น"], facts, [], growth=-0.2)
+    assert "direction" in grounding_error(["shares fell"], facts, [], growth=0.3)
+    assert grounding_error(["สัดส่วนลดลง", "share fell"], facts, [], growth=-0.2) is None
+    assert grounding_error(["สัดส่วนลดลง"], facts, [], growth=0.005) is None        # within ±1%
+    assert grounding_error(["เพิ่มเติม"], facts, [], growth=-0.2) is None            # "additionally" is not a rise
+    assert grounding_error(["x"], facts, [], growth=float("nan")) is None
+
+
+def test_brief_direction_per_sentence_with_one_topic():
+    facts = "- AI-assisted learning, Print media 5"
+    ng = {"AI-assisted learning": 0.3, "Print media": -0.2}
+    assert grounding_error(["Print media grew. AI-assisted learning grew."], facts, [], named_growth=ng) is not None
+    assert grounding_error(["AI-assisted learning grew while Print media fell."], facts, [], named_growth=ng) is None
+
+
+def test_minor_tokenisation_case_and_nan():
+    assert grounding_error(["ปี 2022,2023 และ 2024"], "- 2022 2023 2024", []) is None
+    assert grounding_error(["unlike rice farming"], "- x", ["Rice farming"]) is not None
+    import pandas as pd
+
+    from atlas.narrative import brief_facts
+    em = pd.DataFrame({"status": ["EMERGING"], "emerging_score": [1.0], "count_recent": [5], "share_growth": [float("nan")],
+                       "share_growth_lo": [float("nan")], "share_growth_hi": [float("nan")]}, index=[1])
+    lab = pd.DataFrame({"name_th": ["ก"], "name_en": ["A"]}, index=[1])
+    cfg = {"emerging": {"recent_window": 3, "baseline_window": 5, "ci_level": 0.9}, "pipeline": {"work_dir": "."}}
+    import json
+    import tempfile
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d) / "06_meta.json").write_text(json.dumps({"totals": {"2024": 10}}), encoding="utf-8")
+        cfg["pipeline"]["work_dir"] = d
+        assert "nan" not in brief_facts(cfg, lab, em, 2024).lower()
