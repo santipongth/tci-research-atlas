@@ -94,3 +94,10 @@ test('the header search finds a Thai topic typed without tone marks and opens it
   await box.press('Enter')
   await expect(page).toHaveURL(/#\/topics\/T000101$/)
 })
+
+test('the printable brief shows the data banner when the release cannot load', async ({ page }) => {
+  await page.route('**/data/latest.json', (r) => r.fulfill({ status: 404, body: 'not found' }))
+  await page.goto(`${EXAMPLE}#/brief`)
+  await expect(page.getByRole('alert')).toContainText('latest.json')
+  await expect(page.locator('h1').first()).toBeVisible()
+})

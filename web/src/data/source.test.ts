@@ -46,6 +46,23 @@ describe('HttpSource', () => {
   })
 })
 
+describe('hostile or damaged data files', () => {
+  it('rejects release names that could escape the data folder', async () => {
+    for (const release of ['../x', 'a/b', '..', 'x y']) {
+      const body = JSON.stringify({ release, path: 'x', generated_at: '2026-10-01T00:00:00Z' })
+      await expect(new HttpSource('./', respond(200, body)).latest()).rejects.toMatchObject({ kind: 'parse' })
+    }
+  })
+
+  it('treats a literal null or a non-object release file as a parse error, not a network or missing one', async () => {
+    await expect(new HttpSource('./', respond(200, 'null')).file('2026Q4', 'topics.json')).rejects.toMatchObject({ kind: 'parse' })
+    await expect(new HttpSource('./', respond(200, '42')).file('2026Q4', 'topics.json')).rejects.toMatchObject({ kind: 'parse' })
+    const bundle = bundleOf('example')
+    bundle.files['topics.json'] = null
+    await expect(new EmbeddedSource(bundle).file('2026Q4', 'topics.json')).rejects.toMatchObject({ kind: 'parse' })
+  })
+})
+
 describe('EmbeddedSource', () => {
   it('serves the bundled release and nothing else', async () => {
     const src = new EmbeddedSource(bundleOf('example'))

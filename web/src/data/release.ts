@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DataError, type DataSource } from './source'
+import { DataError, isReleaseName, type DataSource } from './source'
 import type {
   EdgesFile, EmergingKeyword, GroupInfo, KeywordsFile, Latest, Manifest, Overview, SeriesFile, TaxonomyFile, Topic, TopicDetail, TopicsFile,
 } from './types'
@@ -33,7 +33,7 @@ export function schemaMajor(version: string | null | undefined): number | null {
 
 const ManifestShape = z.looseObject({
   release: z.string(),
-  schema_version: z.string().optional(),
+  schema_version: z.string().regex(/^\d+\./),
   modules: z.array(z.string()).optional(),
   previous_release: z.string().nullable().optional(),
 })
@@ -54,7 +54,7 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
   const release = latest.release
   const manifest = await required<Manifest>(source, release, 'manifest.json')
   if (!ManifestShape.safeParse(manifest).success) throw new DataError('parse', `${release}/manifest.json`)
-  const version = manifest.schema_version ?? latest.schema_version ?? `${SUPPORTED_SCHEMA_MAJOR}.0.0`
+  const version = manifest.schema_version ?? ''
   if (schemaMajor(version) !== SUPPORTED_SCHEMA_MAJOR) throw new DataError('schema', version)
   const modules = new Set(manifest.modules ?? [])
   const [overview, taxonomy, topicsFile, series, edgesFile, keywordsFile] = await Promise.all([
@@ -70,7 +70,7 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
   expectArray(series.years, `${release}/series.json`)
   expectArray(overview.corpus_by_year, `${release}/overview.json`)
   const previous = manifest.previous_release ?? overview.previous_release ?? null
-  const previousOverview = previous ? await source.file<Overview>(previous, 'overview.json').catch(() => null) : null
+  const previousOverview = previous && isReleaseName(previous) ? await source.file<Overview>(previous, 'overview.json').catch(() => null) : null
   const topics = topicsFile.topics
   return {
     source: source.kind,

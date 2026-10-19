@@ -26,7 +26,11 @@ export interface DataSource {
   file<T>(release: string, path: string): Promise<T | null>
 }
 
-const LatestShape = z.object({ release: z.string().min(1), path: z.string().min(1), schema_version: z.string().optional(), generated_at: z.string() })
+/** A release folder name: no slashes or dots-only segments, so a hostile latest.json cannot point outside data/. */
+export const RELEASE_NAME = /^[\w.-]+$/
+export const isReleaseName = (v: unknown): v is string => typeof v === 'string' && RELEASE_NAME.test(v) && !/^\.+$/.test(v)
+
+const LatestShape = z.object({ release: z.string().refine(isReleaseName, 'invalid release name'), path: z.string().min(1), schema_version: z.string().optional(), generated_at: z.string() })
 
 function checkLatest(raw: unknown, where: string): Latest {
   const parsed = LatestShape.safeParse(raw)
@@ -64,11 +68,14 @@ export class HttpSource implements DataSource {
     }
     if (!res.ok) throw new DataError('network', `${url}: HTTP ${res.status}`)
     const text = await res.text()
+    let value: unknown
     try {
-      return JSON.parse(text) as unknown
+      value = JSON.parse(text)
     } catch {
       throw new DataError('parse', url)
     }
+    if (path !== 'latest.json' && (value === null || typeof value !== 'object')) throw new DataError('parse', url)
+    return value
   }
 
   async latest(): Promise<Latest> {
@@ -96,7 +103,9 @@ export class EmbeddedSource implements DataSource {
   async file<T>(release: string, path: string): Promise<T | null> {
     if (release !== this.bundle.latest?.release) return null
     const value = this.bundle.files[path]
-    return value === undefined ? null : (value as T)
+    if (value === undefined) return null
+    if (value === null || typeof value !== 'object') throw new DataError('parse', `embedded ${path}`)
+    return value as T
   }
 }
 

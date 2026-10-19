@@ -9,9 +9,9 @@
   a { color: var(--link); text-decoration: underline; text-decoration-thickness: max(1px, 0.0625rem); text-underline-offset: 0.15em; }
   a:hover { color: var(--link-hover); text-decoration-thickness: max(3px, 0.1875rem); }
   a:focus-visible, a:focus-visible:hover { outline: 3px solid transparent; color: var(--focus-ink); background: var(--focus); box-shadow: 0 -2px var(--focus), 0 4px var(--focus-ink); text-decoration: none; }
-  button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, [role="tab"]:focus-visible, [role="option"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 0; box-shadow: inset 0 0 0 2px var(--focus-ink); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, [tabindex]:not([tabindex="-1"]):focus-visible, [role="tab"]:focus-visible, [role="option"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 0; box-shadow: inset 0 0 0 2px var(--focus-ink); }
   button { font: inherit; color: inherit; cursor: pointer; }
-  h1, h2, h3 { margin: 0; font-weight: 700; line-height: 1.35; text-wrap: balance; }
+  h1, h2, h3 { margin: 0; font-weight: 700; line-height: 1.5; text-wrap: balance; }
   p { margin: 0; }
   main:focus, h1:focus, h2:focus, h3:focus { outline: none; }
   table { border-collapse: collapse; }

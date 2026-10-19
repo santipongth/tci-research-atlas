@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { createDetailLoader, groupName, loadRelease, schemaMajor, seriesOf } from './release'
 import { EmbeddedSource, HttpSource } from './source'
-import { bundleOf, fixtureFetch } from '../../test/fixtureData'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { bundleOf, fixtureFetch, FIXTURES } from '../../test/fixtureData'
 
 describe('loadRelease', () => {
   it('loads the example release from the offline bundle with indexes and flags', async () => {
@@ -44,6 +46,33 @@ describe('loadRelease', () => {
     const damaged = bundleOf('example')
     damaged.files['topics.json'] = {}
     await expect(loadRelease(new EmbeddedSource(damaged))).rejects.toMatchObject({ kind: 'parse' })
+  })
+
+  it('treats literal null / non-object files as parse errors and requires a schema_version', async () => {
+    for (const file of ['topics.json', 'taxonomy.json', 'series.json', 'overview.json']) {
+      const b = bundleOf('example')
+      b.files[file] = null
+      await expect(loadRelease(new EmbeddedSource(b)), file).rejects.toMatchObject({ kind: 'parse' })
+    }
+    const noVersion = bundleOf('example')
+    const rest = { ...(noVersion.files['manifest.json'] as Record<string, unknown>) }
+    delete rest.schema_version
+    noVersion.files['manifest.json'] = rest
+    await expect(loadRelease(new EmbeddedSource(noVersion))).rejects.toMatchObject({ kind: 'parse' })
+  })
+
+  it('never fetches a previous release whose name is not a plain folder name', async () => {
+    const asked: string[] = []
+    const base = fixtureFetch('example', './', asked)
+    const evil = ((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('2026Q4/manifest.json')) {
+        return Promise.resolve(new Response(JSON.stringify({ ...JSON.parse(readFileSync(join(FIXTURES, 'example', 'data', '2026Q4', 'manifest.json'), 'utf8')), previous_release: '../x' })))
+      }
+      return base(input, init)
+    }) as typeof fetch
+    const r = await loadRelease(new HttpSource('./', evil))
+    expect(r.previousOverview).toBeNull()
+    expect(asked.some((u) => u.includes('..'))).toBe(false)
   })
 
   it('parses schema majors', () => {

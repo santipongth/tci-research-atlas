@@ -61,17 +61,17 @@ typography:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
     fontSize: "clamp(2rem, 1.4rem + 2.2vw, 3rem)"
     fontWeight: 700
-    lineHeight: 1.3
+    lineHeight: 1.5
   headline:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
     fontSize: "clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem)"
     fontWeight: 600
-    lineHeight: 1.45
+    lineHeight: 1.5
   title:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
     fontSize: "clamp(1.5rem, 1.2rem + 1vw, 2.25rem)"
     fontWeight: 700
-    lineHeight: 1.35
+    lineHeight: 1.5
   body:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
     fontSize: "1.1875rem"
@@ -86,7 +86,7 @@ typography:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
-    lineHeight: 1.45
+    lineHeight: 1.5
   numeric:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
     fontSize: "clamp(1.75rem, 1.4rem + 1vw, 2.375rem)"
@@ -211,11 +211,11 @@ series-1…4 = #2a78d6, #eb6834, #1baf7a, #eda100 (dark #3987e5, #d95926, #199e7
 **Character:** Sarabun descends from TH Sarabun, the standard face of Thai government documents — familiar, plain and legible in both scripts; one family keeps the release sober.
 
 ### Hierarchy
-- **Display** (700, clamp(2rem, 1.4rem + 2.2vw, 3rem), 1.3): the page `h1`, max 34ch.
-- **Headline** (600, clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem), 1.45): the Overview headline sentence only, max 30ch.
-- **Title** (700, clamp(1.5rem, 1.2rem + 1vw, 2.25rem), 1.35): section `h2`.
+- **Display** (700, clamp(2rem, 1.4rem + 2.2vw, 3rem), 1.5): the page `h1`, max 34ch.
+- **Headline** (600, clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem), 1.5): the Overview headline sentence only, max 30ch.
+- **Title** (700, clamp(1.5rem, 1.2rem + 1vw, 2.25rem), 1.5): section `h2`.
 - **Body** (400, 19 px ≥ 641 px wide / 16 px on phones, 1.65): prose, max 40em.
-- **Label** (600, 0.875–1rem, 1.45): table headers, tab labels, chip text, KPI labels.
+- **Label** (600, 0.875–1rem, 1.5): table headers, tab labels, chip text, KPI labels.
 - **Numeric** (700, clamp(1.75rem, 1.4rem + 1vw, 2.375rem), 1.25, tabular figures): KPI values and finding stats.
 
 ### Named Rules
