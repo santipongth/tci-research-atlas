@@ -17,6 +17,7 @@
 | `npm run fixtures` | สร้างข้อมูลทดสอบ (สังเคราะห์ ไม่ใช่ข้อมูลจริง) ใหม่ — CI ตรวจว่าไม่ drift |
 | `npm run gen:types` | สร้าง `src/data/contract.ts` จาก `contract.schema.json` (หลัง `uv run atlas schema` ใน `pipeline/`) |
 | `npm run brief:pdf -- [--data <โฟลเดอร์ data>] [--out <โฟลเดอร์>]` | พิมพ์หน้า `#/brief` เป็น `brief-th.pdf` และ `brief-en.pdf` (ฟอนต์ไทยฝังในไฟล์) · ไม่มีข้อมูลจะหยุดทันทีพร้อมข้อความ · ลองในเครื่อง: `--data fixtures/example/data` |
+| `node scripts/make-province-map.mjs <ne_admin1.geojson>` | สร้าง `src/geo/thProvinces.ts` (เส้นขอบ 77 จังหวัดจาก Natural Earth 1:10m admin-1 v5.1.2, สาธารณสมบัติ) — รันครั้งเดียว ไฟล์ที่ได้ถูก commit แล้ว; geojson ~40 MB ดาวน์โหลดไว้นอก repo (ดูหัวสคริปต์) |
 | `npm run vendor:fonts` | คัดลอก Sarabun (woff2, OFL) เข้า `src/assets/fonts/` |
 
 ## ข้อมูลเข้าเว็บอย่างไร
@@ -34,7 +35,7 @@ pipeline: uv run atlas publish -c config.yaml --site ../web/dist
 
 ## หน้า
 
-`#/overview` ภาพรวม (KPI + Δ, ประโยคสรุป, ประเด็นผู้บริหาร, สถานะ + forest plot, ผัง size × growth) · `#/atlas` แผนที่ + ดัชนีหัวข้อ · `#/topics/:id` หัวข้อ · `#/emerging` ตารางสถานะ · `#/compare` เปรียบเทียบ 2–4 หัวข้อ · `#/data` ข้อมูลเปิด + ความโปร่งใส · `#/about` วิธีการ + นิยาม + changelog · `#/brief` หน้าพิมพ์ PDF · P2 (lazy): `#/journals` ตัวชี้วัดวารสาร · `#/journals/:id` โปรไฟล์วารสาร · `#/methods` วิธีวิจัย · `#/changes` อะไรเปลี่ยนจากรอบก่อน · `#/match` วางบทคัดย่อ (คำนวณในเบราว์เซอร์; ไม่มีในไฟล์ออฟไลน์) — ไฟล์ข้อมูลของหน้าเหล่านี้เป็น optional และแต่ละหน้าอธิบายตัวเองเมื่อไม่มี
+`#/overview` ภาพรวม (KPI + Δ, ประโยคสรุป, ประเด็นผู้บริหาร, สถานะ + forest plot, ผัง size × growth) · `#/atlas` แผนที่ + ดัชนีหัวข้อ · `#/topics/:id` หัวข้อ · `#/emerging` ตารางสถานะ · `#/compare` เปรียบเทียบ 2–4 หัวข้อ · `#/data` ข้อมูลเปิด + ความโปร่งใส · `#/about` วิธีการ + นิยาม + changelog · `#/brief` หน้าพิมพ์ PDF · P2 (lazy): `#/institutions` สถาบัน · `#/institutions/:id` · `#/regions` แผนที่จังหวัด · `#/sdg` SDG และแผนชาติ · `#/global` ไทยเทียบโลก · `#/gaps` ช่องว่างงานวิจัย (P3, lazy; เมนูแบ่งกลุ่มผู้บริหาร/บรรณาธิการ/นักวิจัย) · `#/journals` ตัวชี้วัดวารสาร · `#/journals/:id` โปรไฟล์วารสาร · `#/methods` วิธีวิจัย · `#/changes` อะไรเปลี่ยนจากรอบก่อน · `#/match` วางบทคัดย่อ (คำนวณในเบราว์เซอร์; ไม่มีในไฟล์ออฟไลน์) — ไฟล์ข้อมูลของหน้าเหล่านี้เป็น optional และแต่ละหน้าอธิบายตัวเองเมื่อไม่มี
 สถานะของตัวกรอง/การเลือกอยู่ใน URL เสมอ (เช่น `#/emerging?status=WATCH&sort=journals`) แชร์ลิงก์ได้
 
 ## โครงสร้างโค้ด

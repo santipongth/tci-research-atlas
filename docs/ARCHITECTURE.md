@@ -54,12 +54,18 @@ corpus/*.md (ThaiJO scrape)            ← ตรวจก่อนด้วย:
 [journals]   ตัวตนวารสาร (+ registry/journals.csv) · D1–D5, D7 · อ่านแถวผู้แต่งที่นี่ที่เดียว เผยแพร่เฉพาะยอดรวม → work/13_journal*
 [match]      ดัชนี trigram (fold เดียวกับ foldText ของเว็บ; ไม่มีข้อความบทความ)                          → work/14_match.json
         ▼
+[institutions] สถาบัน (ตารางชื่อ → ROR → ชื่อตามที่เขียน), เครือข่ายความร่วมมือ, ประเทศคู่, จังหวัด, ข้อเสนอ R6 — อ่านแถวผู้แต่งเฉพาะสังกัด → work/15_*
+[sdg]        หัวข้อ → SDG/BCG/แผน ววน./หมุดหมายแผนฯ 13 (centroid cosine หรือคำสำคัญ)                    → work/16_*
+[benchmark]  ไทยเทียบโลกจาก OpenAlex (16 requests; offline = ข้ามพร้อมเหตุผล)                           → work/17_*
+[gaps]       ช่องว่างงานวิจัย R5 + ความเสี่ยงกระจุกตัว E10                                              → work/18_*
+        ▼
 [export]     output/atlas_data.json (schema 1.1 — เว็บ v2 ไม่อ่านแล้ว) + output/data/<release>/ (contract v2) + latest.json
         ▼
 atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>  →  data/<release>/ + data/latest.json + atlas-offline.html
 เว็บ v2 อ่าน data/latest.json แบบ path สัมพัทธ์จาก BASE_URL — ไม่เรียก API ตอน runtime; อัปเดตรายไตรมาส = คัดลอกโฟลเดอร์ data
 ```
 
+- **P3:** ลำดับ step `match → institutions → sdg → benchmark → gaps → export`; แคช ROR อยู่ใน `state_dir/ror/` (ข้อมูลถาวร) และคำขอ OpenAlex ของ `benchmark` ใช้ `state_dir/openalex/` เดียวกับ taxonomy; `export` เขียน `institutions*.json`, `regions.json`, `sdg.json`, `global.json`, `gaps.json` และ `overview.executive` (contract 2.2); เว็บแสดงเป็น 6 หน้า lazy และเส้นขอบจังหวัดอยู่ใน chunk ของ `/regions`
 - **P2:** `export` เขียน `state_dir/releases/<release>/snapshot.json` ทุกรอบ แล้วรอบถัดไปเทียบกับ snapshot นั้นเป็น `diff.json` (รอบก่อน P2 ใช้ `output/data/<prev>/`); `match.json` อยู่นอก HTML ออฟไลน์ และเว็บคำนวณ match ในเบราว์เซอร์ล้วน ๆ (`web/src/lib/matcher.ts` ตรึงด้วย `pipeline/tests/fixtures/match_parity.json`)
 - งาน LLM ทั้งหมดเป็นระดับหัวข้อ (ชื่อ คู่ซ้ำ คำอธิบาย บทสรุป) ผ่าน adapter เดียวแบบ OpenAI-compatible (`atlas/llm.py`) บนแกน HTTP ร่วมกับ embedding (`atlas/api_http.py`) — ไม่มี SDK ของผู้ให้บริการรายใด
 - รอบข้อมูลเลือกครั้งเดียวที่ `cluster` (`pipeline.release` หรือไตรมาสของวันที่รัน) แล้วบันทึกพร้อมเวลา snapshot ใน `work/04_topics_meta.json`; ทุกขั้นหลังจากนั้นและ validate/publish ใช้รอบที่บันทึกไว้ (`atlas.state.work_release` — config ที่ชี้รอบอื่นถูกปฏิเสธ) และใช้ snapshot เดียวกันสำหรับ as_of_year, nowcast และ generated_at

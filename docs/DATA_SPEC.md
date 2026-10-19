@@ -215,3 +215,30 @@
 `JournalSummary` (หนึ่งแถวต่อวารสาร): `id` (เช่น `so02.BECJournal` — ฟังก์ชันคงที่ของ `<server>:<OJS path>`; key ที่ไม่ใช่ ASCII = `J` + 12 hex ของ sha1), `key`, `path`, `name_th`/`name_en`/`issn`/`eissn`/`tci_tier`/`tci_field`/`publisher`/`url` (จากทะเบียน, ว่างได้), `in_registry`, `articles`, `articles_window`, `articles_recent`, `first_year`, `last_year`, `active`, `low_data` (น้อยกว่า `min_articles` → ทุกอัตราเป็น null), `group`, `completeness` (0–100, **ไม่ใช่การประเมินอย่างเป็นทางการของ TCI**), `owner` + `owner_source` (`registry` \| `inferred`; เว็บแสดง "อนุมาน / inferred") + `owner_matched`, `inhouse_share`, `n_orgs`, `effective_orgs`, `foreign_share`, `affiliation_coverage`, `methods_coverage`.
 
 PDPA: ตัวเลขของวารสารเป็นยอดรวมเท่านั้น — ไม่มีชื่อบุคคล แถวต่อผู้แต่ง หรืออันดับบุคคล; "ผู้แต่งต่างประเทศ" = สัดส่วนบทความที่มีสังกัด ≥ 1 แห่งนอกประเทศไทย
+
+## 8. P3 — รุ่นผู้บริหาร (contract 2.2, เพิ่มอย่างเดียว)
+
+`SCHEMA_VERSION = "2.2.0"` — ไฟล์ใหม่ทุกไฟล์ optional และประกาศใน `manifest.modules` (`institutions`, `institution_detail`, `regions`, `sdg`, `global`, `gaps`); โมดูลที่ข้ามพร้อมเหตุผลอยู่ใน `manifest.skipped_modules` (เช่น `{"global": "OpenAlex unavailable: …"}`). PDPA: เผยแพร่เฉพาะยอดรวมระดับสถาบัน — ไม่มีชื่อบุคคล แถวต่อผู้แต่ง หรือบทคัดย่อ; สถาบันที่มีบทความในช่วงน้อยกว่า `institutions.min_articles` (5) ถูกนับในยอดรวมแต่ไม่อยู่ในไฟล์ใด (รายการ, หน้า, คู่ความร่วมมือ, สถาบันหลักของจังหวัด, `top` ของ concentration, ข้อเสนอ R6)
+
+### Checkpoint ใหม่ใน `work_dir` (ลบได้)
+
+| ไฟล์ | step | เนื้อหา |
+|---|---|---|
+| `15_article_institutions` · `15_institutions` · `15_inst_years` · `15_inst_topics` · `15_inst_pairs` · `15_inst_countries` · `15_inst_suggest` · `15_provinces` · `15_regions` · `15_institutions_meta.json` | `institutions` | คู่ (บทความ, สถาบัน) ทุกปี · หนึ่งแถวต่อสถาบัน (inst_key, code, ชื่อ, type, province, country, source, ror, articles/articles_total/articles_recent, intl_share, partners, topics, published) · บทความรายปี · หัวข้อ · คู่ความร่วมมือ (≥ `network_min_articles`) · ประเทศคู่ความร่วมมือ · ข้อเสนอ R6 (cosine ≥ `suggest_min_similarity` และไม่มีบทความร่วมกัน) · บทความรายจังหวัด/ภาค (บทความหนึ่งนับทุกจังหวัดของผู้แต่ง) · หน้าต่างปี, coverage, KPI, population |
+| `16_topic_goals` · `16_sdg_meta.json` | `sdg` | topic_id, framework, goal_id, score (สูงสุด `sdg.max_goals_per_topic` ต่อกรอบ) · method (embedding \| lexical), version, กรอบและเป้าหมาย |
+| `17_benchmark` · `17_benchmark_meta.json` | `benchmark` | ต่อ OpenAlex subfield: world_R/B, country_R/B, tci_R, world_ratio, activity_index, country_share, opportunity · `{"skipped": เหตุผล}` เมื่อข้าม |
+| `18_gap_few_institutions` · `18_gap_bridges` · `18_gap_world` · `18_concentration` · `18_gaps_meta.json` | `gaps` | หัวข้อสถานะ `gaps.statuses` ที่สถาบันทำน้อย · คู่หัวข้อเพื่อนบ้านที่สถาบันซ้อนกันน้อย · โอกาสจาก benchmark + หัวข้อที่ตรงกัน · HHI และ top share ต่อหัวข้อ/สาขา |
+| `state_dir/ror/<dump>.<country>.json` | `institutions` | แคชข้อมูล ROR เฉพาะประเทศ (สร้างจาก `institutions.ror_path` ครั้งแรกครั้งเดียว) |
+
+### ไฟล์ที่เผยแพร่ (`data/<release>/`)
+
+| ไฟล์ | model | เนื้อหา |
+|---|---|---|
+| `institutions.json` | `InstitutionsFile` | `window`/`recent`, `min_articles`, `network_min_articles`, `articles_with_org`, `pct_international`, `pct_multi_institution` (เศษส่วน), `sources` (alias/ror/name); `institutions[]` = `InstitutionSummary` (id, name_th/en, type, province, country, source, ror, articles, articles_total, articles_recent, intl_share, partners, topics, group); `edges[]` = `CollabEdge` (a, b, articles); `countries[]` = `CountryCount`; `province_names[]` |
+| `institutions/<id>.json` | `InstitutionDetail` | `years`, `topics` (TopicShare), `partners` (Partner), `countries`, `suggested` (Suggestion: id, similarity, topics — R6) |
+| `regions.json` | `RegionsFile` | `window`, `articles_with_org`, `articles_located`, `coverage`, `population_year`; `provinces[]` = `ProvinceStat` (code, ชื่อ, region, articles, articles_recent, share, institutions, per_100k (null เมื่อไม่มีประชากร), top[]); `regions[]` (key, articles, share) — ส่วนแบ่งรวมกันเกิน 1 ได้ (บทความนับเต็มทุกจังหวัดของผู้แต่ง) |
+| `sdg.json` | `SdgFile` | `method`, `version`, `frameworks[]` (sdg, bcg, ววน., หมุดหมายแผนฯ 13), `goals[]` = `GoalStat` (id, framework, number, th/en, topics, articles_recent, share_recent, share_ratio); `Topic.sdg` ในรายหัวข้อ |
+| `global.json` | `GlobalFile` | `source` (เช่น openalex@วันที่), `country`, `recent`, `baseline`, เกณฑ์ (`min_world_works`, `min_world_ratio`, `max_activity_index`), `subfields[]` = `SubfieldBench` (world/country recent/baseline, tci_recent, world_ratio, activity_index, country_share, opportunity, topics) |
+| `gaps.json` | `GapsFile` | เกณฑ์ที่ใช้, `few_institutions[]`, `bridges[]` (a, b, similarity, shared, jaccard), `world[]`, `concentration[]` = `Concentration` (scope, id, kind, articles, hhi, top_share, top, top_name, concentrated) |
+
+หน่วย KPI: `Kpis.pct_international` / `pct_multi_institution` เป็น **เปอร์เซ็นต์** (เหมือน `pct_abstract_en`), `provinces` เป็นจำนวนจังหวัดที่มีบทความ; สัดส่วนในไฟล์โมดูล (`intl_share`, `share`, `coverage`, `top_share`) เป็น **เศษส่วน** 0–1. `Overview.executive` = `bullets_th` / `bullets_en` / `source: "template"` — ประโยคแม่แบบสร้างตอน export จากไฟล์ข้างต้น (ไม่มี LLM; ตัวเลขทุกตัวมาจากไฟล์)

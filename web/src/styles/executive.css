@@ -10,7 +10,7 @@
   .nav-menu-link { display: flex; align-items: center; min-height: 44px; padding: 0 16px; color: var(--ink); font-weight: 600; text-decoration: none; }
   .nav-menu-link:hover { color: var(--link); text-decoration: underline; }
   .nav-menu-link[aria-current="page"] { box-shadow: inset 4px 0 0 var(--link); }
-  @media (max-width: 640px) { .nav-group { position: static; } .nav-menu { left: 16px; right: 16px; min-width: 0; } }
+  @media (max-width: 640px) { .nav { position: relative; } .nav-group { position: static; } .nav-menu { left: 16px; right: 16px; min-width: 0; } }
   @media (prefers-reduced-motion: reduce) { .nav-btn svg { transition: none; } }
 
   .pmap { display: block; width: 100%; max-width: 440px; height: auto; margin-inline: auto; }

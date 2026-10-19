@@ -40,6 +40,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.headline mark').first()).toBeVisible()
     await expect(page.getByRole('link', { name: /โมเดลภาษาขนาดใหญ่/ }).first()).toBeVisible()
     await expect(page.locator('.kpi')).toHaveCount(8)
+    await expect(page.locator('#policy li')).toHaveCount(3)
     await expect(page.locator('.kpi .d').first()).toContainText('2026Q3')
     await expect(page.locator('.fr-row').first()).toBeVisible()
     // a topic new since the baseline is marked as such; the axis reaches its +129% upper bound instead of clipping it
@@ -143,6 +144,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   },
   brief: async (page) => {
     await expect(page.locator('[data-brief-ready="true"]')).toBeVisible()
+    await expect(page.locator('h2#brief-exec')).toBeVisible()
     await expect(page.locator('.brief .headline mark').first()).toBeVisible()
     await expect(page.locator('.brief-t').first().locator('tbody tr')).toHaveCount(7)
   },

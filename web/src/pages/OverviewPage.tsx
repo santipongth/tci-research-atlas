@@ -24,6 +24,7 @@ function Overview({ release }: { release: AtlasRelease }) {
   const ov = release.overview
   const brief = ov.brief
   const bullets = brief ? ((lang === 'en' ? brief.bullets_en : brief.bullets_th) ?? []) : []
+  const exec = ov.executive ? ((lang === 'en' ? ov.executive.bullets_en : ov.executive.bullets_th) ?? []) : []
   const hasTopics = release.topics.length > 0
   const threshold = largeShareThreshold(release.topics)
   const plotted = threshold === null ? [] : release.topics.filter((tp) => tp.metrics.share_recent > 0 && quadrantOf(tp, threshold) !== null)
@@ -31,6 +32,7 @@ function Overview({ release }: { release: AtlasRelease }) {
   const toc = [
     { id: 'kpi', label: t('ov.kpi.h') },
     ...(bullets.length ? [{ id: 'findings', label: t('ov.findings.h') }] : []),
+    ...(exec.length ? [{ id: 'policy', label: t('ov.exec.h') }] : []),
     ...(hasTopics ? [{ id: 'status', label: t('ov.status.h') }] : []),
     ...(plotted.length ? [{ id: 'portfolio', label: t('ov.pf.h') }] : []),
   ]
@@ -71,6 +73,15 @@ function Overview({ release }: { release: AtlasRelease }) {
           {bullets.length ? (
             <Section id="findings" title={t('ov.findings.h')}>
               <Findings release={release} bullets={bullets} />
+            </Section>
+          ) : null}
+          {exec.length ? (
+            <Section id="policy" title={t('ov.exec.h')} intro={t('brief.execNote')}>
+              <ul className="exec-points">
+                {exec.map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
             </Section>
           ) : null}
           {hasTopics ? (

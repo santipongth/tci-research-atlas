@@ -48,6 +48,7 @@ function Brief({ release }: { release: AtlasRelease }) {
   const brief = ov.brief
   const headline = brief ? (lang === 'en' ? brief.headline_en : brief.headline_th) : ''
   const bullets = brief ? ((lang === 'en' ? brief.bullets_en : brief.bullets_th) ?? []) : []
+  const exec = ov.executive ? ((lang === 'en' ? ov.executive.bullets_en : ov.executive.bullets_th) ?? []) : []
   const prev = release.previousOverview
   const top = (st: SignalStatus): Topic[] =>
     sortBy(release.topics.filter((tp) => tp.status === st && tp.metrics.share_growth != null), (tp) => tp.metrics.share_growth, st === 'DECLINING' ? 'asc' : 'desc').slice(0, TOP)
@@ -104,6 +105,17 @@ function Brief({ release }: { release: AtlasRelease }) {
               <li key={i}><SegmentText segments={segmentHeadline(b, release.topics, { figures: false })} mark={false} links={false} /></li>
             ))}
           </ul>
+        </section>
+      ) : null}
+      {exec.length ? (
+        <section aria-labelledby="brief-exec">
+          <h2 id="brief-exec">{t('brief.exec')}</h2>
+          <ul className="brief-points">
+            {exec.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+          <p className="note">{t('brief.execNote')}</p>
         </section>
       ) : null}
       <section aria-labelledby="brief-status">
