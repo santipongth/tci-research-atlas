@@ -21,6 +21,7 @@ const ROUTES = [
   { name: 'journal', path: '/journals/so02.example0' },
   { name: 'methods', path: '/methods' },
   { name: 'changes', path: '/changes' },
+  { name: 'match', path: '/match' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -181,11 +182,26 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#movers table')).toBeVisible()
     await expect(page.locator('#journals')).toContainText('example5')
   },
+  match: async (page) => {
+    await expect(page.locator('.privacy')).toBeVisible()
+    const box = page.getByLabel('ข้อความของคุณ')
+    await box.fill('AI')
+    await page.getByRole('button', { name: 'หาหัวข้อที่ใกล้ที่สุด' }).click()
+    await expect(page.getByRole('alert')).toContainText('อย่างน้อย')
+    const text = 'AI เพื่อการศึกษา ปัญญาประดิษฐ์ การเรียนการสอน generative AI teaching'
+    await box.fill(text)
+    await page.getByRole('button', { name: 'หาหัวข้อที่ใกล้ที่สุด' }).click()
+    await expect(page.locator('#match-results')).toBeFocused()
+    await expect(page.locator('.hits .topic-link').first()).toContainText('AI เพื่อการศึกษา')
+    await expect(page.locator('#match-journals')).toBeVisible()
+    expect(page.url()).not.toContain('generative')                       // the pasted text never enters the URL
+    expect(page.url()).not.toContain(encodeURIComponent('ปัญญา'))
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
@@ -260,6 +276,20 @@ test('the printable brief shows the data banner when the release cannot load', a
   await page.goto(`${EXAMPLE}#/brief`)
   await expect(page.getByRole('alert')).toContainText('latest.json')
   await expect(page.locator('h1').first()).toBeVisible()
+})
+
+test('the offline file without the match index explains that /match needs the web edition', async ({ page }, info) => {
+  const template = readFileSync('dist/offline-template.html', 'utf8')
+  const slot = '<script type="application/json" id="atlas-data">null</script>'
+  const bundle = bundleOf('example')
+  delete bundle.files['match.json']                                         // export.offline_exclude (default)
+  const file = info.outputPath('atlas-offline-nomatch.html')
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
+  await page.goto(`${pathToFileURL(file).href}#/match`)
+  await expect(page.locator('h1')).toHaveText('วางบทคัดย่อของคุณ')
+  await expect(page.locator('.empty-state')).toContainText('ฉบับออฟไลน์ไม่มีส่วนนี้')
+  await expect(page.locator('.empty-state')).toContainText('ต้องใช้เว็บไซต์ออนไลน์')
 })
 
 test('a chart tooltip is linked to its marker and Escape dismisses it', async ({ page }) => {

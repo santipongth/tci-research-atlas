@@ -17,6 +17,7 @@ const JournalsPage = lazy(() => import('./pages/JournalsPage'))
 const JournalPage = lazy(() => import('./pages/JournalPage'))
 const MethodsPage = lazy(() => import('./pages/MethodsPage'))
 const ChangesPage = lazy(() => import('./pages/ChangesPage'))
+const MatchPage = lazy(() => import('./pages/MatchPage'))
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="journals/:id" element={<Lazy><JournalPage /></Lazy>} />
         <Route path="methods" element={<Lazy><MethodsPage /></Lazy>} />
         <Route path="changes" element={<Lazy><ChangesPage /></Lazy>} />
+        <Route path="match" element={<Lazy><MatchPage /></Lazy>} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="data" element={<DataPage />} />
         <Route path="about" element={<AboutPage />} />
