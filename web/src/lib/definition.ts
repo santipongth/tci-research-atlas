@@ -14,6 +14,8 @@ export const DEFINITION = {
   minArticlesRecent: 30,
   minJournals: 3,
   minOrgs: 3,
+  /** breadth test: share of recent articles from journals new in R must stay below this */
+  maxNewJournalShare: 0.5,
   recentYears: 3,
   baselineYears: 5,
   trendYears: 5,
@@ -71,6 +73,7 @@ export function ruleVars(level: number): Record<string, string | number> {
     dratio: fmtNum(DEFINITION.decliningMaxShareRatio, 1),
     j: DEFINITION.minJournals,
     o: DEFINITION.minOrgs,
+    ns: fmtPct(DEFINITION.maxNewJournalShare, 0),
     n: DEFINITION.minArticlesRecent,
     ry: DEFINITION.recentYears, // rule.LOW_DATA: the recent window
     ky: DEFINITION.keywordMinActiveYears, // em.kw.intro: years a keyword must stay active

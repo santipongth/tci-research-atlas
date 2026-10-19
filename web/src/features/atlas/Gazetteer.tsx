@@ -3,6 +3,7 @@ import { CiWhisker } from '../../components/CiWhisker'
 import { StatusGlyph } from '../../components/StatusGlyph'
 import { groupName, type AtlasRelease } from '../../data/release'
 import type { Topic } from '../../data/types'
+import { breadthText } from '../../lib/breadth'
 import { DEFINITION } from '../../lib/definition'
 import { ciPct, fmtInt, fmtSignedPct } from '../../lib/format'
 import { useI18n } from '../../lib/i18n'
@@ -82,7 +83,7 @@ export function Gazetteer({ release, points, query, onQuery, onPick, selected }:
                       </span>
                       <span className="g-sub">
                         {groupName(release, tp.group, lang)}
-                        {tp.metrics.journal_driven ? ` · ${t('journalDriven')}` : ''}
+                        {tp.metrics.journal_driven ? ` · ${t('journalDriven')}: ${breadthText(t, tp)}` : ''}
                       </span>
                     </button>
                   </li>

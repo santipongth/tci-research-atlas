@@ -3,7 +3,7 @@ import { Figure } from '../../components/Figure'
 import { StatusChip, StatusGlyph } from '../../components/StatusGlyph'
 import { ForestPlot, type ForestGroup } from '../../charts/ForestPlot'
 import { groupName, type AtlasRelease } from '../../data/release'
-import { DEFINITION } from '../../lib/definition'
+import { DEFINITION, ruleVars } from '../../lib/definition'
 import { ciPct, fmtInt, fmtSignedPct } from '../../lib/format'
 import { forestSelection } from '../../lib/forest'
 import { useI18n } from '../../lib/i18n'
@@ -35,7 +35,7 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
       note: st === 'WATCH' && rows.length ? (
         <div className="inset">
           <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
-          <p>{t('journalDrivenBody')}</p>
+          <p>{t('journalDrivenBody', ruleVars(level))}</p>
         </div>
       ) : undefined,
       more: total > rows.length ? { to: `/emerging?status=${st}`, label: t('seeAll', { n: fmtInt(total) }) } : undefined,

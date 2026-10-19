@@ -14,7 +14,8 @@ import { TrendChart } from '../charts/TrendChart'
 import { useTopicDetail } from '../data/atlasContext'
 import { groupName, neighborsOf, seriesOf, type AtlasRelease } from '../data/release'
 import type { CountItem, Topic } from '../data/types'
-import { DEFINITION, fmtWindow, windows } from '../lib/definition'
+import { DEFINITION, fmtWindow, ruleVars, windows } from '../lib/definition'
+import { breadthText } from '../lib/breadth'
 import { forecastView } from '../lib/forecast'
 import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
@@ -156,7 +157,8 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
             {m.journal_driven || topic.status === 'WATCH' ? (
               <div className="inset">
                 <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
-                <p>{t('journalDrivenBody')}</p>
+                <p>{t('journalDrivenBody', ruleVars(level))}</p>
+                <p><strong>{breadthText(t, topic)}</strong></p>
               </div>
             ) : null}
             <dl className="summary">

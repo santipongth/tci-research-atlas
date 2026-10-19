@@ -81,7 +81,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
           {st === 'WATCH' ? (
             <div className="inset">
               <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
-              <p>{t('journalDrivenBody')}</p>
+              <p>{t('journalDrivenBody', ruleVars(level))}</p>
             </div>
           ) : null}
           {forest && isSignal(st) && forest.rows.length > 0 ? (
