@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createDetailLoader, groupName, loadRelease, neighborsOf, schemaMajor, seriesOf } from './release'
+import { createDetailLoader, createFileLoader, groupName, hasModule, loadRelease, MODULE_FILES, neighborsOf, schemaMajor, seriesOf, type ModuleName } from './release'
+import type { JournalsFile } from './types'
 import { EmbeddedSource, HttpSource } from './source'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -117,5 +118,32 @@ describe('neighborsOf', () => {
     const weight = (id: string) => r.edges.find((e) => (e.s === id && e.t === 'T000701') || (e.t === id && e.s === 'T000701'))?.w ?? 0
     expect(ids.map(weight)).toEqual([...ids.map(weight)].sort((a, b) => b - a))
     expect(neighborsOf(r, 'T999999')).toEqual([])
+  })
+})
+
+describe('editors modules (contract 2.1)', () => {
+  it('lists the modules and fetches each module file once', async () => {
+    const asked: string[] = []
+    const source = new HttpSource('./', fixtureFetch('example', './', asked))
+    const r = await loadRelease(source)
+    expect(['journals', 'journal_detail', 'methods', 'diff', 'match'].every((m) => hasModule(r, m as ModuleName))).toBe(true)
+    expect(asked.some((u) => u.endsWith('journals.json'))).toBe(false) // never loaded up front
+    const file = createFileLoader(source, r.latest.release)
+    const j = (await file(MODULE_FILES.journals)) as JournalsFile
+    expect(j.journals).toHaveLength(6)
+    await file(MODULE_FILES.journals)
+    expect(asked.filter((u) => u.endsWith('/journals.json'))).toHaveLength(1)
+    expect(await file('journals/so02.nowhere.json')).toBeNull()
+  })
+
+  it('the empty release has none, and the offline file may leave out the match index', async () => {
+    const empty = await loadRelease(new HttpSource('./', fixtureFetch('empty', './')))
+    expect(hasModule(empty, 'journals')).toBe(false)
+    const bundle = bundleOf('example')
+    delete bundle.files['match.json']
+    const source = new EmbeddedSource(bundle)
+    const r = await loadRelease(source)
+    expect(hasModule(r, 'match')).toBe(true)
+    expect(await createFileLoader(source, r.latest.release)('match.json')).toBeNull()
   })
 })

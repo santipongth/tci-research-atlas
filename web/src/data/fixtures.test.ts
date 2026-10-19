@@ -12,10 +12,11 @@ const compiled = new Map<string, ValidateFunction>()
 const MODEL: Record<string, string> = {
   'latest.json': 'Latest', 'manifest.json': 'Manifest', 'overview.json': 'Overview', 'taxonomy.json': 'TaxonomyFile', 'topics.json': 'TopicsFile',
   'series.json': 'SeriesFile', 'edges.json': 'EdgesFile', 'keywords.json': 'KeywordsFile',
+  'journals.json': 'JournalsFile', 'methods.json': 'MethodsFile', 'diff.json': 'DiffFile', 'match.json': 'MatchIndex',
 }
 
 function validate(path: string, value: unknown): string[] {
-  const name = path.startsWith('topics/') ? 'TopicDetail' : MODEL[path]
+  const name = path.startsWith('topics/') ? 'TopicDetail' : path.startsWith('journals/') ? 'JournalDetail' : MODEL[path]
   if (!name) return [`no contract model for ${path}`]
   let fn = compiled.get(name)
   if (!fn) {

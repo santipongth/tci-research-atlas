@@ -4,7 +4,7 @@ import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { DICTIONARY, type DictEntry } from '../content/dictionary'
-import { groupName, type AtlasRelease } from '../data/release'
+import { groupName, hasModule, MODULE_FILES, type AtlasRelease, type ModuleName } from '../data/release'
 import { dataUrl } from '../data/source'
 import type { EmergingKeyword, Topic } from '../data/types'
 import { toCsv, downloadText } from '../lib/csv'
@@ -12,6 +12,7 @@ import { fmtWindow, windows } from '../lib/definition'
 import { ciPct, DASH, fmtDate, fmtInt, fmtNum, fmtPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import type { StrKey } from '../strings'
+import { ModuleDownloads } from './data/ModuleDownloads'
 
 export default function DataPage() {
   const { t } = useI18n()
@@ -156,6 +157,7 @@ function OpenData({ release }: { release: AtlasRelease }) {
   ]
   const toc = [
     { id: 'downloads', label: t('data.dl.h') },
+    ...((Object.keys(MODULE_FILES) as ModuleName[]).some((m) => hasModule(release, m)) ? [{ id: 'modules', label: t('data.mod.h') }] : []),
     { id: 'csv', label: t('data.csv.h') },
     { id: 'quality', label: t('data.q.h') },
     { id: 'dictionary', label: t('data.dict.h') },
@@ -187,6 +189,7 @@ function OpenData({ release }: { release: AtlasRelease }) {
               ))}
             </ul>
           </Section>
+          <ModuleDownloads release={release} />
           <Section id="csv" title={t('data.csv.h')} intro={t('data.csv.intro')}>
             <ul className="dl-list">
               <li>

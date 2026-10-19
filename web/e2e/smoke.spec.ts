@@ -120,6 +120,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#downloads a[download]').first()).toHaveAttribute('href', /data\/2026Q4\/manifest\.json$/)
     await expect(page.locator('#quality')).toContainText('2025')
     await expect(page.locator('#dictionary table')).toBeVisible()
+    await expect(page.locator('#modules .dl-list li')).toHaveCount(4)
     const download = page.waitForEvent('download')
     await page.locator('#csv').getByRole('button', { name: 'ดาวน์โหลด CSV' }).first().click()
     expect((await download).suggestedFilename()).toBe('atlas-2026Q4-topics.csv')

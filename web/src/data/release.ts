@@ -94,6 +94,29 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
   }
 }
 
+/** Optional modules of contract 2.1 and the file each page reads first. */
+export const MODULE_FILES = { journals: 'journals.json', methods: 'methods.json', diff: 'diff.json', match: 'match.json' } as const
+export type ModuleName = keyof typeof MODULE_FILES
+
+export function hasModule(release: AtlasRelease, module: ModuleName | 'journal_detail'): boolean {
+  return (release.manifest.modules ?? []).includes(module)
+}
+
+/** Any other file of the release (journals.json, journals/<id>.json, methods.json, diff.json, match.json), fetched on
+ *  demand and cached; a failed request may be retried later. null = this release (or this offline file) has no such file. */
+export function createFileLoader(source: DataSource, release: string): (path: string) => Promise<unknown> {
+  const cache = new Map<string, Promise<unknown>>()
+  return (path) => {
+    let pending = cache.get(path)
+    if (!pending) {
+      pending = source.file<unknown>(release, path)
+      pending.catch(() => cache.delete(path))
+      cache.set(path, pending)
+    }
+    return pending
+  }
+}
+
 /** topics/<id>.json on demand, one request per topic; a failed request may be retried later. */
 export function createDetailLoader(source: DataSource, release: string): (id: string) => Promise<TopicDetail | null> {
   const cache = new Map<string, Promise<TopicDetail | null>>()

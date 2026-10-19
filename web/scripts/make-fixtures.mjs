@@ -4,6 +4,8 @@
 // Every file must validate against src/data/contract.schema.json (src/data/fixtures.test.ts checks it).
 // Covers: all six statuses, WATCH (journal-driven), no_baseline, both low_data_reason values, orgs_unverified,
 // cross_field, hidden and shown forecasts, nowcast, lineage new/split/merge, a previous release for Δ, and an empty release.
+// P2 (contract 2.1): journals (registry-named and OJS-path-only, low data, a new journal), journal details, methods,
+// the quarter diff and the match index — the empty release has none of them (pages explain the missing module).
 import { createHash } from 'node:crypto'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -11,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures')
 const GENERATED_AT = '2026-10-01T00:00:00+00:00'
-const SCHEMA = '2.0.0'
+const SCHEMA = '2.1.0'
 const RELEASE = '2026Q4'
 const PREVIOUS = '2026Q3'
 const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
@@ -318,6 +320,179 @@ function buildExample() {
   return { files, previousOverview, nOrgsUnverified: topics.filter((t) => t.metrics.orgs_unverified).length, nTopics: topics.length }
 }
 
+// ---- P2 editors' modules (contract 2.1): journals, journals/<id>, methods, diff, match — synthetic, NOT real data
+// Journal j of JOURNALS has the OJS path `example${j}` (the article URLs above use it). The registry names 0, 1, 3 and 4;
+// 2 and 5 are shown by their OJS path. 4 has too few articles (low_data); 5 joined in 2023 (a new journal for the diff).
+const J_IN_REGISTRY = [true, true, false, true, true, false]
+const STATUS_ORDER = ['EMERGING', 'WATCH', 'HOT', 'DECLINING', 'STABLE', 'LOW_DATA']
+const jId = (j) => `so02.example${j}`
+const jName = (j) => (J_IN_REGISTRY[j] ? JOURNALS[j] : `example${j}`)
+const METHOD_INFO = [
+  ['survey', 'แบบสอบถาม/การสำรวจ', 'Questionnaire / survey'], ['interview', 'การสัมภาษณ์', 'Interviews'],
+  ['focus_group', 'การสนทนากลุ่ม', 'Focus groups'], ['experiment', 'การทดลอง/กึ่งทดลอง', 'Experiment / quasi-experiment'],
+  ['qualitative', 'การวิจัยเชิงคุณภาพ', 'Qualitative research'], ['mixed', 'การวิจัยแบบผสานวิธี', 'Mixed methods'],
+  ['rnd', 'การวิจัยและพัฒนา', 'Research and development'], ['action', 'การวิจัยเชิงปฏิบัติการ', 'Action research'],
+  ['case_study', 'กรณีศึกษา', 'Case study'], ['document', 'การวิเคราะห์เอกสาร/เนื้อหา', 'Document / content analysis'],
+  ['review', 'การทบทวนอย่างเป็นระบบ/อภิมาน', 'Systematic review / meta-analysis'], ['descriptive_stats', 'สถิติเชิงพรรณนา', 'Descriptive statistics'],
+  ['inferential', 'สถิติเชิงอนุมาน', 'Inferential statistics'], ['sem', 'สมการโครงสร้าง/องค์ประกอบ', 'SEM / factor analysis'],
+  ['ml', 'การเรียนรู้ของเครื่อง', 'Machine learning'], ['lab', 'การทดลองในห้องปฏิบัติการ', 'Laboratory study'],
+]
+
+// the analyzer of web/src/lib/matcher.ts (= pipeline/atlas/matcher.py): fold, then char_wb trigrams
+// (regexes built from code points: a literal invisible character in source code is easy to lose or corrupt)
+const cp = (...xs) => String.fromCodePoint(...xs)
+const DECOMPOSED_AM = new RegExp(cp(0x0e4d, 0x0e32), 'g')
+const INVISIBLE = new RegExp(`[${cp(0x200b)}-${cp(0x200d)}${cp(0xfeff)}${cp(0xad)}]`, 'g')
+const LATIN_ACCENTS = new RegExp(`[${cp(0x300)}-${cp(0x36f)}]`, 'g')
+const THAI_ABOVE = new RegExp(`[${cp(0x0e47)}-${cp(0x0e4c)}]`, 'g')
+const foldMatch = (s) =>
+  s.normalize('NFC').replace(DECOMPOSED_AM, cp(0x0e33)).replace(INVISIBLE, '').normalize('NFD')
+    .replace(LATIN_ACCENTS, '').replace(THAI_ABOVE, '').toLowerCase().replace(/\s+/g, ' ').trim()
+const trigrams = (folded) => {
+  const out = []
+  for (const word of folded ? folded.split(' ') : []) {
+    const w = [...` ${word} `]
+    if (w.length <= 3) out.push(w.join(''))
+    else for (let i = 0; i + 3 <= w.length; i++) out.push(w.slice(i, i + 3).join(''))
+  }
+  return out
+}
+
+function buildEditors(files, previousOverview) {
+  const topics = files['topics.json'].topics
+  const byId = new Map(topics.map((t) => [t.id, t]))
+  const groupOf = (j) => GROUPS[j % GROUPS.length][0]
+  const jTopics = (j) => topics.filter((t) => t.group === groupOf(j)).slice(0, 5).concat(j === 0 ? [byId.get('T000201')] : [])
+  const summaries = JOURNALS.map((name, j) => {
+    const low = j === 4
+    const windowN = [240, 180, 150, 310, 12, 24][j]
+    return {
+      id: jId(j), key: `so02:example${j}`, path: `example${j}`,
+      name_th: J_IN_REGISTRY[j] && j !== 3 ? name : '', name_en: j === 3 ? name : '',
+      issn: '', eissn: '', tci_tier: [1, 2, null, 1, 2, null][j], tci_field: J_IN_REGISTRY[j] ? GROUPS[j % GROUPS.length][2] : '',
+      publisher: j === 0 ? ORGS[0] : j === 3 ? ORGS[3] : '', url: J_IN_REGISTRY[j] ? `https://so02.tci-thaijo.org/index.php/example${j}` : '',
+      in_registry: J_IN_REGISTRY[j], articles: [520, 410, 300, 640, 30, 24][j], articles_window: windowN, articles_recent: Math.round(windowN * 0.6),
+      first_year: j === 5 ? 2023 : 2015, last_year: 2024, active: true, low_data: low, group: groupOf(j),
+      completeness: low ? null : [86.4, 71.2, 58.9, 93.1, null, 64.0][j],
+      owner: low ? '' : [ORGS[0], ORGS[1], ORGS[2], ORGS[3], '', ORGS[1]][j],
+      owner_source: low ? null : j === 0 || j === 3 ? 'registry' : 'inferred', owner_matched: !low,
+      inhouse_share: low ? null : [0.42, 0.81, 0.66, 0.12, null, 0.58][j],
+      n_orgs: [64, 21, 33, 95, 3, 9][j], effective_orgs: low ? null : [22.5, 3.1, 8.4, 41.7, null, 4.2][j],
+      foreign_share: low ? null : [0.03, 0, 0.01, 0.18, null, 0][j], affiliation_coverage: low ? null : [0.97, 0.92, 0.88, 0.99, null, 0.95][j],
+      methods_coverage: low ? null : [0.81, 0.77, 0.69, 0.84, null, 0.72][j],
+    }
+  })
+  const special = [
+    { topic: 'T000406', hosts: 2, top_host_share: 0.58, articles_recent: byId.get('T000406').metrics.count_recent },
+    { topic: 'T000502', hosts: 1, top_host_share: 0.71, articles_recent: byId.get('T000502').metrics.count_recent },
+    { topic: 'T000305', hosts: 1, top_host_share: 0.83, articles_recent: byId.get('T000305').metrics.count_recent },
+  ]
+  files['journals.json'] = {
+    schema_version: SCHEMA, window: { start: 2020, end: 2024 }, recent: { start: 2022, end: 2024 }, baseline: { start: 2017, end: 2021 },
+    min_articles: 20, completeness_weights: { abstract_en: 0.2, title_en: 0.1, keywords_en: 0.15, doi: 0.2, references: 0.15, refs_romanized: 0.1, affiliations: 0.1 },
+    inhouse_flag_share: 0.6, special_issue_statuses: ['EMERGING', 'WATCH'], special_issue_max_hosts: 5, special_issue_min_host_articles: 3, drift_reference_years: 3,
+    journals: summaries, special_issue: special,
+  }
+  const PEERS = { 0: [[2, 0.82], [1, 0.35]], 1: [[5, 0.64], [0, 0.35]], 2: [[0, 0.82]], 3: [], 4: [], 5: [[1, 0.64]] }
+  const OPPS = { 0: [['T000502', 'adjacent', 0, 1]], 1: [['T000305', 'in_scope', 2, 1]], 2: [], 3: [['T000406', 'in_scope', 5, 2], ['T000502', 'adjacent', 0, 1]], 4: [], 5: [] }
+  const COMPLETE = ['abstract_en', 'title_en', 'keywords_en', 'doi', 'references', 'refs_romanized', 'affiliations']
+  JOURNALS.forEach((_, j) => {
+    const s = summaries[j]
+    const tl = jTopics(j)
+    const weights = tl.map((_, i) => 1 / (i + 1.5))
+    const wsum = sum(weights) * 1.25
+    files[`journals/${jId(j)}.json`] = {
+      schema_version: SCHEMA, id: jId(j),
+      years: YEARS.filter((y) => y >= s.first_year).map((y, i) => ({ year: y, articles: Math.round(s.articles / (j === 5 ? 2 : 10) * (0.8 + 0.04 * i)) })),
+      topics: tl.map((t, i) => ({ topic: t.id, count: Math.round(s.articles_window * weights[i] / wsum), share: r4(weights[i] / wsum) })),
+      drift: s.low_data ? [] : [2020, 2021, 2022, 2023, 2024].filter((y) => y >= s.first_year).map((y, i) => ({
+        year: y, articles: Math.round(s.articles_window / 5), distance: j === 5 && i === 0 ? null : i === 0 && j !== 3 ? null : r4(j === 3 && y === 2023 ? 0.41 : 0.08 + 0.02 * i),
+      })),
+      gained: s.low_data ? [] : [{ topic: tl[0].id, share_before: 0.12, share_after: 0.21 }],
+      lost: s.low_data ? [] : [{ topic: tl[tl.length - 1].id, share_before: 0.14, share_after: 0.06 }],
+      peers: PEERS[j].map(([p, sim]) => ({ id: jId(p), similarity: sim })),
+      completeness: s.low_data ? [] : COMPLETE.map((key, k) => ({ key, rate: key === 'refs_romanized' && j === 3 ? null : r4(0.55 + ((j + k) % 5) * 0.1), n: key === 'refs_romanized' && j === 3 ? 0 : s.articles_window })),
+      methods: s.low_data ? [] : [['survey', 0.52], ['descriptive_stats', 0.47], ['interview', 0.21], ['inferential', 0.19]].map(([m, sh]) => ({ method: m, count: Math.round(s.articles_window * s.methods_coverage * sh), share: sh })),
+      opportunities: OPPS[j].map(([topic, reason, n, hosts]) => ({ topic, reason, journal_articles: n, hosts })),
+    }
+  })
+  // topic details link their journals by id
+  for (const [path, d] of Object.entries(files)) {
+    if (!path.startsWith('topics/')) continue
+    d.journals = d.journals.map((c) => {
+      const j = JOURNALS.indexOf(c.key)
+      return j >= 0 ? { key: jName(j), count: c.count, id: jId(j) } : c
+    })
+  }
+
+  // methods.json — E11 monoculture on two education/social topics
+  const share = (k, i) => r4(Math.max(0.01, [0.52, 0.18, 0.06, 0.09, 0.14, 0.05, 0.07, 0.03, 0.08, 0.06, 0.02, 0.47, 0.24, 0.07, 0.04, 0.03][k] + 0.002 * i))
+  const methodTopics = topics.filter((t) => t.status !== 'LOW_DATA').slice(0, 14).map((t, i) => {
+    const mono = t.id === 'T000203' || t.id === 'T000204'
+    const articles = Math.max(30, t.metrics.count_recent)
+    const withM = Math.round(articles * 0.78)
+    const ms = (mono ? [['survey', 0.82], ['descriptive_stats', 0.76], ['inferential', 0.12]] : [['survey', 0.44], ['interview', 0.31], ['descriptive_stats', 0.29], ['qualitative', 0.22]])
+      .map(([m, sh]) => ({ method: m, count: Math.round(withM * sh), share: r4(sh + 0.001 * i) }))
+    return {
+      topic: t.id, articles, with_methods: withM, coverage: r4(withM / articles), methods: ms,
+      sample_size_n: Math.round(withM * 0.6), sample_size_median: [400, 385, 220, 120, 30][i % 5], sample_size_q1: [200, 180, 120, 60, 15][i % 5], sample_size_q3: [420, 400, 380, 240, 45][i % 5],
+      monoculture_share: r4(mono ? 0.71 + 0.01 * i : 0.18 + 0.01 * i), monoculture: mono,
+      note: i < 2 ? { th: `บทความในหัวข้อ${t.th}ที่ระบุวิธีวิจัยได้ ${Math.round(ms[0].share * 100)}% ใช้แบบสอบถาม (ข้อมูลตัวอย่าง)`, en: `${Math.round(ms[0].share * 100)}% of the articles on ${t.en} that name a method use a questionnaire (sample data).`, source: 'template' } : null,
+    }
+  })
+  files['methods.json'] = {
+    schema_version: SCHEMA, lexicon_version: 'fixture1', window: { start: 2020, end: 2024 }, articles: 18234, with_methods: 14002,
+    monoculture_methods: ['survey', 'descriptive_stats'], monoculture_min_share: 0.6, monoculture_share: 0.27, min_articles: 30,
+    methods: METHOD_INFO.map(([key, th, en]) => ({ key, th, en })),
+    corpus: METHOD_INFO.map(([key], k) => ({ method: key, count: Math.round(14002 * share(k, 0)), share: share(k, 0) })).sort((a, b) => b.count - a.count),
+    by_year: {
+      years: YEARS, articles: YEARS.map((_, i) => 900 + 60 * i),
+      shares: Object.fromEntries(METHOD_INFO.map(([key], k) => [key, YEARS.map((_, i) => r4(key === 'survey' ? 0.58 - 0.012 * i : key === 'ml' ? 0.005 + 0.006 * i : share(k, i)))])),
+    },
+    topics: methodTopics,
+  }
+
+  // diff.json — what changed since 2026Q3
+  const ov = files['overview.json']
+  const KPI = ['articles', 'assigned_articles', 'topics', 'journals', 'institutions']
+  const prevStatus = { T000201: 'WATCH', T000406: 'STABLE', T000104: 'HOT', T000305: 'STABLE', T000503: 'STABLE' }
+  files['diff.json'] = {
+    schema_version: SCHEMA, release: RELEASE, previous_release: PREVIOUS, previous_source: 'state',
+    kpis: KPI.map((key) => ({ key, previous: previousOverview.kpis[key], current: ov.kpis[key] })),
+    new_topics: [{ topic: 'T000701', event: 'new', parents: [] }, { topic: 'T000106', event: 'split', parents: ['T000105'] }, { topic: 'T000706', event: 'merge', parents: ['T000703', 'T000704'] }],
+    retired: [{ topic: 'T000999', th: 'หนังสือพิมพ์รายวัน', en: 'Daily newspapers' }],
+    status_changes: Object.entries(prevStatus).map(([topic, previous]) => ({ topic, previous, current: byId.get(topic).status }))
+      .sort((a, b) => STATUS_ORDER.indexOf(a.current) - STATUS_ORDER.indexOf(b.current) || a.topic.localeCompare(b.topic)),
+    movers: [...topics].filter((t) => t.status !== 'LOW_DATA').sort((a, b) => b.metrics.share_recent - a.metrics.share_recent).slice(0, 6)
+      .map((t, i) => ({ topic: t.id, share_previous: r6(t.metrics.share_recent * (i % 2 ? 1.12 : 0.86)), share_current: t.metrics.share_recent })),
+    journals_compared: true, new_journals: [jId(5)],
+  }
+
+  // match.json — one "document" per topic (names, keywords, description), weighted like the pipeline
+  const docs = topics.map((t) => trigrams(foldMatch([t.th, t.en, ...t.keywords, t.description].join(' '))))
+  const df = new Map()
+  for (const d of docs) for (const g of new Set(d)) df.set(g, (df.get(g) ?? 0) + 1)
+  const vecs = docs.map((d) => {
+    const tf = new Map()
+    for (const g of d) tf.set(g, (tf.get(g) ?? 0) + 1)
+    const w = [...tf].map(([g, n]) => [g, (1 + Math.log(n)) * (Math.log((1 + docs.length) / (1 + df.get(g))) + 1)])
+    w.sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+    const top = w.slice(0, 60)
+    const norm = Math.sqrt(sum(top.map(([, v]) => v * v)))
+    return top.map(([g, v]) => [g, v / norm])
+  })
+  const grams = [...new Set(vecs.flatMap((v) => v.map(([g]) => g)))].sort()
+  const pos = new Map(grams.map((g, i) => [g, i]))
+  files['match.json'] = {
+    schema_version: SCHEMA, analyzer: 'char_wb3', fold: 'atlas-fold-1', docs: docs.length, max_terms: 60, min_similarity: 0.05, fit_topics: 5, min_query_chars: 40,
+    grams, idf: grams.map((g) => r4(Math.log((1 + docs.length) / (1 + df.get(g))) + 1)),
+    topics: topics.map((t, i) => ({ id: t.id, terms: vecs[i].map(([g]) => pos.get(g)), weights: vecs[i].map(([, v]) => r4(v)) })),
+    journals: JOURNALS.map((_, j) => j).filter((j) => !summaries[j].low_data)
+      .map((j) => ({ id: jId(j), topics: files[`journals/${jId(j)}.json`].topics.map((x) => x.topic), shares: files[`journals/${jId(j)}.json`].topics.map((x) => x.share) })),
+  }
+  return ['journals', 'journal_detail', 'methods', 'diff', 'match']
+}
+
 function manifest(release, previous, modules, entries, extra = {}) {
   return {
     schema_version: SCHEMA, release, generated_at: GENERATED_AT, pipeline_version: 'fixture', config_hash: '0000000000000000',
@@ -349,9 +524,10 @@ rmSync(join(ROOT, 'example'), { recursive: true, force: true })
 rmSync(join(ROOT, 'empty'), { recursive: true, force: true })
 
 const ex = buildExample()
+const editorModules = buildEditors(ex.files, ex.previousOverview)
 writeRelease(example, PREVIOUS, { 'overview.json': ex.previousOverview }, (entries) => manifest(PREVIOUS, '2026Q2', ['overview'], entries))
 writeRelease(example, RELEASE, ex.files, (entries) =>
-  manifest(RELEASE, PREVIOUS, ['overview', 'taxonomy', 'topics', 'topic_detail', 'series', 'edges', 'keywords'], entries, {
+  manifest(RELEASE, PREVIOUS, ['overview', 'taxonomy', 'topics', 'topic_detail', 'series', 'edges', 'keywords', ...editorModules], entries, {
     n_orgs_unverified: ex.nOrgsUnverified, ingest_errors: 2, labels: { provider: 'off', llm: 0, keywords: ex.nTopics, overrides: 0 },
   }))
 writeLatest(example, RELEASE)
