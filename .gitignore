@@ -37,7 +37,8 @@ pipeline/.ci/
 .hypothesis/
 pipeline/.hypothesis/
 # editors' label corrections (real topic names) — back up with pipeline/state/, never commit
-pipeline/registry/
+pipeline/registry/*
+!pipeline/registry/*.example.csv
 
 # web v2 build/test output
 web/dist-offline/

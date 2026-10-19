@@ -308,6 +308,44 @@ class LayoutCfg(_Strict):
     margin: float = Field(90.0, ge=0.0)
 
 
+COMPLETENESS_COMPONENTS = ("abstract_en", "title_en", "keywords_en", "doi", "references", "refs_romanized",
+                           "affiliations")
+DEFAULT_COMPLETENESS_WEIGHTS = {"abstract_en": 0.20, "title_en": 0.10, "keywords_en": 0.15, "doi": 0.20,
+                                "references": 0.15, "refs_romanized": 0.10, "affiliations": 0.10}
+
+
+class JournalsCfg(_Strict):
+    """Editors' journal module (P2): metrics per journal over the last window_years complete years."""
+    registry_path: str | None = None      # registry/journals.csv (optional); the example config sets ./registry/…
+    window_years: int = Field(5, ge=1)
+    min_articles: int = Field(20, ge=1)   # fewer articles in the window → rates are null (low_data)
+    completeness_weights: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_COMPLETENESS_WEIGHTS))
+    inhouse_flag_share: float | None = Field(None, gt=0.0, le=1.0)   # the web marks shares above it; null = no mark
+    owner_min_share: float = Field(0.2, ge=0.0, le=1.0)   # an inferred owner must sign ≥ this share of the articles
+    peers_k: int = Field(8, ge=0)
+    peers_min_similarity: float = Field(0.2, ge=0.0, le=1.0)
+    top_topics: int = Field(15, ge=1)
+    drift_reference_years: int = Field(3, ge=1)
+    drift_min_articles: int = Field(10, ge=1)
+    shift_topics: int = Field(5, ge=0)
+    special_issue_statuses: list[Literal["EMERGING", "WATCH", "HOT"]] = Field(
+        default_factory=lambda: ["EMERGING", "WATCH"])
+    special_issue_min_host_articles: int = Field(3, ge=1)
+    special_issue_max_hosts: int = Field(5, ge=0)
+    special_issue_per_journal: int = Field(5, ge=0)
+    scope_topics: int = Field(5, ge=1)    # a topic next to one of the journal's top N topics is "adjacent"
+
+    @field_validator("completeness_weights")
+    @classmethod
+    def _known_components(cls, v: dict[str, float]) -> dict[str, float]:
+        unknown = sorted(set(v) - set(COMPLETENESS_COMPONENTS))
+        if unknown:
+            raise ValueError(f"unknown completeness components {unknown}; choose from {list(COMPLETENESS_COMPONENTS)}")
+        if any(w < 0 for w in v.values()) or sum(v.values()) <= 0:
+            raise ValueError("completeness weights must be >= 0 and sum to more than 0")
+        return v
+
+
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
@@ -425,6 +463,7 @@ class AtlasConfig(_Strict):
     taxonomy: TaxonomyCfg = Field(default_factory=TaxonomyCfg)
     emerging: EmergingCfg = Field(default_factory=EmergingCfg)
     keywords: KeywordsCfg = Field(default_factory=KeywordsCfg)
+    journals: JournalsCfg = Field(default_factory=JournalsCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)
@@ -453,6 +492,8 @@ def load_config(path: str | Path | None = None) -> dict:
         cfg["labeling"]["overrides_path"] = _resolve(cfg["labeling"]["overrides_path"], base)
     if cfg["llm"]["prompts_dir"]:
         cfg["llm"]["prompts_dir"] = _resolve(cfg["llm"]["prompts_dir"], base)
+    if cfg["journals"]["registry_path"]:
+        cfg["journals"]["registry_path"] = _resolve(cfg["journals"]["registry_path"], base)
     if cfg["taxonomy"]["reference_path"]:
         cfg["taxonomy"]["reference_path"] = _resolve(cfg["taxonomy"]["reference_path"], base)
     return cfg
