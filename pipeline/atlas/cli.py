@@ -547,11 +547,15 @@ def validate_cmd(
     Exit code 0 = clean, 1 = warnings, 2 = errors.
     """
     from atlas.config import load_config
-    from atlas.state import current_release
+    from atlas.state import _checked, current_release
     from atlas.validate import render_report, validate_release
 
     cfg = load_config(config)
-    root = release_dir or Path(cfg["pipeline"]["output_dir"]) / "data" / (release or current_release(cfg))
+    try:
+        name = _checked(release) if release else current_release(cfg)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from e
+    root = release_dir or Path(cfg["pipeline"]["output_dir"]) / "data" / name
     rep = validate_release(root, previous, cfg["validation"])
     typer.echo(render_report(rep))
     raise typer.Exit(rep.exit_code)

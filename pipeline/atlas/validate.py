@@ -110,11 +110,16 @@ def _check_coherence(models: dict, rep: Report) -> None:
 
 def _diff(models: dict, prev_root: Path, vcfg: dict, rep: Report) -> None:
     try:
-        prev_topics = {t["id"]: t for t in _load(prev_root / "topics.json")["topics"]}
+        raw_topics = _load(prev_root / "topics.json")["topics"]
         prev_overview = _load(prev_root / "overview.json")
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         rep.warnings.append(f"previous release at {prev_root} is unreadable ({e}) — diff skipped")
         return
+    prev_topics = {t["id"]: t for t in raw_topics if isinstance(t, dict) and "id" in t
+                   and isinstance(t.get("size"), int | float) and "status" in t}
+    if len(prev_topics) < len(raw_topics):
+        rep.warnings.append(f"{len(raw_topics) - len(prev_topics)} entries of the previous topics.json lack "
+                            "id/size/status — skipped in the diff")
     cur = {t.id: t for t in models["topics.json"].topics}
     n0, n1 = len(prev_topics), len(cur)
     change = abs(n1 - n0) / n0 if n0 else 0.0
@@ -160,9 +165,14 @@ def validate_release(release_dir: str | Path, previous_dir: str | Path | None, v
     _check_coherence(models, rep)
     manifest = models.get("manifest.json")
     _check_llm(manifest, rep)
+    if manifest is not None and manifest.release != root.name:
+        rep.errors.append(f"manifest.release {manifest.release!r} does not match the folder name {root.name!r}")
     if previous_dir is None and manifest is not None and manifest.previous_release:
         cand = root.parent / manifest.previous_release
-        previous_dir = cand if cand.exists() else None
+        if cand.exists():
+            previous_dir = cand
+        else:
+            rep.warnings.append(f"previous release {manifest.previous_release} not found — diff skipped")
     if previous_dir is not None and "topics.json" in models and "overview.json" in models:
         rep.previous_dir = str(previous_dir)
         _diff(models, Path(previous_dir), vcfg, rep)

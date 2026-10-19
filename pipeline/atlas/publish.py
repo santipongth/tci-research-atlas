@@ -25,7 +25,7 @@ import tarfile
 from pathlib import Path
 
 from atlas.schema.contract import Latest
-from atlas.state import current_release
+from atlas.state import _checked, current_release
 from atlas.validate import render_report, validate_release
 
 OFFLINE_TEMPLATE, OFFLINE_HTML = "offline-template.html", "atlas-offline.html"
@@ -121,7 +121,10 @@ def publish_site(release_dir: Path, site: Path) -> dict:
 
 def publish(cfg: dict, release: str | None = None, allow_warnings: bool = False, site: str | Path | None = None,
             tarball: bool = False) -> dict:
-    release = release or current_release(cfg)
+    try:
+        release = _checked(release) if release else current_release(cfg)
+    except ValueError as e:
+        raise PublishRefused(str(e)) from e
     rel_dir = Path(cfg["pipeline"]["output_dir"]) / "data" / release
     rep = validate_release(rel_dir, None, cfg["validation"])
     print(render_report(rep))

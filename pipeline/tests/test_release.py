@@ -271,3 +271,40 @@ def test_offline_payload_cannot_enter_the_escaped_script_state():
     slot = re.search(r'id="atlas-data">(.*?)</script>', html, re.S).group(1)
     assert "<!--" not in slot and "</" not in slot
     assert json.loads(slot) == {"title": "a <!--<script> b </script> c"}
+
+
+def test_missing_previous_release_named_by_the_manifest_warns(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    shutil.rmtree(data / "2026Q1")
+    rep = validate_release(data / "2026Q2", None, cfg["validation"])
+    assert rep.exit_code == 1 and any("2026Q1 not found" in w and "diff skipped" in w for w in rep.warnings)
+
+
+def test_release_names_are_checked_and_must_match_the_manifest(two_releases, tmp_path):
+    from atlas.publish import PublishRefused, publish
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    with pytest.raises(PublishRefused, match="invalid release name"):
+        publish(cfg, release="../x", site=tmp_path / "site")
+    shutil.copytree(data / "2026Q2", data / "2026Q9")                 # folder name != manifest.release
+    rep = validate_release(data / "2026Q9", None, cfg["validation"])
+    assert rep.exit_code == 2 and any("does not match the folder name" in e for e in rep.errors)
+    cfg2 = {**cfg, "pipeline": {**cfg["pipeline"], "output_dir": str(tmp_path)}}
+    with pytest.raises(PublishRefused):
+        publish(cfg2, release="2026Q9", site=tmp_path / "site")
+
+
+def test_diff_skips_malformed_previous_topic_entries(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    prev = data / "2026Q1"
+    t = json.loads((prev / "topics.json").read_text(encoding="utf-8"))
+    del t["topics"][0]["size"]
+    t["topics"].append({"id": "T999999", "size": 5})                 # no status
+    (prev / "topics.json").write_text(json.dumps(t), encoding="utf-8")
+    rep = validate_release(data / "2026Q2", prev, cfg["validation"])
+    assert any("lack id/size/status" in w for w in rep.warnings)
