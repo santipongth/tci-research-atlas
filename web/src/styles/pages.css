@@ -20,3 +20,19 @@
   .tip-swatch { display: inline-block; vertical-align: middle; }
   .ml-label { font-size: 13px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
 }
+
+@layer components {
+  .prose .sec p { margin-top: 12px; max-width: 42em; line-height: 1.75; }
+  .defs { margin: 16px 0 0; border-top: 1px solid var(--border-2); }
+  .defs > div { padding: 12px 0; border-bottom: 1px solid var(--border-2); }
+  .defs dt { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-weight: 700; font-size: 1.0625rem; }
+  .defs dt code { font-size: 0.8125rem; font-weight: 400; color: var(--ink-2); }
+  .defs dd { margin: 4px 0 0; line-height: 1.7; max-width: 44em; }
+  .changelog { margin: 14px 0 0; padding-left: 1.2em; display: grid; gap: 12px; }
+  .log-h { font-weight: 700; }
+  .dl-list { list-style: none; margin: 14px 0 0; padding: 0; border-top: 1px solid var(--border-2); }
+  .dl-list li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 10px 0; border-bottom: 1px solid var(--border-2); }
+  .dl-note { display: block; font-size: 0.875rem; color: var(--ink-2); }
+  .cite { margin-top: 12px; padding: 12px 16px; background: var(--surface); border-left: 4px solid var(--brand); max-width: 46em; }
+  code { font-size: 0.9em; overflow-wrap: anywhere; }
+}
