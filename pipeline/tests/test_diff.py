@@ -85,3 +85,49 @@ def test_fallback_reads_the_previous_release_folder(cfg, tmp_path):
     snap, source = load_snapshot(cfg, "2026Q2")
     assert source == "output" and list(snap["topics"]) == ["T000001"] and snap["journals"] is None
     assert load_snapshot(cfg, "2025Q1") == (None, "")
+
+
+def _release_folder(tmp_path, release, topics, kpis=None, journals=None):
+    folder = tmp_path / "out" / "data" / release
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "topics.json").write_text(json.dumps(topics), encoding="utf-8")
+    (folder / "overview.json").write_text(json.dumps({"kpis": kpis or {"articles": 10}}), encoding="utf-8")
+    if journals is not None:
+        (folder / "journals.json").write_text(json.dumps(journals), encoding="utf-8")
+    return folder
+
+
+def test_the_state_snapshot_wins_over_the_release_folder_and_is_versioned(cfg, tmp_path):
+    _release_folder(tmp_path, "2026Q3", {"topics": [_topic("T000009", "HOT", 10, 0.01)]})
+    p = write_snapshot(cfg, "2026Q3", PREV)
+    assert json.loads(p.read_text(encoding="utf-8"))["schema_version"] == 1
+    assert not list(p.parent.glob("*.tmp"))                          # written atomically
+    snap, source = load_snapshot(cfg, "2026Q3")
+    assert source == "state" and set(snap["topics"]) == {"T000001", "T000002", "T000003"}
+
+
+@pytest.mark.parametrize("bad", ["{not json", "[]", json.dumps({"release": "2026Q3", "topics": []}),
+                                 json.dumps({"release": "2026Q3", "kpis": {}, "topics": {"T000001": {"size": 1}}})])
+def test_a_corrupt_snapshot_falls_back_to_the_release_folder(cfg, tmp_path, capsys, bad):
+    write_snapshot(cfg, "2026Q3", PREV)
+    (tmp_path / "state" / "releases" / "2026Q3" / "snapshot.json").write_text(bad, encoding="utf-8")
+    assert load_snapshot(cfg, "2026Q3") == (None, "")                # no folder either → no diff, no crash
+    assert "WARNING" in capsys.readouterr().out
+    _release_folder(tmp_path, "2026Q3", {"topics": [_topic("T000009", "HOT", 10, 0.01)]})
+    snap, source = load_snapshot(cfg, "2026Q3")
+    assert source == "output" and list(snap["topics"]) == ["T000009"]
+
+
+@pytest.mark.parametrize("topics, journals", [
+    ({"topics": [{"id": "T000001", "status": "HOT", "size": 3, "metrics": {"count_recent": 3}}]}, None),  # pre-P2
+    (["not", "a", "dict"], None),
+    ({"topics": [_topic("T000001", "HOT", 10, 0.01)]}, {"journals": [{"key": "so02:A"}]}),             # no id
+    ({"topics": [_topic("T000001", "HOT", 10, 0.01)]}, ["x"]),
+])
+def test_an_unreadable_previous_folder_means_no_diff_never_a_crash(cfg, tmp_path, capsys, topics, journals):
+    _release_folder(tmp_path, "2026Q2", topics, journals=journals)
+    snap, source = load_snapshot(cfg, "2026Q2")
+    if isinstance(journals, list):                                    # a non-dict journals.json: compared without it
+        assert source == "output" and snap["journals"] is None
+    else:
+        assert (snap, source) == (None, "") and "WARNING" in capsys.readouterr().out

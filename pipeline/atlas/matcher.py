@@ -7,9 +7,10 @@ similarity; journals are ranked by how much of their recent output falls in the 
 Analyzer — identical in Python and TypeScript (tests/fixtures/match_parity.json pins both):
   fold   NFC → join a decomposed sara am → drop zero-width characters and soft hyphens → NFD → drop Latin
          combining accents (U+0300–U+036F) → drop Thai marks U+0E47–U+0E4C → lower case → collapse whitespace
-         to one space, trim (= web/src/lib/search.ts foldText)
+         (exactly JavaScript's whitespace class, not Python's) to one space, trim (= web/src/lib/search.ts foldText)
   grams  every space-separated word padded with one space on each side, then every 3-character slice
-         (a padded word shorter than 3 characters is one gram) — the char_wb (3, 3) analyzer of scikit-learn
+         (a padded word shorter than 3 characters is one gram) — the char_wb (3, 3) analyzer of scikit-learn;
+         characters are code points: the web must slice Array.from(word), never UTF-16 units (astral emoji)
 Topic vectors: up to match.docs_per_topic articles per topic (seeded sample) → gram counts summed per topic →
 (1 + ln tf) · idf, idf = ln((1 + N) / (1 + df)) + 1 over the sampled articles (grams in < min_df articles are
 dropped) → L2-normalised → the max_terms heaviest grams kept and renormalised. max_terms shrinks (×0.8, not
@@ -39,7 +40,10 @@ _DECOMPOSED_AM = "\N{THAI CHARACTER NIKHAHIT}\N{THAI CHARACTER SARA AA}"
 _INVISIBLE = re.compile(f"[{chr(0x200B)}-{chr(0x200D)}{chr(0xFEFF)}{chr(0x00AD)}]")
 _LATIN_ACCENTS = re.compile(f"[{chr(0x0300)}-{chr(0x036F)}]")
 _THAI_ABOVE = re.compile(f"[{chr(0x0E47)}-{chr(0x0E4C)}]")
-_SPACES = re.compile(r"\s+")
+# exactly the JavaScript \s class (web foldText uses /\s+/g): Python's \s also takes U+001C–U+001F and U+0085
+_JS_SPACE = "".join(chr(c) for c in (0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x1680, *range(0x2000, 0x200B), 0x2028,
+                                     0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF))
+_SPACES = re.compile(f"[{re.escape(_JS_SPACE)}]+")
 TEXT_COLUMNS = ("title_th", "title_en", "keywords_th", "keywords_en")
 ABSTRACT_COLUMNS = ("abstract_th", "abstract_en")
 OUT = "14_match.json"
@@ -121,10 +125,12 @@ def truncate(W: sparse.csr_matrix, k: int) -> list[tuple[np.ndarray, np.ndarray]
 
 def build_index(grams: list[str], idf: np.ndarray, tids: list[int], W: sparse.csr_matrix,
                 journals: list[dict], mcfg: dict, n_docs: int) -> dict:
-    """The published index (internal ids) — max_terms shrinks until the JSON fits match.max_bytes."""
+    """The published index (internal ids) — max_terms shrinks until the JSON (its "bytes" key included) fits
+    match.max_bytes. A topic left without any gram (all below min_df) is not in the index."""
     k = int(mcfg["max_terms"])
     while True:
-        rows = truncate(W, k)
+        kept = [(t, r) for t, r in zip(tids, truncate(W, k)) if len(r[0])]
+        rows = [r for _, r in kept]
         used = sorted({int(i) for idx, _ in rows for i in idx})
         pos = {g: p for p, g in enumerate(used)}
         index = {
@@ -133,14 +139,20 @@ def build_index(grams: list[str], idf: np.ndarray, tids: list[int], W: sparse.cs
             "min_query_chars": int(mcfg["min_query_chars"]),
             "grams": [grams[i] for i in used], "idf": [round(float(idf[i]), 4) for i in used],
             "topics": [{"topic_id": t, "terms": [pos[int(i)] for i in idx], "weights": [round(float(v), 4) for v in val]}
-                       for t, (idx, val) in zip(tids, rows)],
+                       for t, (idx, val) in kept],
             "journals": journals,
+            "bytes": 0,
         }
-        size = len(json.dumps(index, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+        size = 0
+        while True:                                # the size of the file that holds its own size (a fixpoint)
+            index["bytes"] = size
+            measured = len(json.dumps(index, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+            if measured == size:
+                break
+            size = measured
         if size <= int(mcfg["max_bytes"]) or k <= int(mcfg["min_terms"]):
             if size > int(mcfg["max_bytes"]):
                 print(f"[match] WARNING: index is {size:,} bytes > match.max_bytes even at min_terms={k}")
-            index["bytes"] = size
             return index
         k = max(int(mcfg["min_terms"]), int(k * 0.8))
 
@@ -196,4 +208,7 @@ PARITY_CASES: tuple[str, ...] = (
     "การตลาดดิจิทัล (Digital Marketing) 2024",
     "a b ab",
     "",
+    "ข้อความ" + chr(0xA0) + "ทดสอบ" + chr(0x3000) + "AI" + chr(0x2009) + "x",    # NBSP, ideographic + thin space
+    "a" + chr(0x1C) + "b" + chr(0x85) + "c" + chr(0x0B) + "d" + chr(0x07) + "e",    # controls: only VT is JS whitespace
+    "AI " + chr(0x1F600) + " แชตบอต" + chr(0x1F600) + "x",                         # astral: slice by code point
 )

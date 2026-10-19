@@ -38,8 +38,10 @@ class Method:
     patterns: tuple[str, ...]          # lower-case regex parts; Thai written with marks, folded at compile time
 
 
-_RND_TERMS = r"(?:product|innovation|prototype|curriculum|นวัตกรรม|ผลิตภัณฑ์|ต้นแบบ|หลักสูตร)"
-_SEM_TOOLS = r"(?:amos|lisrel|smartpls)"
+# whole words: "productivity" (economics R&D) is not a product
+_RND_TERMS = (r"(?:\bproducts?\b|new product|product development|\binnovat|\bprototyp|\bcurricul|"
+              r"นวัตกรรม|ผลิตภัณฑ์|ต้นแบบ|หลักสูตร)")
+_SEM_TOOLS = r"(?:amos|lisrel|smartpls|mplus|lavaan|rmsea|cfi)"     # SEM programs and fit indices
 _ML_TERMS = r"(?:โครงข่ายประสาท|neural|model|โมเดล|อัลกอริทึม)"
 
 METHODS: tuple[Method, ...] = (
@@ -67,7 +69,7 @@ METHODS: tuple[Method, ...] = (
     Method("descriptive_stats", "สถิติเชิงพรรณนา", "Descriptive statistics",
            (r"ค่าเฉลี่ย", r"ส่วนเบี่ยงเบนมาตรฐาน", r"สถิติเชิงพรรณนา", r"descriptive statistic",
             r"standard deviation",       # bare "mean(s)" / "percentage" / ร้อยละ are not method signals
-            r"\bmean (?:score|value|age)s?\b", r"\bmean\s*[=±]", r"\(mean\b")),
+            r"\bmean (?:score|value|age)s?\b", r"\bmean\s*[=±]", r"\(mean\b", r"\bsd\s*=")),
     Method("inferential", "สถิติเชิงอนุมาน", "Inferential statistics",
            (r"\bt[- ]?test", r"\banova\b", r"ความแปรปรวน", r"chi[- ]square", r"ไคสแควร์", r"สหสัมพันธ์",
             r"\bcorrelation", r"ถดถอย", r"\bregression")),
@@ -94,11 +96,18 @@ _SUBJECTS = ("นักเรียน|นักศึกษา|ผู้เร�
 # A number followed by a duration, an age or a percentage is not a head count.
 _NOT_A_COUNT = re.compile(fold_thai(r"\s*(?:years?|yrs?|months?|weeks?|days?|hours?|aged?\b|ปี|เดือน|สัปดาห์|วัน|"
                                     r"ชั่วโมง|%|percent)"))
-_AGE_WORD = re.compile(fold_thai(r"\bage[ds]?\b|อายุ"))
+_AGE_WORD = re.compile(fold_thai(r"\bage[ds]?\b|(?<!สูง)อายุ"))               # ผู้สูงอายุ (the elderly) is no age
+# A unit-less figure followed by places or things is not a head count ("a sample of 30 schools").
+_NOT_PEOPLE = re.compile(fold_thai(r"\s*(?:schools?|villages?|communit(?:y|ies)|provinces?|districts?|hospitals?|"
+                                   r"compan(?:y|ies)|firms?|organi[sz]ations?|enterprises?|smes|institutions?|"
+                                   r"universit(?:y|ies)|articles?|papers?|studies|documents?|items?|sites?|"
+                                   r"แห่ง|โรงเรียน|หมู่บ้าน|ชุมชน|บริษัท|ชุด|ข้อ)"))
+_WHOLE_POPULATION = re.compile(fold_thai(r"ทั้งหมด|ประชากร|population"))
 _SAMPLE_PATTERNS: tuple[tuple[re.Pattern, bool], ...] = (     # (pattern, has a unit → no year check)
     (re.compile(fold_thai(r"(?:กลุ่มตัวอย่าง|ผู้ตอบแบบสอบถาม|ผู้ให้ข้อมูลสำคัญ|ผู้ให้ข้อมูล|ผู้เข้าร่วม(?:การ)?วิจัย)")
                 + r"(?P<gap>.{0,60}?)" + _NUM + fold_thai(_PERSON_UNITS), re.S), True),
-    (re.compile(fold_thai(rf"(?:{_SUBJECTS})\s*(?:จำนวน\s*)?") + _NUM + fold_thai(r"\s*(?:คน|ราย|ครัวเรือน)")), True),
+    (re.compile(fold_thai(rf"(?:{_SUBJECTS})") + r"(?P<sgap>[^.;\n]{0,40}?)" + _NUM     # "นักเรียนชั้น ม.3 จำนวน 45 คน"
+                + fold_thai(r"\s*(?:คน|ราย|ครัวเรือน)")), True),
     (re.compile(r"\bn\s*=\s*" + _NUM), True),
     (re.compile(_NUM + r"\s+(?:respondents|participants|informants|students|teachers|nurses|patients|farmers|"
                        r"households|employees|subjects|samples|consumers|tourists)\b"), True),
@@ -122,7 +131,9 @@ def sample_size(text: str | None, max_size: int = 1_000_000) -> int | None:
     '400 respondents', 'a sample of 400'. A figure with a person unit (คน / ราย / ครัวเรือน / respondents ...) beats
     a unit-less one wherever it stands; within a tier the first mention wins. A number followed by a duration or an
     age (years, months, ปี, เดือน, aged ...) is skipped, and so is a unit-less number that looks like a year
-    (1900–2100, 2400–2600 BE) or follows an age word."""
+    (1900–2100, 2400–2600 BE), follows an age word (ผู้สูงอายุ is not one) or counts places or things (schools,
+    แห่ง ...). A person-unit figure is checked on the number itself (no age-word test on the text before it). A
+    subject count that names the whole population (ทั้งหมด, ประชากร) is not the sample."""
     t = fold(text)
     with_unit, bare = [], []
     for rx, has_unit in _SAMPLE_PATTERNS:
@@ -132,7 +143,9 @@ def sample_size(text: str | None, max_size: int = 1_000_000) -> int | None:
                 continue
             if not has_unit and (1900 <= n <= 2100 or 2400 <= n <= 2600):
                 continue
-            if "gap" in rx.groupindex and _AGE_WORD.search(m.group("gap")):
+            if not has_unit and (_AGE_WORD.search(m.group("gap")) or _NOT_PEOPLE.match(t, m.end("num"))):
+                continue
+            if "sgap" in rx.groupindex and _WHOLE_POPULATION.search(m.group("sgap")):
                 continue
             (with_unit if has_unit else bare).append((m.start(), n))
     found = with_unit or bare

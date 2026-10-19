@@ -33,6 +33,11 @@ from atlas.methods import (
     ("Research and development expenditure and economic growth", []),
     ("Research and development of an innovative product prototype", ["rnd"]),
     ("การวิจัยและพัฒนาหลักสูตร", ["rnd"]),
+    ("Research and development spending and firm productivity", []),       # "product" only as a whole word
+    ("Research and development for new product development", ["rnd"]),
+    ("The CFA was estimated in Mplus (RMSEA = .05, CFI = .96)", ["sem"]),
+    ("SEM with lavaan in R", ["sem"]),
+    ("Scores were high (M = 3.4, SD = 0.5)", ["descriptive_stats"]),
 ])
 def test_lexicon_is_precise(text, found):
     assert detect_methods(text) == found
@@ -70,6 +75,13 @@ def test_thai_and_english_methods_are_found_even_without_tone_marks():
     ("นักเรียนจำนวน 400 คน", 400),
     ("ตัวอย่าง 400 คน", 400),
     ("ประชากรจำนวน 10,000 คน", None),                              # a population, not a sample
+    ("กลุ่มตัวอย่างเป็นผู้สูงอายุ จำนวน 200 คน", 200),                  # ผู้สูงอายุ (elderly) is not an age
+    ("กลุ่มตัวอย่างอายุ 18-25 ปี จำนวน 200 คน", 200),
+    ("ผู้ตอบแบบสอบถามอายุเฉลี่ย 45 ปี จำนวน 300 คน", 300),
+    ("นักเรียนชั้นมัธยมศึกษาปีที่ 3 จำนวน 45 คน", 45),
+    ("A sample of 30 schools", None),                                  # schools are not people
+    ("ประชากร คือ นักเรียนทั้งหมด จำนวน 10,000 คน กลุ่มตัวอย่าง คือ นักเรียน จำนวน 400 คน", 400),
+    ("participants with a mean age of 45 years", None),
 ])
 def test_sample_size(text, n):
     assert sample_size(text) == n

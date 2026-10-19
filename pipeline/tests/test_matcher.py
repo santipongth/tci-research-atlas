@@ -4,6 +4,7 @@ import math
 from collections import Counter
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from atlas.journals import journals
@@ -21,6 +22,8 @@ def test_fold_matches_the_web_search_fold():
     assert match_fold("  Café\tNaïve  ") == "cafe naive"
     assert match_fold("แชต" + chr(0x200B) + "บอต") == "แชตบอต"
     assert match_fold(None) == ""
+    assert match_fold("a" + chr(0xA0) + "b" + chr(0x3000) + "c") == "a b c"     # NBSP / ideographic space: JS \s
+    assert match_fold("a" + chr(0x1C) + "b" + chr(0x85) + "c") == "a" + chr(0x1C) + "b" + chr(0x85) + "c"  # not JS \s
 
 
 def test_trigrams_follow_char_wb():
@@ -31,7 +34,9 @@ def test_trigrams_follow_char_wb():
 
 
 def test_parity_fixture_is_up_to_date():
-    cases = json.loads(PARITY.read_text(encoding="utf-8"))
+    raw = PARITY.read_text(encoding="utf-8")
+    assert not any(chr(c) in raw for c in (0xA0, 0x200B, 0x00AD, 0x1C, 0x85, 0x3000))   # written as escapes
+    cases = json.loads(raw)
     assert [c["text"] for c in cases] == list(PARITY_CASES)
     for c in cases:
         assert c["fold"] == match_fold(c["text"]) and c["grams"] == analyze(c["text"]), c["text"]
@@ -71,10 +76,15 @@ def test_index_ranks_the_right_topic_and_lists_active_journals(built):
 
 def test_the_index_is_size_bounded_and_carries_no_text(tmp_path, capsys):
     cfg = make_p2_work(tmp_path)
-    cfg["match"].update(max_terms=100, min_terms=20, max_bytes=5_000)
+    cfg["match"].update(max_terms=100, min_terms=20, max_bytes=1_000)          # cannot fit: stops at min_terms
     index = match(cfg)
-    assert 20 <= index["max_terms"] < 100
-    assert index["bytes"] <= 5_000 or "WARNING" in capsys.readouterr().out
+    raw = (Path(cfg["pipeline"]["work_dir"]) / "14_match.json").read_bytes()
+    assert index["bytes"] == len(raw)                                  # the size counts the "bytes" key too
+    assert index["max_terms"] == 20 and index["bytes"] > 1_000 and "WARNING" in capsys.readouterr().out
+    cfg["match"].update(max_bytes=5_000)                                        # fits after shrinking
+    index = match(cfg)
+    assert 20 < index["max_terms"] < 100 and index["bytes"] <= 5_000 and "WARNING" not in capsys.readouterr().out
+    assert index["bytes"] == len((Path(cfg["pipeline"]["work_dir"]) / "14_match.json").read_bytes())
     blob = json.dumps(index, ensure_ascii=False)
     assert all(len(g) <= 3 for g in index["grams"]) and TOPIC_TEXT[1][:12] not in blob
 
@@ -85,3 +95,32 @@ def test_disabled_match_removes_the_index(built):
     assert match(cfg) == {}
     assert not (Path(cfg["pipeline"]["work_dir"]) / "14_match.json").exists()
     assert STEPS.index("journals") < STEPS.index("match") < STEPS.index("export")
+
+
+def test_the_index_is_deterministic_and_needs_no_journals(tmp_path):
+    cfg = make_p2_work(tmp_path)                                        # journals step not run: no 13_* tables
+    first = match(cfg)
+    raw = (Path(cfg["pipeline"]["work_dir"]) / "14_match.json").read_bytes()
+    assert first["journals"] == [] and {t["topic_id"] for t in first["topics"]} == {1, 2, 3}
+    match(cfg)
+    assert (Path(cfg["pipeline"]["work_dir"]) / "14_match.json").read_bytes() == raw
+
+
+def test_topics_without_a_vector_are_left_out():
+    from scipy import sparse
+
+    from atlas.config import load_config
+    from atlas.matcher import build_index
+
+    W = sparse.csr_matrix([[0.6, 0.8], [0.0, 0.0]])
+    index = build_index([" ab", "ab "], np.array([1.0, 1.2]), [7, 8], W, [], load_config(None)["match"], 2)
+    assert [t["topic_id"] for t in index["topics"]] == [7]
+
+
+def test_min_terms_cannot_exceed_max_terms():
+    from pydantic import ValidationError
+
+    from atlas.config import MatchCfg
+
+    with pytest.raises(ValidationError):
+        MatchCfg(max_terms=50, min_terms=60)

@@ -388,6 +388,12 @@ class MatchCfg(_Strict):
     journal_min_share: float = Field(0.02, ge=0.0, le=1.0)
     min_query_chars: int = Field(40, ge=1)
 
+    @model_validator(mode="after")
+    def _terms(self):
+        if self.min_terms > self.max_terms:
+            raise ValueError(f"match.min_terms ({self.min_terms}) must not exceed match.max_terms ({self.max_terms})")
+        return self
+
 
 class ChangesCfg(_Strict):
     """Quarter diff (diff.json, page /changes)."""
