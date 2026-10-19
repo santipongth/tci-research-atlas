@@ -1,0 +1,60 @@
+import type { Topic } from '../data/types'
+
+/**
+ * Emerging-definition constants shown in the UI. They mirror pipeline/config.example.yaml defaults
+ * (docs/EMERGING_SPEC.md) because contract v2 publishes only definition_version, ci_level and last_complete_year.
+ * When the manifest gains a `definition` block, read it first and keep these as fallbacks.
+ */
+export const DEFINITION = {
+  emergingMinGrowthLo: 0.1,
+  emergingMinShareRatio: 1.8,
+  decliningMaxShareRatio: 0.8,
+  largeQuantile: 0.75,
+  minArticlesRecent: 30,
+  minJournals: 3,
+  minOrgs: 3,
+  recentYears: 3,
+  baselineYears: 5,
+  trendYears: 5,
+} as const
+
+export interface Windows {
+  R: [number, number]
+  B: [number, number]
+  W: [number, number]
+}
+
+export function windows(lastCompleteYear: number): Windows {
+  const L = lastCompleteYear
+  const { recentYears, baselineYears, trendYears } = DEFINITION
+  return { R: [L - recentYears + 1, L], B: [L - recentYears - baselineYears + 1, L - recentYears], W: [L - trendYears + 1, L] }
+}
+
+export const fmtWindow = (w: readonly [number, number]): string => `${w[0]}–${w[1]}`
+
+/** Linear interpolation between closest ranks (pandas' default) on an ascending array. */
+export function quantile(sorted: readonly number[], q: number): number {
+  if (sorted.length === 0) return Number.NaN
+  const pos = (sorted.length - 1) * q
+  const lo = Math.floor(pos)
+  const hi = Math.ceil(pos)
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo)
+}
+
+/** "Large" = share_recent at or above the 0.75 quantile of classified (non-LOW_DATA) topics. */
+export function largeShareThreshold(topics: readonly Topic[]): number | null {
+  const shares = topics.filter((t) => t.status !== 'LOW_DATA').map((t) => t.metrics.share_recent).filter((s) => Number.isFinite(s))
+  if (shares.length === 0) return null
+  return quantile([...shares].sort((a, b) => a - b), DEFINITION.largeQuantile)
+}
+
+export type Quadrant = 'stars' | 'rising' | 'mature' | 'declining'
+export const QUADRANTS: readonly Quadrant[] = ['stars', 'rising', 'mature', 'declining']
+
+export function quadrantOf(t: Topic, threshold: number): Quadrant | null {
+  const g = t.metrics.share_growth
+  if (t.status === 'LOW_DATA' || g === null || g === undefined) return null
+  const large = t.metrics.share_recent >= threshold
+  if (g > 0) return large ? 'stars' : 'rising'
+  return large ? 'mature' : 'declining'
+}
