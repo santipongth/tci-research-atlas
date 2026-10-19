@@ -249,13 +249,26 @@ class EmergingCfg(_Strict):
     score_weights: ScoreWeightsCfg = Field(default_factory=ScoreWeightsCfg)
 
 
+class NowcastCfg(_Strict):
+    enabled: bool = True
+    min_months: int = Field(3, ge=1, le=12)
+    profile_years: int = Field(3, ge=1)
+    as_of: str | None = Field(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+
+
 class ForecastCfg(_Strict):
-    horizon: int = 2
-    min_history_years: int = 6
-    models: list[Literal["naive", "linear", "poisson"]] = Field(
-        default_factory=lambda: ["naive", "linear", "poisson"])
-    backtest_years: int = 3
+    horizon: int = Field(2, ge=1)
+    min_history_years: int = Field(6, ge=3)
+    models: list[Literal["naive", "drift", "nb_glm", "ets_damped"]] = Field(
+        default_factory=lambda: ["naive", "drift", "nb_glm", "ets_damped"])
+    total_models: list[Literal["naive", "drift", "ets_damped"]] = Field(
+        default_factory=lambda: ["naive", "drift", "ets_damped"])
+    cv_origins: int = Field(4, ge=3)
+    min_train_years: int = Field(4, ge=3)
     min_skill: float = 0.0
+    max_mase: float = Field(1.0, gt=0.0)
+    min_calibration: int = Field(20, ge=1)
+    nowcast: NowcastCfg = Field(default_factory=NowcastCfg)
 
 
 class KeywordsCfg(_Strict):

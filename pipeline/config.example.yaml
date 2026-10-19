@@ -243,12 +243,22 @@ keywords:
   min_growth_lo: 0.0          # โตจริง: CI ล่างของอัตราโต share > ค่านี้
   max_terms: 50               # จำนวนคำสูงสุดที่ส่งออก
 
+# ---------- Forecast v2 — share × ยอดรวม corpus ----------
 forecast:
-  horizon: 2
-  min_history_years: 6
-  models: [naive, linear, poisson]
-  backtest_years: 3
+  horizon: 2                  # พยากรณ์ล่วงหน้า 2 ปี
+  min_history_years: 6        # หัวข้อที่มีประวัติน้อยกว่านี้ไม่พยากรณ์
+  models: [naive, drift, nb_glm, ets_damped]   # naive = "เท่าปีล่าสุด" (baseline); ที่เหลือพยากรณ์ share × ยอดรวม
+  total_models: [naive, drift, ets_damped]     # โมเดลพยากรณ์ยอดรวมทั้ง corpus
+  cv_origins: 4               # rolling-origin backtest จาก 4 จุดตั้งต้น (≥ 3)
+  min_train_years: 4          # จุดตั้งต้นต้องมีข้อมูลฝึกอย่างน้อยเท่านี้
   min_skill: 0.0              # แสดงตัวเลขเฉพาะเมื่อ skill เทียบ naive > ค่านี้ (ไม่งั้น "แนวโน้มไม่แน่นอน")
+  max_mase: 1.0               # ... และ MASE < ค่านี้
+  min_calibration: 20         # ค่าคลาดเคลื่อนจาก backtest อย่างน้อยเท่านี้ต่อ horizon จึงใช้ conformal (ไม่งั้นใช้ normal)
+  nowcast:                    # ประมาณยอดทั้งปีของปีที่ยังไม่ครบ จากยอดสะสมตามเดือนตีพิมพ์
+    enabled: true
+    min_months: 3             # ต้องมีข้อมูลอย่างน้อย 3 เดือนแรกของปี
+    profile_years: 3          # สัดส่วนรายเดือนจาก 3 ปีที่สมบูรณ์ล่าสุด
+    as_of: null               # "YYYY-MM" — null = เดือนล่าสุดที่พบในปีนั้น
 
 layout:
   umap_2d_neighbors: 12
