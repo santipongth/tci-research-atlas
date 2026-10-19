@@ -122,10 +122,12 @@ function OpenData({ release }: { release: AtlasRelease }) {
     { label: t('data.q.yearMissing'), value: fmtInt(dq.year_missing) },
     { label: t('data.q.unassigned'), value: fmtInt(dq.unassigned_articles), note: ov.kpis.articles ? t('data.q.ofArticles', { p: fmtPct(dq.unassigned_articles / ov.kpis.articles, 1) }) : undefined },
     ...Object.entries(dq.text_quality ?? {}).map(([flag, n]) => ({ label: QUALITY_FLAGS[flag] ? t(QUALITY_FLAGS[flag]) : flag, value: fmtInt(n) })),
-    { label: t('data.q.ingestErrors'), value: fmtInt(release.manifest.ingest_errors ?? 0) },
+    release.manifest.ingest_errors == null
+      ? { label: t('data.q.ingestErrors'), value: DASH, note: t('data.q.notRecorded') }
+      : { label: t('data.q.ingestErrors'), value: fmtInt(release.manifest.ingest_errors) },
     { label: t('data.q.journalDriven'), value: fmtInt(journalDriven) },
     { label: t('data.q.orgsUnverified'), value: fmtInt(release.manifest.n_orgs_unverified ?? 0) },
-    ...(labels ? [{ label: t('data.q.labels'), value: t('data.q.labelsV', { llm: fmtInt(labels.llm), kw: fmtInt(labels.keywords), ed: fmtInt(labels.overrides) }) }] : []),
+    ...(labels ? [{ label: t('data.q.labels'), value: t('data.q.labelsV', { llm: fmtInt(labels.llm), kw: fmtInt(labels.keywords), ed: fmtInt(labels.overrides), re: fmtInt(labels.reused ?? 0) }) }] : []),
     { label: t('data.q.llmFallback'), value: fmtInt(llmFallbacks) },
     { label: t('data.q.embedding'), value: `${release.manifest.embedding_provider || DASH} · ${release.manifest.embedding_model}` },
     {

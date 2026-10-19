@@ -40,7 +40,10 @@ export type Path1 = string;
 export type Sha256 = string;
 export type Files = FileEntry[];
 export type GeneratedAt1 = string;
-export type IngestErrors = number;
+/**
+ * files that could not be read or parsed; null = not recorded (work_dir from before per-file error recording)
+ */
+export type IngestErrors = number | null;
 /**
  * topics named from author keywords (provider off or LLM fallback)
  */
@@ -54,6 +57,13 @@ export type Llm = number;
  */
 export type Overrides = number;
 export type Provider = "llm" | "off";
+/**
+ * topics that kept the previous release's name (lineage continue, keywords unchanged by labeling.reuse_min_jaccard) — no LLM call
+ */
+export type Reused = number;
+/**
+ * spend of this task for the whole release: every run, from the LLM journal
+ */
 export type CostUsd = number;
 export type Fallback = number;
 export type FromCache = number;
@@ -62,6 +72,10 @@ export type Items = number;
 export type Model = string;
 export type Repaired = number;
 export type Task = string;
+/**
+ * spend of the run that produced this export
+ */
+export type ThisRunCostUsd = number;
 export type Llm1 = LlmTaskStats[];
 export type Modules = string[];
 export type NOrgsUnverified = number;
@@ -171,7 +185,7 @@ export type Years1 = number[];
 export type Group1 = string;
 export type Id3 = string;
 export type Keywords3 = string[];
-export type LabelSource = "llm" | "keywords" | "override";
+export type LabelSource = "llm" | "keywords" | "override" | "reused";
 export type Born = string | null;
 export type Event = "new" | "continue" | "split" | "merge";
 export type Parents = string[];
@@ -289,6 +303,7 @@ export interface LabelStats {
   llm: Llm;
   overrides: Overrides;
   provider: Provider;
+  reused?: Reused;
 }
 export interface LlmTaskStats {
   cost_usd: CostUsd;
@@ -299,6 +314,7 @@ export interface LlmTaskStats {
   model: Model;
   repaired: Repaired;
   task: Task;
+  this_run_cost_usd?: ThisRunCostUsd;
 }
 export interface Overview {
   brief?: Brief | null;
