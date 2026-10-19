@@ -68,6 +68,18 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.getByRole('button', { name: /การปลูกข้าว/ }).click()
     await expect(page).toHaveURL(/sel=T000401/)
   },
+  compare: async (page) => {
+    await expect(page.locator('.cmp-chip')).toHaveCount(2)
+    await expect(page.locator('svg.ml path.ml-line')).toHaveCount(2)
+    const add = page.getByRole('combobox', { name: 'เพิ่มหัวข้อ' })
+    await add.fill('ยานยนต์')
+    await add.press('Enter')
+    await expect(page).toHaveURL(/ids=T000201%2CT000701%2CT000502/)
+    await page.getByLabel('จำนวนบทความ', { exact: true }).check()
+    await expect(page).toHaveURL(/metric=count/)
+    await page.getByRole('button', { name: 'เอาออก: AI เพื่อการศึกษา' }).click()
+    await expect(page.locator('.cmp-chip')).toHaveCount(2)
+  },
   // checks:end
 }
 

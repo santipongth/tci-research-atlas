@@ -1,0 +1,22 @@
+/* /compare (and, from Task 11, /data and /about). */
+@layer components {
+  .cmp-picker { display: grid; gap: 14px; margin-top: 18px; max-width: 760px; }
+  .cmp-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .cmp-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border: 1px solid var(--ink); max-width: 100%; }
+  .cmp-chip a { font-weight: 600; overflow-wrap: anywhere; }
+  .cmp-swatch { flex: none; display: block; }
+  .cmp-remove { display: grid; place-items: center; width: 32px; height: 32px; border: 0; background: transparent; color: var(--ink); }
+  .cmp-remove:hover { background: var(--surface); }
+  .cmp-metric { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  .cmp-metric legend { font-weight: 700; margin-bottom: 4px; }
+  .cmp-metric label { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; }
+  .cmp-metric input { width: 18px; height: 18px; accent-color: var(--ink); margin: 0; }
+  .cmp-suggest { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .ml-host { width: 100%; min-height: 260px; }
+  .ml { display: block; overflow: visible; }
+  .ml text { font-family: var(--font); }
+  .ml-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+  .ml-end { stroke: var(--bg); stroke-width: 2; }
+  .tip-swatch { display: inline-block; vertical-align: middle; }
+  .ml-label { font-size: 13px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+}
