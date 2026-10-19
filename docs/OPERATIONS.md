@@ -55,10 +55,11 @@ uv run atlas publish  -c config.yaml --site ../web/dist      # วาง data/<r
 
 ### ขั้น 4 — ตรวจหน้าเว็บ + เผยแพร่
 
-- เปิดเว็บ (preview): badge ต้องขึ้น **"● ข้อมูลสดจาก pipeline · ข้อมูลถึงปี YYYY"** (ปี = last_complete_year ใหม่)
-- คลิก 1 หัวข้อ EMERGING → แผงขวาต้องมีชิปสถานะ + กราฟคาดการณ์
-- ลองสลับภาษา EN ดูคร่าว ๆ
-- กด **「publish」** บน Kimi (หรือ deploy static ตามช่องทางของหน่วยงาน)
+- วางรอบใหม่ลงโฟลเดอร์เว็บด้วย `uv run atlas publish --site web/dist` (หรือ `bash scripts/import_atlas.sh`) แล้วเปิด preview (`npm run preview` ใน `web/`)
+- หน้า `/overview` ต้องแสดงชื่อรอบใหม่ ข้อความ "ข้อมูลถึงปี YYYY" ตรงกับ `last_complete_year` และตัวเลข Δ เทียบรอบก่อน (ถ้าโฟลเดอร์รอบก่อนยังอยู่บน site; ถ้าไม่อยู่จะมีบรรทัด "ไม่พบข้อมูลรอบก่อนหน้า")
+- เปิด `/emerging` → แท็บ EMERGING ต้องมีรายการ คลิก 1 หัวข้อ → หน้าหัวข้อต้องมีชิปสถานะ (สัญลักษณ์ + สี + ข้อความ) และกราฟแนวโน้มพร้อมตาราง
+- สลับภาษา TH/EN และเปิดโหมดมืดดูคร่าว ๆ; ถ้าเป็นข้อมูลสังเคราะห์ ต้องเห็นป้าย "ข้อมูลตัวอย่าง" ทุกหน้า
+- เผยแพร่: push ขึ้น GitHub แล้ว workflow `.github/workflows/pages.yml` build เว็บและ deploy ขึ้น GitHub Pages (หรือ deploy โฟลเดอร์ `web/dist` ที่ได้จาก `atlas publish --site` ตามช่องทางของหน่วยงาน) — ผู้ดูแลเป็นคน push/deploy
 
 ### ขั้น 5 — เก็บรอบรัน
 
@@ -216,7 +217,7 @@ uv run atlas embed -c config.yaml
 
 ## 5. การย้อนกลับ (rollback)
 
-- เว็บบน Kimi: ใช้ version card ย้อนกลับเวอร์ชันก่อนหน้าได้ทันที
+- เว็บ: deploy commit ก่อนหน้าอีกครั้งผ่าน GitHub Pages (re-run workflow ของ commit เก่า) หรือวางโฟลเดอร์ `web/dist` เวอร์ชันเก่ากลับ
 - ข้อมูล: แก้ `data/latest.json` ให้ชี้รอบก่อน (โฟลเดอร์รอบเก่ายังอยู่ใน data/) — ไม่ต้อง build ใหม่
 
 ## 6. LLM ผ่าน API (ชื่อหัวข้อ · คู่ที่อาจซ้ำ · คำอธิบาย · บทสรุปผู้บริหาร)
