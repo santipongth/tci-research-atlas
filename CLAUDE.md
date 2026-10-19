@@ -27,12 +27,12 @@ tci-research-atlas/
 │   ├── OPERATIONS.md       ← วิธีรัน batch รายไตรมาส + import เข้าเว็บ + troubleshoot
 │   └── superpowers/        ← specs + plans ของ v2 (แผนหลัก: specs/2026-10-18-tci-atlas-v2-design.md)
 ├── pipeline/               ← Python batch pipeline (Phase 1,2,4,5)
-│   ├── atlas/              ← โมดูล pipeline: ingest→preprocess→embed→cluster→label
-│   │                         →series→emerging→forecast→layout→export
+│   ├── atlas/              ← โมดูล pipeline: ingest→preprocess→embed→cluster→taxonomy→label
+│   │                         →series→emerging→keywords→forecast→narrate→layout→export
 │   │   ├── sources/        ← parser ข้อมูลเข้า (thaijo_md.py)
 │   │   └── schema/         ← data contract v2 (contract.py → JSON Schema)
 │   ├── configs/ci.yaml     ← config สำหรับ CI
-│   ├── state/              ← ข้อมูลถาวรข้ามรอบ (embedding store, label cache, centroids) — git-ignored, ห้ามลบ
+│   ├── state/              ← ข้อมูลถาวรข้ามรอบ (embedding store, LLM cache, ID หัวข้อ/ตำแหน่งแผนที่ต่อรอบ, งานอ้างอิง OpenAlex) — git-ignored, ห้ามลบ
 │   ├── config.example.yaml ← คัดลอกเป็น config.yaml แล้วแก้
 │   ├── tests/              ← pytest (มี test_emerging.py ครอบคลุมนิยาม emerging)
 │   ├── scripts/            ← run_all.sh
@@ -42,7 +42,7 @@ tci-research-atlas/
 │   ├── src/lib/loader.ts   ← โหลด /data/atlas_data.json → normalize → fallback ข้อมูล bundle
 │   ├── src/data/atlas.ts   ← ข้อมูล bundle (71 สาขาจริง) + interfaces หลัก
 │   └── public/data/atlas_data.example.json ← ตัวอย่างไฟล์จาก pipeline
-├── prompts/                ← LLM prompts ทั้งหมด (ฉบับ master — sync กับโค้ด)
+├── prompts/                ← LLM prompts ทั้งหมด (ฉบับเดียว — โค้ดอ่านไฟล์ตอนรัน)
 └── scripts/
     ├── quarterly_run.sh    ← สคริปต์รัน batch รายไตรมาส (เรียกจาก cron)
     └── import_atlas.sh     ← คัดลอกผล pipeline เข้า web/public/data/ + build
@@ -59,6 +59,9 @@ tci-research-atlas/
 | 5 | Research Trend Forecasting (OLS/Poisson, backtest) | `pipeline/atlas/forecast.py` + ForecastChart ในเว็บ | ✅ พร้อมใช้ |
 | + | LLM labeling + merge duplicates | `pipeline/atlas/label.py` | ✅ พร้อมใช้ |
 | + | Live dashboard (โหลด JSON runtime, fallback bundle) | `web/src/lib/loader.ts` | ✅ พร้อมใช้ |
+| P1 | ID หัวข้อถาวร + lineage, OpenAlex taxonomy, Forecast v2, emerging keywords, แผนที่นิ่ง | `pipeline/atlas/{lineage,taxonomy,forecast,keywords,layout}.py` | ✅ pipeline (เว็บ v2 = P1b) |
+| P1 | LLM ผ่าน API (label · merge · narrative · brief) + review/overrides | `pipeline/atlas/{llm,llm_runner,label,review,narrative}.py` | ✅ |
+| P1 | Contract v2 release + validate + publish --site (+ offline HTML) | `pipeline/atlas/{export_v2,validate,publish}.py` | ✅ |
 
 สิ่งที่ยังไม่มี / ไอเดียต่อยอดอยู่ใน `docs/ROADMAP.md` (เช่น author network, journal view, compare mode, API backend)
 
@@ -78,8 +81,13 @@ uv run atlas status -c config.yaml         # สถานะงานยาว (
 uv run atlas embed-stop -c config.yaml     # หยุดอย่างสุภาพ — ทำต่อ = รัน atlas embed เดิมซ้ำ
 uv run atlas synth --out .ci/synth --n 20000
 uv run pytest -q && uv run pytest -m slow -q
+uv run atlas llm -c config.yaml --check | --dry-run      # ปลายทาง LLM / ประมาณ token+ค่าใช้จ่าย; ไม่ใส่ flag = รัน label + narrate (--background; หยุด: atlas llm-stop)
+uv run atlas review export -c config.yaml                # CSV ให้บรรณาธิการตรวจชื่อ → atlas review import <csv>
+uv run atlas validate -c config.yaml                     # exit 0/1/2
+uv run atlas publish -c config.yaml --site ../web/dist   # data/<release>/ + data/latest.json + atlas-offline.html
+uv run atlas bakeoff -c config.yaml --kind all           # เทียบ embedding/clustering
 ```
-(key อยู่ใน env var เท่านั้น: `ATLAS_EMBED_API_KEY` สำหรับ embedding แบบ API, `ATLAS_API_KEY` สำหรับ labeling แบบ API — ขั้นตอน embed ครั้งใหญ่ดู `docs/OPERATIONS.md` §1A)
+(key อยู่ใน env var เท่านั้น: `ATLAS_EMBED_API_KEY` สำหรับ embedding แบบ API, `ATLAS_LLM_API_KEY` สำหรับ LLM (ชื่อหัวข้อ · คู่ซ้ำ · คำอธิบาย · บทสรุป) — ใช้ key เดียวกันได้, `OPENALEX_API_KEY` ทางเลือกสำหรับ taxonomy; embed ครั้งใหญ่ดู `docs/OPERATIONS.md` §1A, LLM ดู §6, OpenAlex ดู §9)
 
 ### Web (ทำงานใน `web/`)
 
@@ -105,6 +113,8 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 - ฝั่งผลิต: `pipeline/atlas/export.py` (schema เต็มใน `docs/DATA_SPEC.md`) — ตอนนี้เป็น **schema 1.1** (`meta.schema_version`, `meta.definition_version = 3`)
 - ฟิลด์ใหม่ของ 1.1 ต่อหัวข้อ: `share_growth`, `share_growth_lo`, `share_growth_hi`, `n_journals_R`, `n_orgs_R`, `journal_driven`, `orgs_unverified`, `coherence`, `forecast_uncertain` (+ `meta.assigned_articles`, `meta.unassigned_articles`, `meta.as_of_year`, `meta.trimmed_years`, `meta.n_orgs_unverified`); status มี 6 ค่า (EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA); `forecast` เป็น null เว้นแต่ผ่าน skill gate และสถานะไม่ใช่ LOW_DATA
 - data contract v2 อยู่ที่ `pipeline/atlas/schema/contract.py` → ต้องสร้างใหม่พร้อมกัน: `uv run atlas schema` แล้ว `npm run gen:types` (ใน `web/`) — CI ตรวจ drift ทั้งสองขั้น
+- contract v2 ถูกเขียนจริงแล้ว (P1): `output/data/<release>/*.json` + `output/data/latest.json` (รายละเอียดใน `docs/DATA_SPEC.md` §6) — ช่วงเชื่อมั่นใช้ชื่อ `*_lo/*_hi` เสมอ ระดับอยู่ใน `manifest.ci_level`; `share_ratio` เป็น null เมื่อ `no_baseline`; `definition_version` ยังเป็น 3
+- เว็บ v2 (P1b) อ่าน `data/latest.json` แบบ path สัมพัทธ์จาก `BASE_URL` (ไม่เรียก API ตอน runtime) หรือข้อมูลที่ฝังใน `atlas-offline.html`
 - ฝั่งบริโภค: `web/src/lib/loader.ts` — ฟังก์ชัน `normalize()` แปลง pipeline schema → web schema:
   - `nodeId` → `id`, `kind: "topic"` → `kind: "field"`, `nTopics` → `nFields`
   - `emerging_score` → `emergingScore`, `burst_years` → `burstYears`, `orgs_unverified` → `orgsUnverified`
@@ -127,7 +137,10 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 - **DO** pandas 3: ห้ามทดสอบ `dtype == object`; normalise คอลัมน์ข้อความด้วย `.fillna("").astype(str)`
 - **DO** ใส่เครื่องหมายคำพูดให้ `"off"` ใน YAML (`provider: "off"`) — `off` เปล่า ๆ ถูกอ่านเป็น false
 - **DON'T** แก้นิยาม EMERGING/WATCH/HOT/DECLINING โดยไม่อัปเดต `docs/EMERGING_SPEC.md` + `config.example.yaml` + ทดสอบให้ตรงกัน
-- **DON'T** ใส่ API key ลงไฟล์ใด ๆ — ใช้ env var เสมอ (`ATLAS_EMBED_API_KEY` embedding, `ATLAS_API_KEY` labeling; ชื่ออยู่ใน `api_key_env` ของ config)
+- **DON'T** ใส่ API key ลงไฟล์ใด ๆ — ใช้ env var เสมอ (`ATLAS_EMBED_API_KEY` embedding, `ATLAS_LLM_API_KEY` LLM, `OPENALEX_API_KEY` ถ้ามี; ชื่ออยู่ใน `api_key_env` ของ config)
+- **DO** เรียก LLM ผ่าน `atlas.llm_runner.run_job` เท่านั้น (cache, งบ, หยุด/ต่อ, repair, fallback; lock/progress/stop ใช้ `atlas.jobs` ของ P0 ตัวเดียวกับ embedding) — งาน LLM เป็นระดับหัวข้อ ไม่เรียกต่อบทความ
+- **DO** ตัวเลขในข้อความที่ LLM เขียนต้องมาจาก pipeline และผ่าน `narrative.grounding_error` (ปฏิเสธตัวเลขที่ไม่อยู่ในข้อมูล, คำบอกจำนวนเท่าที่ไม่มีที่มา, และทิศทางผิดในประโยคอัตรา; เขียนใหม่ 1 ครั้ง แล้วใช้ประโยคแม่แบบ) — ห้ามเผยแพร่ข้อความ LLM ที่ไม่ได้ตรวจ
+- **DON'T** ใช้ชื่อรอบ (release) นอกรูป YYYYQn, ใช้ ID หัวข้อซ้ำ หรือรันรอบที่เก่ากว่ารอบที่มีอยู่ — โค้ดปฏิเสธอยู่แล้ว อย่าเลี่ยง
 
 ### Web
 
@@ -140,8 +153,9 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 
 ### LLM prompts
 
-- Prompts ฉบับ master อยู่ใน `prompts/*.md` — โค้ดใน `pipeline/atlas/label.py` มีสำเนาฝังอยู่; **ถ้าแก้ prompt ให้แก้ทั้งสองที่และบอกใน commit**
-- label cache ใช้ `cache_key` = sha256(model + prompt เต็ม)[:16] เก็บใน `state_dir/label_cache` — เปลี่ยน prompt หรือ model = key เปลี่ยน = label ถูกสร้างใหม่เฉพาะที่จำเป็น
+- Prompts อยู่ใน `prompts/*.md` เท่านั้น (block ใต้ "Prompt (master)") — โค้ดอ่านไฟล์ตอนรัน ไม่มีสำเนาในโค้ด; แก้ prompt = แก้ไฟล์เดียวแล้วบอกใน commit
+- cache key = sha256(model + `prompt_version` + prompt ที่เติมค่าแล้ว)[:16] ใน `state_dir/llm_cache/<task>.jsonl` — `prompt_version` คือ hash ของ template เท่านั้น (แก้หมายเหตุนอก block ไม่ทำให้จ่ายซ้ำ)
+- ไฟล์: `topic_label.th` (label), `topic_merge.th` (merge), `topic_narrative.th` (narrative), `executive_brief.th` (brief)
 
 ## 7. บริบทภาษาไทยที่ต้องรู้
 

@@ -36,12 +36,21 @@
 | `04_coarse_topics` | cluster | article_id, coarse_topic (−1 = ยังไม่จัดหมวด) |
 | `04_topic_info` | cluster | topic_id, size, top_terms, top_keywords, coarse_topic, coherence |
 | `04_centroids.npy`, `04_centroid_ids.json` | cluster | centroid ต่อหัวข้อ |
-| `05_labels` | label | level, topic_id, name_th, name_en, description, keywords, cache_key (`cache_key` = sha256(model + prompt) 16 ตัวแรก; `"fallback"` เมื่อ `label.provider: "off"`) |
+| `05_labels` | label | level, topic_id, name_th, name_en, description, keywords, cache_key (key ของ LLM cache หรือ `"fallback"`), label_source (`llm` \| `keywords` \| `override`) |
+| `05_labels_meta.json` | label | provider, model_id, topics, from_cache, generated, repaired, fallback, overrides, unknown_overrides, cost_usd |
+| `05_merge_suggestions`, `05_merge_meta.json` | label | topic_a, topic_b, similarity, same_topic (True/False/None), reason, source · สถิติ LLM งาน merge |
 | `06_series` | series | topic_id, year, count, count_with_org, corpus_total, share |
 | `06_topic_journal_year`, `06_topic_org_year`, `06_journal_first_year`, `06_meta.json` | series | ใช้คำนวณความกว้าง + ปีสมบูรณ์ล่าสุด; `06_meta.json` = last_complete_year, as_of_year, trimmed_years (ปีที่มีข้อมูลแต่ไม่ใช้คำนวณแนวโน้ม), years, totals |
 | `07_emerging` | emerging | ดู docs/EMERGING_SPEC.md §3 + org_coverage_R, orgs_unverified, status, journal_driven, emerging_score, definition_version (คอลัมน์ครบแม้ไม่มีหัวข้อ) |
-| `08_forecasts` | forecast | model, backtest_mae/mape, mase, skill_vs_naive, show, hist/fc (JSON) |
 | `09_layout`, `09_edges` | layout | id, kind, x, y, r, parent · s, t, w |
+| `04_lineage`, `04_topics_meta.json` | cluster | event (new/continue/split/merge/retired), topic_id, parents · release, previous_release, mode (fit/assign), kept_fraction, events |
+| `06_months`, `06_partial_year` | series | year, month, count (วันที่ตีพิมพ์ที่ตรงกับปี) · topic_id, year, count ของปีหลัง last_complete_year (ใช้ทำ nowcast) |
+| `06_meta.json` (เพิ่ม) | series | partial_totals (ยอดบทความของปีหลัง last_complete_year), completeness {method: median (backfill guard v3) \| configured} |
+| `07_keywords` | keywords | term, key, count_recent, count_baseline, share_ratio, no_baseline, growth(_lo/_hi), n_active_years, n_orgs_R, n_journals_R, new_journal_share, journal_driven, topic_id, emerging |
+| `08_forecasts` (v2), `08_forecast_meta.json` | forecast | model, backtest_mae/mape, mase, skill_vs_naive, show, hist/fc (JSON) + fc_lo80/hi80/lo95/hi95, nowcast_* · total_model, conformal, n_calibration, nowcast — ช่วงคาลิเบรตจากเรคคอร์ดที่ซื่อสัตย์ของโมเดลที่เลือก; `show` ต้องมีจุด backtest ซื่อสัตย์ ≥ `forecast.min_honest_points`; nowcast มีเฉพาะปีปฏิทินที่กำลังดำเนินอยู่ (`forecast.nowcast.min_month_share`) |
+| `09_galaxy` | layout | article_id, topic_id, gx, gy |
+| `10_taxonomy`, `10_taxonomy_meta.json` | taxonomy | topic_id, group_id, group_en/th, subfield_id/en, vote_share, cross_field, source · version, holdout accuracy — เมื่อ fallback เป็น agglomerative: group_id = 1000 + coarse, code `G<n>`, ชื่อ "ยังไม่จัดสาขา (กลุ่ม N)" / "Unmapped group N", meta มีเหตุผล (เช่น งบ OpenAlex รายวันหมด) |
+| `11_narratives`, `11_brief.json` | narrate | topic_id, status, th, en, source (llm\|template) · {brief, llm} |
 | `state/embeddings/<slug>-<hash>/` | embed | index.parquet + shard_NNNNN.npy (ถาวร; slug/hash จาก store id: `api\|<model>\|<dimensions>` หรือ `embedding.api.store_id` — ไม่รวม base_url; `local\|<model>\|<max_seq_length>`; hash = sha1 8 ตัวแรก) |
 | `…/<store>/journal.bin` | embed | write-ahead log ของเวกเตอร์ที่ได้แล้วแต่ยังไม่เข้า store: header `ATJ1` + uint32 dim; record = sha1 key 40 ไบต์ ASCII + dim × float32 little-endian (flush ทุก batch, fsync ≤ ทุก 10 วินาที) — รันครั้งถัดไป replay เข้า store แล้วลบ (record ท้ายที่ขาด/เสียถูกข้าม) |
 | `…/<store>/progress.json` | embed | สถานะงาน (เขียนแบบ atomic ทุก ~5 วินาที + ทุก flush/เปลี่ยนสถานะ): kind, store_id, status (`running`/`backing_off`/`stopped`/`done`/`failed`), pid, total, cached, embedded, remaining, rate_per_s, eta_s, retries, truncated, truncated_total, store_vectors, journal_pending, checkpoint_postponed, last_error, last_error_at, last_event, recovered, started_at, updated_at — อ่านด้วย `atlas status` (แสดง `interrupted` เมื่อ process ตาย, `hung` เมื่อยังอยู่แต่ heartbeat เก่ากว่า `lock_stale_seconds`); ระหว่างรัน status ใช้ store_vectors/journal_pending จากไฟล์นี้ ไม่เปิดไฟล์ store |
@@ -50,8 +59,11 @@
 | `…/<store>/run.log` | embed `--background` | stdout+stderr ของการรันเบื้องหลัง (ต่อท้ายทุกครั้ง) |
 | `…/<store>/stop.flag` | embed-stop | คำขอหยุด — runner หยุดสุภาพ (รอ request ที่ค้าง, flush) แล้วลบ; flag ที่เขียนก่อน process ที่รันเริ่ม = ค้างจากรอบก่อน ถูกลบทิ้ง, flag ที่ใหม่กว่า (เช่น สั่งตอนยัง ingest) ถูกทำตาม |
 | `…/<store>/truncated.parquet` | embed | key, original_chars, used_chars, run_started_at — ข้อความที่ server รับไม่ได้จนต้องตัด (ต่อท้ายทุกรอบ, สะสม; `atlas status` แสดงจำนวนรวม) |
-| `state/label_cache.parquet` | label | cache_key → ชื่อหัวข้อ |
-| `state/prev/centroids.npy` | export | centroid รอบนี้ สำหรับรอบหน้า |
+| `state/llm_cache/<task>.jsonl` | label, narrate | cache + journal ของทุก call LLM: key = sha256(model + prompt_version + prompt) · output (null = บันทึกค่าใช้จ่ายของ call ที่ใช้ fallback) · cost_usd · release |
+| `state/llm_cache/progress.json`, `.lock`, `run.lock`, `stop.flag`, `run.log` | label, narrate | ไฟล์งานแบบเดียวกับ embedding store (P0 `atlas.jobs`): สถานะ (`atlas status`, kind `llm`), OS lock กันรันซ้อน (+ ข้อมูล PID), คำขอหยุด (`atlas llm-stop`), log ของ `atlas llm --background` |
+| `state/releases/index.json`, `state/releases/<release>/topics/`, `…/layout.parquet` | cluster, layout | ลำดับรอบ · assignments, registry (born/status/last_seen), lineage, model.json · ตำแหน่งหัวข้อ |
+| `state/openalex/reference_*.parquet` + `.json` | taxonomy | งานอ้างอิง OpenAlex ที่ดึงแล้ว (ไม่ดึงซ้ำ; cache ใช้ร่วมกันทั้งโหมดมี key และไม่มี key) |
+| `pipeline/registry/label_overrides.csv` (นอก state; ไม่เข้า git) | label | ชื่อที่บรรณาธิการแก้: topic_id (T000123), name_th, name_en, description, reviewer, reviewed_at, note |
 
 ## 3. Output: `atlas_data.json` (สัญญากับเว็บ)
 
@@ -156,3 +168,21 @@
 
 `pipeline/atlas/schema/contract.py` → `web/src/data/contract.schema.json` → `web/src/data/contract.ts`
 สร้างด้วย `uv run atlas schema` และ `npm run gen:types` (CI ตรวจ drift ทั้งสองขั้น)
+
+รอบข้อมูลหนึ่งรอบ = `output/data/<release>/` (เช่น `2026Q4/`) — JSON แบบ strict (ไม่มี NaN/Infinity), สีเป็น token `cat-01…cat-12` ไม่ใช่ hex, ไม่มีบทคัดย่อและไม่มีข้อมูลระดับบุคคล
+
+| ไฟล์ | model | เนื้อหา |
+|---|---|---|
+| `manifest.json` | `Manifest` | release, previous_release, definition_version, **ci_level** (ระดับของช่วง `*_lo/*_hi` ทุกตัว), as_of_year, trimmed_years, embedding_provider/model, taxonomy_version, n_orgs_unverified, ingest_errors, labels {provider, llm, keywords, overrides}, llm [{task, model, items, from_cache, generated, repaired, fallback, cost_usd}], files [{path, bytes, sha256}] |
+| `overview.json` | `Overview` | KPI, จำนวนตามสถานะ, ยอดรายปี + พยากรณ์ยอดรวม, nowcast, lineage events, retired topics, data_quality (completeness), **brief** (headline + bullets, source llm/template) |
+| `taxonomy.json` | `TaxonomyFile` | source (openalex/agglomerative), groups (F33 / G03, ชื่อ TH/EN, สี token, ตำแหน่ง hub), subfields |
+| `topics.json` | `TopicsFile` | หัวข้อ: id T000123, group, ชื่อ, label_source, ขนาด, ตำแหน่ง, status, score, metrics, forecast, lineage, subfield, cross_field, nowcast |
+| `topics/<id>.json` | `TopicDetail` | บทความตัวแทน (ชื่อเรื่อง + ลิงก์ ThaiJO + พิกัด galaxy), วารสาร/สถาบันหลัก, คำสำคัญ, เพื่อนบ้าน, **narrative** |
+| `series.json`, `edges.json`, `keywords.json` | `SeriesFile`, `EdgesFile`, `KeywordsFile` | ยอดรายปีต่อหัวข้อ · เส้นเชื่อม · emerging keywords |
+| `output/data/latest.json` | `Latest` | {release, path: "<release>/manifest.json", schema_version, generated_at} |
+
+- `metrics.share_ratio` เป็น **null** และ `no_baseline: true` เมื่อไม่มีบทความในช่วงฐาน (เว็บแสดง "ใหม่ — ไม่มีฐานเปรียบเทียบ") — เช่นเดียวกับ keyword
+- `metrics.low_data_reason`: `few_articles` (count_recent < `min_articles_recent`) หรือ `not_estimable` (ประมาณอัตราโตไม่ได้) เมื่อ status = LOW_DATA
+- กลุ่ม fallback (taxonomy.source = agglomerative): id 1000 + coarse, code `G<n>`, ชื่อ "ยังไม่จัดสาขา (กลุ่ม N)" / "Unmapped group N"
+- `atlas validate` ตรวจ integrity (sha256) · schema · ความสอดคล้อง · diff กับรอบก่อน · fallback ของ LLM; `atlas publish --site <dir>` วาง `data/<release>/` + `data/latest.json` + `atlas-offline.html` (ข้อมูลฝังใน `<script type="application/json" id="atlas-data">` ของ `offline-template.html` ที่ web build สร้าง)
+- ความปลอดภัยของรอบ: validate เป็น error เมื่อ `manifest.release` ไม่ตรงกับชื่อโฟลเดอร์ และเตือน (ข้าม diff) เมื่อไม่พบโฟลเดอร์รอบก่อนหน้า; ชื่อรอบต้องเป็นรูป YYYYQn (`../x` ถูกปฏิเสธ)

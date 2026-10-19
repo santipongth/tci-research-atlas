@@ -32,7 +32,7 @@ bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้า�
 uv run pytest -q                           # ทดสอบ (เพิ่ม uv run pytest -m slow -q สำหรับ e2e ข้อมูลสังเคราะห์)
 ```
 
-Python ≥ 3.11 (dev/CI ใช้ 3.12) · embedding แบบ api ใช้ stdlib ไม่ต้องติดตั้งเพิ่ม · `--extra api` ติดตั้ง `openai` (ใช้กับ LLM labeling) · `--extra local` ติดตั้ง `sentence-transformers` (BGE-M3) · ดีฟอลต์ `embedding.provider: local`; โหมด `lite` (TF-IDF+SVD) ไม่ต้องใช้ extra ใด ๆ — ใช้ใน CI/ทดสอบเท่านั้น (เกิน `embedding.lite_max_docs` เรื่องจะขึ้น WARNING)
+Python ≥ 3.11 (dev/CI ใช้ 3.12) · embedding แบบ api ใช้ stdlib ไม่ต้องติดตั้งเพิ่ม · `--extra api` ติดตั้ง `openai` (ไม่จำเป็นแล้ว: embedding และ LLM ใช้ HTTP แกนกลางของ `atlas`) · `--extra local` ติดตั้ง `sentence-transformers` (BGE-M3) · ดีฟอลต์ `embedding.provider: local`; โหมด `lite` (TF-IDF+SVD) ไม่ต้องใช้ extra ใด ๆ — ใช้ใน CI/ทดสอบเท่านั้น (เกิน `embedding.lite_max_docs` เรื่องจะขึ้น WARNING)
 **ข้อมูลจริงไม่เข้า git** — คลังบทความและ `atlas_data.json` ของจริงเก็บนอก repo (มีเฉพาะตัวอย่าง 11 ไฟล์ใน `tests/fixtures/thaijo_md/`)
 
 ## 2. เตรียมข้อมูล
@@ -53,7 +53,7 @@ uv run atlas profile /path/to/corpus --md ../logs/profile.md [--out ../logs/prof
 ```bash
 cp config.example.yaml config.yaml
 export ATLAS_EMBED_API_KEY=...  # embedding แบบ api (PowerShell: $env:ATLAS_EMBED_API_KEY="...")
-export ATLAS_API_KEY=...        # LLM labeling แบบ api
+export ATLAS_LLM_API_KEY=...    # LLM (ชื่อหัวข้อ · คำอธิบาย · บทสรุป) — PowerShell: $env:ATLAS_LLM_API_KEY="..."
 ```
 
 จุดที่ต้องเลือกใน `config.yaml`:
@@ -74,7 +74,7 @@ export ATLAS_API_KEY=...        # LLM labeling แบบ api
 
 **Embedding — โหมด Local** (`embedding.provider: local`) ดีฟอลต์ `BAAI/bge-m3` (multilingual, ไทยดี) บน GPU ตัวเอง — ฟรี แต่ช้ากว่า; 200K เรื่อง ≈ 2–4 ชม. บน GPU เกรดกลาง
 
-**LLM labeling** (`labeling.provider: api`) — ใช้ endpoint เดียวกันได้ หรือ `"off"` (ต้องใส่เครื่องหมายคำพูด — YAML อ่าน `off` เปล่า ๆ เป็น false) ถ้าไม่มีงบ: ชื่อหัวข้อจะมาจากคำสำคัญของผู้เขียน + c-TF-IDF
+**LLM** (`labeling.provider: llm`, `narrative.provider: llm` — ตั้งปลายทางที่ `llm.endpoints`/`llm.tasks`; narrative ดีฟอลต์ `template`) — ใช้ endpoint เดียวกันได้ หรือ `"off"` (ต้องใส่เครื่องหมายคำพูด — YAML อ่าน `off` เปล่า ๆ เป็น false) ถ้าไม่มีงบ: ชื่อหัวข้อจะมาจากคำสำคัญของผู้เขียน + c-TF-IDF
 
 ## 4. รัน
 
@@ -94,7 +94,7 @@ uv run atlas schema                                                     # เข
 (`python -m atlas.pipeline --steps …` ยังใช้ได้เป็น alias ของ `atlas run` แต่ควรใช้ `atlas` CLI)
 
 ผลลัพธ์อยู่ใน `output/`: `atlas_data.json` (schema 1.1, สำหรับเว็บ), `topics.csv`, `emerging.csv`, `forecasts.csv`, `manifest.json`
-ข้อมูลที่ต้องอยู่ข้ามรอบ (embedding store, label cache, centroid รอบก่อน) อยู่ใน `state/` (git-ignored, ห้ามลบ) ส่วน `work/` ลบได้เสมอ
+ข้อมูลที่ต้องอยู่ข้ามรอบ (embedding store, LLM cache, ID หัวข้อและตำแหน่งบนแผนที่ของแต่ละรอบ, งานอ้างอิง OpenAlex) อยู่ใน `state/` (git-ignored, ห้ามลบ) ส่วน `work/` ลบได้เสมอ
 
 ## 5. ตั้งเวลารัน (เช่น ทุกไตรมาส)
 
@@ -104,7 +104,7 @@ uv run atlas schema                                                     # เข
 # หรือใช้สคริปต์ที่ profile คลังก่อนแล้วรัน: bash /path/to/tci-research-atlas/scripts/quarterly_run.sh
 ```
 
-export เก็บ centroids ของรอบนี้ไว้ใน `state/prev/` ให้รอบหน้า — **P0 ยังไม่ใช้** (novelty ตอนนี้ = สัดส่วนบทความของหัวข้อที่อยู่ในช่วง R + อายุของหัวข้อ ดู `../docs/EMERGING_SPEC.md` §3); P1 จะใช้ไฟล์นี้ทำ lineage ของหัวข้อข้ามรอบ
+รอบข้อมูลแต่ละรอบเก็บ ID หัวข้อ (assignments, registry, lineage) และตำแหน่งแผนที่ไว้ใน `state/releases/<release>/` ให้รอบหน้าอ่านต่อ (ดู `../docs/ARCHITECTURE.md` §2)
 
 ---
 
@@ -130,9 +130,11 @@ v3: share_growth ที่ประมาณไม่ได้ (เช่น บ
 
 ### Forecast
 
-- โมเดล: `naive`, `linear` (OLS), `poisson` (GLM) — เลือกต่อ topic ด้วย backtest (MAE, MASE, skill เทียบ naive)
-- ทำนายล่วงหน้า 2 ปี พร้อมช่วงความเชื่อมั่น
-- skill gate: ส่งออก forecast ใน JSON เฉพาะเมื่อ skill เทียบ naive > `forecast.min_skill` ไม่เช่นนั้น `forecast: null` และ `forecast_uncertain: true`; topic ที่มีประวัติ < `forecast.min_history_years` (6) จะไม่ทำนาย
+- Forecast v2 = share ของหัวข้อ × ยอดรวมของคลัง; โมเดล `naive`, `drift`, `nb_glm`, `ets_damped` เลือกต่อ topic ด้วย rolling-origin CV (MAE, MASE, skill เทียบ naive); โมเดลยอดรวมแยกตามจุดตั้งต้นของแต่ละ fold (ไม่มองข้อมูลอนาคต)
+- ทำนายล่วงหน้า 2 ปี พร้อมช่วง 80/95 แบบ conformal ที่คาลิเบรตจากเรคคอร์ด backtest ซื่อสัตย์ของโมเดลที่เลือก (`forecast.sigma_floor`, `dispersion_fallback`, `alpha_min/alpha_max`)
+- nowcast: เฉพาะปีปฏิทินที่กำลังดำเนินอยู่ (`forecast.nowcast.min_month_share` = 0.02)
+- gate: ส่งออก forecast เฉพาะเมื่อ skill เทียบ naive > `forecast.min_skill`, MASE ≤ `forecast.max_mase` และมีจุด backtest ซื่อสัตย์ ≥ `forecast.min_honest_points` (3) ไม่เช่นนั้น `forecast: null` และ `forecast_uncertain: true`; topic ที่มีประวัติ < `forecast.min_history_years` (6) จะไม่ทำนาย
+- emerging keywords: `keywords.smoothing_articles`, `keywords.min_key_length`; layout: `layout.margin`
 
 ---
 
@@ -148,14 +150,14 @@ v3: share_growth ที่ประมาณไม่ได้ (เช่น บ
 | ขั้น | API | Local |
 |---|---|---|
 | Embedding รอบแรก | ~$10–20 (batch API) | ฟรี, 2–4 ชม. บน GPU |
-| LLM labeling (~300–800 topics) | ~$1–3 | ฟรี (ถ้ารันโมเดลเอง) |
+| LLM (~300–800 topics: ชื่อ · คำอธิบาย · บทสรุป) | ~$1–3 | ฟรี (ถ้ารันโมเดลเอง) |
 | รอบถัดไป (incremental) | เฉพาะบทความใหม่ | เฉพาะบทความใหม่ |
 
 ## โครงสร้างโค้ด
 
 ```
 atlas/
-  cli.py          typer CLI: run | embed | status (embed-status) | embed-stop | profile | synth | schema
+  cli.py          typer CLI: run | embed | status (embed-status) | embed-stop | llm | llm-stop | review | validate | publish | bakeoff | profile | synth | schema
   config.py       AtlasConfig (pydantic) — key ที่ไม่รู้จักถูกปฏิเสธ
   sources/        thaijo_md.py — parser ไฟล์ ThaiJO Markdown
   schema/         contract.py — data contract v2 (สร้าง JSON Schema)
@@ -167,7 +169,7 @@ atlas/
   api_http.py     แกน HTTP + retry ที่ใช้ร่วมกัน (classify, backoff, Retry-After, rate limit) — P1 LLM ใช้ต่อ
   jobs.py         งานยาว: run.lock, stop.flag, progress.json, รันเบื้องหลัง, atlas status
   cluster.py      PCA → UMAP → HDBSCAN (sklearn) → merge ซ้ำ → outlier → กลุ่มใหญ่ (agglomerative); ctfidf.py
-  label.py        LLM ตั้งชื่อ topic (cache_key = hash ของ model + prompt ใน state/label_cache) หรือ off
+  label.py        ตั้งชื่อ topic ผ่าน LLM runner (cache ใน state/llm_cache) หรือ off + ชื่อที่บรรณาธิการแก้
   topics_time.py  yearly series + backfill guard
   emerging.py     นิยาม Emerging v3 + Kleinberg burst + novelty
   forecast.py     naive/linear/Poisson + backtest + skill gate
@@ -179,6 +181,23 @@ configs/ci.yaml  config สำหรับ CI
 tests/           pytest (test_emerging.py ล็อกนิยาม; test_e2e_synth.py = slow)
 scripts/run_all.sh  ตัวช่วยรันทั้งสาย
 ```
+
+## P1: steps, คำสั่ง และโมดูลที่เพิ่ม
+
+Steps: `ingest → preprocess → embed → cluster → taxonomy → label → series → emerging → keywords → forecast → narrate → layout → export`
+
+| โมดูล | หน้าที่ |
+|---|---|
+| `state.py`, `checkpoints.py` | ชื่อรอบ (YYYYQn) + state ต่อรอบ · ตรวจว่า 03_embeddings ตรงกับ 02_docs |
+| `lineage.py` | ID หัวข้อถาวร T000123 + continue/split/merge/new/retired (ID ไม่ถูกใช้ซ้ำ) |
+| `graph_cluster.py` | Leiden บน kNN graph (`--extra leiden`) |
+| `openalex.py`, `taxonomy.py` | งานอ้างอิงไทยจาก OpenAlex (key ทางเลือก `OPENALEX_API_KEY`) → subfield/field ของแต่ละหัวข้อ; งบหมด = กลุ่ม agglomerative |
+| `keywords.py` | emerging keywords |
+| `prompts.py`, `llm.py`, `llm_runner.py` | prompt จากไฟล์ · adapter OpenAI-compatible · runner (cache/งบ/หยุด/status) |
+| `review.py`, `narrative.py` | คู่ที่อาจซ้ำ + ไฟล์ตรวจของบรรณาธิการ · คำอธิบายหัวข้อ + บทสรุปผู้บริหารที่ตรวจตัวเลข |
+| `export_v2.py`, `validate.py`, `publish.py`, `bakeoff.py` | contract v2 · ตรวจรอบ · วางขึ้นเว็บ/offline/tarball · เทียบโมเดล |
+
+คำสั่ง: `atlas llm` (`--check`, `--dry-run`, `--background`), `atlas llm-stop`, `atlas review export|import`, `atlas validate`, `atlas publish --site [--tarball]`, `atlas bakeoff` — รายละเอียดใน `docs/OPERATIONS.md` §3, §6–§9
 
 ## สิ่งที่ตั้งใจไม่ทำ (และทำเพิ่มได้ภายหลัง)
 

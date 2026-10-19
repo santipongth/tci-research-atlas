@@ -7,7 +7,7 @@
 
 - เครื่องที่รัน pipeline: Python 3.11+ (ใช้ `uv`; dev/CI ใช้ 3.12), RAM ≥ 16 GB (local mode อยากได้ GPU)
 - เครื่อง build เว็บ: Node.js 24 (ตรงกับ CI) (เครื่องเดียวกันก็ได้)
-- API key (env var เท่านั้น — ห้ามใส่ในไฟล์ใด ๆ): embedding แบบ api ใช้ `ATLAS_EMBED_API_KEY` (ดู §1A), LLM labeling แบบ api ใช้ `ATLAS_API_KEY` (ตั้งใน crontab env ถ้ารันอัตโนมัติ)
+- API key (env var เท่านั้น — ห้ามใส่ในไฟล์ใด ๆ): embedding แบบ api ใช้ `ATLAS_EMBED_API_KEY` (ดู §1A), LLM ใช้ `ATLAS_LLM_API_KEY` (ดู §6; ใช้ key เดียวกันได้), OpenAlex ใช้ `OPENALEX_API_KEY` (ทางเลือก ดู §9) — ตั้งใน crontab env ถ้ารันอัตโนมัติ
 - `pipeline/config.yaml` (คัดลอกจาก `config.example.yaml` แล้วแก้ `input.path`)
 
 ## 1. รอบรันรายไตรมาส (runbook)
@@ -28,6 +28,9 @@ uv run atlas run --config config.yaml      # ทั้งสาย (หรือ
 
 (`python -m atlas.pipeline` ยังใช้ได้เป็น alias ของ `atlas run` แต่เอกสารนี้ใช้ `atlas` CLI)
 
+ถ้าใช้ LLM (`labeling.provider: llm` / `narrative.provider: llm`): ก่อนรันจริง `uv run atlas llm -c config.yaml --check` (ปลายทางตอบ JSON + ภาษาไทยไม่เพี้ยน) และ `--dry-run` (จำนวน call, token, ค่าใช้จ่ายโดยประมาณ, งบที่เหลือ) — ดูหัวข้อ 6
+หลังรัน: `uv run atlas validate -c config.yaml` ต้องได้ exit 0 (1 = มีคำเตือน อ่านก่อนเผยแพร่, 2 = ห้ามเผยแพร่)
+
 สิ่งที่ต้องดูตอนจบ:
 - `[export] -> output/atlas_data.json` ขึ้นโดยไม่มี error
 - เปิด `output/manifest.json` ดู `counts.total_articles` ว่าเพิ่มขึ้นสมเหตุสมผลจากรอบก่อน และตรวจ `ingest_errors` (ควรเป็น 0), `embedding_provider` (ต้องเป็น `local` หรือ `api` — ห้ามเผยแพร่ผลจาก `lite`), `n_labels_fallback`, `trimmed_years` / `as_of_year` (ปีที่ไม่ถูกนับในแนวโน้ม), `n_orgs_unverified`
@@ -36,10 +39,16 @@ uv run atlas run --config config.yaml      # ทั้งสาย (หรือ
 ### ขั้น 3 — นำเข้าเว็บ
 
 ```bash
-bash scripts/import_atlas.sh        # copy output/atlas_data.json → web/public/data/ แล้ว build
+cd pipeline
+uv run atlas validate -c config.yaml                         # 0 = ผ่าน
+uv run atlas publish  -c config.yaml --site ../web/dist      # วาง data/<release>/ + data/latest.json + atlas-offline.html
 ```
 
-สคริปต์จะ: ตรวจว่า JSON มี `meta/groups/nodes` ครบ → คัดลอกเข้า `web/public/data/atlas_data.json` → `npm run build` → รายงานผล
+- เว็บ v2 อ่าน `data/latest.json` ตอนเปิดหน้า → **ไม่ต้อง build เว็บใหม่ทุกไตรมาส** แค่คัดลอกโฟลเดอร์ `data/` ใหม่ขึ้น host (รอบเก่ายังอยู่ใน `data/` ให้เทียบได้)
+- **โฟลเดอร์รอบต้องคงชื่อเดิม**: `atlas validate` เป็น error เมื่อ `manifest.release` ไม่ตรงกับชื่อโฟลเดอร์ (ห้ามเปลี่ยนชื่อ/ก๊อปปี้เป็นชื่ออื่น) และเตือน (ข้าม diff) เมื่อไม่พบโฟลเดอร์ของรอบก่อนหน้าที่ manifest อ้างถึง; ชื่อรอบต้องเป็นรูป YYYYQn (เช่น `2026Q4`) — ชื่อแปลก ๆ อย่าง `../x` ถูกปฏิเสธ
+- `atlas-offline.html` = เว็บทั้งหน้าในไฟล์เดียว (ส่งอีเมล/เปิดโดยไม่ต่อเน็ตได้) — สร้างด้วย Python จาก `offline-template.html` ของ web build; ถ้าโฟลเดอร์เว็บยังไม่มีไฟล์นี้ publish จะเตือนแล้วข้ามไป
+- ต้องการไฟล์แนบ GitHub Release ด้วย: เติม `--tarball` (ได้ tar.gz ที่ทำซ้ำได้ + sha256 + release notes และคำสั่ง `gh release create` ให้คนรันเอง — โปรแกรมไม่อัปโหลดเอง)
+- เว็บปัจจุบัน (schema 1.1) ยังใช้ `bash scripts/import_atlas.sh` ได้จนกว่าเว็บ v2 จะขึ้น
 
 ### ขั้น 4 — ตรวจหน้าเว็บ + เผยแพร่
 
@@ -176,12 +185,17 @@ uv run atlas embed -c config.yaml
 | log ขึ้น `[ingest] WARNING: N files could not be read or parsed` | ไฟล์เสีย/ถูกล็อก/สิทธิ์ไม่พอ, โฟลเดอร์ชื่อลงท้าย `.md`, หรือ layout ที่ parser ไม่รองรับ | ดู `work/01_ingest_errors` (path + error) หรือส่วน "Files with errors" ใน profile; แก้/ลบไฟล์แล้วรัน `-s ingest` ใหม่ — ไฟล์ที่มีไบต์เพี้ยนเล็กน้อยไม่ถูกข้าม แต่ได้ flag `decode_replaced` |
 | log ขึ้น `[embed] WARNING: embedding.provider is 'lite'` | config ใช้ `lite` (สำหรับ CI) กับคลังจริง | เปลี่ยนเป็น `embedding.provider: local` (หรือ `api`) แล้วรันใหม่ — อย่าเผยแพร่ผลจาก lite |
 | `ValueError: HDBSCAN found no clusters in N documents` | `hdbscan_min_cluster_size` ใหญ่เกินคลัง หรือ embedding ผิดปกติ (เช่น lite/โมเดลผิด) | ลด `clustering.fine.hdbscan_min_cluster_size` / `hdbscan_min_samples`; ตรวจ `work/03_meta.json` (model_id) — pipeline จะไม่รวมทุกอย่างเป็นหัวข้อเดียวเงียบ ๆ อีกแล้ว (ยกเว้นคลังจิ๋ว < 2 × min_cluster_size) |
-| label เป็นภาษาอังกฤษหมด | โมเดลไม่ถนัดไทย | เปลี่ยน `labeling.api.model` (เช่น typhoon / gpt-4o / gemini-2.0-flash) — cache_key (hash ของ model + prompt) เปลี่ยน เฉพาะ label จะถูกสร้างใหม่ |
+| label เป็นภาษาอังกฤษหมด | โมเดลไม่ถนัดไทย | เปลี่ยนโมเดลใน `llm.tasks.label.model` (เช่น typhoon / gpt-4o / gemini-2.0-flash) แล้ว `atlas llm --check` — cache key (model + prompt) เปลี่ยน เฉพาะ label จะถูกสร้างใหม่ |
 | หน้าเว็บยังเป็นข้อมูลเก่า | ลืม build ใหม่ หรือ browser cache | `import_atlas.sh` ต้องรันจนจบ (มี build ในตัว); hard-refresh |
 | หน้าเว็บ badge ขึ้น "○ ข้อมูลตัวอย่าง" | JSON ไม่ถูกวาง/โหลดไม่ได้ | เช็ก `web/public/data/atlas_data.json` มีจริง และ deploy มีไฟล์นี้ด้วย |
-| forecast ไม่มีบาง topic | ประวัติ < 6 ปี หรือไม่ผ่าน skill gate (ดีกว่า naive ไม่พอ) | เป็นเรื่องปกติ (`forecast.min_history_years`, `forecast.min_skill`); ใน JSON จะเป็น `forecast: null` + `forecast_uncertain` |
+| forecast ไม่มีบาง topic | ประวัติ < 6 ปี, ไม่ผ่าน skill gate (ดีกว่า naive ไม่พอ) หรือมีจุด backtest ซื่อสัตย์น้อยกว่า `forecast.min_honest_points` | เป็นเรื่องปกติ (`forecast.min_history_years`, `forecast.min_skill`, `forecast.min_honest_points`); ใน JSON จะเป็น `forecast: null` + `forecast_uncertain` |
 | หัวข้อเกือบทั้งหมดเป็น LOW_DATA | corpus เล็ก/ช่วงปีสั้น หรือ `min_articles_recent` สูงไป | ตรวจรายงาน profile; ปรับ `emerging.min_articles_recent` เฉพาะเมื่อมีเหตุผล (กระทบนิยาม ต้อง bump `definition_version`) |
 | หัวข้อขึ้น WATCH เยอะ | วารสารเข้ามาอัปโหลดย้อนหลังเป็นชุด (journal-entry bias) | ดู profile หัวข้อ "วารสารที่อัปโหลดย้อนหลัง"; WATCH คือสัญญาณเตือน ไม่ใช่ข้อสรุป |
+| `atlas llm` exit 130 / ข้อความ budget | งบ `llm.budget_usd` หมด, Ctrl-C หรือ `atlas llm-stop` | ปกติ — เพิ่มงบแล้วรันคำสั่งเดิม ทำต่อจาก cache (§6) |
+| `atlas llm` exit 2 | key/model/URL/โควตาผิด | อ่านข้อความ error → แก้ `ATLAS_LLM_API_KEY` / `llm.endpoints` → `atlas llm --check` |
+| `atlas llm` exit 3 | มีงาน LLM อื่นรันอยู่ | `atlas status` ดู PID; รอ หรือ `atlas llm-stop` |
+| taxonomy ขึ้น "ยังไม่จัดสาขา (กลุ่ม N)" | OpenAlex งบรายวันหมด (429) หรือปิด `taxonomy.source` → ใช้กลุ่ม agglomerative พร้อมเหตุผลใน `10_taxonomy_meta.json` | ตั้ง `OPENALEX_API_KEY` หรือรอวันถัดไป แล้ว `atlas run -s taxonomy …` ต่อ (cache คงอยู่; §9) |
+| `atlas run` ปฏิเสธรอบเก่า / ขึ้นว่าไม่มี state หัวข้อรอบก่อน | รันรอบที่เก่ากว่ารอบที่มีอยู่แล้ว หรือ `state/releases/` ของรอบก่อนหายไป | ใช้ชื่อรอบใหม่ที่ไม่เก่ากว่ารอบล่าสุด; กู้ `state/releases/<รอบก่อน>/` จากสำรอง — ID หัวข้อไม่ถูกใช้ซ้ำ ระบบไม่เดาแทน |
 | `provider: off` ใน YAML ไม่ทำงานตามคาด | YAML อ่าน `off` เปล่า ๆ เป็น false | ใส่เครื่องหมายคำพูด: `provider: "off"` |
 | Windows แสดงภาษาไทยเพี้ยนใน console | console เป็น cp1252 | ทั้ง `uv run atlas …` และ `python -m atlas.pipeline` ตั้ง stdout/stderr เป็น UTF-8 ให้แล้ว (รวมตอน redirect ลงไฟล์) |
 | อยากปรับนิยาม emerging | — | แก้ `config.yaml → emerging:` + `docs/EMERGING_SPEC.md` + `tests/test_emerging.py` พร้อมกัน แล้วรัน `uv run atlas run -c config.yaml -s emerging -s forecast -s export` (ฟรี ไม่แตะ API) |
@@ -192,10 +206,66 @@ uv run atlas embed -c config.yaml
 |---|---|---|
 | Embedding รอบแรก | ~$10–20 | ฟรี (GPU 2–4 ชม.) |
 | Embedding รอบต่อไป | เฉพาะบทความใหม่/ที่ข้อความเปลี่ยน (เวกเตอร์เดิมอยู่ใน `state/embeddings`) | ฟรี |
-| LLM labeling | ~$1–3 (เฉพาะ topic ที่ยังไม่มีใน cache) | ฟรี (ถ้ารันเอง) |
+| LLM (ชื่อ · คู่ซ้ำ · คำอธิบาย · บทสรุป) | ~$1–3 (เฉพาะ topic ที่ยังไม่มีใน cache; คุมด้วย `llm.budget_usd`) | ฟรี (ถ้ารันเอง) |
 | **รวม/ไตรมาส** | **~$15–25** | **~0** |
 
 ## 5. การย้อนกลับ (rollback)
 
 - เว็บบน Kimi: ใช้ version card ย้อนกลับเวอร์ชันก่อนหน้าได้ทันที
 - ข้อมูล: คัดลอก `atlas_data.json` จาก `runs/<ไตรมาสก่อน>/` กลับมาแล้ว `import_atlas.sh` ใหม่
+
+## 6. LLM ผ่าน API (ชื่อหัวข้อ · คู่ที่อาจซ้ำ · คำอธิบาย · บทสรุปผู้บริหาร)
+
+ทุกงานใช้ปลายทางแบบ OpenAI-compatible (`POST {base_url}/chat/completions`) เช่น OpenRouter, Typhoon, DeepInfra หรือ vLLM/LiteLLM ขององค์กร — ตั้งใน `config.yaml → llm.endpoints` และเลือกโมเดลต่องานใน `llm.tasks.{label, merge, narrative, brief}` · `narrative.provider` ดีฟอลต์ `template` (ประโยคแม่แบบ ไม่เรียก LLM) — ตั้งเป็น `llm` เมื่อพร้อม
+
+```powershell
+$env:ATLAS_LLM_API_KEY = "sk-..."        # หรือ setx ATLAS_LLM_API_KEY "sk-..." แล้วเปิดหน้าต่างใหม่ (bash: export ...)
+uv run atlas llm -c config.yaml --check  # 1 คำขอเล็กต่อโมเดล: ตอบได้ไหม, เป็น JSON ไหม, ภาษาไทยครบไหม
+uv run atlas llm -c config.yaml --dry-run   # ต่องาน: กี่ call, มีใน cache กี่ตัว, token ขาเข้า, ค่าใช้จ่ายสูงสุด, งบที่ใช้ไปในรอบนี้
+uv run atlas llm -c config.yaml          # รัน step label + narrate (หรือรวมอยู่ใน atlas run อยู่แล้ว); --background = รันเบื้องหลัง ปิดหน้าต่างได้
+uv run atlas status -c config.yaml       # ความคืบหน้า embedding + LLM
+uv run atlas llm-stop -c config.yaml     # หยุดหลัง call ที่กำลังทำเสร็จ (exit 130) — รันคำสั่งเดิม = ทำต่อ
+```
+
+- **cache = journal**: ทุก call ที่เสร็จถูกบันทึกทันทีใน `state/llm_cache/<task>.jsonl` → ปิดหน้าต่าง/ไฟดับ/รันซ้ำ = จ่ายเฉพาะที่ยังไม่เสร็จ; รอบถัดไปจ่ายเฉพาะหัวข้อที่เนื้อหาเปลี่ยน
+- **งบ**: `llm.budget_usd` ต่อรอบข้อมูล รวมทุกงาน (ต้องใส่ `price_per_mtok_in/out` ของปลายทาง) — call ถัดไปอาจเกินงบ = หยุดอย่างสะอาด (exit 130, step นั้นไม่เขียนผลครึ่ง ๆ กลาง ๆ); เพิ่มงบแล้วรันคำสั่งเดิม = ทำต่อจาก cache
+- **server ล่ม/429**: ลองใหม่เองไม่จำกัด (backoff + Retry-After; ตั้ง `max_retries` = ครบแล้วหัวข้อนั้นใช้ fallback และถูกถามใหม่รอบหน้า) · **key/model/URL/โควตาผิด**: หยุดทันที exit 2 พร้อมบอกสิ่งที่ต้องแก้ · มีงาน LLM อื่นรันอยู่: exit 3 (ดู `atlas status`; lock เป็น OS lock แบบเดียวกับ embedding — process ตาย = ปล่อยเอง)
+- JSON ผิดรูปแบบ → ขอให้แก้ ≤ `llm.max_repairs` (2) ครั้ง → fallback
+- **ตรวจคำอธิบาย (grounding)**: ข้อความถูกปฏิเสธและเขียนใหม่ 1 ครั้ง (`llm.max_regenerations`) แล้วใช้ประโยคแม่แบบ เมื่อมี (ก) ตัวเลขหลักที่ไม่อยู่ในข้อมูลของหัวข้อ (ข) คำบอกจำนวนเท่าแบบตัวอักษร (ไทย/อังกฤษ) ที่ไม่มีที่มา (ค) คำบอกจำนวนเท่าใด ๆ ในหัวข้อที่ไม่มีช่วงฐานเปรียบเทียบ (`no_baseline`) (ง) คำบอกทิศทางผิดในประโยคอัตราโต (เช่น เขียน "ลดลง" ให้หัวข้อที่โต) — จำนวน fallback ทุกงานอยู่ใน `manifest.json → llm` และ `atlas validate` เตือนก่อนเผยแพร่
+- prompts อยู่ใน `prompts/topic_label.th.md`, `topic_merge.th.md`, `topic_narrative.th.md`, `executive_brief.th.md`
+- ครั้งแรกที่ใช้ P1: label cache ของ P0 (`state/label_cache.parquet`) ไม่ถูกใช้แล้ว → ทุกหัวข้อถูกตั้งชื่อใหม่ 1 ครั้ง แล้วลบไฟล์เก่าได้
+
+## 7. คนตรวจชื่อหัวข้อ (ทุกรอบ ~50 หัวข้อ)
+
+```bash
+uv run atlas review export -c config.yaml         # → output/review/<release>_label_review.csv (เปิดใน Excel ได้ทันที)
+#   บรรณาธิการกรอก name_th_fixed / name_en_fixed / reviewer / note ในแถวที่ต้องแก้
+uv run atlas review import output/review/2026Q4_label_review.csv -c config.yaml   # → labeling.overrides_path
+uv run atlas run -c config.yaml -s label -s narrate -s export                      # ใช้ชื่อใหม่ทันที
+```
+
+- ตัวอย่างที่ส่งตรวจ: ชื่อที่ LLM ทำไม่ได้ (ใช้คำสำคัญแทน) + คู่หัวข้อที่อาจซ้ำ มาก่อน แล้วสุ่มที่เหลือแบบทำซ้ำได้ (หัวข้อที่แก้แล้วไม่ถูกสุ่มซ้ำ)
+- ไฟล์ overrides ผูกกับ ID ถาวร (T000123) → ชื่อที่แก้ชนะชื่อจาก LLM ทุกไตรมาส; ID ที่ถูกรวม/เลิกใช้ถูกแจ้งเตือนตอน label
+- `pipeline/registry/` ไม่เข้า git (เป็นชื่อหัวข้อจากข้อมูลจริง) — สำรองไว้พร้อม `pipeline/state/`
+- คู่ที่อาจซ้ำไม่ถูกรวมอัตโนมัติ: ถ้าเห็นด้วยว่าซ้ำ ให้ตั้งชื่อให้ชัดผ่าน overrides หรือรอ refit รายปีโดยลด `clustering.merge_similarity`
+
+## 8. เลือกโมเดล embedding / อัลกอริทึมจัดกลุ่มด้วยตัวเลข (bake-off)
+
+```bash
+uv run atlas bakeoff -c config.yaml --kind all --out ../logs/bakeoff.md                 # ใช้ work_dir ปัจจุบัน
+uv run atlas bakeoff -c configs/ci.yaml --truth .ci/synth/_truth.csv --out bakeoff.md   # corpus สังเคราะห์ (มีคำตอบ)
+```
+
+ใส่ผู้สมัครใน `bakeoff.embedding_candidates` (api ใช้ runner เดียวกับ embed — แยก store ต่อโมเดล จ่ายครั้งเดียว)
+
+คอลัมน์ในรายงาน:
+- embedding: `journal_knn_acc` = kNN ทายวารสารของบทความจากเพื่อนบ้านที่กันไว้ · `subfield_knn_acc` = kNN ทาย subfield OpenAlex บนงานอ้างอิงไทย (ว่างถ้าไม่มี reference) · `truth_purity` = สัดส่วนเพื่อนบ้านที่เป็นหัวข้อจริงเดียวกัน (เฉพาะ synthetic ที่มี `--truth`)
+- clustering: `ari_stability` = ARI เฉลี่ยระหว่าง seed (1 = เหมือนกันทุกครั้ง; เกณฑ์ ≥ 0.8) · `ari_vs_first` = สองอัลกอริทึมเห็นตรงกันแค่ไหน · `npmi` = coherence ของคำเด่นของแต่ละหัวข้อ · `purity` = ความบริสุทธิ์เทียบเฉลย (synthetic เท่านั้น)
+
+บรรทัด "best" ในรายงานเป็นจุดเริ่มต้น **ไม่ใช่คำตัดสิน** — ผู้ปฏิบัติงานเป็นคนเลือก (เลือก embedding ด้วย journal/subfield accuracy; เลือกอัลกอริทึมที่ ARI stability ≥ 0.8 แล้วดู purity/NPMI) และการเปลี่ยนโมเดล embedding = store ใหม่ + embed ใหม่ทั้งคลัง (ค่าใช้จ่ายรอบแรกอีกครั้ง) รวมถึง fit หัวข้อใหม่ทั้งก้อน
+
+## 9. OpenAlex สำหรับกลุ่มบนแผนที่ (taxonomy)
+
+- key เป็น **ทางเลือก**: `OPENALEX_API_KEY` (ส่งเป็น `Authorization: Bearer` เท่านั้น ไม่อยู่ใน cache/log/ข้อความ error) — ไม่ตั้ง = โหมด keyless
+- keyless: งบ ~$0.10/วัน, 10 req/s (เราจำกัดที่ 8 = `requests_per_second_keyless`) · มี key: ~$1/วัน, 30 req/s (เราจำกัดที่ 25 = `requests_per_second_keyed`) และดึงได้หลายหน้า (`max_pages_keyed`)
+- งบรายวันหมด (HTTP 429) = หยุดอย่างสะอาด เก็บที่ดึงได้แล้วไว้ใน `state/openalex/` และ taxonomy ถอยไปใช้กลุ่ม agglomerative พร้อมบันทึกเหตุผล (ชื่อ "ยังไม่จัดสาขา (กลุ่ม N)") — ตั้ง key หรือรอวันถัดไปแล้วรัน `-s taxonomy` ซ้ำ ทำต่อจาก cache (ใช้ร่วมกันทั้งสองโหมด)

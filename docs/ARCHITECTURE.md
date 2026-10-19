@@ -7,7 +7,7 @@
 3. **ทุกอย่าง resume ได้** — pipeline เขียน checkpoint หลังทุก step ลง `work_dir`; รันใหม่ = ข้าม step ที่ทำแล้ว (เลือกด้วย `--step/-s`)
 4. **ตัวเลขต้องอธิบายได้** — ทุก metric ที่ขึ้นหน้าเว็บมีนิยามเขียนไว้ใน `EMERGING_SPEC.md` และทดสอบใน `tests/` เพราะผู้บริหารจะถือตัวเลขนี้ไปคุยต่อ
 5. **ภาษาไทยเป็นพลเมืองชั้นหนึ่ง** — embedding multilingual, c-TF-IDF ตัดคำด้วย pythainlp + author keywords, UI สองภาษา, ปี ค.ศ. เป็นมาตรฐานกลาง (แปลงจาก พ.ศ. ที่ ingest)
-6. **state แยกจาก work** — `work_dir` ลบได้เสมอ; `state_dir` เก็บสิ่งที่ต้องอยู่ข้ามรอบ (embedding store, label cache, centroids รอบก่อน)
+6. **state แยกจาก work** — `work_dir` ลบได้เสมอ; `state_dir` เก็บสิ่งที่ต้องอยู่ข้ามรอบ (embedding store, LLM cache, ID หัวข้อและตำแหน่งบนแผนที่ของแต่ละรอบ, งานอ้างอิง OpenAlex)
 
 ## 2. การไหลของข้อมูล (data flow)
 
@@ -15,36 +15,50 @@
 corpus/*.md (ThaiJO scrape)            ← ตรวจก่อนด้วย: atlas profile
         │
         ▼
-[ingest]     parse .md (ซ่อม PUA/สระอำ, แยก TH/EN, ปี: Published→DOI→median issue, ID จาก URL), dedup
-             ไฟล์ที่อ่าน/parse ไม่ได้ → บันทึกแล้วข้าม (ไม่หยุดทั้งรอบ)
-        │  → work/01_articles · 01_authors (+org_key) · 01_references · 01_ingest_errors
+[ingest]     parse .md ทีละชุด (input.batch_files) → ตารางทันที · ปี: Published→DOI→median issue · dedup
+        │  → work/01_articles · 01_authors (+org_key) · 01_references · 01_ingest_errors (ไฟล์ที่อ่านไม่ได้)
         ▼
-[preprocess] doc_text = title + keywords + abstract (≤ 6000 ตัวอักษร)          → work/02_docs
+[preprocess] doc_text = title + keywords + abstract (≤ 6000 ตัวอักษร)                      → work/02_docs
         ▼
-[embed]      local (ดีฟอลต์: BGE-M3, 1024 tokens) | api | lite (TF-IDF+SVD สำหรับ CI — คลังใหญ่ขึ้น WARNING)
-             เวกเตอร์ api/local เก็บถาวรใน state/embeddings (resume + incremental)  → work/03_embeddings.npy
+[embed]      api (runner ของ P0: retry ไม่จำกัด, journal, resume — `atlas embed`) | local (BGE-M3) | lite (CI)
+             เวกเตอร์ถาวรใน state/embeddings/<store_id>     → work/03_embeddings.npy + 03_meta.json (docs_fingerprint)
         ▼
-[cluster]    [PCA] → UMAP → HDBSCAN → merge cluster ซ้ำ (cos ≥ 0.8) → outlier เข้าเฉพาะที่ใกล้พอ
-             (HDBSCAN ไม่เจอ cluster เลยในคลังจริง → error; รวมเป็นหัวข้อเดียวเฉพาะคลังจิ๋ว)
-             → กลุ่มใหญ่ (agglomerative) → c-TF-IDF (pythainlp) + author keywords + coherence
-        │  → work/04_fine_topics · 04_coarse_topics · 04_topic_info · 04_centroids.npy · 04_centroid_ids.json
+[cluster]    fit (UMAP→HDBSCAN | Leiden) หรือ assign เข้าหัวข้อรอบก่อน (topics.mode) → ID ถาวร T000123 + lineage
+        │  → work/04_* · state/releases/<release>/topics/{assignments,registry,lineage}
         ▼
-[label]      LLM (cache = hash ของ prompt ใน state/label_cache) หรือ off (ชื่อจาก author keywords)  → work/05_labels
+[taxonomy]   kNN vote กับงานอ้างอิงไทยใน OpenAlex → subfield → field = กลุ่มบนแผนที่
+             (OpenAlex key เป็นทางเลือก; งบรายวันหมด (429) = หยุดสะอาด แล้วใช้กลุ่ม agglomerative พร้อมเหตุผล)
+        │  → work/10_taxonomy (+ meta: ความแม่นยำ held-out)
         ▼
-[series]     topic × ปี + ตารางวารสาร/สถาบัน + ปีสมบูรณ์ล่าสุด (as_of_year + backfill guard)
-        │  → work/06_series · 06_topic_journal_year · 06_topic_org_year · 06_journal_first_year · 06_meta.json
+[label]      LLM runner (cache/journal state/llm_cache, งบ, หยุด/ทำต่อ, lock/status ของ P0) หรือ off → ชื่อที่บรรณาธิการแก้ชนะเสมอ
+        │  + คู่หัวข้อที่อาจซ้ำ (ข้อเสนอ ไม่รวมเอง)  → work/05_labels · 05_labels_meta.json · 05_merge_suggestions
         ▼
-[emerging]   Emerging v3 (docs/EMERGING_SPEC.md)                                   → work/07_emerging
+[series]     topic × ปี + ปีสมบูรณ์ล่าสุด (กฎ v3: backfill guard) + ตารางปีหลังจากนั้น (ใช้ทำ nowcast เท่านั้น)
+        │  → work/06_series · 06_months · 06_partial_year · 06_meta.json · ตารางวารสาร/สถาบัน
         ▼
-[forecast]   naive / linear / Poisson + backtest + skill gating                    → work/08_forecasts
+[emerging]   Emerging v3 (docs/EMERGING_SPEC.md)                                          → work/07_emerging
+[keywords]   emerging keywords ระดับคำ (Carley/Porter)                                    → work/07_keywords
         ▼
-[layout]     UMAP 2D บน centroid + edges                                           → work/09_layout · 09_edges
+[forecast]   share × ยอดรวม (โมเดลยอดรวมแยกตามจุดตั้งต้นของแต่ละ fold — ไม่มองข้อมูลอนาคต):
+             naive / drift / NB GLM / damped ETS · rolling-origin CV · skill gate · ช่วง 80/95 conformal
+             คาลิเบรตจากเรคคอร์ด backtest ที่ "ซื่อสัตย์" ของโมเดลที่เลือก · แสดงเมื่อมีจุดซื่อสัตย์ ≥ forecast.min_honest_points
+             nowcast เฉพาะปีปฏิทินที่กำลังดำเนินอยู่เท่านั้น
+        │  → work/08_forecasts · 08_forecast_meta.json
         ▼
-[export]     output/atlas_data.json (schema 1.1) + CSVs + manifest; centroids → state/prev/
+[narrate]    คำอธิบายหัวข้อ + บทสรุปผู้บริหาร (ตัวเลขจาก pipeline เท่านั้น ตรวจซ้ำ; เขียนใหม่ 1 ครั้ง ไม่ผ่าน = ประโยคแม่แบบ)
+        │  → work/11_narratives · 11_brief.json
         ▼
-เว็บ: fetch('/data/atlas_data.json') → loader.normalize() → render
-      (fetch ไม่สำเร็จ → ใช้ข้อมูล bundle ใน src/data/atlas.ts)
+[layout]     แผนที่นิ่งข้ามรอบ (UMAP เริ่มจากรอบก่อน + Procrustes + anchor) + galaxy บทความ → work/09_*
+        ▼
+[export]     output/atlas_data.json (schema 1.1 — เว็บปัจจุบัน) + output/data/<release>/ (contract v2) + latest.json
+        ▼
+atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>  →  data/<release>/ + data/latest.json + atlas-offline.html
+เว็บ v2 อ่าน data/latest.json แบบ path สัมพัทธ์จาก BASE_URL — ไม่เรียก API ตอน runtime; อัปเดตรายไตรมาส = คัดลอกโฟลเดอร์ data
 ```
+
+- งาน LLM ทั้งหมดเป็นระดับหัวข้อ (ชื่อ คู่ซ้ำ คำอธิบาย บทสรุป) ผ่าน adapter เดียวแบบ OpenAI-compatible (`atlas/llm.py`) บนแกน HTTP ร่วมกับ embedding (`atlas/api_http.py`) — ไม่มี SDK ของผู้ให้บริการรายใด
+- ข้อมูลที่ต้องอยู่ข้ามรอบอยู่ใน `state_dir` เท่านั้น: embeddings, llm_cache, releases/<release>/ (ID หัวข้อ, ตำแหน่งบนแผนที่), openalex/
+- รันซ้ำ step ใดของรอบเดิม = ผลเหมือนเดิม (อ่านรอบ *ก่อน* เสมอ เขียนทับเฉพาะโฟลเดอร์ของรอบนี้) — ความปลอดภัยของรอบ: ชื่อรอบถูกตรวจรูปแบบ, ID หัวข้อไม่ถูกใช้ซ้ำ, สั่งรันรอบเก่าขณะมีรอบใหม่กว่าอยู่แล้วจะถูกปฏิเสธ, ไม่มี state หัวข้อของรอบก่อนหน้า = error (ไม่เดา)
 
 ## 3. โครงสร้างเว็บ (web/)
 
@@ -92,4 +106,4 @@ static hosting ถูกกว่า เสถียรกว่า และ pu
 
 - **forecast ระยะสั้น (2 ปี)** — ตั้งใจ: ข้อมูลบทความมี backfill lag, ทำนายยาวจะหลอกตัวเอง
 - **สถานะใช้ช่วงเชื่อมั่น (v2)** — score ยังเป็น percentile ภายในรอบ เทียบข้ามรอบไม่ได้
-- **layout เปลี่ยนทุกรอบรัน** — ตำแหน่งวงกลมคำนวณใหม่ทุกครั้ง; ถ้าต้องการแผนที่นิ่งข้ามรอบ ดู ROADMAP.md §map-stability
+- **layout นิ่งข้ามรอบ (P1)** — UMAP เริ่มจากตำแหน่งรอบก่อน + Procrustes + anchor ทำให้หัวข้อเดิมไม่ย้ายที่ ยกเว้นเมื่อ refit ทั้งก้อน (`topics.refit_every_releases`)

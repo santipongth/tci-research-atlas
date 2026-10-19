@@ -26,7 +26,8 @@
 cd pipeline
 uv sync --extra local                      # หรือ --extra api
 cp config.example.yaml config.yaml         # แก้ input.path → โฟลเดอร์ .md
-export ATLAS_EMBED_API_KEY=...             # ถ้าใช้ embedding แบบ API (labeling แบบ API: ATLAS_API_KEY)
+export ATLAS_EMBED_API_KEY=...             # ถ้าใช้ embedding แบบ API
+export ATLAS_LLM_API_KEY=...               # ถ้าใช้ LLM (ชื่อหัวข้อ/คำอธิบาย/บทสรุป) — ใช้ key เดียวกันได้
 uv run atlas profile /path/to/corpus --md ../logs/profile.md   # ขั้น 1: อ่านรายงานก่อนเสมอ
 uv run atlas run --config config.yaml      # ขั้น 2: ทั้งสาย (หรือ bash ../scripts/quarterly_run.sh)
 bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้าเว็บ + build
@@ -57,6 +58,10 @@ cd ../web && npm run dev                   # ดูผลที่ localhost
 ## Forecasting
 
 ทำนายจำนวนบทความรายปีของแต่ละหัวข้อล่วงหน้า 2 ปี ด้วย naive / linear (OLS) / Poisson GLM — เลือกโมเดลต่อหัวข้อด้วย backtest และแสดงผล **เฉพาะหัวข้อที่ผ่าน skill gate** (แม่นกว่า naive); หัวข้อที่ไม่ผ่านจะไม่มีเส้นทำนายใน JSON (`forecast: null`, `forecast_uncertain: true`)
+
+## P1 (analytics v2)
+
+หัวข้อมี ID ถาวรข้ามไตรมาส, กลุ่มใหญ่ตาม OpenAlex fields, พยากรณ์พร้อมช่วง 80/95% และ nowcast ของปีที่ยังไม่ครบ, emerging keywords, คำอธิบายหัวข้อและบทสรุปผู้บริหารที่ตัวเลขทุกตัวมาจาก pipeline, และการเผยแพร่แบบ static (`atlas publish --site` → `data/latest.json` + ไฟล์ HTML เดี่ยวสำหรับ offline) — ดู `docs/OPERATIONS.md`
 
 ## ทีมที่พัฒนาต่อ
 
