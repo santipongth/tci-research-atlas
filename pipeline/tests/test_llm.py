@@ -360,7 +360,8 @@ def test_cli_llm_background_reports_a_child_that_fails_at_once(tmp_path, monkeyp
     p.write_text(f"pipeline:\n  state_dir: {(tmp_path / 'state').as_posix()}\n"
                  f"  work_dir: {(tmp_path / 'work').as_posix()}\n", encoding="utf-8")
     r = CliRunner().invoke(app, ["llm", "-c", str(p), "--background"])
-    assert r.exit_code == 1 and "04_topic_info" in r.output           # the tail of run.log is shown
+    flat = "".join(r.output.split())          # long tmp paths are wrapped mid-word on Linux runners
+    assert r.exit_code == 1 and "04_topic_info" in flat           # the tail of run.log is shown
 
 
 @pytest.mark.parametrize("tag", ["embed", "llm"])
