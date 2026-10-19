@@ -102,6 +102,48 @@ def records_to_tables(records: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame, 
             pd.DataFrame(refs, columns=REFERENCE_COLUMNS))
 
 
+def fill_years_from_issue_df(articles: pd.DataFrame) -> pd.DataFrame:
+    """Corpus-level pass on the article table: a missing year takes the median year of its issue
+    (same rule as sources.thaijo_md.fill_years_from_issue, independent of how the corpus was batched)."""
+    y = pd.to_numeric(articles["year"], errors="coerce")
+    issue = articles["issue_url"].fillna("").astype(str)
+    has = y.notna() & (issue != "")
+    med = y[has].groupby(issue[has]).median()
+    fill = y.isna() & issue.isin(med.index)
+    out = articles.copy()
+    out["year"] = y.astype("Int64")
+    out.loc[fill, "year"] = issue[fill].map(med).astype(int).to_numpy()
+    out.loc[fill, "year_source"] = "issue_median"
+    return out
+
+
+def _parse_batch(files: list[str], workers: int) -> tuple[list[dict], list[dict]]:
+    """One batch through the fix wave's per-file wrapper (records, {path, error} rows)."""
+    if workers > 1 and len(files) > POOL_MIN_FILES:
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            out = list(ex.map(_parse_file_safe, files, chunksize=max(1, min(256, len(files) // workers))))
+    else:
+        out = [_parse_file_safe(f) for f in files]
+    return [r for r, _ in out if r is not None], [e for _, e in out if e is not None]
+
+
+def read_thaijo_tables(root: str | Path, pattern: str = "**/*.md", workers: int = 1,
+                       batch_files: int = 20_000) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[dict]]:
+    """Parse the corpus batch by batch straight into tables → (articles, authors, references, errors).
+    Same files, records and errors as read_thaijo_corpus, without holding every record in memory."""
+    files = sorted(str(p) for p in Path(root).glob(pattern) if not p.name.startswith("_"))
+    parts, errors = [], []
+    for i in tqdm(range(0, len(files), batch_files), desc="parse batches", disable=len(files) <= batch_files):
+        recs, errs = _parse_batch(files[i:i + batch_files], workers)
+        parts.append(records_to_tables(recs))
+        errors += errs
+        del recs
+    if not parts:
+        parts = [records_to_tables([])]
+    arts, auths, refs = (pd.concat([p[k] for p in parts], ignore_index=True) for k in range(3))
+    return fill_years_from_issue_df(arts), auths, refs, errors
+
+
 # ------------------------------------------------------------------ table input
 def _read_any(path: str) -> pd.DataFrame:
     p = Path(path)
@@ -259,9 +301,9 @@ def ingest(cfg: dict) -> pd.DataFrame:
     errors: list[dict] = []
     n_files = 0
     if icfg["format"] == "thaijo_md":
-        recs, errors = read_thaijo_corpus(icfg["path"], icfg["glob"], int(icfg["workers"]))
-        n_files = len(recs) + len(errors)
-        articles, authors, refs = records_to_tables(recs)
+        articles, authors, refs, errors = read_thaijo_tables(icfg["path"], icfg["glob"], int(icfg["workers"]),
+                                                             int(icfg["batch_files"]))
+        n_files = len(articles) + len(errors)            # one article or one error per file
     else:
         articles, authors, refs = read_table_input(cfg)
     n_raw = len(articles)

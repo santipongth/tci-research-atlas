@@ -264,3 +264,29 @@ def test_dedup_beyond_first_80_chars_of_thai_title_via_english_key():
         {"article_id": "a", "title_th": th_a, "title_en": "Same english"},
         {"article_id": "b", "title_th": th_b, "title_en": "Same english"}]))
     assert len(out) == 1
+
+
+def test_batched_parsing_gives_the_p0_tables_and_errors(thaijo_dir, tmp_path):
+    from atlas.ingest import read_thaijo_corpus, read_thaijo_tables, records_to_tables
+
+    src = tmp_path / "in"
+    shutil.copytree(thaijo_dir, src)
+    (src / "zz_bad.md").mkdir()                                # matches the glob, cannot be read as a file
+    small = read_thaijo_tables(src, batch_files=3)
+    whole = read_thaijo_tables(src, batch_files=10_000)
+    for a, b in zip(small[:3], whole[:3]):
+        pd.testing.assert_frame_equal(a, b, check_dtype=False)     # concat may widen string → object
+    recs, errors = read_thaijo_corpus(src)                     # the P0 reader (atlas profile) agrees
+    for a, b in zip(whole[:3], records_to_tables(recs)):
+        pd.testing.assert_frame_equal(a.reset_index(drop=True), b.reset_index(drop=True), check_dtype=False)
+    assert len(small[0]) == 11 and small[3] == whole[3] == errors and errors[0]["path"].endswith("zz_bad.md")
+
+
+def test_issue_year_fill_runs_on_the_whole_article_table():
+    from atlas.ingest import fill_years_from_issue_df
+
+    df = pd.DataFrame({"issue_url": ["i1", "i1", "i1", "i2", ""], "year": [2020, None, 2021, None, None],
+                       "year_source": ["meta", "", "meta", "", ""]})
+    out = fill_years_from_issue_df(df)
+    assert out["year"].tolist()[:3] == [2020, 2020, 2021] and out.loc[1, "year_source"] == "issue_median"
+    assert pd.isna(out.loc[3, "year"]) and pd.isna(out.loc[4, "year"])     # no dated sibling / no issue

@@ -34,6 +34,7 @@ class InputCfg(_Strict):
     path: str = "../corpus"
     glob: str = "**/*.md"
     workers: int = Field(4, ge=1)
+    batch_files: int = Field(20_000, ge=1)
     max_error_ratio: float = Field(0.01, ge=0, le=1)   # unreadable/unparsable files / files found; above it ingest stops
     min_year: int = 1990
     max_year: int | None = None
