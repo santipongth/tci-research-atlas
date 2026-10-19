@@ -50,12 +50,17 @@ corpus/*.md (ThaiJO scrape)            ← ตรวจก่อนด้วย:
         ▼
 [layout]     แผนที่นิ่งข้ามรอบ (UMAP เริ่มจากรอบก่อน + Procrustes + anchor) + galaxy บทความ → work/09_*
         ▼
+[methods]    lexicon วิธีวิจัย TH/EN + ตัวอ่านขนาดตัวอย่าง → วิธีรายบทความ/หัวข้อ/ปี (+ บันทึก LLM ถ้าเปิด)  → work/12_methods_*
+[journals]   ตัวตนวารสาร (+ registry/journals.csv) · D1–D5, D7 · อ่านแถวผู้แต่งที่นี่ที่เดียว เผยแพร่เฉพาะยอดรวม → work/13_journal*
+[match]      ดัชนี trigram (fold เดียวกับ foldText ของเว็บ; ไม่มีข้อความบทความ)                          → work/14_match.json
+        ▼
 [export]     output/atlas_data.json (schema 1.1 — เว็บ v2 ไม่อ่านแล้ว) + output/data/<release>/ (contract v2) + latest.json
         ▼
 atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>  →  data/<release>/ + data/latest.json + atlas-offline.html
 เว็บ v2 อ่าน data/latest.json แบบ path สัมพัทธ์จาก BASE_URL — ไม่เรียก API ตอน runtime; อัปเดตรายไตรมาส = คัดลอกโฟลเดอร์ data
 ```
 
+- **P2:** `export` เขียน `state_dir/releases/<release>/snapshot.json` ทุกรอบ แล้วรอบถัดไปเทียบกับ snapshot นั้นเป็น `diff.json` (รอบก่อน P2 ใช้ `output/data/<prev>/`); `match.json` อยู่นอก HTML ออฟไลน์ และเว็บคำนวณ match ในเบราว์เซอร์ล้วน ๆ (`web/src/lib/matcher.ts` ตรึงด้วย `pipeline/tests/fixtures/match_parity.json`)
 - งาน LLM ทั้งหมดเป็นระดับหัวข้อ (ชื่อ คู่ซ้ำ คำอธิบาย บทสรุป) ผ่าน adapter เดียวแบบ OpenAI-compatible (`atlas/llm.py`) บนแกน HTTP ร่วมกับ embedding (`atlas/api_http.py`) — ไม่มี SDK ของผู้ให้บริการรายใด
 - รอบข้อมูลเลือกครั้งเดียวที่ `cluster` (`pipeline.release` หรือไตรมาสของวันที่รัน) แล้วบันทึกพร้อมเวลา snapshot ใน `work/04_topics_meta.json`; ทุกขั้นหลังจากนั้นและ validate/publish ใช้รอบที่บันทึกไว้ (`atlas.state.work_release` — config ที่ชี้รอบอื่นถูกปฏิเสธ) และใช้ snapshot เดียวกันสำหรับ as_of_year, nowcast และ generated_at
 - ข้อมูลที่ต้องอยู่ข้ามรอบอยู่ใน `state_dir` เท่านั้น: embeddings, llm_cache, releases/<release>/ (ID หัวข้อ, ตำแหน่งบนแผนที่), openalex/

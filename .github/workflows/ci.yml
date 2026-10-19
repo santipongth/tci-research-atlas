@@ -61,6 +61,8 @@ jobs:
       - run: npm test
       - name: Build (tsc -b, Pages site, offline template)
         run: npm run build
+      - name: Bundle budget (entry ≤ 180 KB gzip; editors' pages are lazy chunks)
+        run: npm run check:bundle
       - run: npx playwright install --with-deps chromium
       - name: Playwright smoke (every route, empty release, a11y, phone width, offline file)
         run: npm run e2e

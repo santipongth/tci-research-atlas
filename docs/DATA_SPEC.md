@@ -188,3 +188,30 @@
 - กลุ่ม fallback (taxonomy.source = agglomerative): id 1000 + coarse, code `G<n>`, ชื่อ "ยังไม่จัดสาขา (กลุ่ม N)" / "Unmapped group N"
 - `atlas validate` ตรวจ integrity (sha256) · schema · ความสอดคล้อง · diff กับรอบก่อน · fallback ของ LLM; `atlas publish --site <dir>` วาง `data/<release>/` + `data/latest.json` + `atlas-offline.html` (ข้อมูลฝังใน `<script type="application/json" id="atlas-data">` ของ `offline-template.html` ที่ web build สร้าง)
 - ความปลอดภัยของรอบ: validate เป็น error เมื่อ `manifest.release` ไม่ตรงกับชื่อโฟลเดอร์ และเตือน (ข้าม diff) เมื่อไม่พบโฟลเดอร์รอบก่อนหน้า; ชื่อรอบต้องเป็นรูป YYYYQn (`../x` ถูกปฏิเสธ)
+
+## 7. P2 — รุ่นบรรณาธิการ (contract 2.1, เพิ่มอย่างเดียว)
+
+`SCHEMA_VERSION = "2.1.0"` — ไฟล์ใหม่ทุกไฟล์เป็น optional และประกาศใน `manifest.modules` (`journals`, `journal_detail`, `methods`, `match`, และ `diff` ตั้งแต่รอบที่สองเป็นต้นไป); เว็บตรวจเฉพาะ major = 2 และ `CountItem.id` (ใหม่) ทำให้หน้าหัวข้อลิงก์ไปยังวารสารได้ ข้อมูลระดับบุคคลและข้อความบทคัดย่อ **ไม่** ถูกเผยแพร่ในไฟล์ใดเลย
+
+### Checkpoint ใหม่ใน `work_dir` (ลบได้)
+
+| ไฟล์ | step | เนื้อหา |
+|---|---|---|
+| `12_methods_articles` · `12_methods_topics` · `12_methods_notes` · `12_methods_meta.json` | `methods` | วิธีวิจัยรายบทความ (article_id, year, topic_id, methods, sample_size) · ต่อหัวข้อที่มี ≥ `methods.min_articles` บทความในหน้าต่าง · บันทึกหัวข้อ (เฉพาะ `methods.provider: llm`) · เวอร์ชัน lexicon, หน้าต่าง, สัดส่วนทั้งคลัง/รายปี |
+| `13_journals` · `13_journal_years` · `13_journal_topics` · `13_journal_drift` · `13_journal_shifts` · `13_journal_peers` · `13_journal_completeness` · `13_journal_methods` · `13_special_issue` · `13_journal_opportunities` · `13_journals_meta.json` | `journals` | ตัวตนวารสาร (+ทะเบียน), ความครบถ้วน D2, เจ้าของ/สัดส่วนในสถาบัน D3, ความหลากหลายสถาบัน, ผู้แต่งต่างประเทศ (สัดส่วน), drift D1, เพื่อน D4, ช่องว่างฉบับพิเศษ D5, วิธีวิจัย D7 — อ่านแถวผู้แต่งที่ step นี้เท่านั้น |
+| `14_match.json` | `match` | ดัชนี trigram: gram, idf, น้ำหนักต่อหัวข้อ, สัดส่วนหัวข้อของแต่ละวารสาร |
+| `state_dir/releases/<release>/snapshot.json` | `export` | สรุปย่อของรอบ (หัวข้อ + KPI + รายชื่อวารสาร) ที่รอบถัดไปใช้ทำ `diff.json`; รอบก่อน P2 ที่ไม่มี snapshot ใช้ `output/data/<prev>/` แทน (`previous_source: output`) |
+
+### ไฟล์ที่เผยแพร่ (`data/<release>/`)
+
+| ไฟล์ | model | เนื้อหา |
+|---|---|---|
+| `journals.json` | `JournalsFile` | `window`/`recent`/`baseline`, `min_articles`, `completeness_weights`, `inhouse_flag_share` (null = ไม่มีเครื่องหมาย), เกณฑ์ special issue (`special_issue_statuses`, `_max_hosts`, `_min_host_articles`), `drift_reference_years`; `journals[]` = `JournalSummary`; `special_issue[]` = `SpecialIssueTopic` (topic, hosts, top_host_share, articles_recent) |
+| `journals/<id>.json` | `JournalDetail` | `years`, `topics` (TopicShare), `drift` (DriftPoint, distance = Jensen–Shannon), `gained`/`lost` (TopicShift), `peers` (cosine ของสัดส่วนหัวข้อ), `completeness` (7 องค์ประกอบ: abstract_en, title_en, keywords_en, doi, references, refs_romanized, affiliations), `methods`, `opportunities` (`in_scope` \| `adjacent`) |
+| `methods.json` | `MethodsFile` | `lexicon_version`, `window`, `methods[]` (key/th/en), `corpus` + `by_year` (สัดส่วนวิธีต่อปี), `topics[]` = `TopicMethods` (ครอบคลุม, สัดส่วนวิธี, ควอร์ไทล์ขนาดตัวอย่าง, `monoculture` + `monoculture_share`, `note` เมื่อใช้ LLM) |
+| `diff.json` | `DiffFile` | `previous_release`, `previous_source` (`state` \| `output`), `kpis`, `new_topics` (event new/split/merge + parents), `retired` (`merged_into` เฉพาะที่ lineage ระบุว่ารวมเข้า), `restructured` (หัวข้อที่คงรหัสผ่านการรวม/แยก), `status_changes`, `movers`, `journals_compared`, `new_journals` |
+| `match.json` | `MatchIndex` | `analyzer: char_wb3`, `fold: atlas-fold-1`, `grams` + `idf`, `topics[]` (terms, weights), `journals[]` (topics, shares), `min_similarity`, `fit_topics`, `min_query_chars` — ไม่มีข้อความบทความ; ไม่อยู่ใน HTML ออฟไลน์ |
+
+`JournalSummary` (หนึ่งแถวต่อวารสาร): `id` (เช่น `so02.BECJournal` — ฟังก์ชันคงที่ของ `<server>:<OJS path>`; key ที่ไม่ใช่ ASCII = `J` + 12 hex ของ sha1), `key`, `path`, `name_th`/`name_en`/`issn`/`eissn`/`tci_tier`/`tci_field`/`publisher`/`url` (จากทะเบียน, ว่างได้), `in_registry`, `articles`, `articles_window`, `articles_recent`, `first_year`, `last_year`, `active`, `low_data` (น้อยกว่า `min_articles` → ทุกอัตราเป็น null), `group`, `completeness` (0–100, **ไม่ใช่การประเมินอย่างเป็นทางการของ TCI**), `owner` + `owner_source` (`registry` \| `inferred`; เว็บแสดง "อนุมาน / inferred") + `owner_matched`, `inhouse_share`, `n_orgs`, `effective_orgs`, `foreign_share`, `affiliation_coverage`, `methods_coverage`.
+
+PDPA: ตัวเลขของวารสารเป็นยอดรวมเท่านั้น — ไม่มีชื่อบุคคล แถวต่อผู้แต่ง หรืออันดับบุคคล; "ผู้แต่งต่างประเทศ" = สัดส่วนบทความที่มีสังกัด ≥ 1 แห่งนอกประเทศไทย

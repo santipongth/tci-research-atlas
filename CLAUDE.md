@@ -29,10 +29,12 @@ tci-research-atlas/
 │   └── superpowers/        ← specs + plans ของ v2 (แผนหลัก: specs/2026-10-18-tci-atlas-v2-design.md)
 ├── pipeline/               ← Python batch pipeline (Phase 1,2,4,5)
 │   ├── atlas/              ← โมดูล pipeline: ingest→preprocess→embed→cluster→taxonomy→label
-│   │                         →series→emerging→keywords→forecast→narrate→layout→export
+│   │                         →series→emerging→keywords→forecast→narrate→layout→methods→journals→match
+│   │                         →export (P2: journals.py, journal_metrics.py, journal_topics.py, registry.py, methods.py, matcher.py, diff.py)
 │   │   ├── sources/        ← parser ข้อมูลเข้า (thaijo_md.py)
 │   │   └── schema/         ← data contract v2 (contract.py → JSON Schema)
 │   ├── configs/ci.yaml     ← config สำหรับ CI
+│   ├── registry/           ← ทะเบียนวารสารที่ TCI ให้ (journals.csv, git-ignored) — repo มีแต่ journals.example.csv
 │   ├── state/              ← ข้อมูลถาวรข้ามรอบ (embedding store, LLM cache, ID หัวข้อ/ตำแหน่งแผนที่ต่อรอบ, งานอ้างอิง OpenAlex) — git-ignored, ห้ามลบ
 │   ├── config.example.yaml ← คัดลอกเป็น config.yaml แล้วแก้
 │   ├── tests/              ← pytest (มี test_emerging.py ครอบคลุมนิยาม emerging)
@@ -42,7 +44,7 @@ tci-research-atlas/
 │   ├── src/data/           ← contract.ts (generated) · source.ts (Http | Embedded) · release.ts (loader)
 │   ├── src/styles/tokens.css ← design tokens light/dark (ค่าตาม DESIGN.md)
 │   ├── src/strings/        ← ข้อความ UI ไทย+อังกฤษทุกตัว
-│   ├── src/pages/          ← overview · atlas · topics/:id · emerging · compare · data · about · brief
+│   ├── src/pages/          ← overview · atlas · topics/:id · emerging · compare · data · about · brief · journals · journals/:id · methods · changes · match (5 หน้าหลังเป็น React.lazy)
 │   └── fixtures/           ← รอบข้อมูลสังเคราะห์ (example + empty) สำหรับ dev/test — ไม่ใช่ข้อมูลจริง
 ├── prompts/                ← LLM prompts ทั้งหมด (ฉบับเดียว — โค้ดอ่านไฟล์ตอนรัน)
 └── scripts/
@@ -64,6 +66,7 @@ tci-research-atlas/
 | P1 | ID หัวข้อถาวร + lineage, OpenAlex taxonomy, Forecast v2, emerging keywords, แผนที่นิ่ง | `pipeline/atlas/{lineage,taxonomy,forecast,keywords,layout}.py` | ✅ |
 | P1 | LLM ผ่าน API (label · merge · narrative · brief) + review/overrides | `pipeline/atlas/{llm,llm_runner,label,review,narrative}.py` | ✅ |
 | P1 | Contract v2 release + validate + publish --site (+ offline HTML) | `pipeline/atlas/{export_v2,validate,publish}.py` | ✅ |
+| P2 | Editors: journals (D1–D5, D7), methods (E11), what changed (E5), match my abstract (R3/R4) | `pipeline/atlas/{journals,methods,matcher,diff}.py` + `web/src/pages/{Journals,Journal,Methods,Changes,Match}Page.tsx` | ✅ |
 
 สิ่งที่ยังไม่มี / ไอเดียต่อยอดอยู่ใน `docs/ROADMAP.md` (เช่น author network, journal view, compare mode, API backend)
 
@@ -122,6 +125,7 @@ bash scripts/import_atlas.sh                              # build เว็บ +
 - ฝั่งบริโภค (เว็บ v2): `web/src/data/source.ts` (HttpSource อ่าน `./data/latest.json` → `./data/<release>/*.json` แบบ path สัมพัทธ์จาก `BASE_URL`; EmbeddedSource อ่าน `{latest, files}` ที่ `atlas publish` ฝังใน `atlas-offline.html`) + `web/src/data/release.ts` (`loadRelease`: ตรวจ schema major = 2 ด้วย zod, โหลดไฟล์หลัก, `overview.json` ของรอบก่อนสำหรับ Δ, `topics/<id>.json` เมื่อเปิดหัวข้อ)
 - ชนิดข้อมูลเว็บมาจาก `web/src/data/contract.ts` ที่ generate เท่านั้น ผ่าน `web/src/data/types.ts` (ชนิดซ้อนดึงด้วย indexed access เช่น `TopicsFile['topics'][number]` เพราะชื่อ interface ที่ generate ไม่คงที่)
 - ข้อเท็จจริงที่ UI ใช้: share/growth เป็นทศนิยม (0.10 = 10%), ระดับช่วงเชื่อมั่นคือ `manifest.ci_level`, `share_ratio: null` + `no_baseline: true` → "ใหม่ — ไม่มีในช่วงฐาน", `low_data_reason ∈ {few_articles, not_estimable}`, `forecast.show === false` → "แนวโน้มไม่แน่นอน", นิยามสถานะแสดงจาก `manifest.definition_version` (ตอนนี้ 3)
+- **contract 2.1 (P2, เพิ่มอย่างเดียว):** ไฟล์เสริม `journals.json`, `journals/<id>.json`, `methods.json`, `diff.json`, `match.json` ที่ประกาศใน `manifest.modules` — ทุกไฟล์ optional; เว็บตรวจ major 2 เท่านั้น และหน้าที่ต้องใช้ไฟล์เหล่านี้ต้องอธิบายตัวเองเมื่อไม่มี (`ModuleFile`); `match.json` ไม่อยู่ใน HTML ออฟไลน์ (`export.offline_exclude`)
 - โหลดไม่ได้ / schema ผิด major / ไฟล์เสีย → แถบแจ้งเหตุผล (หน้าเว็บไม่มีวันขาว) — **ไม่มีข้อมูล bundle สำรองแล้ว**
 - **การอัปเดตข้อมูล = `uv run atlas publish --site <เว็บที่ build แล้ว>` หรือคัดลอกโฟลเดอร์ `data/` ใหม่ — ไม่ต้อง build เว็บใหม่**; `atlas_data.json` (schema 1.1) ยังถูกเขียนโดย pipeline แต่เว็บ v2 ไม่อ่านแล้ว
 
@@ -141,6 +145,7 @@ bash scripts/import_atlas.sh                              # build เว็บ +
 - **DO** ใส่เครื่องหมายคำพูดให้ `"off"` ใน YAML (`provider: "off"`) — `off` เปล่า ๆ ถูกอ่านเป็น false
 - **DON'T** แก้นิยาม EMERGING/WATCH/HOT/DECLINING โดยไม่อัปเดต `docs/EMERGING_SPEC.md` + `config.example.yaml` + `web/src/lib/definition.ts` (ค่าคงที่ของนิยามที่เว็บแสดง) + ทดสอบให้ตรงกัน
 - **DON'T** ใส่ API key ลงไฟล์ใด ๆ — ใช้ env var เสมอ (`ATLAS_EMBED_API_KEY` embedding, `ATLAS_LLM_API_KEY` LLM, `OPENALEX_API_KEY` ถ้ามี; ชื่ออยู่ใน `api_key_env` ของ config)
+- **DO** แถวผู้แต่งอ่านได้เฉพาะใน `journal_metrics` / `journals` — เผยแพร่เฉพาะตัวเลขรวม (จำนวน สัดส่วน ความหลากหลายสถาบัน) ห้ามมีชื่อบุคคล แถวต่อผู้แต่ง หรืออันดับบุคคล (PDPA); ห้ามเผยแพร่ข้อความบทคัดย่อ (match.json เก็บแค่น้ำหนัก trigram)
 - **DO** เรียก LLM ผ่าน `atlas.llm_runner.run_job` เท่านั้น (cache, งบ, หยุด/ต่อ, repair, fallback; lock/progress/stop ใช้ `atlas.jobs` ของ P0 ตัวเดียวกับ embedding) — งาน LLM เป็นระดับหัวข้อ ไม่เรียกต่อบทความ
 - **DO** ตัวเลขในข้อความที่ LLM เขียนต้องมาจาก pipeline และผ่าน `narrative.grounding_error` (ปฏิเสธตัวเลขที่ไม่อยู่ในข้อมูล, คำบอกจำนวนเท่าที่ไม่มีที่มา, และทิศทางผิดในประโยคอัตรา; เขียนใหม่ 1 ครั้ง แล้วใช้ประโยคแม่แบบ) — ห้ามเผยแพร่ข้อความ LLM ที่ไม่ได้ตรวจ
 - **DON'T** ใช้ชื่อรอบ (release) นอกรูป YYYYQn, ใช้ ID หัวข้อซ้ำ หรือรันรอบที่เก่ากว่ารอบที่มีอยู่ — โค้ดปฏิเสธอยู่แล้ว อย่าเลี่ยง
@@ -152,6 +157,7 @@ bash scripts/import_atlas.sh                              # build เว็บ +
 - **DO** แสดงสถานะด้วยรูปทรง + สี + ชื่อเสมอ (▲ EMERGING · ◆ WATCH · ● HOT · ▼ DECLINING · ■ STABLE · วงประ LOW_DATA); สีสถานะใช้กับสถานะเท่านั้น; เปลี่ยนสีต้องผ่าน `web/src/styles/palette.test.ts` (CVD + contrast ทั้ง light/dark)
 - **DO** รองรับ 2 ภาษาทุกสตริง — เพิ่ม key ใน `web/src/strings/<หน้า>.ts` ทั้ง `th` และ `en` (`i18n.test.ts` ตรวจ)
 - **DO** ทุกกราฟมีแท็บตาราง + คำบรรยายมีเลข ("แผนภูมิ n", "ตาราง n") + บรรทัด "ที่มา:"; ตารางเรียงได้ (`aria-sort`) และ export CSV ได้
+- **DO** หน้าที่ใช้ไฟล์ module (journals/methods/diff/match) เรนเดอร์ผ่าน `ModuleFile` — ถ้าไม่มีโมดูลต้องแสดง h1 พร้อมเหตุผล ไม่ใช่หน้าขาว; ข้อความที่วางใน `/match` ต้องไม่ออกจากเบราว์เซอร์ (ไม่อยู่ใน URL, storage หรือ request) และ `web/src/lib/matcher.ts` ต้องตรงกับ `pipeline/tests/fixtures/match_parity.json`
 - **DO** ทำให้ section "หดตัวเอง" (ไม่ render) เมื่อข้อมูลไม่มีฟิลด์นั้น; หน้าเว็บไม่มีวันขาว
 - **DO** เก็บสถานะตัวกรอง/การเลือกไว้ใน URL ผ่าน `useUrlState` + codec ใน `web/src/lib/urlState.ts`
 - **DO** ไฟล์ `.tsx` export ได้เฉพาะ component (กฎ react-refresh) — hook/context/helper อยู่ใน `.ts`; ห้าม setState แบบ synchronous ใน effect และห้ามอ่าน `ref.current` ระหว่าง render (react-hooks v7)

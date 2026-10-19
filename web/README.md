@@ -11,6 +11,7 @@
 | `npm run dev` | dev server http://localhost:3000 อ่านข้อมูลตัวอย่างจาก `fixtures/example/data` (เปลี่ยนด้วย env `ATLAS_DATA_DIR`) |
 | `npm run build` | `dist/` (วางบน static host ใดก็ได้) + `dist/offline-template.html` (ต้นแบบไฟล์เดียวให้ `atlas publish`) |
 | `npm test` | unit tests (vitest) |
+| `npm run check:bundle` | เช็กงบ bundle หลัง build: entry chunk ≤ 180 KB gzip และหน้า editors ทั้ง 5 ต้องเป็น lazy chunk แยก (ล้มถ้าหน้าใดหลุดเข้า entry) |
 | `npm run e2e` | Playwright smoke: ทุกหน้า × ข้อมูลตัวอย่าง/ข้อมูลว่าง · axe · จอ 360 px · ไฟล์ออฟไลน์ไม่มี network (ต้อง build ก่อน; ครั้งแรกรัน `npx playwright install chromium`) |
 | `npm run lint` · `npx tsc -b` | ตรวจโค้ด |
 | `npm run fixtures` | สร้างข้อมูลทดสอบ (สังเคราะห์ ไม่ใช่ข้อมูลจริง) ใหม่ — CI ตรวจว่าไม่ drift |
@@ -33,7 +34,7 @@ pipeline: uv run atlas publish -c config.yaml --site ../web/dist
 
 ## หน้า
 
-`#/overview` ภาพรวม (KPI + Δ, ประโยคสรุป, ประเด็นผู้บริหาร, สถานะ + forest plot, ผัง size × growth) · `#/atlas` แผนที่ + ดัชนีหัวข้อ · `#/topics/:id` หัวข้อ · `#/emerging` ตารางสถานะ · `#/compare` เปรียบเทียบ 2–4 หัวข้อ · `#/data` ข้อมูลเปิด + ความโปร่งใส · `#/about` วิธีการ + นิยาม + changelog · `#/brief` หน้าพิมพ์ PDF
+`#/overview` ภาพรวม (KPI + Δ, ประโยคสรุป, ประเด็นผู้บริหาร, สถานะ + forest plot, ผัง size × growth) · `#/atlas` แผนที่ + ดัชนีหัวข้อ · `#/topics/:id` หัวข้อ · `#/emerging` ตารางสถานะ · `#/compare` เปรียบเทียบ 2–4 หัวข้อ · `#/data` ข้อมูลเปิด + ความโปร่งใส · `#/about` วิธีการ + นิยาม + changelog · `#/brief` หน้าพิมพ์ PDF · P2 (lazy): `#/journals` ตัวชี้วัดวารสาร · `#/journals/:id` โปรไฟล์วารสาร · `#/methods` วิธีวิจัย · `#/changes` อะไรเปลี่ยนจากรอบก่อน · `#/match` วางบทคัดย่อ (คำนวณในเบราว์เซอร์; ไม่มีในไฟล์ออฟไลน์) — ไฟล์ข้อมูลของหน้าเหล่านี้เป็น optional และแต่ละหน้าอธิบายตัวเองเมื่อไม่มี
 สถานะของตัวกรอง/การเลือกอยู่ใน URL เสมอ (เช่น `#/emerging?status=WATCH&sort=journals`) แชร์ลิงก์ได้
 
 ## โครงสร้างโค้ด

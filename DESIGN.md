@@ -267,6 +267,9 @@ Title "แผนภูมิ n: …", legend (glyph + label), the chart, then "�
 ### Banners and notices
 Phase banner: Civic Blue tag + text. Error banner (`role="alert"`): 4 px left rule in HOT ink on Paper Tint, a bold reason and what to do. Uncertain box ("แนวโน้มไม่แน่นอน"): 4 px left Rule on Paper Tint. WATCH inset: 2 px WATCH border on the WATCH tag background.
 
+### Editors' pages (P2)
+Share bars: 64 × 8 px, `--ink-2` fill on `--surface` with a 1 px inset rule, the number always printed next to the bar (the bar never carries the value alone). Text marks (`.flag`): 1 px ink border, no fill, bold small text: "อนุมาน / inferred", "สูงกว่าเกณฑ์ / above the bar", "วิธีกระจุก / narrow methods" — never colour alone. Journal name rule: registry name; else the other language's name with `lang`; else the OJS name followed by "ยังไม่มีชื่อเต็มในทะเบียนวารสาร". Paste box (`/match`): the privacy note first, set on a Paper Tint strip with the brand rule, one labelled 12 rem textarea, primary + secondary buttons, and the results heading takes focus after a search. A page whose module is not in the release, or was left out of the offline file, shows its h1 and an empty state saying why (never a white page, never `role="alert"`).
+
 ### Headline sentence (signature, Overview only)
 The release's brief headline in Headline type, figures and topic names under the turmeric lower-half band (topic names are links), followed by a small note that the sentence was generated automatically from the system's figures (template or AI, numbers checked).
 

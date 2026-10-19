@@ -57,6 +57,7 @@ uv run atlas publish  -c config.yaml --site ../web/dist      # วาง data/<r
 
 - วางรอบใหม่ลงโฟลเดอร์เว็บด้วย `uv run atlas publish --site web/dist` (หรือ `bash scripts/import_atlas.sh`) แล้วเปิด preview (`npm run preview` ใน `web/`)
 - หน้า `/overview` ต้องแสดงชื่อรอบใหม่ ข้อความ "ข้อมูลถึงปี YYYY" ตรงกับ `last_complete_year` และตัวเลข Δ เทียบรอบก่อน (ถ้าโฟลเดอร์รอบก่อนยังอยู่บน site; ถ้าไม่อยู่จะมีบรรทัด "ไม่พบข้อมูลรอบก่อนหน้า")
+- เปิด `/changes` — ตรวจก่อนเผยแพร่: หัวข้อใหม่/ยุติ/รวม/แยก ตรงกับที่คาด, ตัวเลขรวมไม่กระโดดผิดปกติ, หัวข้อที่เปลี่ยนสถานะอธิบายได้ (ผู้บริหารจะใช้หน้านี้ตอบว่า "อะไรเปลี่ยน") · ถ้ารอบก่อนสร้างก่อน P2 หน้านี้จะบอกว่าเทียบกับไฟล์ที่เผยแพร่ของรอบก่อน
 - เปิด `/emerging` → แท็บ EMERGING ต้องมีรายการ คลิก 1 หัวข้อ → หน้าหัวข้อต้องมีชิปสถานะ (สัญลักษณ์ + สี + ข้อความ) และกราฟแนวโน้มพร้อมตาราง
 - สลับภาษา TH/EN และเปิดโหมดมืดดูคร่าว ๆ; ถ้าเป็นข้อมูลสังเคราะห์ ต้องเห็นป้าย "ข้อมูลตัวอย่าง" ทุกหน้า
 - เผยแพร่ข้อมูลจริง: `uv run atlas publish --site web/dist` แล้ว deploy โฟลเดอร์ `web/dist` ขึ้น host ของหน่วยงาน (static host ใดก็ได้) — การ push ขึ้น GitHub **ไม่** deploy อะไรเอง
@@ -278,3 +279,34 @@ uv run atlas bakeoff -c configs/ci.yaml --truth .ci/synth/_truth.csv --out bakeo
 - key เป็น **ทางเลือก**: `OPENALEX_API_KEY` (ส่งเป็น `Authorization: Bearer` เท่านั้น ไม่อยู่ใน cache/log/ข้อความ error) — ไม่ตั้ง = โหมด keyless
 - keyless: งบ ~$0.10/วัน, 10 req/s (เราจำกัดที่ 8 = `requests_per_second_keyless`) · มี key: ~$1/วัน, 30 req/s (เราจำกัดที่ 25 = `requests_per_second_keyed`) และดึงได้หลายหน้า (`max_pages_keyed`)
 - งบรายวันหมด (HTTP 429) = หยุดอย่างสะอาด เก็บที่ดึงได้แล้วไว้ใน `state/openalex/` และ taxonomy ถอยไปใช้กลุ่ม agglomerative พร้อมบันทึกเหตุผล (แต่ละกลุ่มตั้งชื่อตามหัวข้อที่ใหญ่ที่สุดของกลุ่ม; ชื่อ "ยังไม่จัดสาขา (กลุ่ม N)" เกิดเฉพาะเมื่อ `10_taxonomy` เก่ากว่าการ cluster) — ตั้ง key หรือรอวันถัดไปแล้วรัน `-s taxonomy` ซ้ำ ทำต่อจาก cache (ใช้ร่วมกันทั้งสองโหมด)
+
+## 10. ทะเบียนวารสาร (ไม่บังคับ)
+
+รายชื่อวารสารอย่างเป็นทางการของ TCI ยังไม่มี → ชื่อวารสารมาจากคลังบทความ (`<server>:<OJS path>`, เช่น `so02:BECJournal`) ถ้าอยากให้ชื่อเต็ม ISSN กลุ่ม TCI และสถาบันเจ้าของ ให้ทำไฟล์ทะเบียนเอง (ไม่ scrape หน้าวารสาร):
+
+```bash
+cp pipeline/registry/journals.example.csv pipeline/registry/journals.csv   # แล้วแก้ใน Excel/ตัวแก้ไข UTF-8
+```
+
+- คอลัมน์: `journal_key, name_th, name_en, issn, eissn, tci_tier, tci_field, publisher_org, url` — ต้องมี `journal_key`; คอลัมน์อื่นว่างได้
+- การจับคู่: ใช้ key เต็ม (`so02:BECJournal`) หรือ OJS path เปล่า (`BECJournal`) เมื่อมีวารสารเดียวในคลังที่ path นั้น; แถวที่ไม่มีในคลังเป็นแค่คำเตือน
+- **หยุดรัน (`RegistryError` บอกเลขแถว):** UTF-8 อ่านไม่ได้, CSV ผิดรูป, header ไม่มี `journal_key`, คอลัมน์ที่ไม่รู้จัก, `journal_key` ซ้ำ, `tci_tier` นอก 1–3, สองแถวชี้วารสารเดียวกัน
+- `publisher_org` = เจ้าของที่ TCI ให้ (source `registry`); ถ้าไม่ให้ ระบบ **อนุมาน** จากสถาบันที่เซ็นชื่อมากสุด (≥ `journals.owner_min_share`) และเว็บติดป้าย "อนุมาน / inferred" เสมอ
+- `registry/journals.csv` ถูก git-ignore — เก็บสำรองพร้อม `state/`
+- เมื่อไม่มีทะเบียน เว็บแสดงชื่อ OJS และข้อความ "ยังไม่มีชื่อเต็มในทะเบียนวารสาร"; `journals.inhouse_flag_share` ดีฟอลต์ null (ไม่มีเครื่องหมาย "สูงกว่าเกณฑ์") จนกว่า TCI ยืนยันเกณฑ์
+
+## 11. บันทึกวิธีวิจัยด้วย LLM (ไม่บังคับ)
+
+ดีฟอลต์ `methods.provider: "off"` — หน้า `/methods` แสดงตัวเลขจาก lexicon เท่านั้น ถ้าต้องการบันทึกสั้น ๆ ต่อหัวข้อ (≤ 50 หัวข้อใหญ่สุด, ระดับหัวข้อเท่านั้น, ตรวจตัวเลขด้วย grounding, ล้มเหลว = ใช้แม่แบบ):
+
+```bash
+# config.yaml: methods.provider: llm  +  llm.tasks.methods.model: <โมเดล>
+uv run atlas llm -c config.yaml --dry-run --task methods   # ประมาณ call/token/ค่าใช้จ่าย ไม่เรียก API
+uv run atlas llm -c config.yaml                            # รันจริง (cache + งบ + หยุด/ทำต่อ เหมือนงาน LLM อื่น)
+```
+
+prompt อยู่ที่ `prompts/topic_methods.th.md` ไฟล์เดียว
+
+## 12. HTML เดี่ยว (`atlas-offline.html`) ไม่มีหน้า /match
+
+ดัชนี `match.json` ใหญ่ (≤ 5 MB) จึงไม่ใส่ในไฟล์ออฟไลน์ (`export.offline_exclude: [match.json]`) — หน้า `/match` ในไฟล์นั้นแสดง "ฉบับออฟไลน์ไม่มีส่วนนี้ ต้องใช้เว็บไซต์ออนไลน์" หน้าอื่นทำงานครบ ถ้าอยากใส่ในไฟล์ออฟไลน์ให้เอา `match.json` ออกจากรายการ (ไฟล์จะใหญ่ขึ้น) ข้อความที่ผู้ใช้วางใน `/match` ประมวลผลในเบราว์เซอร์ ไม่ถูกส่งไปที่ใด
