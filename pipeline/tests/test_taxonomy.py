@@ -128,6 +128,7 @@ def test_stale_taxonomy_never_drops_topics_and_export_matches_layout(make_cfg, t
     cfg = make_cfg(tmp_path)
     cfg["pipeline"]["release"] = "2026Q1"
     cfg["layout"]["galaxy"] = False
+    cfg["export"]["v2"] = False                  # checks atlas_data.json 1.1 (the minimal work_dir has no embeddings)
     work = tmp_path / "work"
     write_table(pd.DataFrame({"topic_id": [1, 2, 3], "size": [30, 20, 10], "coarse_topic": [0, 0, 5],
                               "top_terms": "", "top_keywords": "", "coherence": 0.5}), work / "04_topic_info.parquet")
@@ -165,5 +166,7 @@ def test_fallback_group_never_collides_with_an_openalex_field(tmp_path):
                               "top_terms": "", "top_keywords": "", "coherence": 0.5}), work / "04_topic_info.parquet")
     write_table(pd.DataFrame({"topic_id": [1, 2], "group_id": [17, 33], "group_en": ["Computer Science", "Social"],
                               "group_th": [FIELD_TH["17"], FIELD_TH["33"]]}), work / "10_taxonomy.parquet")
-    g = load_topic_groups(work).set_index("topic_id")["group_id"].to_dict()
+    out = load_topic_groups(work).set_index("topic_id")
+    g = out["group_id"].to_dict()
     assert g[3] != g[1] and g[3] >= FALLBACK_GROUP_BASE            # coarse 17 is not OpenAlex field 17
+    assert (out.loc[3, "group_th"], out.loc[3, "group_en"]) == ("ยังไม่จัดสาขา (กลุ่ม 17)", "Unmapped group 17")

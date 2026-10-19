@@ -85,6 +85,8 @@ def topic_votes(labels: np.ndarray, emb: np.ndarray, ids: list[int], C: np.ndarr
 
 
 FALLBACK_GROUP_BASE = 1000      # group_id = 1000 + coarse topic for topics a stale 10_taxonomy does not know
+FALLBACK_GROUP_TH = "ยังไม่จัดสาขา (กลุ่ม {n})"    # names of those groups (n = coarse topic id)
+FALLBACK_GROUP_EN = "Unmapped group {n}"
 
 
 def load_topic_groups(work: str | Path) -> pd.DataFrame:
@@ -118,6 +120,10 @@ def load_topic_groups(work: str | Path) -> pd.DataFrame:
     shift = 0 if agglomerative else FALLBACK_GROUP_BASE
     out.loc[miss, "group_id"] = coarse.loc[miss, "group_id"].to_numpy() + shift
     out[["group_en", "group_th"]] = out[["group_en", "group_th"]].fillna("").astype(str)
+    if shift:                                  # the published map legend must name these groups in both languages
+        n = coarse.loc[miss, "group_id"].astype(int).astype(str).to_numpy()
+        out.loc[miss, "group_th"] = [FALLBACK_GROUP_TH.format(n=v) for v in n]
+        out.loc[miss, "group_en"] = [FALLBACK_GROUP_EN.format(n=v) for v in n]
     return out.astype({"group_id": int})
 
 

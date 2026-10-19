@@ -236,4 +236,8 @@ def export(cfg: dict) -> dict:
     shutil.copy(work / "04_centroids.npy", prev / "centroids.npy")
     shutil.copy(work / "04_centroid_ids.json", prev / "centroid_ids.json")
     print(f"[export] -> {outdir / 'atlas_data.json'} (+ csv, manifest); centroids -> {prev}")
+    if cfg["export"].get("v2", False):
+        from atlas.export_v2 import write_release
+
+        write_release(cfg)
     return atlas

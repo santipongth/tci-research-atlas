@@ -1,0 +1,360 @@
+"""Export data contract v2 → output_dir/data/<release>/ (+ output_dir/data/latest.json).
+
+Every file is built as a pydantic model from atlas/schema/contract.py (validation happens on
+construction; NaN/Infinity are rejected) and written as compact strict JSON. manifest.json lists
+every other file with its byte size and sha256, the interval level (ci_level), the v3 data-quality
+fields and the label/LLM accounting. Representative articles carry titles and links back to ThaiJO
+only — abstracts are never published (journal copyright). Institutions are counted at organisation
+level; no person is ranked (PDPA). A topic or keyword with no baseline articles is published with
+share_ratio null and no_baseline true (the web says "new — no baseline").
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import shutil
+from datetime import UTC, datetime
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from atlas.checkpoints import load_aligned
+from atlas.export import _git_hash, fine_labels
+from atlas.io_utils import read_table
+from atlas.label import representative_indices
+from atlas.lineage import topic_code
+from atlas.schema import contract as C
+from atlas.state import current_release, previous_release, release_dir
+from atlas.taxonomy import FALLBACK_GROUP_BASE, load_topic_groups
+
+N_COLOR_TOKENS = 12
+
+
+def _f(v, nd: int = 4) -> float | None:
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return round(x, nd) if math.isfinite(x) else None
+
+
+def _json_list(s) -> list:
+    return json.loads(s) if isinstance(s, str) and s else []
+
+
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def _optional(path: Path) -> pd.DataFrame | None:
+    try:
+        return read_table(path)
+    except FileNotFoundError:
+        return None
+
+
+def config_hash(cfg: dict) -> str:
+    """Hash of every setting that can change results (paths and the release name excluded)."""
+    body = {k: v for k, v in cfg.items() if k != "pipeline"}
+    body["pipeline"] = {k: v for k, v in cfg["pipeline"].items() if k in ("seed",)}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()[:16]
+
+
+def group_code(gid: int, source: str) -> str:
+    """F<field> for an OpenAlex field, G<coarse> for an agglomerative group — also for the fallback groups
+    (id FALLBACK_GROUP_BASE + coarse) that topics unknown to a stale 10_taxonomy get, so never an F code."""
+    gid = int(gid)
+    if gid >= FALLBACK_GROUP_BASE:
+        return f"G{gid - FALLBACK_GROUP_BASE:02d}"
+    return f"{'F' if source == 'openalex' else 'G'}{gid:02d}"
+
+
+def _metrics(e: pd.Series, min_recent: int) -> C.TopicMetrics:
+    no_base = float(e["share_baseline"]) == 0.0
+    reason = None
+    if str(e["status"]) == "LOW_DATA":
+        reason = "few_articles" if int(e["count_recent"]) < min_recent else "not_estimable"
+    return C.TopicMetrics(
+        count_recent=int(e["count_recent"]), share_recent=_f(e["share_recent"], 6) or 0.0,
+        share_baseline=_f(e["share_baseline"], 6) or 0.0,
+        share_ratio=None if no_base else (_f(e["share_ratio"]) or 0.0), no_baseline=no_base,
+        share_growth=_f(e["share_growth"]), share_growth_lo=_f(e["share_growth_lo"]),
+        share_growth_hi=_f(e["share_growth_hi"]), acceleration=_f(e["acceleration"]) or 0.0,
+        burst_frac=_f(e["burst_frac"]) or 0.0,
+        burst_years=[int(y) for y in str(e["burst_years"] or "").split(",") if y.strip()],
+        novelty=_f(e["novelty"]) or 0.0, coherence=_f(e["coherence"]), n_journals_R=int(e["n_journals_R"]),
+        n_orgs_R=int(e["n_orgs_R"]), new_journal_share=_f(e["new_journal_share"]) or 0.0,
+        journal_hhi=_f(e["journal_hhi"]) or 0.0, journal_driven=bool(e["journal_driven"]),
+        orgs_unverified=bool(e.get("orgs_unverified", False)), low_data_reason=reason)
+
+
+def _forecast(f: pd.Series) -> C.TopicForecast:
+    show = bool(f["show"]) if pd.notna(f["show"]) else False
+    lists = {k: [float(v) for v in _json_list(f[c])] if show else []
+             for k, c in (("mean", "fc_mean"), ("lo80", "fc_lo80"), ("hi80", "fc_hi80"),
+                          ("lo95", "fc_lo95"), ("hi95", "fc_hi95"))}
+    return C.TopicForecast(model=str(f["model"]), mase=_f(f["mase"], 3), skill_vs_naive=_f(f["skill_vs_naive"], 3) or 0.0,
+                           show=show, years=[int(y) for y in _json_list(f["fc_years"])] if show else [], **lists)
+
+
+def build_release(cfg: dict) -> dict[str, C._Model]:
+    """{published relative path: model} for one release (nothing is written)."""
+    work = Path(cfg["pipeline"]["work_dir"])
+    ecfg = cfg["export"]
+    release, prev = current_release(cfg), previous_release(cfg)
+    now = datetime.now(UTC).isoformat()
+    docs, emb = load_aligned(work)
+    info = read_table(work / "04_topic_info.parquet")
+    labels = fine_labels(read_table(work / "05_labels.parquet")).set_index("topic_id")
+    em = read_table(work / "07_emerging.parquet").set_index("topic_id")
+    fc = read_table(work / "08_forecasts.parquet").set_index("topic_id")
+    lay = read_table(work / "09_layout.parquet")
+    edges = read_table(work / "09_edges.parquet")
+    fine = docs[["article_id"]].merge(read_table(work / "04_fine_topics.parquet"), on="article_id", how="left")
+    labels_arr = fine["fine_topic"].fillna(-1).astype(int).to_numpy()
+    meta6 = _read_json(work / "06_meta.json")
+    fmeta = _read_json(work / "08_forecast_meta.json")
+    taxmeta = _read_json(work / "10_taxonomy_meta.json")
+    tax = _optional(work / "10_taxonomy.parquet")
+    source = "openalex" if tax is not None and len(tax) and (tax["source"] == "openalex").all() else "agglomerative"
+    groups = load_topic_groups(work).set_index("topic_id")
+    lineage = _optional(work / "04_lineage.parquet")
+    lin = lineage.set_index("topic_id") if lineage is not None and len(lineage) else pd.DataFrame()
+    reg_path = release_dir(cfg, release) / "topics" / "registry.parquet"
+    born = read_table(reg_path).set_index("topic_id")["born"].to_dict() if reg_path.exists() else {}
+    galaxy = _optional(work / "09_galaxy.parquet")
+    gxy = galaxy.set_index("article_id")[["gx", "gy"]] if galaxy is not None and len(galaxy) else None
+    try:
+        authors = read_table(work / "01_authors.parquet")[["article_id", "org_key"]]
+    except FileNotFoundError:
+        authors = pd.DataFrame(columns=["article_id", "org_key"])
+    orgs = authors[authors["org_key"].astype(str) != ""].drop_duplicates()
+
+    pos = lay[lay["kind"] == "topic"].set_index("id")
+    hubs = lay[lay["kind"] == "group"].set_index("id")
+    ids = [int(t) for t in info["topic_id"]]
+    size_of = info.set_index("topic_id")["size"].to_dict()
+    tax_i = tax.set_index("topic_id") if tax is not None and source == "openalex" else None
+    code = {t: topic_code(t) for t in ids}
+    cent_ids = json.loads((work / "04_centroid_ids.json").read_text(encoding="utf-8"))
+    cents = dict(zip(cent_ids, np.load(work / "04_centroids.npy")))
+
+    min_recent = int(cfg["emerging"]["min_articles_recent"])
+    narr = _optional(work / "11_narratives.parquet")
+    narratives = ({int(r.topic_id): C.Narrative(th=str(r.th), en=str(r.en), source=str(r.source))
+                   for r in narr.itertuples()} if narr is not None else {})
+    brief = _read_json(work / "11_brief.json")
+
+    # ---- topics.json
+    topics = []
+    for t in ids:
+        e, g = em.loc[t] if t in em.index else None, groups.loc[t]
+        f = fc.loc[t] if t in fc.index else None
+        lb = labels.loc[t] if t in labels.index else None
+        ev = lin.loc[t] if len(lin) and t in lin.index else None
+        event = str(ev["event"]) if ev is not None and ev["event"] in ("new", "continue", "split", "merge") else "new"
+        parents = [topic_code(int(p)) for p in str(ev["parents"] if ev is not None else "").split(";") if p]
+        tx = tax_i.loc[t] if tax_i is not None and t in tax_i.index else None
+        nowcast = None
+        if f is not None and "nowcast_mean" in f and pd.notna(f["nowcast_mean"]):
+            nowcast = C.TopicNowcast(year=int(f["nowcast_year"]), as_of_month=int(f["nowcast_month"]),
+                                     ytd=int(f["nowcast_ytd"]), mean=float(f["nowcast_mean"]))
+        topics.append(C.Topic(
+            id=code[t], group=group_code(g["group_id"], source),
+            th=str(lb["name_th"]) if lb is not None else code[t], en=str(lb["name_en"]) if lb is not None else code[t],
+            description=str(lb["description"] or "") if lb is not None else "",
+            keywords=[k for k in str(lb["keywords"] or "").split("; ") if k] if lb is not None else [],
+            label_source=str(lb.get("label_source", "keywords")) if lb is not None else "keywords",
+            size=int(size_of[t]),
+            x=float(pos.loc[t, "x"]), y=float(pos.loc[t, "y"]), r=float(pos.loc[t, "r"]),
+            status=str(e["status"]) if e is not None else "LOW_DATA",
+            score=(_f(e["emerging_score"], 1) or 0.0) if e is not None else 0.0,
+            metrics=_metrics(e, min_recent) if e is not None else C.TopicMetrics(
+                count_recent=0, share_recent=0.0, share_baseline=0.0, share_ratio=None, share_growth=None,
+                share_growth_lo=None, share_growth_hi=None, acceleration=0.0, burst_frac=0.0, novelty=0.0,
+                n_journals_R=0, n_orgs_R=0, new_journal_share=0.0, journal_hhi=0.0, journal_driven=False,
+                low_data_reason="few_articles"),
+            forecast=_forecast(f) if f is not None else None,
+            lineage=C.TopicLineage(born=born.get(t), event=event, parents=parents),
+            subfield=str(tx["subfield_id"]) if tx is not None else None,
+            subfield_en=str(tx["subfield_en"]) if tx is not None else "",
+            cross_field=bool(tx["cross_field"]) if tx is not None else False,
+            taxonomy_vote=_f(tx["vote_share"]) if tx is not None else None,
+            nowcast=nowcast))
+    files: dict[str, C._Model] = {"topics.json": C.TopicsFile(topics=topics)}
+
+    # ---- topics/<id>.json
+    titles = docs.set_index("article_id")
+    for t in ids:
+        members = np.where(labels_arr == t)[0]
+        idx = representative_indices(emb[members], cents[t], int(ecfg["repr_articles"]),
+                                     float(cfg["labeling"]["mmr_lambda"])) if len(members) else []
+        arts = []
+        for aid in docs["article_id"].to_numpy()[members[idx]] if len(members) else []:
+            row = titles.loc[aid]
+            year = row.get("year")
+            arts.append(C.RepresentativeArticle(
+                article_id=str(aid), title=str(row.get("title", "") or ""), title_en=str(row.get("title_en", "") or ""),
+                year=int(year) if pd.notna(year) else None, journal=str(row.get("journal_name", "") or ""),
+                url=str(row.get("url", "") or ""), doi=str(row.get("doi", "") or ""),
+                gx=_f(gxy.loc[aid, "gx"], 2) if gxy is not None and aid in gxy.index else None,
+                gy=_f(gxy.loc[aid, "gy"], 2) if gxy is not None and aid in gxy.index else None))
+        member_ids = docs["article_id"].to_numpy()[members]
+        jc = titles.loc[member_ids, "journal_name"].value_counts().head(int(ecfg["max_topic_journals"]))
+        oc = (orgs[orgs["article_id"].isin(set(member_ids))]["org_key"].value_counts()
+              .head(int(ecfg["max_topic_orgs"])))
+        nb = pd.concat([edges[edges["s"] == t].rename(columns={"t": "o"})[["o", "w"]],
+                        edges[edges["t"] == t].rename(columns={"s": "o"})[["o", "w"]]])
+        nb = nb.sort_values(["w", "o"], ascending=[False, True]).head(int(ecfg["max_neighbors"]))
+        lb = labels.loc[t] if t in labels.index else None
+        files[f"topics/{code[t]}.json"] = C.TopicDetail(
+            id=code[t], articles=arts,
+            journals=[C.CountItem(key=str(k), count=int(v)) for k, v in jc.items()],
+            institutions=[C.CountItem(key=str(k), count=int(v)) for k, v in oc.items()],
+            keywords=[k for k in str(lb["keywords"] or "").split("; ") if k] if lb is not None else [],
+            neighbors=[code[int(o)] for o in nb["o"] if int(o) in code], narrative=narratives.get(t))
+
+    # ---- taxonomy.json (groups = map hubs)
+    gsize = info.assign(g=info["topic_id"].map(groups["group_id"])).groupby("g")["size"].agg(["sum", "count"])
+    order = gsize.sort_values("sum", ascending=False).index.tolist()
+    names = groups.drop_duplicates("group_id").set_index("group_id")
+    group_rows = []
+    for rank, gid in enumerate(order):
+        th, en = str(names.loc[gid, "group_th"] or ""), str(names.loc[gid, "group_en"] or "")
+        if not th or not en:                      # agglomerative fallback: name of its largest topic
+            big = int(info[info["topic_id"].map(groups["group_id"]) == gid].sort_values("size").iloc[-1]["topic_id"])
+            th = th or (str(labels.loc[big, "name_th"] or "") if big in labels.index else "") or code[big]
+            en = en or (str(labels.loc[big, "name_en"] or "") if big in labels.index else "") or code[big]
+        h = hubs.loc[gid] if gid in hubs.index else None
+        group_rows.append(C.GroupInfo(id=group_code(gid, source), th=th, en=en,
+                                      color=f"cat-{rank % N_COLOR_TOKENS + 1:02d}", size=int(gsize.loc[gid, "sum"]),
+                                      n_topics=int(gsize.loc[gid, "count"]), x=float(h["x"]) if h is not None else 0.0,
+                                      y=float(h["y"]) if h is not None else 0.0, r=float(h["r"]) if h is not None else 0.0))
+    subfields = []
+    if source == "openalex":
+        tx = tax.merge(info[["topic_id", "size"]], on="topic_id")
+        for sid, g in tx.groupby("subfield_id"):
+            subfields.append(C.SubfieldInfo(id=str(sid), en=str(g["subfield_en"].iloc[0]),
+                                            group=group_code(int(g["group_id"].iloc[0]), source),
+                                            n_topics=int(len(g)), size=int(g["size"].sum())))
+    files["taxonomy.json"] = C.TaxonomyFile(
+        source=source, version=taxmeta.get("version"),
+        holdout_accuracy_subfield=_f(taxmeta.get("holdout_accuracy_subfield")),
+        holdout_accuracy_field=_f(taxmeta.get("holdout_accuracy_field")), groups=group_rows, subfields=subfields)
+
+    # ---- series.json + edges.json + keywords.json
+    s = read_table(work / "06_series.parquet")
+    years = [int(y) for y in meta6.get("years", [])]
+    files["series.json"] = C.SeriesFile(
+        years=years, corpus_total=[int(meta6["totals"][str(y)]) for y in years],
+        topics={code[int(t)]: g.set_index("year")["count"].reindex(years, fill_value=0).astype(int).tolist()
+                for t, g in s.groupby("topic_id") if int(t) in code})
+    files["edges.json"] = C.EdgesFile(edges=[C.Edge(s=code[int(r.s)], t=code[int(r.t)], w=float(r.w))
+                                             for r in edges.itertuples() if int(r.s) in code and int(r.t) in code])
+    kw = _optional(work / "07_keywords.parquet")
+    if kw is not None:
+        files["keywords.json"] = C.KeywordsFile(keywords=[
+            C.EmergingKeyword(term=str(r.term), count_recent=int(r.count_recent),
+                              share_ratio=None if bool(r.no_baseline) else (_f(r.share_ratio) or 0.0),
+                              no_baseline=bool(r.no_baseline),
+                              growth=_f(r.growth), growth_lo=_f(r.growth_lo), n_active_years=int(r.n_active_years),
+                              n_orgs_R=int(r.n_orgs_R), n_journals_R=int(r.n_journals_R),
+                              journal_driven=bool(r.journal_driven), emerging=bool(r.emerging),
+                              topic=code.get(int(r.topic_id)))
+            for r in kw.head(int(cfg["keywords"]["max_terms"])).itertuples()])
+
+    # ---- overview.json
+    nonempty = {c: docs[c].fillna("").astype(str).str.len() > 0 for c in ("abstract_en", "doi") if c in docs}
+    kw_any = (docs.get("keywords_th", pd.Series("", index=docs.index)).fillna("").astype(str)
+              + docs.get("keywords_en", pd.Series("", index=docs.index)).fillna("").astype(str)).str.len() > 0
+    tq = pd.Series([f for v in docs.get("text_quality", pd.Series(dtype=str)).fillna("") for f in str(v).split("; ") if f])
+    comp = meta6.get("completeness", {})
+    nc = fmeta.get("nowcast")
+    events = (lineage["event"].value_counts().to_dict() if lineage is not None else {})
+    files["overview.json"] = C.Overview(
+        release=release, previous_release=prev, generated_at=now, last_complete_year=int(meta6["last_complete_year"]),
+        definition_version=int(cfg["emerging"]["definition_version"]),
+        brief=C.Brief(**brief["brief"]) if brief.get("brief") else None,
+        kpis=C.Kpis(articles=len(docs), assigned_articles=int((labels_arr >= 0).sum()), topics=len(ids),
+                    groups=len(group_rows), journals=int(docs["journal_name"].nunique()),
+                    institutions=int(orgs["org_key"].nunique()),
+                    pct_abstract_en=round(100 * float(nonempty["abstract_en"].mean()), 1) if "abstract_en" in nonempty else 0.0,
+                    pct_doi=round(100 * float(nonempty["doi"].mean()), 1) if "doi" in nonempty else 0.0,
+                    pct_keywords=round(100 * float(kw_any.mean()), 1) if len(docs) else 0.0),
+        status_counts={str(k): int(v) for k, v in em["status"].value_counts().items()},
+        corpus_by_year=[C.YearCount(year=y, articles=int(meta6["totals"][str(y)])) for y in years],
+        corpus_forecast=[C.YearCount(year=int(y), articles=float(m))
+                         for y, m in zip(fmeta.get("total_years", []), fmeta.get("total_mean", []))],
+        nowcast=C.TopicNowcast(year=nc["year"], as_of_month=nc["as_of_month"], ytd=nc["ytd"], mean=nc["mean"]) if nc else None,
+        lineage_events={str(k): int(v) for k, v in events.items()},
+        retired_topics=[topic_code(int(r.topic_id)) for r in (lineage.itertuples() if lineage is not None else [])
+                        if r.event == "retired"],
+        data_quality=C.DataQuality(year_missing=int(docs["year"].isna().sum()),
+                                   unassigned_articles=int((labels_arr < 0).sum()),
+                                   completeness_method=str(comp.get("method", "median")),
+                                   text_quality={str(k): int(v) for k, v in tq.value_counts().items()}))
+    emb_meta = _read_json(work / "03_meta.json")
+    modules = ["overview", "taxonomy", "topics", "topic_detail", "series", "edges"] + (["keywords"] if kw is not None else [])
+    errs = _optional(work / "01_ingest_errors.parquet")
+    files["manifest.json"] = C.Manifest(
+        release=release, generated_at=now, pipeline_version=_git_hash(), config_hash=config_hash(cfg),
+        definition_version=int(cfg["emerging"]["definition_version"]), ci_level=float(cfg["emerging"]["ci_level"]),
+        as_of_year=meta6.get("as_of_year"), trimmed_years=[int(y) for y in meta6.get("trimmed_years", [])],
+        embedding_provider=str(cfg["embedding"]["provider"]), embedding_model=str(emb_meta.get("model_id", "")),
+        taxonomy_version=taxmeta.get("version"), modules=modules, previous_release=prev,
+        n_orgs_unverified=int(em["orgs_unverified"].astype(bool).sum()) if "orgs_unverified" in em else 0,
+        ingest_errors=len(errs) if errs is not None else 0,
+        labels=_label_stats(cfg, labels), llm=_llm_stats(work, brief))
+    return files
+
+
+def _label_stats(cfg: dict, labels: pd.DataFrame) -> C.LabelStats:
+    src = labels["label_source"] if "label_source" in labels else pd.Series("keywords", index=labels.index)
+    return C.LabelStats(provider=cfg["labeling"]["provider"], llm=int((src == "llm").sum()),
+                        keywords=int((src == "keywords").sum()), overrides=int((src == "override").sum()))
+
+
+def _llm_stats(work: Path, brief: dict) -> list[C.LlmTaskStats]:
+    """Per LLM task of this run: items, cache hits, new calls, repairs, fallbacks and spend."""
+    found = []
+    lab = _read_json(work / "05_labels_meta.json")
+    if lab.get("provider") == "llm":
+        found.append({**lab, "task": "label", "model": lab.get("model_id", ""), "items": lab.get("topics", 0)})
+    merge = _read_json(work / "05_merge_meta.json").get("llm")
+    found += [merge] if merge else []
+    found += list((brief.get("llm") or {}).values())
+    keys = ("from_cache", "generated", "repaired", "fallback")
+    return [C.LlmTaskStats(task=s["task"], model=str(s.get("model", "")), items=int(s.get("items", 0)),
+                           **{k: int(s.get(k, 0)) for k in keys}, cost_usd=round(float(s.get("cost_usd", 0.0)), 4))
+            for s in found]
+
+
+def _dump(model: C._Model) -> bytes:
+    return json.dumps(model.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":"),
+                      allow_nan=False).encode("utf-8")
+
+
+def write_release(cfg: dict) -> Path:
+    files = build_release(cfg)
+    release = current_release(cfg)
+    root = Path(cfg["pipeline"]["output_dir"]) / "data"
+    out = root / release
+    if out.exists():
+        shutil.rmtree(out)                         # a re-run of the same release replaces it completely
+    entries = []
+    for rel, model in sorted(files.items()):
+        if rel == "manifest.json":
+            continue
+        data = _dump(model)
+        p = out / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+        entries.append(C.FileEntry(path=rel, bytes=len(data), sha256=hashlib.sha256(data).hexdigest()))
+    manifest = files["manifest.json"].model_copy(update={"files": entries})
+    (out / "manifest.json").write_bytes(_dump(C.Manifest.model_validate(manifest.model_dump())))
+    latest = C.Latest(release=release, path=f"{release}/manifest.json", generated_at=manifest.generated_at)
+    (root / "latest.json").write_bytes(_dump(latest))
+    print(f"[export] contract v2 → {out} ({len(entries)} files + manifest)")
+    return out
