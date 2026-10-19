@@ -373,6 +373,22 @@ class MethodsCfg(_Strict):
         return v
 
 
+class MatchCfg(_Strict):
+    """'Match my abstract' index: char-trigram TF-IDF vectors per topic, matched in the browser (R3/R4)."""
+    enabled: bool = True
+    docs_per_topic: int = Field(100, ge=1)
+    abstract_chars: int = Field(600, ge=0)
+    min_df: int = Field(3, ge=1)
+    max_terms: int = Field(150, ge=10)
+    min_terms: int = Field(30, ge=5)
+    max_bytes: int = Field(5_000_000, ge=10_000)
+    min_similarity: float = Field(0.05, ge=0.0, le=1.0)
+    fit_topics: int = Field(5, ge=1)
+    journal_topics: int = Field(20, ge=1)
+    journal_min_share: float = Field(0.02, ge=0.0, le=1.0)
+    min_query_chars: int = Field(40, ge=1)
+
+
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
@@ -493,6 +509,7 @@ class AtlasConfig(_Strict):
     keywords: KeywordsCfg = Field(default_factory=KeywordsCfg)
     journals: JournalsCfg = Field(default_factory=JournalsCfg)
     methods: MethodsCfg = Field(default_factory=MethodsCfg)
+    match: MatchCfg = Field(default_factory=MatchCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)
