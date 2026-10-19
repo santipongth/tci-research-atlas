@@ -245,3 +245,51 @@ def test_direction_false_rejects_are_gone():
     assert grounding_error(["เท่ากับ 0.4% เทียบเท่าหัวข้อใหญ่ เท่ากัน"], nb, [], no_baseline=True) is None
     assert grounding_error(["in the first half and second half"], "- x", []) is None
     assert grounding_error(["share halved"], "- x", []) is not None
+
+
+def _watch_row(**over):
+    row = {"status": "WATCH", "share_baseline": 0.004, "share_recent": 0.012, "share_ratio": 3.0, "share_growth": 0.3,
+           "share_growth_lo": 0.15, "share_growth_hi": 0.45, "count_recent": 60, "n_journals_R": 2, "n_orgs_R": 2,
+           "new_journal_share": 0.6, "orgs_unverified": False, "journal_driven": True, "emerging_score": 70.0}
+    return pd.Series({**row, **over})
+
+
+def test_watch_is_worded_as_a_failed_breadth_test_with_the_topic_reasons(make_cfg, tmp_path):
+    from atlas.narrative import breadth_reasons, template_narrative, topic_facts
+
+    cfg = make_cfg(tmp_path)
+    lab = pd.Series({"name_th": "สื่อใหม่", "name_en": "New media", "keywords": "สื่อ; media", "description": ""})
+    e = _watch_row()
+    th, en = breadth_reasons(cfg, e)
+    assert th == ["มาจาก 2 วารสาร (เกณฑ์ ≥ 3)", "2 สถาบัน (เกณฑ์ ≥ 3)", "บทความจากวารสารที่เพิ่งเข้าระบบ 60% (เกณฑ์ < 50%)"]
+    assert en == ["from 2 journals (needs ≥ 3)", "2 institutions (needs ≥ 3)",
+                  "60% of articles from journals new to the index (needs < 50%)"]
+    facts = topic_facts(cfg, lab, e, None, 2024)
+    assert "ไม่ผ่านเกณฑ์ความกว้าง" in facts and "มาจาก 2 วารสาร" in facts
+    t = template_narrative(cfg, lab, e, 2024)
+    assert "ไม่ผ่านเกณฑ์ความกว้าง" in t["th"] and "did not pass the breadth test" in t["en"]
+    assert "single journal" not in t["en"] and "วารสารเดียว" not in t["th"]
+    assert grounding_error([t["th"], t["en"]], facts, [], growth=0.3) is None          # every number is a fact
+    # only the failed parts are named; the institution rule is not claimed when it was skipped (orgs_unverified)
+    assert breadth_reasons(cfg, _watch_row(n_journals_R=5, n_orgs_R=1, orgs_unverified=True))[0] == [
+        "บทความจากวารสารที่เพิ่งเข้าระบบ 60% (เกณฑ์ < 50%)"]
+    assert breadth_reasons(cfg, _watch_row(new_journal_share=0.1, n_orgs_R=7))[1] == ["from 2 journals (needs ≥ 3)"]
+    assert breadth_reasons(cfg, pd.Series({"status": "EMERGING", "journal_driven": False})) == ([], [])
+
+
+def test_brief_words_watch_as_the_breadth_test(make_cfg, tmp_path):
+    from atlas.narrative import brief_facts, template_brief
+
+    cfg = make_cfg(tmp_path)
+    work = _work(cfg)
+    em = pd.DataFrame([_watch_row()], index=[3])
+    em = pd.concat([em, pd.DataFrame([_watch_row(status="EMERGING", journal_driven=False)], index=[1])])
+    b = template_brief(cfg, em, 2024, 10_000, 2015)
+    assert any("ไม่ผ่านเกณฑ์ความกว้าง" in x for x in b["bullets_th"])
+    assert any("did not pass the breadth test" in x for x in b["bullets_en"])
+    from atlas.io_utils import read_table
+
+    labels = read_table(work / "05_labels.parquet").set_index("topic_id")
+    facts = brief_facts(cfg, labels, em, 2024)
+    watch = [ln for ln in facts.splitlines() if "การปลูกข้าว" in ln][0]
+    assert "ไม่ผ่านเกณฑ์ความกว้าง" in watch and "มาจาก 2 วารสาร" in watch

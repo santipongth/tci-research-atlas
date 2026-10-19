@@ -264,6 +264,43 @@ def _windows(cfg: dict, last: int) -> tuple[str, str]:
     return f"{last - r - b + 1}–{last - r} ({b} ปี)", f"{last - r + 1}–{last} ({r} ปี)"
 
 
+BREADTH_TH, BREADTH_EN = "ไม่ผ่านเกณฑ์ความกว้าง", "did not pass the breadth test"
+
+
+def _get(row, key, default):
+    v = row.get(key, default) if hasattr(row, "get") else getattr(row, key, default)
+    return default if v is None or (isinstance(v, float) and math.isnan(v)) else v
+
+
+def breadth_reasons(cfg: dict, em) -> tuple[list[str], list[str]]:
+    """Why a WATCH topic (journal_driven: the growth test passed, the breadth test did not) failed breadth —
+    only the parts that failed (EMERGING_SPEC §6): too few journals, too few institutions (only when that rule
+    was applied, i.e. not orgs_unverified), too many articles from journals new to the index. ([], []) otherwise."""
+    if not bool(_get(em, "journal_driven", False)) and str(_get(em, "status", "")) != "WATCH":
+        return [], []
+    br = cfg["emerging"]["breadth"]
+    th, en = [], []
+    nj, mj = int(_get(em, "n_journals_R", 0)), int(br["min_journals"])
+    if nj < mj:
+        th.append(f"มาจาก {nj} วารสาร (เกณฑ์ ≥ {mj})")
+        en.append(f"from {nj} journals (needs ≥ {mj})")
+    no, mo = int(_get(em, "n_orgs_R", 0)), int(br["min_orgs"])
+    if no < mo and not bool(_get(em, "orgs_unverified", False)):
+        th.append(f"{no} สถาบัน (เกณฑ์ ≥ {mo})")
+        en.append(f"{no} institutions (needs ≥ {mo})")
+    ns, ms = float(_get(em, "new_journal_share", 0.0)), float(br["max_new_journal_share"])
+    if ns >= ms:
+        th.append(f"บทความจากวารสารที่เพิ่งเข้าระบบ {ns * 100:.0f}% (เกณฑ์ < {ms * 100:.0f}%)")
+        en.append(f"{ns * 100:.0f}% of articles from journals new to the index (needs < {ms * 100:.0f}%)")
+    return th, en
+
+
+def _breadth_text(cfg: dict, em) -> tuple[str, str]:
+    th, en = breadth_reasons(cfg, em)
+    return (f"เติบโตแต่{BREADTH_TH}" + (f": {', '.join(th)}" if th else ""),
+            f"growing, but {BREADTH_EN}" + (f": {', '.join(en)}" if en else ""))
+
+
 def topic_facts(cfg: dict, lab, em, fc, last: int) -> str:
     B, R = _windows(cfg, last)
     ci = round(float(cfg["emerging"]["ci_level"]) * 100)
@@ -283,6 +320,8 @@ def topic_facts(cfg: dict, lab, em, fc, last: int) -> str:
                      f"{_pct(em.share_growth_lo, 1)}% ถึง {_pct(em.share_growth_hi, 1)}%)")
     lines.append(f"- บทความช่วง {R}: {int(em.count_recent):,} เรื่อง จาก {int(em.n_journals_R)} วารสาร "
                  f"{int(em.n_orgs_R)} สถาบัน")
+    if str(em.status) == "WATCH":           # WATCH = growth test passed, breadth test failed (not "one journal")
+        lines.append(f"- เกณฑ์ความกว้าง: {_breadth_text(cfg, em)[0]}")
     if fc is not None and bool(fc.show):
         years, mean, lo, hi = (json.loads(fc[k]) for k in ("fc_years", "fc_mean", "fc_lo80", "fc_hi80"))
         lines.append(f"- พยากรณ์ปี {years[0]}: {mean[0]:.0f} เรื่อง (ช่วง 80%: {lo[0]:.0f}–{hi[0]:.0f})")
@@ -298,10 +337,14 @@ def template_narrative(cfg: dict, lab, em, last: int) -> dict:
                 "en": f"{lab.name_en}: a new topic with no articles in {B}; {n:,} articles in {R} "
                       f"({_pct(em.share_recent)}% of all articles)."}
     up = float(em.share_recent) >= float(em.share_baseline)
-    return {"th": f"{lab.name_th}: สัดส่วนบทความ{'เพิ่มขึ้น' if up else 'ลดลง'}จาก {_pct(em.share_baseline)}% "
-                  f"ในช่วง {B} เป็น {_pct(em.share_recent)}% ในช่วง {R} ({n:,} เรื่อง)",
-            "en": f"{lab.name_en}: share of articles {'rose' if up else 'fell'} from {_pct(em.share_baseline)}% "
-                  f"in {B} to {_pct(em.share_recent)}% in {R} ({n:,} articles)."}
+    out = {"th": f"{lab.name_th}: สัดส่วนบทความ{'เพิ่มขึ้น' if up else 'ลดลง'}จาก {_pct(em.share_baseline)}% "
+                 f"ในช่วง {B} เป็น {_pct(em.share_recent)}% ในช่วง {R} ({n:,} เรื่อง)",
+           "en": f"{lab.name_en}: share of articles {'rose' if up else 'fell'} from {_pct(em.share_baseline)}% "
+                 f"in {B} to {_pct(em.share_recent)}% in {R} ({n:,} articles)."}
+    if str(em.status) == "WATCH":
+        th, en = _breadth_text(cfg, em)
+        out = {"th": f"{out['th']} — {th}", "en": f"{out['en'][:-1]} — {en}."}
+    return out
 
 
 def _inputs(cfg: dict):
@@ -375,7 +418,9 @@ def brief_facts(cfg: dict, labels: pd.DataFrame, em: pd.DataFrame, last: int) ->
     lines.append("- จำนวนหัวข้อตามสถานะ: "
                  + ", ".join(f"{STATUS_TH[s]} ({s}) {int(counts.get(s, 0))}" for s in STATUS_TH))
     _, R = _windows(cfg, last)
-    for status in ("EMERGING", "HOT", "DECLINING"):
+    lines.append(f"- {STATUS_TH['WATCH']} (WATCH) = เข้าเกณฑ์การเติบโตของหัวข้อกำลังเกิดใหม่ แต่{BREADTH_TH} "
+                 "(จำนวนวารสาร จำนวนสถาบัน หรือสัดส่วนบทความจากวารสารที่เพิ่งเข้าระบบ)")
+    for status in ("EMERGING", "WATCH", "HOT", "DECLINING"):
         g = em[em["status"] == status]
         g = g.sort_values("share_growth") if status == "DECLINING" else g.sort_values("emerging_score",
                                                                                          ascending=False)
@@ -386,6 +431,8 @@ def brief_facts(cfg: dict, labels: pd.DataFrame, em: pd.DataFrame, last: int) ->
                 line += f", สัดส่วนเปลี่ยน {_pct(e.share_growth, 1)}%/ปี"
                 if pd.notna(e.share_growth_lo) and pd.notna(e.share_growth_hi):
                     line += f" (ช่วงเชื่อมั่น {ci}%: {_pct(e.share_growth_lo, 1)}% ถึง {_pct(e.share_growth_hi, 1)}%)"
+            if status == "WATCH":
+                line += f" — {_breadth_text(cfg, e)[0]}"
             lines.append(line)
     return "\n".join(lines)
 
@@ -400,8 +447,10 @@ def template_brief(cfg: dict, em: pd.DataFrame, last: int, total: int, first: in
                            f"กำลังร้อน {h} หัวข้อ, กำลังลดลง {d} หัวข้อ",
             "headline_en": f"Data {span}: {total:,} articles analysed in {len(em)} topics — {e} emerging, {h} hot, "
                            f"{d} declining",
-            "bullets_th": [f"{STATUS_TH[s]} ({s}): {int(c.get(s, 0))} หัวข้อ" for s in STATUS_TH],
-            "bullets_en": [f"{s}: {int(c.get(s, 0))} topics" for s in STATUS_TH]}
+            "bullets_th": [f"{STATUS_TH[s]} ({s}{' — เติบโตแต่' + BREADTH_TH if s == 'WATCH' else ''}): "
+                           f"{int(c.get(s, 0))} หัวข้อ" for s in STATUS_TH],
+            "bullets_en": [f"{s}{' (growing, but ' + BREADTH_EN + ')' if s == 'WATCH' else ''}: {int(c.get(s, 0))} topics"
+                           for s in STATUS_TH]}
 
 
 def _named_growth(labels: pd.DataFrame, em: pd.DataFrame) -> dict[str, float]:
