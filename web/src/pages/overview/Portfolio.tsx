@@ -48,9 +48,9 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
               rowKey={(r) => r.q}
               stack={false}
               columns={[
-                { key: 'q', header: t('col.group'), rowHeader: true, cell: (r) => quadName(r.q), csv: (r) => r.q },
+                { key: 'q', csvHeader: 'quadrant', header: t('col.group'), rowHeader: true, cell: (r) => quadName(r.q), csv: (r) => r.q },
                 { key: 'meaning', header: t('col.meaning'), cell: (r) => t(`quad.${r.q}.hint` as const) },
-                { key: 'count', header: t('col.topics'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
+                { key: 'count', csvHeader: 'n_topics', header: t('col.topics'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
               ]}
             />
             <DataTable
@@ -63,7 +63,7 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
                 idColumn(),
                 topicColumn(ctx),
                 statusColumn(ctx),
-                { key: 'quadrant', header: t('col.group'), cell: (r) => { const q = quadrantOf(r, threshold); return q ? quadName(q) : '' }, csv: (r) => quadrantOf(r, threshold) ?? '' },
+                { key: 'quadrant', csvHeader: 'quadrant', header: t('col.group'), cell: (r) => { const q = quadrantOf(r, threshold); return q ? quadName(q) : '' }, csv: (r) => quadrantOf(r, threshold) ?? '' },
                 shareColumn(ctx),
                 growthColumn(ctx),
               ]}

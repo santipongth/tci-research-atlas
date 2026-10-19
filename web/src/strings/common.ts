@@ -54,6 +54,7 @@ export const common = defineStrings({
   'view.label': { th: 'เลือกมุมมอง', en: 'Choose a view' },
   'view.chart': { th: 'แผนภูมิ', en: 'Chart' },
   'view.table': { th: 'ตาราง', en: 'Table' },
+  'csv.units': { th: 'ไฟล์ใช้ชื่อคอลัมน์ภาษาอังกฤษเหมือนกันทุกภาษา สัดส่วนและอัตราโตเป็นเศษส่วนดิบ (0.10 = 10%)', en: 'Column names are the same in every language. Shares and growth are raw fractions (0.10 = 10%).' },
   'csv.download': { th: 'ดาวน์โหลด CSV', en: 'Download CSV' },
   sortBy: { th: 'เรียงตาม{c}', en: 'Sort by {c}' },
   perYear: { th: 'ต่อปี', en: 'a year' },

@@ -115,8 +115,8 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
       stack={false}
       csvFilename={`atlas-${release.overview.release}-${topic.id}-${id}.csv`}
       columns={[
-        { key: 'key', header, rowHeader: true, cell: (r) => r.key, sortValue: (r) => r.key },
-        { key: 'count', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
+        { key: 'key', csvHeader: 'name', header, rowHeader: true, cell: (r) => r.key, sortValue: (r) => r.key },
+        { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
       ]}
     />
   )
@@ -232,13 +232,13 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                     stack={false}
                     csvFilename={`atlas-${release.overview.release}-${topic.id}-trend.csv`}
                     columns={[
-                      { key: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.kind === 'forecast' ? t('tp.forecastYear', { year: r.year }) : String(r.year)), csv: (r) => r.year },
-                      { key: 'kind', header: 'kind', cell: () => null, csv: (r) => r.kind, csvOnly: true },
-                      { key: 'articles', header: t('col.articles'), numeric: true, cell: (r) => (r.articles === null ? '' : fmtInt(r.articles)), csv: (r) => r.articles },
-                      { key: 'share', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? '' : fmtPct(r.share, 2)), csv: (r) => r.share },
-                      { key: 'mean', header: t('forecast'), numeric: true, cell: (r) => (r.mean === null ? '' : fmtInt(r.mean)), csv: (r) => r.mean },
-                      { key: 'r80', header: t('tp.col.range80'), numeric: true, cell: (r) => (r.lo80 === null ? '' : `${fmtInt(r.lo80)}–${fmtInt(r.hi80)}`), csv: (r) => (r.lo80 === null ? null : `${r.lo80}-${r.hi80}`) },
-                      { key: 'r95', header: t('tp.col.range95'), numeric: true, cell: (r) => (r.lo95 === null ? '' : `${fmtInt(r.lo95)}–${fmtInt(r.hi95)}`), csv: (r) => (r.lo95 === null ? null : `${r.lo95}-${r.hi95}`) },
+                      { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.kind === 'forecast' ? t('tp.forecastYear', { year: r.year }) : String(r.year)), csv: (r) => r.year },
+                      { key: 'kind', csvHeader: 'kind', header: 'kind', cell: () => null, csv: (r) => r.kind, csvOnly: true },
+                      { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => (r.articles === null ? '' : fmtInt(r.articles)), csv: (r) => r.articles },
+                      { key: 'share', csvHeader: 'share_of_year', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? '' : fmtPct(r.share, 2)), csv: (r) => r.share },
+                      { key: 'mean', csvHeader: 'forecast_mean', header: t('forecast'), numeric: true, cell: (r) => (r.mean === null ? '' : fmtInt(r.mean)), csv: (r) => r.mean },
+                      { key: 'r80', csvHeader: 'range_80', header: t('tp.col.range80'), numeric: true, cell: (r) => (r.lo80 === null ? '' : `${fmtInt(r.lo80)}–${fmtInt(r.hi80)}`), csv: (r) => (r.lo80 === null ? null : `${r.lo80}-${r.hi80}`) },
+                      { key: 'r95', csvHeader: 'range_95', header: t('tp.col.range95'), numeric: true, cell: (r) => (r.lo95 === null ? '' : `${fmtInt(r.lo95)}–${fmtInt(r.hi95)}`), csv: (r) => (r.lo95 === null ? null : `${r.lo95}-${r.hi95}`) },
                     ]}
                   />
                 }

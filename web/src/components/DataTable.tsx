@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { toCsv, downloadText, type CsvColumn } from '../lib/csv'
+import { tableCsvColumns } from '../lib/tableCsv'
 import { useI18n } from '../lib/i18n'
 import { nextSort, sortBy, type SortDir } from '../lib/sort'
 
@@ -8,6 +9,10 @@ export interface Column<R> {
   header: string
   cell: (row: R) => ReactNode
   sortValue?: (row: R) => number | string | null | undefined
+  /** language-independent CSV header (contract field name); defaults to `key`, never to the on-screen header */
+  csvHeader?: string
+  /** replaces the single CSV column with several (e.g. name_th + name_en) */
+  csvCols?: CsvColumn<R>[]
   csv?: (row: R) => string | number | boolean | null | undefined
   numeric?: boolean
   rowHeader?: boolean
@@ -58,9 +63,7 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
     return active && col?.sortValue ? sortBy(rows, col.sortValue, active.dir) : [...rows]
   }, [rows, columns, active])
   const shown = columns.filter((c) => !c.csvOnly)
-  const csvColumns: CsvColumn<R>[] = columns
-    .filter((c) => c.csv || c.sortValue)
-    .map((c) => ({ header: c.header, value: (r: R) => (c.csv ? c.csv(r) : (c.sortValue?.(r) ?? null)) }))
+  const csvColumns = tableCsvColumns(columns)
   const choose = (key: string) => {
     const col = columns.find((c) => c.key === key)
     const next = nextSort(active, key, col?.firstDir ?? (col?.numeric ? 'desc' : 'asc'))
@@ -74,6 +77,7 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
           <button type="button" className="btn-secondary" onClick={() => downloadText(csvFilename, toCsv(sorted, csvColumns))}>
             {t('csv.download')}
           </button>
+          <span className="tbl-note">{t('csv.units')}</span>
         </div>
       ) : null}
       <div className="tscroll">

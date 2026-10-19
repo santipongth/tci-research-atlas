@@ -125,16 +125,17 @@ function Keywords({ release }: { release: AtlasRelease }) {
   const excluded = all.filter((k) => !k.emerging && k.journal_driven).length
   const w = windows(release.overview.last_complete_year)
   const columns: Column<EmergingKeyword>[] = [
-    { key: 'term', header: t('col.term'), rowHeader: true, cell: (k) => k.term, sortValue: (k) => k.term },
-    { key: 'count', header: t('col.articlesR'), numeric: true, cell: (k) => fmtInt(k.count_recent), sortValue: (k) => k.count_recent },
-    { key: 'growth', header: t('col.growth'), numeric: true, cell: (k) => fmtSignedPct(k.growth), sortValue: (k) => k.growth },
-    { key: 'lo', header: t('col.growthLo'), numeric: true, cell: (k) => fmtSignedPct(k.growth_lo), sortValue: (k) => k.growth_lo },
-    { key: 'ratio', header: t('col.ratio'), numeric: true, cell: (k) => (k.no_baseline || k.share_ratio === null ? t('noBaseline') : fmtRatio(k.share_ratio)), sortValue: (k) => (k.no_baseline ? 1e9 : k.share_ratio), csv: (k) => k.share_ratio },
-    { key: 'years', header: t('col.years'), numeric: true, cell: (k) => fmtInt(k.n_active_years), sortValue: (k) => k.n_active_years },
-    { key: 'orgs', header: t('col.orgs'), numeric: true, cell: (k) => fmtInt(k.n_orgs_R), sortValue: (k) => k.n_orgs_R },
-    { key: 'journals', header: t('col.journals'), numeric: true, cell: (k) => fmtInt(k.n_journals_R), sortValue: (k) => k.n_journals_R },
+    { key: 'term', csvHeader: 'term', header: t('col.term'), rowHeader: true, cell: (k) => k.term, sortValue: (k) => k.term },
+    { key: 'count', csvHeader: 'count_recent', header: t('col.articlesR'), numeric: true, cell: (k) => fmtInt(k.count_recent), sortValue: (k) => k.count_recent },
+    { key: 'growth', csvHeader: 'growth', header: t('col.growth'), numeric: true, cell: (k) => fmtSignedPct(k.growth), sortValue: (k) => k.growth },
+    { key: 'lo', csvHeader: 'growth_lo', header: t('col.growthLo'), numeric: true, cell: (k) => fmtSignedPct(k.growth_lo), sortValue: (k) => k.growth_lo },
+    { key: 'ratio', csvHeader: 'share_ratio', header: t('col.ratio'), numeric: true, cell: (k) => (k.no_baseline || k.share_ratio === null ? t('noBaseline') : fmtRatio(k.share_ratio)), sortValue: (k) => (k.no_baseline ? 1e9 : k.share_ratio), csv: (k) => k.share_ratio },
+    { key: 'years', csvHeader: 'n_active_years', header: t('col.years'), numeric: true, cell: (k) => fmtInt(k.n_active_years), sortValue: (k) => k.n_active_years },
+    { key: 'orgs', csvHeader: 'n_orgs_R', header: t('col.orgs'), numeric: true, cell: (k) => fmtInt(k.n_orgs_R), sortValue: (k) => k.n_orgs_R },
+    { key: 'journals', csvHeader: 'n_journals_R', header: t('col.journals'), numeric: true, cell: (k) => fmtInt(k.n_journals_R), sortValue: (k) => k.n_journals_R },
     {
       key: 'topic',
+      csvHeader: 'topic_id',
       header: t('col.linkedTopic'),
       cell: (k) => {
         const tp = k.topic ? release.topicById.get(k.topic) : undefined

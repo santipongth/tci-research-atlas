@@ -18,7 +18,7 @@ export interface ColumnContext {
 export const FOREST_DOMAIN: readonly [number, number] = [-0.3, 1.0]
 
 export function idColumn(): Column<Topic> {
-  return { key: 'id', header: 'id', cell: () => null, csv: (r) => r.id, csvOnly: true }
+  return { key: 'id', header: 'id', csvHeader: 'topic_id', cell: () => null, csv: (r) => r.id, csvOnly: true }
 }
 
 export function topicColumn(ctx: ColumnContext, sub?: (r: Topic) => string): Column<Topic> {
@@ -33,24 +33,29 @@ export function topicColumn(ctx: ColumnContext, sub?: (r: Topic) => string): Col
       </>
     ),
     sortValue: (r) => ctx.name(r),
+    csvCols: [
+      { header: 'name_th', value: (r) => r.th },
+      { header: 'name_en', value: (r) => r.en },
+    ],
   }
 }
 
 export function statusColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'status', header: ctx.t('col.status'), cell: (r) => <StatusChip status={r.status} label={statusName(ctx.t, r.status)} small />, csv: (r) => r.status }
+  return { key: 'status', csvHeader: 'status', header: ctx.t('col.status'), cell: (r) => <StatusChip status={r.status} label={statusName(ctx.t, r.status)} small />, csv: (r) => r.status }
 }
 
 export function shareColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'share', header: ctx.t('col.share'), numeric: true, cell: (r) => fmtPct(r.metrics.share_recent, 2), sortValue: (r) => r.metrics.share_recent }
+  return { key: 'share', csvHeader: 'share_recent', header: ctx.t('col.share'), numeric: true, cell: (r) => fmtPct(r.metrics.share_recent, 2), sortValue: (r) => r.metrics.share_recent }
 }
 
 export function growthColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'growth', header: ctx.t('col.growth'), numeric: true, cell: (r) => fmtSignedPct(r.metrics.share_growth), sortValue: (r) => r.metrics.share_growth }
+  return { key: 'growth', csvHeader: 'share_growth', header: ctx.t('col.growth'), numeric: true, cell: (r) => fmtSignedPct(r.metrics.share_growth), sortValue: (r) => r.metrics.share_growth }
 }
 
 export function ciColumn(ctx: ColumnContext, levelPct: number): Column<Topic> {
   return {
     key: 'lo',
+    csvHeader: 'share_growth_lo',
     header: `${ctx.t('col.ci')} ${levelPct}%`,
     className: 'ci',
     firstDir: 'desc',
@@ -68,7 +73,7 @@ export function ciColumn(ctx: ColumnContext, levelPct: number): Column<Topic> {
 }
 
 export function ciHighColumn(): Column<Topic> {
-  return { key: 'hi', header: 'share_growth_hi', cell: () => null, csv: (r) => r.metrics.share_growth_hi, csvOnly: true }
+  return { key: 'hi', header: 'share_growth_hi', csvHeader: 'share_growth_hi', cell: () => null, csv: (r) => r.metrics.share_growth_hi, csvOnly: true }
 }
 
 export function ratioColumn(ctx: ColumnContext): Column<Topic> {
@@ -78,12 +83,15 @@ export function ratioColumn(ctx: ColumnContext): Column<Topic> {
     numeric: true,
     cell: (r) => ratioText(ctx.t, r.metrics),
     sortValue: (r) => (r.metrics.no_baseline ? 1e9 : r.metrics.share_ratio),
-    csv: (r) => r.metrics.share_ratio,
+    csvCols: [
+      { header: 'share_ratio', value: (r) => r.metrics.share_ratio },
+      { header: 'no_baseline', value: (r) => r.metrics.no_baseline ?? false },
+    ],
   }
 }
 
 export function journalsColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'journals', header: ctx.t('col.journals'), numeric: true, cell: (r) => fmtInt(r.metrics.n_journals_R), sortValue: (r) => r.metrics.n_journals_R }
+  return { key: 'journals', csvHeader: 'n_journals_R', header: ctx.t('col.journals'), numeric: true, cell: (r) => fmtInt(r.metrics.n_journals_R), sortValue: (r) => r.metrics.n_journals_R }
 }
 
 export function orgsColumn(ctx: ColumnContext): Column<Topic> {
@@ -101,18 +109,21 @@ export function orgsColumn(ctx: ColumnContext): Column<Topic> {
       </>
     ),
     sortValue: (r) => r.metrics.n_orgs_R,
-    csv: (r) => r.metrics.n_orgs_R,
+    csvCols: [
+      { header: 'n_orgs_R', value: (r) => r.metrics.n_orgs_R },
+      { header: 'orgs_unverified', value: (r) => r.metrics.orgs_unverified ?? false },
+    ],
   }
 }
 
 export function scoreColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'score', header: ctx.t('col.score'), numeric: true, cell: (r) => fmtNum(r.score, 0), sortValue: (r) => r.score }
+  return { key: 'score', csvHeader: 'score', header: ctx.t('col.score'), numeric: true, cell: (r) => fmtNum(r.score, 0), sortValue: (r) => r.score }
 }
 
 export function articlesColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'articles', header: ctx.t('col.articlesR'), numeric: true, cell: (r) => fmtInt(r.metrics.count_recent), sortValue: (r) => r.metrics.count_recent }
+  return { key: 'articles', csvHeader: 'count_recent', header: ctx.t('col.articlesR'), numeric: true, cell: (r) => fmtInt(r.metrics.count_recent), sortValue: (r) => r.metrics.count_recent }
 }
 
 export function reasonColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'reason', header: ctx.t('col.reason'), cell: (r) => lowDataText(ctx.t, r.metrics) ?? DASH, csv: (r) => r.metrics.low_data_reason ?? '' }
+  return { key: 'reason', csvHeader: 'low_data_reason', header: ctx.t('col.reason'), cell: (r) => lowDataText(ctx.t, r.metrics) ?? DASH, csv: (r) => r.metrics.low_data_reason ?? '' }
 }

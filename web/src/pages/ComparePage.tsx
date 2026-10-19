@@ -91,8 +91,8 @@ function Compare({ release }: { release: AtlasRelease }) {
   const ctx: ColumnContext = { t, name, groupName: (g) => groupName(release, g, lang) }
   const rows: YearRow[] = years.map((year, i) => ({ year, values: series.map((s) => s.values[i] ?? null) }))
   const yearColumns: Column<YearRow>[] = [
-    { key: 'year', header: t('col.year'), rowHeader: true, cell: (r) => String(r.year), csv: (r) => r.year },
-    ...series.map((s, k) => ({ key: s.id, header: s.label, numeric: true, cell: (r: YearRow) => (r.values[k] === null ? '–' : format(r.values[k] as number)), csv: (r: YearRow) => r.values[k] })),
+    { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => String(r.year), csv: (r) => r.year },
+    ...series.map((s, k) => ({ key: s.id, csvHeader: s.id, header: s.label, numeric: true, cell: (r: YearRow) => (r.values[k] === null ? '–' : format(r.values[k] as number)), csv: (r: YearRow) => r.values[k] })),
   ]
   const figTitle = t(share ? 'cmp.fig.share' : 'cmp.fig.count', { a: years[0] ?? '', b: years[years.length - 1] ?? '' })
   return (

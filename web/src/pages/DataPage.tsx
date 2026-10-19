@@ -145,9 +145,9 @@ function OpenData({ release }: { release: AtlasRelease }) {
     ...(ov.corpus_forecast ?? []).filter((r) => r.year !== ov.nowcast?.year).map((r) => ({ year: r.year, articles: r.articles, kind: 'forecast' as const })),
   ]
   const corpusColumns: Column<(typeof corpusRows)[number]>[] = [
-    { key: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.kind === 'actual' ? String(r.year) : t(r.kind === 'nowcast' ? 'data.corpus.nowcast' : 'data.corpus.forecast', { year: r.year })), csv: (r) => r.year },
-    { key: 'kind', header: 'kind', cell: () => null, csv: (r) => r.kind, csvOnly: true },
-    { key: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), csv: (r) => r.articles },
+    { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.kind === 'actual' ? String(r.year) : t(r.kind === 'nowcast' ? 'data.corpus.nowcast' : 'data.corpus.forecast', { year: r.year })), csv: (r) => r.year },
+    { key: 'kind', csvHeader: 'kind', header: 'kind', cell: () => null, csv: (r) => r.kind, csvOnly: true },
+    { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), csv: (r) => r.articles },
   ]
   const dictColumns: Column<DictEntry>[] = [
     { key: 'file', header: t('data.dict.file'), rowHeader: true, cell: (r) => <code>{r.file}</code>, sortValue: (r) => r.file },
