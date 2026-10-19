@@ -142,8 +142,8 @@ def test_direction_must_match_growth():
 def test_brief_direction_per_sentence_with_one_topic():
     facts = "- AI-assisted learning, Print media 5"
     ng = {"AI-assisted learning": 0.3, "Print media": -0.2}
-    assert grounding_error(["Print media grew. AI-assisted learning grew."], facts, [], named_growth=ng) is not None
-    assert grounding_error(["AI-assisted learning grew while Print media fell."], facts, [], named_growth=ng) is None
+    assert grounding_error(["Print media share grew. AI-assisted learning share grew."], facts, [], named_growth=ng) is not None
+    assert grounding_error(["AI-assisted learning share grew while Print media share fell."], facts, [], named_growth=ng) is None
 
 
 def test_minor_tokenisation_case_and_nan():
@@ -163,3 +163,27 @@ def test_minor_tokenisation_case_and_nan():
         (Path(d) / "06_meta.json").write_text(json.dumps({"totals": {"2024": 10}}), encoding="utf-8")
         cfg["pipeline"]["work_dir"] = d
         assert "nan" not in brief_facts(cfg, lab, em, 2024).lower()
+
+
+def test_direction_false_rejects_are_gone():
+    facts = "- สัดส่วน 5 ปี 12"
+    up, down = 0.3, -0.2
+    # neutral words / topic names / compounds never trigger
+    assert grounding_error(["ช่วยลดความเสี่ยงและลดต้นทุน"], facts, [], growth=up) is None
+    assert grounding_error(["งานวิจัยเรื่องการลดคาร์บอน"], facts, [], growth=up, own_terms=["การลดคาร์บอน"]) is None
+    assert grounding_error(["สัดส่วนของการลดคาร์บอนอยู่ที่ 12%"], facts, [], growth=up, own_terms=["การลดคาร์บอน"]) is None
+    assert grounding_error(["negative growth of the share"], facts, [], growth=down) is None
+    assert grounding_error(["growth of the share is positive"], facts, [], growth=down) is None
+    assert grounding_error(["เพิ่มประสิทธิภาพ และโต๊ะกลม"], facts, [], growth=down) is None
+    assert grounding_error(["the dropout rate and first half"], facts, [], growth=up) is None
+    # rate sentences are checked
+    assert "direction" in grounding_error(["เติบโต 12% ต่อปี"], facts, [], growth=-0.12)
+    assert "direction" in grounding_error(["ลดลง 10% ต่อปี"], "- 10 ปี", [], growth=0.1)
+    assert "direction" in grounding_error(["The share rose."], facts, [], growth=down)
+    # a non-rate sentence is not direction-checked
+    assert grounding_error(["จำนวนวารสารลดลง"], facts, [], growth=up) is None
+    # equality words are not multiples
+    nb = "- ไม่มีฐานเปรียบเทียบ 0.4%"
+    assert grounding_error(["เท่ากับ 0.4% เทียบเท่าหัวข้อใหญ่ เท่ากัน"], nb, [], no_baseline=True) is None
+    assert grounding_error(["in the first half and second half"], "- x", []) is None
+    assert grounding_error(["share halved"], "- x", []) is not None

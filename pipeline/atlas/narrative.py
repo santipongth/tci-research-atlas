@@ -39,12 +39,15 @@ _TH_NUM = {"หนึ่ง": 1, "สอง": 2, "สาม": 3, "สี่": 4,
 _WORD_MULT = [(re.compile(rf"{w}\s*เท่า"), float(n)) for w, n in _TH_NUM.items()] + [
     (re.compile(p, re.I), n) for p, n in ((r"doubl(?:ed|ing)|\btwice\b|two-?fold", 2.0), (r"tripl(?:ed|ing)|three-?fold", 3.0),
                                           (r"quadrupl(?:ed|ing)|four-?fold", 4.0),
-                                          (r"\bhalv(?:ed|ing)\b|\bhalf\b|ครึ่งหนึ่ง", 0.5),
+                                          (r"\bhalv(?:ed|ing)\b|\bby half\b|\ba half of\b|ครึ่งหนึ่ง", 0.5),
                                           (r"ten-?fold", 10.0), ("½", 0.5), ("¼", 0.25), ("¾", 0.75))]
 _VAGUE_MULT = re.compile(r"เท่าตัว|หลายเท่า|many[- ]?fold|several times", re.I)
 _ANY_MULT = re.compile(r"เท่า|\btimes\b|-?fold\b|×|\d\s*x\b|\bx\s*\d", re.I)
-_RISE = re.compile(r"เพิ่ม(?!เติม)|โต(?!เกียว)|สูงขึ้น|\b(?:grow\w*|grew|rose|rising|increas\w*)\b", re.I)
-_FALL = re.compile(r"ลด|หดตัว|\b(?:declin\w*|fell|falling|decreas\w*|drop\w*)\b", re.I)
+_NOT_MULT = re.compile(r"เท่ากับ|เท่ากัน|เทียบเท่า|เท่าเทียม")          # "equals", "equal", "equivalent": not multiples
+_RISE = re.compile(r"เพิ่มขึ้น|สูงขึ้น|เติบโต|ขยายตัว|\b(?:grew|grows|growing|increas(?:e|ed|es|ing)|rose|rising)\b", re.I)
+_FALL = re.compile(r"ลดลง|หดตัว|ถดถอย|\b(?:declin(?:e|ed|es|ing)|fell|falling|decreas(?:e|ed|es|ing)|dropp(?:ed|ing)|drops?)\b",
+                   re.I)
+_RATE_CUE = re.compile(r"สัดส่วน|ต่อปี|อัตรา|%|share|per year|a year|annual|/yr", re.I)    # a sentence about the rate
 _FLAT = 0.01                                    # |share growth| within ±1% per year: no direction claim is checked
 
 
@@ -83,7 +86,7 @@ def _grounded(x: float, allowed: set[float]) -> bool:
 
 
 def _multiple_error(texts: list[str], allowed: set[float], no_baseline: bool) -> str | None:
-    joined = "\n".join(texts)
+    joined = _NOT_MULT.sub(" ", "\n".join(texts))
     if no_baseline and _ANY_MULT.search(joined):
         return "multiple wording for a topic with no baseline (there is nothing to multiply)"
     if _VAGUE_MULT.search(joined):
@@ -94,14 +97,26 @@ def _multiple_error(texts: list[str], allowed: set[float], no_baseline: bool) ->
     return None
 
 
-def _direction_error(texts: list[str], growth: float | None) -> str | None:
+def _strip_terms(text: str, terms: list[str]) -> str:
+    """Remove the topic's own names/keywords ("การลดคาร์บอน" is not a claim of decline), longest first."""
+    for t in sorted({x.strip() for x in terms if len(x.strip()) >= 2}, key=len, reverse=True):
+        text = re.sub(re.escape(t), " ", text, flags=re.I)
+    return text
+
+
+def _direction_error(texts: list[str], growth: float | None, own_terms: list[str] = ()) -> str | None:
+    """Direction words are checked only in rate sentences (share / per year / %), after removing own_terms."""
     if growth is None or not math.isfinite(growth) or abs(growth) <= _FLAT:
         return None
-    joined = "\n".join(texts)
-    if growth < 0 and _RISE.search(joined):
-        return "direction: the text says the share rises but share growth is negative"
-    if growth > 0 and _FALL.search(joined):
-        return "direction: the text says the share falls but share growth is positive"
+    for t in texts:
+        for sent in re.split(r"(?<=[.!?])\s+|\n", str(t)):
+            if not _RATE_CUE.search(sent):
+                continue
+            sent = _strip_terms(sent, list(own_terms))
+            if growth < 0 and _RISE.search(sent):
+                return "direction: the text says the share rises but share growth is negative"
+            if growth > 0 and _FALL.search(sent):
+                return "direction: the text says the share falls but share growth is positive"
     return None
 
 
@@ -112,24 +127,26 @@ def _named_direction_error(texts: list[str], named_growth: dict[str, float]) -> 
             low = sent.lower()
             hit = {n for n in named_growth if n.lower() in low}
             if len(hit) == 1:
-                err = _direction_error([sent], named_growth[next(iter(hit))])
+                err = _direction_error([sent], named_growth[next(iter(hit))], sorted(hit))
                 if err:
                     return err
     return None
 
 
 def grounding_error(texts: list[str], facts: str, names: list[str], *, no_baseline: bool = False,
-                    growth: float | None = None, named_growth: dict[str, float] | None = None) -> str | None:
+                    growth: float | None = None, named_growth: dict[str, float] | None = None,
+                    own_terms: list[str] = ()) -> str | None:
     """Why the texts are not grounded in `facts`, or None. names: every topic name of the release.
 
     no_baseline: the topic has no baseline articles → no multiple wording at all. growth: the topic's share growth
-    (direction words must agree). named_growth: {topic name: growth} for the brief (checked per sentence).
+    (direction words must agree, in rate sentences only, after removing own_terms = the topic's names and
+    keywords). named_growth: {topic name: growth} for the brief (checked per sentence).
     """
     allowed = set(numbers_in(facts))
     bad = sorted({n for t in texts for n in numbers_in(t) if not _grounded(n, allowed)})
     if bad:
         return "numbers not in the facts: " + ", ".join(f"{n:g}" for n in bad[:5])
-    err = _multiple_error(texts, allowed, no_baseline) or _direction_error(texts, growth)
+    err = _multiple_error(texts, allowed, no_baseline) or _direction_error(texts, growth, own_terms)
     if err is None and named_growth:
         err = _named_direction_error(texts, named_growth)
     if err:
@@ -233,7 +250,9 @@ def narrative_job(cfg: dict) -> LlmJob:
                              template_narrative(cfg, lab, e, last),
                              _checker(facts + "\n" + tl, names, ("th", "en"),
                                       no_baseline=float(e.share_baseline) == 0,
-                                      growth=float(e.share_growth) if pd.notna(e.share_growth) else None)))
+                                      growth=float(e.share_growth) if pd.notna(e.share_growth) else None,
+                                      own_terms=[str(lab.name_th), str(lab.name_en),
+                                                 *str(lab.keywords).split(";")])))
     return LlmJob("narrative", NarrativeOut, prompt_version(template), items)
 
 
