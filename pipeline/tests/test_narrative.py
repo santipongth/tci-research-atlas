@@ -119,7 +119,7 @@ def test_llm_narratives_are_grounded_or_replaced(make_cfg, tmp_path):
 
 def test_step_and_jobs_are_registered():
     assert STEPS.index("forecast") < STEPS.index("narrate") < STEPS.index("export")
-    assert set(JOBS) == {"label", "merge", "narrative", "brief"}
+    assert set(JOBS) == {"label", "merge", "narrative", "brief", "methods"}
 
 
 def test_word_form_multiples_and_fractions_are_rejected():

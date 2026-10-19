@@ -311,13 +311,13 @@ def test_check_endpoints_reports_json_and_thai_round_trip(make_cfg, tmp_path):
     rows = check_endpoints(cfg, transport=server, sleep=lambda s: None)
     assert [(r["model"], r["json_ok"], r["thai_ok"]) for r in rows] == [("test-model", True, True),
                                                                         ("other-model", False, False)]
-    assert rows[0]["tasks"] == "label, merge, narrative" and "LlmConfigError" in rows[1]["error"]
+    assert rows[0]["tasks"] == "label, merge, narrative, methods" and "LlmConfigError" in rows[1]["error"]
 
 
 def test_llm_config_defaults_and_errors(make_cfg, tmp_path):
     cfg = load_config(None)
     assert cfg["llm"]["endpoints"]["default"]["api_key_env"] == "ATLAS_LLM_API_KEY"
-    assert set(cfg["llm"]["tasks"]) == {"label", "merge", "narrative", "brief"}
+    assert set(cfg["llm"]["tasks"]) == {"label", "merge", "narrative", "brief", "methods"}
     with pytest.raises(LlmConfigError, match="llm.tasks.label.model"):
         OpenAICompatLLM.for_task(make_cfg(tmp_path), "label")
     priced = _cfg(make_cfg, tmp_path)

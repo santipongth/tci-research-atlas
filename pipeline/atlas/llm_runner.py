@@ -50,7 +50,8 @@ from atlas.llm import LlmConfigError, OpenAICompatLLM, extract_json
 from atlas.state import work_release
 
 JOBS: dict[str, str] = {"label": "atlas.label:label_job", "merge": "atlas.review:merge_job",
-                        "narrative": "atlas.narrative:narrative_job", "brief": "atlas.narrative:brief_job"}
+                        "narrative": "atlas.narrative:narrative_job", "brief": "atlas.narrative:brief_job",
+                        "methods": "atlas.methods:methods_job"}
 PROGRESS_EVERY_S = 5.0
 # the command that continues a stopped job (`atlas run` or `atlas llm`, set by the CLI) — shown by `atlas status`
 RESUME_COMMAND: ContextVar[str] = ContextVar("atlas_llm_resume", default="uv run atlas llm")

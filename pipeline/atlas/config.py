@@ -443,6 +443,7 @@ class LlmTasksCfg(_Strict):
     merge: LlmTaskCfg = Field(default_factory=lambda: LlmTaskCfg(temperature=0.0, max_output_tokens=300))
     narrative: LlmTaskCfg = Field(default_factory=lambda: LlmTaskCfg(temperature=0.3, max_output_tokens=900))
     brief: LlmTaskCfg = Field(default_factory=lambda: LlmTaskCfg(temperature=0.3, max_output_tokens=1200))
+    methods: LlmTaskCfg = Field(default_factory=lambda: LlmTaskCfg(temperature=0.2, max_output_tokens=500))
 
 
 class LlmCfg(_Strict):

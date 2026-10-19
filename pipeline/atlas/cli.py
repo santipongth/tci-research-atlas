@@ -421,7 +421,8 @@ def llm_cmd(
     background: bool = typer.Option(False, "--background", help="run detached from this window (you may close it); "
                                                                 "log in state_dir/llm_cache/run.log"),
 ) -> None:
-    """LLM work (labels, merge checks, narratives, brief). Without flags: run the label and narrate steps.
+    """LLM work (labels, merge checks, narratives, brief, methods notes). Without flags: run the label, methods
+    and narrate steps (methods notes only when methods.provider is llm).
 
     Exit codes (as `atlas embed`): 0 done, 2 endpoint/config error, 3 another LLM job runs, 130 stopped
     (`atlas llm-stop`, Ctrl-C or llm.budget_usd) — run the same command again to continue.
@@ -457,7 +458,8 @@ def llm_cmd(
         return
     if background:
         raise typer.Exit(_llm_background(cfg, config))
-    code = _run_guarded(cfg, [s for s in ("label", "narrate") if s in STEPS], config, tag="llm", resume="llm")
+    code = _run_guarded(cfg, [s for s in ("label", "methods", "narrate") if s in STEPS], config, tag="llm",
+                        resume="llm")
     if code == 0:
         typer.echo(f"[llm] done — publish with: uv run atlas run -c {_cfg_arg(config)} --step export")
     raise typer.Exit(code)

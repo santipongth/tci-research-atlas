@@ -105,3 +105,59 @@ def test_methods_step_writes_aggregates_and_never_the_text(tmp_path):
     cfg["methods"]["enabled"] = False
     methods(cfg)
     assert not (tmp_path / "12_methods_topics.parquet").exists()
+
+
+# ---------------------------------------------------------------- optional LLM notes (topic level only)
+class FakeNoter:
+    model_id = "fake-noter"
+
+    def __init__(self, invent: bool = False):
+        self.prompts, self.invent = [], invent
+        self.model_id = "fake-inventor" if invent else "fake-noter"       # another model → no cache hit
+
+    def chat(self, messages):
+        from atlas.llm import Reply
+
+        p = messages[0]["content"]
+        self.prompts.append(p)
+        out = ({"th": "ใช้แบบสอบถาม 99%", "en": "99% use questionnaires"} if self.invent else
+               {"th": "บทความส่วนใหญ่ใช้แบบสอบถาม (100%)", "en": "Most articles use questionnaires (100%)"})
+        return Reply(json.dumps(out, ensure_ascii=False), 0, 0, 0.0)
+
+
+def _notes_work(tmp_path):
+    cfg = load_config(None)
+    cfg["pipeline"].update(work_dir=str(tmp_path / "w"), state_dir=str(tmp_path / "s"), release="2026Q4")
+    work = tmp_path / "w"
+    work.mkdir()
+    cfg["methods"]["min_articles"] = 2
+    docs = pd.DataFrame({"article_id": ["a", "b", "c"], "year": pd.array([2023, 2024, 2024], dtype="Int64"),
+                         "title": ["เรื่อง ก", "เรื่อง ข", "เรื่อง ค"], "title_th": ["", "", ""], "title_en": ["", "", ""],
+                         "abstract_th": ["ใช้แบบสอบถาม", "ใช้แบบสอบถาม", "แบบสอบถาม"], "abstract_en": ["", "", ""]})
+    write_table(docs, work / "02_docs.parquet")
+    write_table(pd.DataFrame({"article_id": ["a", "b", "c"], "fine_topic": [4, 4, 4]}), work / "04_fine_topics.parquet")
+    write_table(pd.DataFrame({"level": ["fine"], "topic_id": [4], "name_th": ["การสำรวจความพึงพอใจ"],
+                              "name_en": ["Satisfaction surveys"], "description": [""], "keywords": [""],
+                              "cache_key": [""], "label_source": ["keywords"]}), work / "05_labels.parquet")
+    (work / "06_meta.json").write_text(json.dumps({"last_complete_year": 2024, "years": [2023, 2024]}),
+                                       encoding="utf-8")
+    return cfg, work
+
+
+def test_notes_are_off_by_default_and_grounded_when_on(tmp_path):
+    from atlas.llm_runner import JOBS
+
+    cfg, work = _notes_work(tmp_path)
+    methods(cfg)
+    assert not (work / "12_methods_notes.parquet").exists()          # provider off → no LLM, no notes
+    methods(cfg, llm=FakeNoter())
+    notes = read_table(work / "12_methods_notes.parquet")
+    assert notes.loc[0, "source"] == "llm" and "100%" in notes.loc[0, "th"]
+    meta = json.loads((work / "12_methods_meta.json").read_text(encoding="utf-8"))
+    assert meta["llm"]["task"] == "methods" and meta["llm"]["items"] == 1
+    noter = FakeNoter(invent=True)
+    methods(cfg, llm=noter)
+    notes = read_table(work / "12_methods_notes.parquet")
+    assert notes.loc[0, "source"] == "template" and "99" not in notes.loc[0, "th"]
+    assert "บทความเรื่อง" not in noter.prompts[0] and "เรื่อง ก" in noter.prompts[0]   # titles only, never abstracts
+    assert "methods" in JOBS

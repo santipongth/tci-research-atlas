@@ -166,6 +166,11 @@ llm:
       model: ""
       temperature: 0.3
       max_output_tokens: 1200
+    methods:                  # บันทึกวิธีวิจัยต่อหัวข้อ (ใช้เมื่อ methods.provider: llm เท่านั้น)
+      endpoint: default
+      model: ""
+      temperature: 0.2
+      max_output_tokens: 500
 
 # ---------- หัวข้อที่มี ID ถาวรข้ามรอบ (T000123) ----------
 topics:

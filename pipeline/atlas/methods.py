@@ -9,7 +9,8 @@ lie in methods.monoculture_methods (default: questionnaire + descriptive statist
 
 Step `methods` (after layout) writes work/12_methods_articles (article_id, year, topic_id, methods, sample_size),
 12_methods_topics (one row per topic with ≥ methods.min_articles window articles) and 12_methods_meta.json
-(lexicon version, window, corpus shares, shares by year).
+(lexicon version, window, corpus shares, shares by year); with methods.provider: llm also 12_methods_notes
+(method_notes — topic level only, grounded, template fallback).
 """
 from __future__ import annotations
 
@@ -21,8 +22,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from atlas.io_utils import read_table, write_table
+from atlas.llm_runner import LlmItem, LlmJob, run_job
+from atlas.prompts import load_prompt, prompt_version, render_prompt
 from atlas.thai import clean_text, fold_thai
 
 
@@ -211,8 +215,111 @@ def methods(cfg: dict, llm=None) -> pd.DataFrame:
             "with_methods": int(n_with), "counts": counts,
             "monoculture_share": monoculture_share(win["methods"], mcfg["monoculture_methods"]),
             "by_year": by_year(am, [int(y) for y in meta6.get("years", [])])}
+    notes, stats = method_notes(cfg, llm)
+    if notes is not None:
+        write_table(notes, work / "12_methods_notes.parquet")
+        meta["llm"] = stats
     (work / "12_methods_meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     cov = n_with / len(win) if len(win) else 0.0
     print(f"[methods] lexicon {LEXICON_VERSION}: methods named in {cov:.0%} of {len(win):,} articles {start}–{end}; "
           f"{len(topics)} topics summarised ({int(topics['monoculture'].sum()) if len(topics) else 0} monoculture)")
     return am
+
+
+# ---------------------------------------------------------------------- optional LLM notes (topic level only)
+NOTES_PROMPT = "topic_methods.th"
+NOTE_COLUMNS = ["topic_id", "th", "en", "source"]
+METHOD_NAMES = {m.key: m for m in METHODS}
+
+
+class MethodsNoteOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    th: str
+    en: str
+
+    @field_validator("th", "en")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("empty text")
+        return v.strip()
+
+
+def _top(counts: dict[str, int]) -> list[tuple[str, int]]:
+    return sorted(counts.items(), key=lambda kv: (-kv[1], METHOD_KEYS.index(kv[0])))
+
+
+def method_facts(row, name_th: str, name_en: str, window: tuple[int, int], mono: list[str]) -> str:
+    counts = json.loads(row.counts)
+    lines = [f"- หัวข้อ: {name_th} / {name_en}",
+             f"- บทความช่วง {window[0]}–{window[1]}: {row.articles:,} เรื่อง; ระบุวิธีวิจัยได้ {row.with_methods:,} เรื่อง "
+             f"({100 * row.coverage:.0f}%)"]
+    for k, n in _top(counts)[:5]:
+        m = METHOD_NAMES[k]
+        lines.append(f"- {m.th} ({m.en}): {n:,} เรื่อง ({100 * n / row.with_methods:.0f}% ของบทความที่ระบุวิธีได้)")
+    if row.ss_n:
+        lines.append(f"- ขนาดตัวอย่าง (มัธยฐาน): {row.ss_median:,.0f} จาก {row.ss_n:,} บทความที่ระบุขนาดตัวอย่าง")
+    if pd.notna(row.monoculture_share):
+        names = " + ".join(METHOD_NAMES[k].th for k in mono)
+        lines.append(f"- บทความที่ใช้เฉพาะ {names}: {100 * row.monoculture_share:.0f}% ของบทความที่ระบุวิธีได้")
+    return "\n".join(lines)
+
+
+def template_note(row, name_th: str, name_en: str) -> dict:
+    top = _top(json.loads(row.counts))
+    if not top:
+        return {"th": f"ยังระบุวิธีวิจัยของบทความในหัวข้อ{name_th}ไม่ได้", "en": f"No method could be read for {name_en}."}
+    key, n = top[0]
+    m, pct = METHOD_NAMES[key], 100 * n / row.with_methods
+    return {"th": f"บทความในหัวข้อนี้ที่ระบุวิธีวิจัยได้ {pct:.0f}% ใช้{m.th}",
+            "en": f"{pct:.0f}% of the articles in this topic that name a method use {m.en.lower()}."}
+
+
+def methods_job(cfg: dict) -> LlmJob:
+    """LLM job `methods`: one item per topic among the note_top_n largest of work/12_methods_topics."""
+    from atlas.export import fine_labels
+    from atlas.lineage import topic_code
+    from atlas.narrative import grounding_error
+
+    work, mcfg = Path(cfg["pipeline"]["work_dir"]), cfg["methods"]
+    topics = read_table(work / "12_methods_topics.parquet")
+    labels = fine_labels(read_table(work / "05_labels.parquet")).set_index("topic_id")
+    end = int(json.loads((work / "06_meta.json").read_text(encoding="utf-8"))["last_complete_year"])
+    window = (end - int(mcfg["window_years"]) + 1, end)
+    template = load_prompt(NOTES_PROMPT, cfg["llm"]["prompts_dir"])
+    sel = topics.sort_values(["articles", "topic_id"], ascending=[False, True]).head(int(mcfg["note_top_n"]))
+    am = read_table(work / "12_methods_articles.parquet")
+    titles_of = read_table(work / "02_docs.parquet").set_index("article_id")["title"].fillna("").astype(str)
+    names = [str(x) for col in ("name_th", "name_en") for x in labels[col].fillna("") if str(x)]
+    items = []
+    for row in sel.itertuples():
+        tid = int(row.topic_id)
+        th = str(labels.loc[tid, "name_th"]) if tid in labels.index else topic_code(tid)
+        en = str(labels.loc[tid, "name_en"]) if tid in labels.index else topic_code(tid)
+        facts = method_facts(row, th, en, window, mcfg["monoculture_methods"])
+        ids = am.loc[am["topic_id"] == tid, "article_id"].sort_values().head(int(cfg["narrative"]["n_titles"]))
+        titles = "\n".join(f"- {titles_of.get(a, '')}" for a in ids)
+        others = [n for n in names if n not in (th, en)]
+        items.append(LlmItem(topic_code(tid), render_prompt(template, facts=facts, titles=titles),
+                             template_note(row, th, en),
+                             lambda out, f=facts + "\n" + titles, o=others: grounding_error([out["th"], out["en"]], f, o)))
+    return LlmJob("methods", MethodsNoteOut, prompt_version(template), items)
+
+
+def _use_llm(cfg: dict, llm) -> bool:
+    return llm is not None or (cfg["methods"]["provider"] == "llm" and bool(cfg["llm"]["tasks"]["methods"]["model"]))
+
+
+def method_notes(cfg: dict, llm=None) -> tuple[pd.DataFrame | None, dict]:
+    """(notes, LLM stats) when methods.provider is llm (or an LLM is injected); (None, {}) otherwise."""
+    if not _use_llm(cfg, llm):
+        if cfg["methods"]["provider"] == "llm":
+            print("[methods] methods.provider is llm but llm.tasks.methods.model is empty — no notes this run")
+        return None, {}
+    job = methods_job(cfg)
+    if not job.items:
+        return pd.DataFrame(columns=NOTE_COLUMNS), {}
+    results, stats = run_job(cfg, job, llm)
+    rows = [{"topic_id": int(it.key[1:]), "th": results[it.key].output["th"], "en": results[it.key].output["en"],
+             "source": "template" if results[it.key].source == "fallback" else "llm"} for it in job.items]
+    return pd.DataFrame(rows, columns=NOTE_COLUMNS), stats
