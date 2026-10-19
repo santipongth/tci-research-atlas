@@ -6,8 +6,8 @@ import { StatusGlyph } from '../components/StatusGlyph'
 import { CHANGELOG } from '../content/changelog'
 import { METHOD } from '../content/method'
 import { useRelease } from '../data/atlasContext'
-import { DEFINITION, fmtWindow, windows } from '../lib/definition'
-import { ciPct, fmtNum, fmtSignedPct } from '../lib/format'
+import { fmtWindow, ruleVars, windows } from '../lib/definition'
+import { ciPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { STATUSES } from '../lib/status'
 import { statusName } from '../lib/topicText'
@@ -23,16 +23,6 @@ export default function AboutPage() {
     ? { R: fmtWindow(w.R), B: fmtWindow(w.B), W: fmtWindow(w.W) }
     : { R: t('about.generic.R'), B: t('about.generic.B'), W: t('about.generic.W') }
   const fill = (s: string) => s.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
-  const ruleVars = {
-    level,
-    bar: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0),
-    ratio: fmtNum(DEFINITION.emergingMinShareRatio, 1),
-    dratio: fmtNum(DEFINITION.decliningMaxShareRatio, 1),
-    j: DEFINITION.minJournals,
-    o: DEFINITION.minOrgs,
-    n: DEFINITION.minArticlesRecent,
-    y: DEFINITION.recentYears,
-  }
   const changes = CHANGELOG.filter((c) => c.version <= version).sort((a, b) => b.version - a.version)
   const toc = [
     ...METHOD.map((m) => ({ id: `m-${m.id}`, label: pick(m.h.th, m.h.en) })),
@@ -61,7 +51,7 @@ export default function AboutPage() {
                     <span>{statusName(t, st)}</span>
                     <code>{st}</code>
                   </dt>
-                  <dd>{t(`rule.${st}` as const, ruleVars)}</dd>
+                  <dd>{t(`rule.${st}` as const, ruleVars(level))}</dd>
                 </div>
               ))}
             </dl>

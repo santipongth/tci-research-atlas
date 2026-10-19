@@ -102,6 +102,18 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page).toHaveURL(/metric=count/)
     await page.getByRole('button', { name: 'เอาออก: AI เพื่อการศึกษา' }).click()
     await expect(page.locator('.cmp-chip')).toHaveCount(2)
+    // focus follows the change: the next chip's remove button, then the "max 4" hint when the picker fills up
+    await expect(page.locator('.cmp-remove').first()).toBeFocused()
+    await add.fill('ข้าว')
+    await add.press('Enter')
+    await add.fill('ผู้สูงอายุ')
+    await add.press('Enter')
+    await expect(page.locator('.cmp-chip')).toHaveCount(4)
+    await expect(add).toBeDisabled()
+    await expect(page.locator('p.hint', { hasText: /4/ })).toBeFocused()
+    await page.locator('.cmp-remove').last().click()
+    await expect(page.locator('.cmp-remove').last()).toBeFocused()
+    await expect(add).toBeEnabled()
   },
   data: async (page) => {
     await expect(page.locator('#downloads .dl-list li')).toHaveCount(7)

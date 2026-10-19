@@ -7,13 +7,14 @@ import { buildSearchIndex, searchTopics } from '../lib/search'
 import { StatusGlyph } from './StatusGlyph'
 
 /** ARIA 1.2 combobox over every topic name and keyword (Thai and English, tone-mark tolerant). */
-export function TopicSearch({ id, label, onPick, hideLabel = false, exclude, placeholder }: {
+export function TopicSearch({ id, label, onPick, hideLabel = false, exclude, placeholder, disabled = false }: {
   id: string
   label: string
   onPick: (topicId: string) => void
   hideLabel?: boolean
   exclude?: readonly string[]
   placeholder?: string
+  disabled?: boolean
 }) {
   const release = useRelease()
   const { t, name, other, otherLang } = useI18n()
@@ -65,7 +66,7 @@ export function TopicSearch({ id, label, onPick, hideLabel = false, exclude, pla
         spellCheck={false}
         placeholder={placeholder ?? t('search.placeholder')}
         value={query}
-        disabled={!release}
+        disabled={!release || disabled}
         onChange={(e) => {
           setQuery(e.target.value)
           setOpen(true)

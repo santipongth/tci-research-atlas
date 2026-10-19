@@ -39,3 +39,17 @@ describe('sortBy', () => {
     expect(rows.map((r) => r.n)).toEqual(['ข', 'ก', 'ค'])
   })
 })
+
+describe('ruleVars', () => {
+  it('fills every placeholder of every rule string, in both languages', async () => {
+    const { ruleVars } = await import('./definition')
+    const { STR } = await import('../strings')
+    const { translate } = await import('./i18n')
+    const keys = Object.keys(STR).filter((k) => k.startsWith('rule.')) as (keyof typeof STR)[]
+    expect(keys.length).toBeGreaterThanOrEqual(6)
+    for (const lang of ['th', 'en'] as const) {
+      for (const k of keys) expect(translate(lang, k, ruleVars(90)), `${lang} ${k}`).not.toMatch(/[{}]/)
+    }
+    expect(translate('en', 'rule.HOT', ruleVars(90))).toContain('top 25%')
+  })
+})

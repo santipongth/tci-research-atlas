@@ -1,4 +1,5 @@
 import type { Topic } from '../data/types'
+import { fmtNum, fmtPct, fmtSignedPct } from './format'
 
 /**
  * Emerging-definition constants shown in the UI. They mirror pipeline/config.example.yaml defaults
@@ -59,4 +60,19 @@ export function quadrantOf(t: Topic, threshold: number): Quadrant | null {
   const large = t.metrics.share_recent >= threshold
   if (g > 0) return large ? 'stars' : 'rising'
   return large ? 'mature' : 'declining'
+}
+
+/** Every placeholder used by the `rule.*` strings, from DEFINITION — the one place that fills them (/emerging, /about). */
+export function ruleVars(level: number): Record<string, string | number> {
+  return {
+    level,
+    bar: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0),
+    ratio: fmtNum(DEFINITION.emergingMinShareRatio, 1),
+    dratio: fmtNum(DEFINITION.decliningMaxShareRatio, 1),
+    j: DEFINITION.minJournals,
+    o: DEFINITION.minOrgs,
+    n: DEFINITION.minArticlesRecent,
+    y: DEFINITION.recentYears,
+    top: fmtPct(1 - DEFINITION.largeQuantile, 0),
+  }
 }

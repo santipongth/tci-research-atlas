@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
@@ -64,8 +64,29 @@ function Compare({ release }: { release: AtlasRelease }) {
     update({ ids })
   }
   const known = state.ids.filter((id) => release.topicById.has(id))
-  const add = (id: string) => setIds([...known.filter((x) => x !== id), id].slice(0, 4))
-  const remove = (id: string) => setIds(known.filter((x) => x !== id))
+  // Where keyboard focus goes once the changed chip list has rendered (the focused control may be unmounted or disabled).
+  const focusNext = useRef<number | 'hint' | null>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  const hintRef = useRef<HTMLParagraphElement>(null)
+  const add = (id: string) => {
+    const next = [...known.filter((x) => x !== id), id].slice(0, 4)
+    if (next.length >= 4) focusNext.current = 'hint'
+    setIds(next)
+  }
+  const remove = (id: string) => {
+    const left = known.filter((x) => x !== id)
+    focusNext.current = Math.min(known.indexOf(id), left.length - 1)
+    setIds(left)
+  }
+  const idsKey = state.ids.join(',')
+  useEffect(() => {
+    const target = focusNext.current
+    if (target === null) return
+    focusNext.current = null
+    if (target === 'hint') hintRef.current?.focus()
+    else if (target < 0) document.getElementById('cmp-search')?.focus()
+    else listRef.current?.querySelectorAll<HTMLButtonElement>('.cmp-remove')[target]?.focus()
+  }, [idsKey])
   const suggestions = sortBy(release.topics.filter((tp) => (tp.status === 'EMERGING' || tp.status === 'HOT') && !state.ids.includes(tp.id)), (tp) => tp.score, 'desc').slice(0, 3)
   const ctx: ColumnContext = { t, name, groupName: (g) => groupName(release, g, lang) }
   const rows: YearRow[] = years.map((year, i) => ({ year, values: series.map((s) => s.values[i] ?? null) }))
@@ -78,9 +99,10 @@ function Compare({ release }: { release: AtlasRelease }) {
     <div className="container">
       <PageHeader title={t('cmp.title')} lede={t('cmp.lede')} />
       <div className="cmp-picker">
-        {chosen.length < 4 ? <TopicSearch id="cmp-search" label={t('cmp.add')} onPick={add} exclude={state.ids} /> : <p className="hint">{t('cmp.max')}</p>}
+        <TopicSearch id="cmp-search" label={t('cmp.add')} onPick={add} exclude={state.ids} disabled={chosen.length >= 4} />
+        {chosen.length >= 4 ? <p className="hint" ref={hintRef} tabIndex={-1}>{t('cmp.max')}</p> : null}
         {chosen.length ? (
-          <ul className="cmp-chips" aria-label={t('cmp.chosen')}>
+          <ul className="cmp-chips" ref={listRef} aria-label={t('cmp.chosen')}>
             {chosen.map((tp) => (
               <li key={tp.id} className="cmp-chip">
                 <Swatch slot={slots[tp.id]} />

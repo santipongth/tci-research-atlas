@@ -10,8 +10,8 @@ import { TopicLink } from '../components/TopicLink'
 import { ForestPlot } from '../charts/ForestPlot'
 import { groupName, type AtlasRelease } from '../data/release'
 import type { EmergingKeyword, Topic } from '../data/types'
-import { DEFINITION, fmtWindow, windows } from '../lib/definition'
-import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtRatio, fmtSignedPct } from '../lib/format'
+import { DEFINITION, fmtWindow, ruleVars, windows } from '../lib/definition'
+import { ciPct, DASH, fmtInt, fmtRatio, fmtSignedPct } from '../lib/format'
 import { forestSelection } from '../lib/forest'
 import { useI18n, type I18n } from '../lib/i18n'
 import { isSignal, isStatus, STATUSES, type StatusId } from '../lib/status'
@@ -29,17 +29,7 @@ export default function EmergingPage() {
 }
 
 function ruleText(t: I18n['t'], status: StatusId, level: number): string {
-  return t(`rule.${status}` as const, {
-    level,
-    bar: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0),
-    ratio: fmtNum(DEFINITION.emergingMinShareRatio, 1),
-    dratio: fmtNum(DEFINITION.decliningMaxShareRatio, 1),
-    j: DEFINITION.minJournals,
-    o: DEFINITION.minOrgs,
-    n: DEFINITION.minArticlesRecent,
-    y: DEFINITION.recentYears,
-    top: fmtPct(1 - DEFINITION.largeQuantile, 0),
-  })
+  return t(`rule.${status}` as const, ruleVars(level))
 }
 
 const isSort = (v: string): v is EmergingSort => (EMERGING_SORTS as readonly string[]).includes(v)
