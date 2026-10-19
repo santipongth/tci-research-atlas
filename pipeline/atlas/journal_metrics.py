@@ -6,11 +6,13 @@ completeness     per metadata element (config.COMPLETENESS_COMPONENTS) the share
                  that have it, and a 0–100 score = weighted mean of the known rates (journals.completeness_weights,
                  renormalised over the elements that have a rate). The elements follow the TCI assessment's
                  metadata items; the score is NOT the official TCI assessment.
-                 refs_romanized is known only for articles that cite Thai-language sources; affiliations only
-                 for articles with author rows.
+                 refs_romanized is known only for articles that cite Thai-language sources (a "how to cite
+                 this article" line is not one); affiliations only for articles with author rows. An element the
+                 whole corpus lacks (no column, all blank, no reference rows) is unknown and drops out of the weights.
 owner            registry publisher_org (source "registry"), else the organisation on most articles (source
                  "inferred", only when it signs ≥ journals.owner_min_share of them) — inferences are labelled.
-inhouse_share    share of articles with ≥ 1 author from the owner, among articles with ≥ 1 recognised organisation
+inhouse_share    share of articles with ≥ 1 author from the owner, among articles with ≥ 1 recognised organisation;
+                 null when the owner is not found among the authors (owner_matched false)
 effective_orgs   1 / Σ p² of the organisations' article shares ("as diverse as N equal institutions")
 foreign_share    share of articles with ≥ 1 affiliation outside Thailand (atlas.countries), same denominator
 affiliation_coverage  share of window articles with ≥ 1 recognised organisation (that denominator)
@@ -41,13 +43,20 @@ def _flag(df: pd.DataFrame, col: str) -> pd.Series:
 def article_completeness(arts: pd.DataFrame, refs: pd.DataFrame, authors: pd.DataFrame) -> pd.DataFrame:
     """article_id + one nullable-boolean column per component (NA = not applicable / unknown)."""
     out = pd.DataFrame({"article_id": arts["article_id"].to_numpy()})
+    unknown = pd.array([pd.NA] * len(out), dtype="boolean")
     for col in ("abstract_en", "title_en", "keywords_en", "doi"):
-        out[col] = pd.array((_text(arts, col) != "").to_numpy(), dtype="boolean")
-    out["references"] = pd.array((_flag(arts, "has_references") & ~_flag(arts, "self_citation_only")).to_numpy(),
-                                 dtype="boolean")
+        # a column missing (or blank) for the whole corpus means the source never carried it: unknown, not 0 %
+        has = _text(arts, col) != ""
+        out[col] = pd.array(has.to_numpy(), dtype="boolean") if has.any() else unknown
+    if "has_references" in arts.columns and len(refs):      # no reference rows at all (table input) → unknown
+        out["references"] = pd.array((_flag(arts, "has_references") & ~_flag(arts, "self_citation_only")).to_numpy(),
+                                     dtype="boolean")
+    else:
+        out["references"] = unknown
     ids = out["article_id"]
-    thai_refs = set(refs.loc[_text(refs, "lang") == "th", "article_id"]) if len(refs) else set()
-    translated = set(refs.loc[_flag(refs, "translated"), "article_id"]) if len(refs) else set()
+    own_refs = refs[~_flag(refs, "self_citation")] if len(refs) else refs   # "how to cite this article" is no source
+    thai_refs = set(own_refs.loc[_text(own_refs, "lang") == "th", "article_id"]) if len(own_refs) else set()
+    translated = set(own_refs.loc[_flag(own_refs, "translated"), "article_id"]) if len(own_refs) else set()
     out["refs_romanized"] = pd.array([(a in translated) if a in thai_refs else pd.NA for a in ids], dtype="boolean")
     if len(authors):
         has = (_text(authors, "affiliation_th") != "") | (_text(authors, "affiliation_en") != "")
@@ -63,6 +72,7 @@ def completeness_table(comp: pd.DataFrame, journal_of: pd.Series, weights: dict[
     """(long table journal_key, component, rate, n — rate null when n = 0; score per journal 0–100 or NaN).
     journal_of: article_id → journal_key."""
     c = comp.assign(journal_key=comp["article_id"].map(journal_of)).dropna(subset=["journal_key"])
+    c = c[c["journal_key"].astype(str) != ""]
     rows = []
     for col in COMPLETENESS_COMPONENTS:
         v = c[col].astype("Float64")
@@ -134,12 +144,17 @@ def author_metrics(arts: pd.DataFrame, authors: pd.DataFrame, owner_df: pd.DataF
     with_org = orgs.groupby("journal_key")["article_id"].nunique()
     foreign_ids: set = set()
     if len(authors):
-        pairs = authors[["affiliation_th", "affiliation_en"]].fillna("").astype(str).drop_duplicates()
+        aff = authors[["article_id", "affiliation_th", "affiliation_en"]].copy()
+        aff[["affiliation_th", "affiliation_en"]] = aff[["affiliation_th", "affiliation_en"]].fillna("").astype(str)
+        pairs = aff[["affiliation_th", "affiliation_en"]].drop_duplicates()
         pairs = pairs.assign(foreign=[is_foreign_affiliation(t, e) for t, e in
                                       zip(pairs["affiliation_th"], pairs["affiliation_en"])])
-        fa = authors.merge(pairs, on=["affiliation_th", "affiliation_en"], how="left")
+        fa = aff.merge(pairs, on=["affiliation_th", "affiliation_en"], how="left")
         foreign_ids = set(fa.loc[fa["foreign"].fillna(False).astype(bool), "article_id"])
-    owner_of = owner_df.set_index("journal_key")["owner_key"].to_dict()
+    # the in-house share is reported only when the owner was found among the authors (matched); an owner the
+    # data never mentions would otherwise read as "0 % in-house" instead of "unknown"
+    matched = owner_df.set_index("journal_key")["owner_matched"].fillna(False).astype(bool)
+    owner_of = {jk: k for jk, k in owner_df.set_index("journal_key")["owner_key"].items() if matched.get(jk, False)}
     by_journal = dict(tuple(orgs.groupby("journal_key")))
     empty = orgs.iloc[0:0]
     rows = []

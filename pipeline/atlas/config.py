@@ -320,7 +320,7 @@ class JournalsCfg(_Strict):
     window_years: int = Field(5, ge=1)
     min_articles: int = Field(20, ge=1)   # fewer articles in the window → rates are null (low_data)
     completeness_weights: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_COMPLETENESS_WEIGHTS))
-    inhouse_flag_share: float | None = Field(None, gt=0.0, le=1.0)   # the web marks shares above it; null = no mark
+    inhouse_flag_share: float | None = Field(None, gt=0.0, le=1.0)   # the web marks registry-named owners' shares above it; null = no mark
     owner_min_share: float = Field(0.2, ge=0.0, le=1.0)   # an inferred owner must sign ≥ this share of the articles
     peers_k: int = Field(8, ge=0)
     peers_min_similarity: float = Field(0.2, ge=0.0, le=1.0)

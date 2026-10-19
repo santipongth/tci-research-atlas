@@ -53,8 +53,7 @@ def test_registry_loads_excel_csv_with_bom_and_optional_columns(tmp_path):
 @pytest.mark.parametrize("body, message", [
     ("name_th\nก\n", "journal_key column"),
     ("journal_key,owner\na,b\n", "unknown columns"),
-    ("journal_key\na\na\n", "more than once"),
-    ("journal_key,tci_tier\na,4\n", "row 2: tci_tier"),
+    ("journal_key\na\nb\na\n", "row 4: journal_key 'a' appears more than once"),
 ])
 def test_registry_errors_name_the_problem(tmp_path, body, message):
     p = tmp_path / "j.csv"
@@ -89,3 +88,41 @@ def test_example_registry_loads_and_config_resolves_its_path(tmp_path):
     assert Path(load_config(p)["journals"]["registry_path"]) == (tmp_path / "reg" / "j.csv").resolve()
     with pytest.raises(ValueError, match="unknown completeness components"):
         AtlasConfig.model_validate({"journals": {"completeness_weights": {"pages": 1.0}}})
+
+
+def test_a_tier_outside_1_to_3_is_a_warning_and_a_null_tier(tmp_path):
+    p = tmp_path / "j.csv"
+    p.write_text("journal_key,tci_tier\na,4\nb,2\n", encoding="utf-8")
+    df, warns = load_registry(p)
+    by = df.set_index("journal_key")
+    assert pd.isna(by.loc["a", "tci_tier"]) and by.loc["b", "tci_tier"] == 2
+    assert len(warns) == 1 and "row 2" in warns[0] and "tci_tier" in warns[0]
+
+
+def test_a_row_with_the_wrong_number_of_fields_names_the_row(tmp_path):
+    p = tmp_path / "short.csv"
+    p.write_text("journal_key,name_th,issn\na,ก,1234-5678\nb,ข\n", encoding="utf-8")
+    with pytest.raises(RegistryError, match=r"short\.csv row 3: 2 fields but the header has 3"):
+        load_registry(p)
+    long = tmp_path / "long.csv"
+    long.write_text("journal_key,name_th\na,ก\nb,ข,extra\n", encoding="utf-8")
+    with pytest.raises(RegistryError, match=r"long\.csv.*row 3.*fields"):
+        load_registry(long)
+
+
+def test_an_empty_column_in_the_header_is_an_unknown_column_not_a_shifted_index(tmp_path):
+    ok = tmp_path / "ok.csv"
+    ok.write_text("journal_key,name_th,\na,ก,\nb,ข,\n", encoding="utf-8")        # Excel-style trailing commas
+    with pytest.raises(RegistryError, match="unknown columns"):
+        load_registry(ok)
+
+
+def test_an_unreadable_file_is_a_registry_error_with_a_hint(tmp_path):
+    ansi = tmp_path / "ansi.csv"
+    ansi.write_bytes("journal_key,name_th\na,วารสาร\n".encode("cp874"))        # Excel "CSV" on a Thai PC
+    with pytest.raises(RegistryError, match=r"ansi\.csv.*UTF-8"):
+        load_registry(ansi)
+    empty = tmp_path / "empty.csv"
+    empty.write_text("", encoding="utf-8")
+    with pytest.raises(RegistryError, match=r"empty\.csv.*UTF-8"):
+        load_registry(empty)

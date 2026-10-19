@@ -4,7 +4,7 @@ Rule (precision first — a Thai institution must never count as foreign):
   * an affiliation that names Thailand ("Thailand", "ประเทศไทย") is Thai;
   * Thai text names a foreign country only with the word "ประเทศ" (or สปป.ลาว), because bare names such as
     "จีน" also name Thai departments ("ภาควิชาภาษาจีน");
-  * English text names a foreign country as a whole word ("Japan", not "Japanese Studies").
+  * English text names a foreign country as a whole word ("Japan", not "Japanese Studies" or "Thai-Japan Institute").
 Only the share of articles with at least one such affiliation is published — never names.
 """
 from __future__ import annotations
@@ -28,8 +28,8 @@ COUNTRIES_TH = (
     "ออสเตรเลีย", "นิวซีแลนด์", "สหรัฐอเมริกา", "อังกฤษ", "สหราชอาณาจักร", "เยอรมนี", "ฝรั่งเศส", "เนเธอร์แลนด์",
     "สวีเดน", "แคนาดา",
 )
-_EN = re.compile(r"(?<![\w.])(?:" + "|".join(re.escape(c) for c in sorted(COUNTRIES_EN, key=len, reverse=True))
-                 + r")(?![\w])")
+_EN = re.compile(r"(?<![\w.-])(?:" + "|".join(re.escape(c) for c in sorted(COUNTRIES_EN, key=len, reverse=True))
+                 + r")(?![\w-])")
 _TH = re.compile("ประเทศ\\s*(?:" + "|".join(sorted(COUNTRIES_TH, key=len, reverse=True)) + ")|สปป\\.?\\s*ลาว")
 _THAILAND = re.compile(r"(?i)\bthailand\b|ประเทศไทย")
 

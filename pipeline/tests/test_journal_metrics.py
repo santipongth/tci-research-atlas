@@ -109,3 +109,54 @@ def test_inhouse_diversity_and_foreign_shares():
     assert j1["foreign_share"] == pytest.approx(1 / 3)
     none = author_metrics(arts, auth.iloc[0:0], owners(arts, auth.iloc[0:0], {}, 0.2, {})).set_index("journal_key")
     assert none.loc["so02:J1", "with_org"] == 0 and np.isnan(none.loc["so02:J1", "inhouse_share"])
+
+
+# ---------------------------------------------------------------- review follow-ups
+def test_inhouse_share_is_null_when_the_registry_owner_is_not_found_among_authors():
+    arts, auth = _arts(), _authors()
+    own = owners(arts, auth, {"so02:J1": "Naresuan University"}, 0.2, {})      # written differently from the data
+    assert not own.set_index("journal_key").loc["so02:J1", "owner_matched"]
+    m = author_metrics(arts, auth, own).set_index("journal_key")
+    assert np.isnan(m.loc["so02:J1", "inhouse_share"])                           # not 0.0: unknown, not zero
+    assert m.loc["so02:J1", "with_org"] == 3 and m.loc["so02:J1", "n_orgs"] == 3  # the other metrics stay
+
+
+def test_a_component_missing_from_the_whole_corpus_is_unknown_not_zero():
+    arts = _arts().drop(columns=["doi", "has_references"])
+    comp = article_completeness(arts, _refs(), _authors())
+    assert comp["doi"].isna().all() and comp["references"].isna().all()
+    blank = _arts().assign(abstract_en="")
+    assert article_completeness(blank, _refs(), _authors())["abstract_en"].isna().all()
+    no_rows = article_completeness(_arts(), _refs().iloc[0:0], _authors())      # table input: no reference rows at all
+    assert no_rows["references"].isna().all()
+    long, score = completeness_table(comp, _arts().set_index("article_id")["journal_key"],
+                                     DEFAULT_COMPLETENESS_WEIGHTS)
+    assert long[long["component"] == "doi"]["rate"].isna().all() and score.notna().all()
+
+
+def test_a_self_citation_line_is_not_a_thai_reference():
+    refs = pd.DataFrame({"article_id": ["a1", "a2", "a3"], "lang": ["th", "th", "th"],
+                         "translated": [True, False, False], "self_citation": [False, False, True]})
+    comp = article_completeness(_arts(), refs, _authors()).set_index("article_id")
+    assert comp.loc["a1", "refs_romanized"] and not comp.loc["a2", "refs_romanized"]
+    assert pd.isna(comp.loc["a3", "refs_romanized"])                            # only "how to cite this article"
+
+
+def test_completeness_ignores_articles_without_a_journal_key():
+    arts = _arts()
+    comp = article_completeness(arts, _refs(), _authors())
+    keys = arts.set_index("article_id")["journal_key"].copy()
+    keys["a4"] = ""
+    long, _ = completeness_table(comp, keys, DEFAULT_COMPLETENESS_WEIGHTS)
+    assert "" not in set(long["journal_key"])
+
+
+def test_a_thai_japan_name_is_not_foreign_and_a_missing_thai_affiliation_does_not_hide_a_foreign_one():
+    assert is_foreign_affiliation("", "Thai-Japan Institute of Technology, Bangkok") is False
+    arts = pd.DataFrame({"article_id": ["k1", "k2"], "journal_key": ["j", "j"]})
+    auth = pd.DataFrame({"article_id": ["k1", "k2"], "affiliation_th": [None, KU],
+                         "affiliation_en": ["Kyoto University, Japan", None]})
+    auth["org_key"] = [org_key(t if isinstance(t, str) else "", e if isinstance(e, str) else "")
+                       for t, e in zip(auth["affiliation_th"], auth["affiliation_en"])]
+    m = author_metrics(arts, auth, owners(arts, auth, {}, 0.2, {})).set_index("journal_key")
+    assert m.loc["j", "foreign_share"] == pytest.approx(0.5)

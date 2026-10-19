@@ -80,3 +80,17 @@ def test_opportunities_rank_in_scope_before_adjacent():
     assert a["journal_articles"].tolist() == [2, 0]
     assert o[o["journal_key"] == "B"]["reason"].tolist() == ["adjacent"]
     assert journal_opportunities(opps, mix, edges.iloc[0:0], 5, 1)["topic_id"].tolist() == [7]
+
+
+def test_peers_tie_break_on_the_published_four_decimals():
+    mix = pd.DataFrame([("A", 1, 1.0), ("A", 2, 2e-6), ("B", 1, 1.0), ("B", 2, 1e-6), ("X", 1, 1.0)],
+                       columns=["journal_key", "topic_id", "share"])
+    peers = peer_journals(mix, {"A", "B", "X"}, 2, 0.0)
+    assert [p for p, _ in peers["X"]] == ["A", "B"]          # equal at 4 decimals → by name, not by 1e-12 noise
+
+
+def test_scope_drift_distance_never_exceeds_one():
+    rows = [("j", 1, y) for y in range(2017, 2020)] * 5 + [("j", 2, 2020)] * 5
+    jt = pd.DataFrame(rows, columns=["journal_key", "topic_id", "year"])
+    d = scope_drift(jt, [2020], 3, 1)
+    assert 0.0 <= d.loc[0, "distance"] <= 1.0

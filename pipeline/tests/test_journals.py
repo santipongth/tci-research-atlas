@@ -74,3 +74,20 @@ def test_registry_names_the_journal_and_its_owner(tmp_path):
 
 def test_step_order():
     assert STEPS.index("layout") < STEPS.index("methods") < STEPS.index("journals") < STEPS.index("export")
+
+
+def test_inferred_owner_name_keeps_its_tone_marks(tmp_path):
+    from atlas.io_utils import write_table
+    from atlas.orgs import org_key
+    from tests.p2_work import NU
+
+    cfg = make_p2_work(tmp_path)
+    w = tmp_path / "work"
+    authors = read_table(w / "01_authors.parquet")
+    mj = "คณะวิทยาศาสตร์ มหาวิทยาลัยแม่โจ้"
+    authors["affiliation_th"] = authors["affiliation_th"].replace(NU, mj)
+    authors["org_key"] = [org_key(t, e) for t, e in zip(authors["affiliation_th"], authors["affiliation_en"])]
+    write_table(authors, w / "01_authors.parquet")
+    journals(cfg)
+    s = read_table(w / "13_journals.parquet").set_index("journal_key")
+    assert s.loc["so02:J1", "owner_name"] == "มหาวิทยาลัยแม่โจ้"

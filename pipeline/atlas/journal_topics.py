@@ -46,12 +46,12 @@ def peer_journals(mix: pd.DataFrame, eligible: set[str], k: int, min_similarity:
     mat[m["journal_key"].map(ji).to_numpy(), m["topic_id"].map(ti).to_numpy()] = m["share"].to_numpy()
     norm = np.linalg.norm(mat, axis=1, keepdims=True)
     unit = mat / np.where(norm == 0, 1.0, norm)
-    sim = unit @ unit.T
+    sim = np.round(unit @ unit.T, 4)             # ranked on the published precision: ties by name
     np.fill_diagonal(sim, -1.0)
     out = {}
     for i, j in enumerate(journals):
         order = np.lexsort((np.arange(len(journals)), -sim[i]))     # highest first, ties by name order
-        peers = [(journals[o], round(float(sim[i, o]), 4)) for o in order[:k] if sim[i, o] >= min_similarity]
+        peers = [(journals[o], float(sim[i, o])) for o in order[:k] if sim[i, o] >= min_similarity]
         out[j] = peers
     return out
 
@@ -70,7 +70,7 @@ def scope_drift(jt: pd.DataFrame, years: list[int], ref_years: int, min_articles
             n = int(cur.sum())
             if n == 0:
                 continue
-            dist = (float(jensenshannon(cur / cur.sum(), ref / ref.sum(), base=2))
+            dist = (float(np.clip(jensenshannon(cur / cur.sum(), ref / ref.sum(), base=2), 0.0, 1.0))
                     if n >= min_articles and ref.sum() >= min_articles else np.nan)
             rows.append({"journal_key": jk, "year": int(y), "articles": n, "distance": dist})
     return pd.DataFrame(rows, columns=["journal_key", "year", "articles", "distance"])

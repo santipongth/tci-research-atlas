@@ -11,9 +11,10 @@ corpus journal by its full key, or by the bare OJS path when exactly one corpus 
 """
 from __future__ import annotations
 
+import csv
 import hashlib
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import pandas as pd
@@ -60,23 +61,51 @@ def journal_path(key: str) -> str:
     return key.split(":", 1)[1] if ":" in key else key
 
 
-def _issn(value: str, where: str, warnings: list[str]) -> str:
+def _issn(value: str, where: Callable[[], str], warnings: list[str]) -> str:
     v = value.strip().upper().replace(" ", "")
     if not v:
         return ""
     if not _ISSN.fullmatch(v):
-        warnings.append(f"{where}: ISSN {value!r} is not NNNN-NNNC — kept as written")
+        warnings.append(f"{where()}: ISSN {value!r} is not NNNN-NNNC — kept as written")
         return value.strip()
     return v if "-" in v else f"{v[:4]}-{v[4:]}"
+
+
+def _check_field_counts(path: str | Path, hint: str) -> None:
+    """Every row must have as many fields as the header (pandas would pad a short row and drop a long one)."""
+    try:
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            rows = csv.reader(f)
+            header = next(rows, None)
+            if header is None:
+                return                                      # empty file: read_csv names it below
+            for n, row in enumerate(rows, start=2):         # row 1 is the header, as in a spreadsheet
+                if row and len(row) != len(header):
+                    raise RegistryError(f"{path} row {n}: {len(row)} fields but the header has {len(header)} — check "
+                                        f"for a missing or extra comma or an unclosed quote")
+    except UnicodeDecodeError as e:
+        raise RegistryError(f"{path}: not readable as UTF-8 ({e.reason} at byte {e.start}) — {hint}") from e
+    except csv.Error as e:
+        raise RegistryError(f"{path}: not a well-formed CSV ({e}) — {hint}") from e
 
 
 def load_registry(path: str | Path | None) -> tuple[pd.DataFrame, list[str]]:
     """(rows with REGISTRY_COLUMNS — tci_tier as nullable Int64, text cleaned —, warnings).
     No path or no file → an empty table (the registry is optional). Raises RegistryError for a file that
-    cannot be trusted: no journal_key column, unknown columns, a duplicated key, a tier other than 1–3."""
+    cannot be trusted: unreadable (not UTF-8, empty, malformed), no journal_key column, unknown columns, a row
+    with the wrong number of fields, a duplicated key. A tier other than 1–3 is a warning (the tier is left empty)."""
     if not path or not Path(path).exists():
         return pd.DataFrame({c: pd.Series(dtype="Int64" if c == "tci_tier" else str) for c in REGISTRY_COLUMNS}), []
-    raw = pd.read_csv(path, dtype=str, keep_default_na=False, encoding="utf-8-sig")   # Excel saves a BOM
+    hint = "save it as a UTF-8 CSV (Excel: Save As > CSV UTF-8) with the header row from journals.example.csv"
+    _check_field_counts(path, hint)
+    try:    # index_col=False: a trailing delimiter must not turn the first column into the index
+        raw = pd.read_csv(path, dtype=str, keep_default_na=False, encoding="utf-8-sig", index_col=False)  # BOM-safe
+    except UnicodeDecodeError as e:
+        raise RegistryError(f"{path}: not readable as UTF-8 ({e.reason} at byte {e.start}) — {hint}") from e
+    except pd.errors.EmptyDataError as e:
+        raise RegistryError(f"{path}: the file is empty (UTF-8 CSV expected) — {hint}") from e
+    except pd.errors.ParserError as e:
+        raise RegistryError(f"{path}: not a well-formed CSV ({e}) — {hint}") from e
     raw.columns = [str(c).strip() for c in raw.columns]
     if "journal_key" not in raw.columns:
         raise RegistryError(f"{path}: the header needs a journal_key column (columns: {REGISTRY_COLUMNS})")
@@ -89,7 +118,7 @@ def load_registry(path: str | Path | None) -> tuple[pd.DataFrame, list[str]]:
     df = df[df["journal_key"] != ""]
     dup = df["journal_key"][df["journal_key"].duplicated()]
     if len(dup):
-        raise RegistryError(f"{path}: journal_key {dup.iloc[0]!r} appears more than once")
+        raise RegistryError(f"{path} row {int(dup.index[0]) + 2}: journal_key {dup.iloc[0]!r} appears more than once")
     warnings: list[str] = []
     tiers = []
     for i, v in zip(df.index, df["tci_tier"]):
@@ -99,10 +128,11 @@ def load_registry(path: str | Path | None) -> tuple[pd.DataFrame, list[str]]:
         elif t in ("1", "2", "3"):
             tiers.append(int(t))
         else:
-            raise RegistryError(f"{path} row {i + 2}: tci_tier {v!r} must be 1, 2 or 3 (or empty)")
+            warnings.append(f"{path} row {i + 2}: tci_tier {v!r} must be 1, 2 or 3 — left empty")
+            tiers.append(pd.NA)
     df["tci_tier"] = pd.array(tiers, dtype="Int64")
     for col in ("issn", "eissn"):
-        df[col] = [_issn(v, f"{path} row {i + 2}", warnings) for i, v in zip(df.index, df[col])]
+        df[col] = [_issn(v, lambda i=i: f"{path} row {i + 2}", warnings) for i, v in zip(df.index, df[col])]
     return df.reset_index(drop=True), warnings
 
 
