@@ -14,7 +14,9 @@ const source = sourceFromEmbeddedText(document.getElementById('atlas-data')?.tex
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <HashRouter>
+    {/* Page state lives in the URL and drives controlled inputs (checkboxes, radios, the gazetteer search box): a location
+        update inside startTransition would snap them back until it commits, so URL updates render synchronously. */}
+    <HashRouter useTransitions={false}>
       <AtlasProvider source={source}>
         <TooltipProvider>
           <App />

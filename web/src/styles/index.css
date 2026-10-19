@@ -7,6 +7,7 @@
 @import "./components.css";
 @import "./charts.css";
 @import "./topic.css";
+@import "./map.css";
 
 /* Tailwind utilities read the design tokens; components use the tokens directly. */
 @theme inline {

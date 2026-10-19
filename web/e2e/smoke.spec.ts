@@ -54,6 +54,20 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.goto(`${EXAMPLE}#/topics/T123456`)
     await expect(page.locator('h1')).toContainText('T123456')
   },
+  atlas: async (page) => {
+    await expect(page.locator('canvas.terrain')).toBeVisible()
+    const marker = page.locator('.mnode').first()
+    await marker.focus()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/sel=T\d{6}/)
+    await expect(page.locator('#atlas-selection .g-ref')).toHaveText(/^[A-J][1-6]$/)
+    await page.getByRole('button', { name: 'ขยาย', exact: true }).click()
+    await page.getByLabel('เส้นชั้น', { exact: true }).uncheck()
+    await expect(page).toHaveURL(/layers=/)
+    await page.getByRole('searchbox', { name: 'ค้นหาในดัชนีหัวข้อ' }).fill('ข้าว')
+    await page.getByRole('button', { name: /การปลูกข้าว/ }).click()
+    await expect(page).toHaveURL(/sel=T000401/)
+  },
   // checks:end
 }
 
