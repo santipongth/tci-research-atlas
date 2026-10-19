@@ -38,3 +38,8 @@ pipeline/.ci/
 pipeline/.hypothesis/
 # editors' label corrections (real topic names) — back up with pipeline/state/, never commit
 pipeline/registry/
+
+# web v2 build/test output
+web/dist-offline/
+web/playwright-report/
+web/test-results/

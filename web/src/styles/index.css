@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./tokens.css";
+@import "./base.css";
+@import "./layout.css";
+@import "./status.css";
+
+/* Tailwind utilities read the design tokens; components use the tokens directly. */
+@theme inline {
+  --font-sans: var(--font);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule: var(--border);
+  --color-rule-2: var(--border-2);
+  --color-brand: var(--brand);
+  --color-link: var(--link);
+}
