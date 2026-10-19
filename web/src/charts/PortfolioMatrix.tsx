@@ -140,8 +140,8 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
                     open()
                   }
                 }}
-                onPointerEnter={(e) => tip.show(content, e.clientX, e.clientY)}
-                onPointerMove={(e) => tip.show(content, e.clientX, e.clientY)}
+                onPointerEnter={(e) => tip.show(content, e.clientX, e.clientY, e.currentTarget)}
+                onPointerMove={(e) => tip.show(content, e.clientX, e.clientY, e.currentTarget)}
                 onPointerLeave={() => tip.hide()}
                 onFocus={(e) => tip.showAt(content, e.currentTarget)}
                 onBlur={() => tip.hide()}

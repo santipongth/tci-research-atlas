@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { toCsv, downloadText, type CsvColumn } from '../lib/csv'
 import { useI18n } from '../lib/i18n'
-import { sortBy, type SortDir } from '../lib/sort'
+import { nextSort, sortBy, type SortDir } from '../lib/sort'
 
 export interface Column<R> {
   key: string
@@ -12,6 +12,8 @@ export interface Column<R> {
   numeric?: boolean
   rowHeader?: boolean
   className?: string
+  /** direction of the first click; default: numeric columns descending, text columns ascending */
+  firstDir?: SortDir
   /** exported to CSV only (e.g. the topic id), not shown */
   csvOnly?: boolean
 }
@@ -60,7 +62,8 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
     .filter((c) => c.csv || c.sortValue)
     .map((c) => ({ header: c.header, value: (r: R) => (c.csv ? c.csv(r) : (c.sortValue?.(r) ?? null)) }))
   const choose = (key: string) => {
-    const next: SortState = { key, dir: active?.key === key && active.dir === 'desc' ? 'asc' : 'desc' }
+    const col = columns.find((c) => c.key === key)
+    const next = nextSort(active, key, col?.firstDir ?? (col?.numeric ? 'desc' : 'asc'))
     if (onSort) onSort(next)
     else setOwn(next)
   }
@@ -104,7 +107,7 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
               sorted.map((r) => {
                 const k = rowKey(r)
                 return (
-                  <tr key={k} className={k === selectedKey ? 'is-selected' : undefined}>
+                  <tr key={k} className={k === selectedKey ? 'is-selected' : undefined} aria-current={k === selectedKey ? 'true' : undefined}>
                     {shown.map((c) =>
                       c.rowHeader ? (
                         <th key={c.key} scope="row" className={c.className}>{c.cell(r)}</th>

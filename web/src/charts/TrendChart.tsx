@@ -103,7 +103,7 @@ export function TrendChart({ years, counts, forecast, nowcast, labels }: {
             const yr = Math.max(first, Math.min(end, Math.round(x.invert(((e.clientX - r.left) * W) / r.width))))
             setHover(yr)
             const c = content(yr)
-            if (c) tip.show(c, e.clientX, e.clientY)
+            if (c) tip.show(c, e.clientX, e.clientY, e.currentTarget)
           }}
           onPointerLeave={() => {
             setHover(null)

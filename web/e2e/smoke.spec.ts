@@ -134,3 +134,13 @@ test('the printable brief shows the data banner when the release cannot load', a
   await expect(page.getByRole('alert')).toContainText('latest.json')
   await expect(page.locator('h1').first()).toBeVisible()
 })
+
+test('a chart tooltip is linked to its marker and Escape dismisses it', async ({ page }) => {
+  await page.goto(`${EXAMPLE}#/overview`)
+  const node = page.locator('.pf-node[tabindex="0"]').first()
+  await node.focus()
+  await expect(page.getByRole('tooltip')).toBeVisible()
+  await expect(node).toHaveAttribute('aria-describedby', /atlas-tooltip/)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+})

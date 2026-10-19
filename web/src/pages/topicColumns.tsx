@@ -53,6 +53,7 @@ export function ciColumn(ctx: ColumnContext, levelPct: number): Column<Topic> {
     key: 'lo',
     header: `${ctx.t('col.ci')} ${levelPct}%`,
     className: 'ci',
+    firstDir: 'desc',
     cell: (r) =>
       r.metrics.share_growth_lo === null || r.metrics.share_growth_lo === undefined ? (
         DASH

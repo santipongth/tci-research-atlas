@@ -12,6 +12,15 @@ export interface Codec<T> {
   defaults: T
   parse(params: URLSearchParams): T
   write(state: T): URLSearchParams
+  /** query keys this codec owns */
+  keys: readonly string[]
+}
+
+/** New query string for a state patch: the codec's own keys are rewritten, every other param is kept. */
+export function mergeParams<T>(codec: Codec<T>, prev: URLSearchParams, patch: Partial<T>): URLSearchParams {
+  const next = codec.write({ ...codec.parse(prev), ...patch })
+  for (const [k, v] of prev) if (!codec.keys.includes(k) && !next.has(k)) next.set(k, v)
+  return next
 }
 
 export function makeCodec<T extends object>(fields: { [K in keyof T]: Field<T[K]> }): Codec<T> {
@@ -19,6 +28,7 @@ export function makeCodec<T extends object>(fields: { [K in keyof T]: Field<T[K]
   const defaults = Object.fromEntries(entries.map(([k, f]) => [k, f.def])) as T
   return {
     defaults,
+    keys: entries.map(([, f]) => f.key),
     parse(params) {
       return Object.fromEntries(entries.map(([k, f]) => [k, f.parse(params.get(f.key))])) as T
     },

@@ -16,3 +16,14 @@ export function sortBy<R>(rows: readonly R[], value: (row: R) => number | string
     return collator.compare(String(va), String(vb)) * sign
   })
 }
+
+export interface SortSpec {
+  key: string
+  dir: SortDir
+}
+
+/** Next sort when a header is chosen: a new column starts in `first` (text asc, numbers desc); the same column flips. */
+export function nextSort(current: SortSpec | null, key: string, first: SortDir): SortSpec {
+  if (current && current.key === key) return { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
+  return { key, dir: first }
+}

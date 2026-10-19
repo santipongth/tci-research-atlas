@@ -2,6 +2,7 @@ import { useMemo, useState, type KeyboardEvent } from 'react'
 import { useRelease } from '../data/atlasContext'
 import type { Topic } from '../data/types'
 import { useI18n } from '../lib/i18n'
+import { comboKey } from '../lib/comboKeys'
 import { buildSearchIndex, searchTopics } from '../lib/search'
 import { StatusGlyph } from './StatusGlyph'
 
@@ -41,25 +42,13 @@ export function TopicSearch({ id, label, onPick, hideLabel = false, exclude, pla
     onPick(topicId)
   }
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setOpen(true)
-      setActive((a) => Math.min(a + 1, Math.max(results.length - 1, 0)))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActive((a) => Math.max(a - 1, 0))
-    } else if (e.key === 'Enter') {
-      const hit = results[active]
-      if (hasQuery && hit) {
-        e.preventDefault()
-        pick(hit.id)
-      }
-    } else if (e.key === 'Escape') {
-      if (open) {
-        e.preventDefault()
-        setOpen(false)
-      } else setQuery('')
-    }
+    const a = comboKey(e.key, { open, showList, active, count: results.length, hasQuery })
+    if (a.prevent) e.preventDefault()
+    if (a.open !== undefined) setOpen(a.open)
+    if (a.active !== undefined) setActive(a.active)
+    if (a.clear) setQuery('')
+    const hit = results[active]
+    if (a.pick && hit) pick(hit.id)
   }
   return (
     <div className="search">

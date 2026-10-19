@@ -25,6 +25,12 @@ describe('number formatting', () => {
     expect(fmtSignedInt(0)).toBe('±0')
   })
 
+  it('never renders a negative zero', () => {
+    expect(fmtInt(-0.4)).toBe('0')
+    expect(fmtPct(-0.00001)).toBe('0.0%')
+    expect(fmtPct(-0.05)).toBe('−5.0%')
+  })
+
   it('formats percentage points, ratios, compact ticks and dates', () => {
     expect(fmtPp(74.2 - 73.6, 'th')).toBe('+0.6 จุด')
     expect(fmtPp(-0.24, 'en')).toBe('−0.2 pp')
@@ -32,6 +38,10 @@ describe('number formatting', () => {
     expect(fmtCompact(12500)).toBe('13K')
     expect(fmtCompact(1500)).toBe('1.5K')
     expect(fmtCompact(950)).toBe('950')
+    expect(fmtCompact(999999)).toBe('1M')
+    expect(fmtCompact(999.9)).toBe('1K')
+    expect(fmtCompact(9999.7)).toBe('10K')
+    expect(fmtCompact(-0.2)).toBe('0')
     expect(fmtDate('2026-10-01T00:00:00+00:00', 'en')).toBe('1 October 2026')
     expect(fmtDate('2026-10-01T00:00:00+00:00', 'th')).toContain('2026')
     expect(fmtDate('not a date', 'th')).toBe('not a date')

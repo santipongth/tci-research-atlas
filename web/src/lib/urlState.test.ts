@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { atlasCodec, compareCodec, emergingCodec, overviewCodec, topicCodec, type AtlasUrlState, type EmergingUrlState } from './urlState'
+import { mergeParams, atlasCodec, compareCodec, emergingCodec, overviewCodec, topicCodec, type AtlasUrlState, type EmergingUrlState } from './urlState'
 
 describe('URL state codecs', () => {
   it('emerging: round-trips and writes nothing for the defaults', () => {
@@ -28,5 +28,16 @@ describe('URL state codecs', () => {
   it('overview and topic views', () => {
     expect(overviewCodec.parse(overviewCodec.write({ st: 'table', pf: 'chart' }))).toEqual({ st: 'table', pf: 'chart' })
     expect(topicCodec.write({ trend: 'chart' }).toString()).toBe('')
+  })
+})
+
+describe('mergeParams', () => {
+  it('keeps query params the codec does not know and drops defaults of its own', () => {
+    const prev = new URLSearchParams('status=WATCH&lang=en&ids=T000201&x=1')
+    const next = mergeParams(emergingCodec, prev, { status: 'EMERGING' })
+    expect(next.get('lang')).toBe('en')
+    expect(next.get('ids')).toBe('T000201')
+    expect(next.get('x')).toBe('1')
+    expect(next.has('status')).toBe(false)
   })
 })

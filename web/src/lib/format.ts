@@ -17,7 +17,10 @@ function nf(digits: number): Intl.NumberFormat {
 const finite = (x: number | null | undefined): x is number => typeof x === 'number' && Number.isFinite(x)
 
 export function fmtNum(x: number | null | undefined, digits: number): string {
-  return finite(x) ? nf(digits).format(x).replace('-', MINUS) : DASH
+  if (!finite(x)) return DASH
+  // a value that rounds to zero is "0", never "−0"
+  const v = Number(x.toFixed(digits)) === 0 ? 0 : x
+  return nf(digits).format(v).replace('-', MINUS)
 }
 
 export function fmtInt(n: number | null | undefined): string {
@@ -59,11 +62,17 @@ export function fmtRatio(x: number | null | undefined): string {
 /** Axis ticks: 950, 1.5K, 13K, 2.4M. */
 export function fmtCompact(n: number): string {
   const a = Math.abs(n)
-  const sign = n < 0 ? MINUS : ''
-  if (a >= 1e6) return `${sign}${(a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, '')}M`
-  if (a >= 1e4) return `${sign}${Math.round(a / 1e3)}K`
-  if (a >= 1e3) return `${sign}${(a / 1e3).toFixed(1).replace(/\.0$/, '')}K`
-  return `${sign}${Math.round(a)}`
+  const body = (): string => {
+    if (a >= 1e6) return `${a >= 1e7 ? Math.round(a / 1e6) : Number((a / 1e6).toFixed(1))}M`
+    if (a >= 1e3) {
+      const k = a >= 1e4 ? Math.round(a / 1e3) : Number((a / 1e3).toFixed(1))
+      return k >= 1000 ? '1M' : `${k}K`
+    }
+    const r = Math.round(a)
+    return r >= 1000 ? '1K' : String(r)
+  }
+  const b = body()
+  return n < 0 && b !== '0' ? `${MINUS}${b}` : b
 }
 
 export function fmtDate(iso: string, lang: Lang): string {
