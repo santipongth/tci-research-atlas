@@ -114,3 +114,12 @@ export function groupName(release: AtlasRelease, groupId: string, lang: 'th' | '
   if (!g) return groupId
   return lang === 'en' ? g.en || g.th : g.th || g.en
 }
+
+/** Topics linked to `id` in edges.json, strongest first (used when topics/<id>.json has no neighbours). */
+export function neighborsOf(release: AtlasRelease, id: string, limit = 8): string[] {
+  return release.edges
+    .filter((e) => e.s === id || e.t === id)
+    .sort((a, b) => b.w - a.w)
+    .map((e) => (e.s === id ? e.t : e.s))
+    .slice(0, limit)
+}

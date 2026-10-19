@@ -1,11 +1,330 @@
+import { Link, useNavigate, useParams } from 'react-router'
+import { CiWhisker } from '../components/CiWhisker'
+import { DataTable } from '../components/DataTable'
+import { EmptyState } from '../components/EmptyState'
+import { Figure } from '../components/Figure'
+import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
+import { RequireRelease } from '../components/RequireRelease'
+import { Section } from '../components/Section'
+import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
+import { TopicLink } from '../components/TopicLink'
+import { TopicSearch } from '../components/TopicSearch'
+import { TrendChart } from '../charts/TrendChart'
+import { useTopicDetail } from '../data/atlasContext'
+import { groupName, neighborsOf, seriesOf, type AtlasRelease } from '../data/release'
+import type { CountItem, Topic } from '../data/types'
+import { DEFINITION, fmtWindow, windows } from '../lib/definition'
+import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
+import { ciText, growthText, lowDataText, ratioText, statusName } from '../lib/topicText'
+import { topicCodec } from '../lib/urlState'
+import { useUrlState } from '../lib/useUrlState'
+import { FOREST_DOMAIN } from './topicColumns'
 
 export default function TopicPage() {
+  const { id } = useParams()
   const { t } = useI18n()
+  return <RequireRelease title={t('tp.loadingTitle')}>{(release) => <TopicView release={release} id={id ?? ''} />}</RequireRelease>
+}
+
+function TopicView({ release, id }: { release: AtlasRelease; id: string }) {
+  const topic = release.topicById.get(id)
+  return topic ? <TopicContent key={topic.id} release={release} topic={topic} /> : <TopicMissing id={id} />
+}
+
+function TopicMissing({ id }: { id: string }) {
+  const { t } = useI18n()
+  const navigate = useNavigate()
   return (
     <div className="container">
-      <PageHeader title={t('search.label')} />
+      <PageHeader title={t('tp.notFound', { id: id || DASH })} lede={t('tp.notFound.body')} />
+      <div className="mt-6 max-w-xl">
+        <TopicSearch id="missing-search" label={t('search.label')} onPick={(tid) => navigate(`/topics/${tid}`)} />
+      </div>
+    </div>
+  )
+}
+
+interface TrendRow {
+  year: number
+  kind: 'actual' | 'forecast' | 'nowcast'
+  articles: number | null
+  share: number | null
+  mean: number | null
+  lo80: number | null
+  hi80: number | null
+  lo95: number | null
+  hi95: number | null
+}
+
+function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic }) {
+  const { t, name, other, otherLang, lang } = useI18n()
+  const detail = useTopicDetail(topic.id)
+  const [state, update] = useUrlState(topicCodec)
+  const m = topic.metrics
+  const level = ciPct(release.ciLevel)
+  const w = windows(release.overview.last_complete_year)
+  const group = groupName(release, topic.group, lang)
+  const years = release.series.years
+  const counts = seriesOf(release, topic.id) ?? []
+  const fc = topic.forecast ?? null
+  const showFc = Boolean(fc?.show && fc.years.length > 0)
+  const nowcast = topic.nowcast ?? null
+  const ready = detail.status === 'ready' ? detail.detail : null
+  const relatedIds = ready?.neighbors?.length ? ready.neighbors : neighborsOf(release, topic.id)
+  const related = relatedIds.map((rid) => release.topicById.get(rid)).filter((r): r is Topic => r !== undefined).slice(0, 8)
+  const keywords = ready?.keywords?.length ? ready.keywords : (topic.keywords ?? [])
+  const narrative = ready?.narrative ?? null
+  const journals = ready?.journals ?? []
+  const institutions = ready?.institutions ?? []
+  const ci = ciText(t, m, release.ciLevel)
+  const lineage = topic.lineage ?? {}
+  const event = lineage.event ?? 'new'
+  const source = t('source.line', { release: release.overview.release, v: release.definitionVersion })
+
+  const trendRows: TrendRow[] = [
+    ...years.map((yr, i) => ({
+      year: yr, kind: 'actual' as const, articles: counts[i] ?? 0,
+      share: release.series.corpus_total[i] ? (counts[i] ?? 0) / release.series.corpus_total[i] : null,
+      mean: null, lo80: null, hi80: null, lo95: null, hi95: null,
+    })),
+    ...(showFc && fc
+      ? fc.years.map((yr, i) => ({ year: yr, kind: 'forecast' as const, articles: null, share: null, mean: fc.mean[i], lo80: fc.lo80[i], hi80: fc.hi80[i], lo95: fc.lo95[i], hi95: fc.hi95[i] }))
+      : []),
+  ]
+  const toc = [
+    ...(narrative ? [{ id: 'narrative', label: t('tp.narrative.h') }] : []),
+    { id: 'numbers', label: t('tp.numbers.h') },
+    { id: 'trend', label: t('tp.trend.h') },
+    ...(keywords.length ? [{ id: 'keywords', label: t('tp.keywords.h') }] : []),
+    { id: 'articles', label: t('tp.articles.h') },
+    ...(related.length ? [{ id: 'related', label: t('tp.related.h') }] : []),
+    ...(journals.length ? [{ id: 'journals', label: t('tp.journals.h') }] : []),
+    ...(institutions.length ? [{ id: 'orgs', label: t('tp.orgs.h') }] : []),
+  ]
+  const countTable = (id: string, title: string, rows: readonly CountItem[], header: string) => (
+    <DataTable
+      caption={title}
+      rows={rows}
+      rowKey={(r) => r.key}
+      stack={false}
+      csvFilename={`atlas-${release.overview.release}-${topic.id}-${id}.csv`}
+      columns={[
+        { key: 'key', header, rowHeader: true, cell: (r) => r.key, sortValue: (r) => r.key },
+        { key: 'count', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
+      ]}
+    />
+  )
+
+  return (
+    <div className="container">
+      <PageHeader title={name(topic)} lede={topic.description || undefined}>
+        <p className="tp-alt" lang={otherLang}>{other(topic)}</p>
+        <div className="tp-tags">
+          <StatusChip status={topic.status} label={statusName(t, topic.status)} />
+          <span className="tp-field">{t('tp.field', { f: group })}</span>
+          {topic.subfield_en ? <span className="tp-sub" lang="en">{topic.subfield_en}</span> : null}
+          {topic.cross_field ? <span className="tp-badge">{t('tp.crossField')}</span> : null}
+        </div>
+        <p className="tp-lineage">
+          {t(`tp.lineage.${event}` as const, { born: lineage.born ?? DASH })}
+          {(lineage.parents ?? []).map((p, i) => {
+            const parent = release.topicById.get(p)
+            return (
+              <span key={p}>
+                {i ? ', ' : ' '}
+                {parent ? <Link to={`/topics/${p}`}>{name(parent)}</Link> : p}
+              </span>
+            )
+          })}
+        </p>
+      </PageHeader>
+      <div className="layout">
+        <div className="main-col">
+          {narrative ? (
+            <Section id="narrative" title={t('tp.narrative.h')}>
+              <p className="tp-narr">{lang === 'en' ? narrative.en : narrative.th}</p>
+              <p className="headline-src">{t(narrative.source === 'llm' ? 'autoSummary.llm' : 'autoSummary.template')}</p>
+            </Section>
+          ) : null}
+
+          <Section id="numbers" title={t('tp.numbers.h')}>
+            {m.journal_driven || topic.status === 'WATCH' ? (
+              <div className="inset">
+                <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
+                <p>{t('journalDrivenBody')}</p>
+              </div>
+            ) : null}
+            <dl className="summary">
+              <div>
+                <dt>{t('tp.share')}</dt>
+                <dd>{fmtPct(m.share_recent, 2)}<small>{t('tp.shareSub', { w: fmtWindow(w.R), n: fmtInt(m.count_recent) })}</small></dd>
+              </div>
+              <div>
+                <dt>{t('tp.growth')}</dt>
+                <dd>
+                  {m.share_growth === null || m.share_growth === undefined ? (lowDataText(t, m) ?? DASH) : growthText(t, m)}
+                  {ci ? <small>{ci}</small> : null}
+                  {ci ? (
+                    <CiWhisker status={topic.status} value={m.share_growth} lo={m.share_growth_lo} hi={m.share_growth_hi} domain={FOREST_DOMAIN} refValue={DEFINITION.emergingMinGrowthLo} width={240} height={22} />
+                  ) : null}
+                </dd>
+              </div>
+              <div>
+                <dt>{t('col.ratio')}</dt>
+                <dd>{ratioText(t, m)}<small>{t('tp.ratioSub', { r: fmtWindow(w.R), b: fmtWindow(w.B) })}</small></dd>
+              </div>
+              <div>
+                <dt>{t('col.journals')}</dt>
+                <dd>{fmtInt(m.n_journals_R)}<small>{t('tp.inWindow', { w: fmtWindow(w.R) })}</small></dd>
+              </div>
+              <div>
+                <dt>{t('col.orgs')}</dt>
+                <dd>{fmtInt(m.n_orgs_R)}<small>{m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })}</small></dd>
+              </div>
+              {topic.status === 'LOW_DATA' ? (
+                <div>
+                  <dt>{t('col.reason')}</dt>
+                  <dd>{lowDataText(t, m) ?? DASH}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </Section>
+
+          <Section id="trend" title={t('tp.trend.h')}>
+            {counts.length ? (
+              <Figure
+                id="fig-trend"
+                number={1}
+                title={t('tp.trend.title', { a: years[0], b: years[years.length - 1] })}
+                source={source}
+                view={state.trend}
+                onView={(trend) => update({ trend })}
+                legend={
+                  <div className="legend">
+                    <span><i className="lg-line" aria-hidden="true" />{t('actual')}</span>
+                    {showFc ? <span><i className="lg-line is-dashed" aria-hidden="true" />{t('forecast')}</span> : null}
+                    {showFc ? <span><i className="lg-band" aria-hidden="true" />{t('tp.legend.band')}</span> : null}
+                    {nowcast ? <span><StatusGlyph status="WATCH" size={12} />{t('tp.nowcastLabel')}</span> : null}
+                  </div>
+                }
+                chart={
+                  <TrendChart
+                    years={years}
+                    counts={counts}
+                    forecast={showFc ? fc : null}
+                    nowcast={nowcast}
+                    labels={{ name: `${t('tp.trend.title', { a: years[0], b: years[years.length - 1] })} · ${name(topic)}`, forecast: t('forecast'), articles: t('col.articles'), range80: (lo, hi) => t('tp.range80', { lo, hi }) }}
+                  />
+                }
+                table={
+                  <DataTable
+                    caption={t('table.n', { n: 1, title: t('tp.trend.table') })}
+                    rows={trendRows}
+                    rowKey={(r) => `${r.kind}-${r.year}`}
+                    stack={false}
+                    csvFilename={`atlas-${release.overview.release}-${topic.id}-trend.csv`}
+                    columns={[
+                      { key: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.kind === 'forecast' ? t('tp.forecastYear', { year: r.year }) : String(r.year)), csv: (r) => r.year },
+                      { key: 'kind', header: 'kind', cell: () => null, csv: (r) => r.kind, csvOnly: true },
+                      { key: 'articles', header: t('col.articles'), numeric: true, cell: (r) => (r.articles === null ? '' : fmtInt(r.articles)), csv: (r) => r.articles },
+                      { key: 'share', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? '' : fmtPct(r.share, 2)), csv: (r) => r.share },
+                      { key: 'mean', header: t('forecast'), numeric: true, cell: (r) => (r.mean === null ? '' : fmtInt(r.mean)), csv: (r) => r.mean },
+                      { key: 'r80', header: t('tp.col.range80'), numeric: true, cell: (r) => (r.lo80 === null ? '' : `${fmtInt(r.lo80)}–${fmtInt(r.hi80)}`), csv: (r) => (r.lo80 === null ? null : `${r.lo80}-${r.hi80}`) },
+                      { key: 'r95', header: t('tp.col.range95'), numeric: true, cell: (r) => (r.lo95 === null ? '' : `${fmtInt(r.lo95)}–${fmtInt(r.hi95)}`), csv: (r) => (r.lo95 === null ? null : `${r.lo95}-${r.hi95}`) },
+                    ]}
+                  />
+                }
+                note={
+                  <>
+                    {showFc && fc ? (
+                      <p className="note">{t('tp.fc.model', { m: fc.model, mase: fmtNum(fc.mase, 2), skill: fmtSignedPct(fc.skill_vs_naive, 0) })}</p>
+                    ) : (
+                      <div className="uncertain">
+                        <b>{t('fc.uncertain')}</b>
+                        <p>{topic.status === 'LOW_DATA' || !fc ? t('fc.lowData') : t('fc.noSkill')}</p>
+                      </div>
+                    )}
+                    {nowcast ? <p className="note">{t('tp.nowcast', { year: nowcast.year, month: nowcast.as_of_month, ytd: fmtInt(nowcast.ytd), mean: fmtInt(nowcast.mean) })}</p> : null}
+                  </>
+                }
+              />
+            ) : (
+              <EmptyState title={t('tp.noSeries')} />
+            )}
+          </Section>
+
+          {keywords.length ? (
+            <Section id="keywords" title={t('tp.keywords.h')}>
+              <ul className="kw-list">
+                {keywords.map((k) => <li key={k}>{k}</li>)}
+              </ul>
+            </Section>
+          ) : null}
+
+          <Section id="articles" title={t('tp.articles.h')} intro={t('tp.articles.intro')}>
+            {detail.status === 'loading' ? (
+              <p className="loading" role="status">{t('loading')}</p>
+            ) : ready && ready.articles.length ? (
+              <ol className="articles">
+                {ready.articles.map((a) => (
+                  <li key={a.article_id}>
+                    {a.url ? (
+                      <a href={a.url} target="_blank" rel="noopener noreferrer">{a.title}<span className="sr-only"> {t('newTab')}</span></a>
+                    ) : (
+                      <span>{a.title}</span>
+                    )}
+                    {a.title_en && a.title_en !== a.title ? <span className="art-alt" lang="en">{a.title_en}</span> : null}
+                    <span className="art-meta">
+                      {[a.journal, a.year ? String(a.year) : ''].filter(Boolean).join(' · ')}
+                      {a.doi ? (
+                        <>
+                          {' · '}
+                          <a href={`https://doi.org/${a.doi}`} target="_blank" rel="noopener noreferrer">DOI {a.doi}<span className="sr-only"> {t('newTab')}</span></a>
+                        </>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="note">{t('tp.articles.none')}</p>
+            )}
+          </Section>
+
+          {related.length ? (
+            <Section id="related" title={t('tp.related.h')}>
+              <ul className="related">
+                {related.map((r) => (
+                  <li key={r.id}>
+                    <TopicLink topic={r} showStatus />
+                    <span className="topic-sub">{statusName(t, r.status)} · {growthText(t, r.metrics)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
+
+          {journals.length ? (
+            <Section id="journals" title={t('tp.journals.h')}>
+              {countTable('journals', t('table.n', { n: 2, title: t('tp.journals.table') }), journals, t('col.journal'))}
+            </Section>
+          ) : null}
+          {institutions.length ? (
+            <Section id="orgs" title={t('tp.orgs.h')}>
+              {countTable('institutions', t('table.n', { n: 3, title: t('tp.orgs.table') }), institutions, t('col.institution'))}
+            </Section>
+          ) : null}
+        </div>
+        <aside className="rail" aria-label={t('onThisPage')}>
+          <OnThisPage items={toc} />
+          <p className="mt-6">
+            <Link className="btn-secondary" to={`/compare?ids=${topic.id}`}>{t('addToCompare')}</Link>
+          </p>
+          <p className="mt-2 hint">{level}% · {topic.id}</p>
+        </aside>
+      </div>
     </div>
   )
 }

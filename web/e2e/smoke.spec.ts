@@ -42,6 +42,18 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#em-status-panel').getByRole('button', { name: 'ดาวน์โหลด CSV' })).toBeVisible()
     await expect(page.locator('#keywords')).toContainText('chatgpt')
   },
+  topic: async (page) => {
+    await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
+    await expect(page.locator('.summary')).toContainText('%')
+    await expect(page.locator('svg.tr')).toBeVisible()
+    await expect(page.getByRole('link', { name: /AI เพื่อการศึกษา: กรณีศึกษาที่ 1/ })).toHaveAttribute('href', /tci-thaijo\.org/)
+    await expect(page.locator('#related')).toBeVisible()
+    await page.goto(`${EXAMPLE}#/topics/T000701`)
+    await expect(page.locator('.uncertain')).toContainText('แนวโน้มไม่แน่นอน')
+    await expect(page.locator('.summary')).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
+    await page.goto(`${EXAMPLE}#/topics/T123456`)
+    await expect(page.locator('h1')).toContainText('T123456')
+  },
   // checks:end
 }
 

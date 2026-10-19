@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDetailLoader, groupName, loadRelease, schemaMajor, seriesOf } from './release'
+import { createDetailLoader, groupName, loadRelease, neighborsOf, schemaMajor, seriesOf } from './release'
 import { EmbeddedSource, HttpSource } from './source'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -92,5 +92,17 @@ describe('createDetailLoader', () => {
     expect(b).toBe(a)
     expect(asked.filter((u) => u.endsWith('T000201.json'))).toHaveLength(1)
     expect(await load('T999999')).toBeNull()
+  })
+})
+
+describe('neighborsOf', () => {
+  it('lists linked topics strongest first', async () => {
+    const r = await loadRelease(new EmbeddedSource(bundleOf('example')))
+    const ids = neighborsOf(r, 'T000701')
+    expect(ids).toContain('T000201')
+    expect(ids).toContain('T000106')
+    const weight = (id: string) => r.edges.find((e) => (e.s === id && e.t === 'T000701') || (e.t === id && e.s === 'T000701'))?.w ?? 0
+    expect(ids.map(weight)).toEqual([...ids.map(weight)].sort((a, b) => b - a))
+    expect(neighborsOf(r, 'T999999')).toEqual([])
   })
 })
