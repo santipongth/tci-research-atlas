@@ -22,7 +22,19 @@
 
 ID หัวข้อถาวร + lineage · กลุ่มตาม OpenAlex fields · Forecast v2 (share × ยอดรวม, conformal 80/95, nowcast ของปีที่ยังไม่ครบ) · emerging keywords · แผนที่นิ่งข้ามรอบ + galaxy · LLM ทุกงานผ่าน API (runner + งบ + review/overrides) · คำอธิบายและบทสรุปที่ตรวจตัวเลข · contract v2 + `atlas validate` + `atlas publish --site` · bake-off · ingest แบบเป็นชุด
 
-ถัดไป: **P1b** เว็บ v2 (DESIGN.md + tokens แบบ hybrid ก่อน, แล้ว Overview / Atlas / Topic / Emerging) และ **P1c** หน้าเสริม + ช่องทางเผยแพร่ (PDF brief, Pages) — ดูแผน `docs/superpowers/plans/2026-10-19-p1a-core-analytics.md` ท้ายเอกสาร
+## P1b/P1c — เว็บ v2 + ช่องทางเผยแพร่ (เสร็จ, 2026-10-19)
+
+ดีไซน์ hybrid (Civic + พาดหัว Editorial + แผนที่ Cartographic) · `/overview` `/atlas` `/emerging` `/topics/:id` `/compare` `/data` `/about` `/brief` · TH/EN · โหมดมืด · มือถือ · WCAG 2.2 AA (axe) · HTML เดี่ยว offline · PDF สรุปผู้บริหาร · GitHub Pages สาธิต (ข้อมูลสังเคราะห์, กดรันเอง) — แผน `docs/superpowers/plans/2026-10-19-p1bc-web-v2.md`
+
+### งานค้างเล็ก ๆ หลัง P1 (จากรีวิว — ไม่บล็อกการใช้งาน)
+- **ก่อนเปิด LLM เขียนเรื่องเล่าในรุ่นสาธารณะ:** ประโยคทิศทางที่ไม่มีตัวเลข/คำบอกอัตรา ("หัวข้อนี้เติบโต") ยังไม่ถูกตรวจ; ประโยคใน brief ที่เอ่ยถึง ≥ 2 หัวข้อตรวจเฉพาะกรณีมีตัวเลขอัตราเดียว
+- Forecast: ยอดคาดการณ์รายหัวข้อไม่ได้ปรับให้รวมเท่ายอดทั้งคลัง (share × N̂ แยกกัน); เกณฑ์ `min_month_share` ของ nowcast อ่อนเมื่อคลังเล็กมาก; เทสต์เชิงสถิติใช้ seed เดียว
+- Bake-off: คอลัมน์ `ari_vs_first` ของอัลกอริทึมแรกเป็น 1.0 เสมอ / NPMI จาก seed แรก — อธิบายในรายงาน
+- Label: `n_labels_fallback` นับรวมหัวข้อที่บรรณาธิการแก้ชื่อภายหลัง; รายการที่ fallback จะถูกถาม LLM ใหม่ทุกรอบ (ตั้งใจ)
+- Runner: ค่าใช้จ่ายรอบ repair อาจเกินค่าประมาณหนึ่งครั้ง (งบเป็น soft cap); `atlas llm --background` ไม่มีหัว log
+- Checkpoint fingerprint ตรวจเฉพาะ article_id/ลำดับ ไม่ตรวจการเปลี่ยน doc_text ที่ id เดิม; `hdbscan_backend: fast` ที่ไม่ได้ติดตั้ง extra ได้ error ดิบ
+- เว็บ: `offline-template.html` บน Pages ไม่มี noindex (ไม่มีข้อมูล); หมายเหตุหน่วยของ CSV อยู่ข้างปุ่ม ไม่ได้อยู่ในไฟล์; ค่า `group_name` ใน CSV เปลี่ยนตามภาษา; ชื่อกลุ่ม fallback ภาษาไทยในหน้าอังกฤษยังไม่ครอบ `lang="th"`; headline linker ไม่ใช้ word boundary กับชื่ออังกฤษ (ควรให้ brief ส่ง topic id ใน P2); เทสต์ line-height ยังไม่สแกน shorthand `font:`
+- Bundle เว็บเป็นก้อนเดียว ~163 KB gzip — แยก lazy route `/atlas` `/brief` ได้ใน P2
 
 ## งานแนะนำลำดับถัดไป (เรียงตาม value/effort)
 
