@@ -16,7 +16,7 @@ from atlas import config as cfg_mod
 from atlas.console import use_utf8_stdio
 
 STEPS = ["ingest", "preprocess", "embed", "cluster", "taxonomy", "label", "series", "emerging", "keywords",
-         "forecast", "layout", "export"]
+         "forecast", "narrate", "layout", "export"]
 _FUNCS = {
     "ingest": ("atlas.ingest", "ingest"),
     "preprocess": ("atlas.preprocess", "preprocess"),
@@ -28,6 +28,7 @@ _FUNCS = {
     "emerging": ("atlas.emerging", "emerging"),
     "keywords": ("atlas.keywords", "keywords"),
     "forecast": ("atlas.forecast", "forecast"),
+    "narrate": ("atlas.narrative", "narrate"),
     "layout": ("atlas.layout", "layout"),
     "export": ("atlas.export", "export"),
 }

@@ -392,6 +392,15 @@ class ReviewCfg(_Strict):
     n_titles: int = Field(5, ge=1)
 
 
+class NarrativeCfg(_Strict):
+    provider: Literal["llm", "template"] = "template"
+    statuses: list[Literal["EMERGING", "WATCH", "HOT", "DECLINING"]] = Field(
+        default_factory=lambda: ["EMERGING", "HOT", "DECLINING"])
+    top_n: int = Field(10, ge=0)
+    n_titles: int = Field(5, ge=0)
+    brief: bool = True
+
+
 class AtlasConfig(_Strict):
     pipeline: PipelineCfg = Field(default_factory=PipelineCfg)
     input: InputCfg = Field(default_factory=InputCfg)
@@ -400,6 +409,7 @@ class AtlasConfig(_Strict):
     labeling: LabelingCfg = Field(default_factory=LabelingCfg)
     llm: LlmCfg = Field(default_factory=LlmCfg)
     review: ReviewCfg = Field(default_factory=ReviewCfg)
+    narrative: NarrativeCfg = Field(default_factory=NarrativeCfg)
     topics: TopicsCfg = Field(default_factory=TopicsCfg)
     taxonomy: TaxonomyCfg = Field(default_factory=TaxonomyCfg)
     emerging: EmergingCfg = Field(default_factory=EmergingCfg)

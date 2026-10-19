@@ -116,6 +116,14 @@ review:
   sample_size: 50             # หัวข้อต่อรอบ (ชื่อจาก fallback + คู่ที่อาจซ้ำมาก่อน แล้วสุ่มที่เหลือแบบทำซ้ำได้)
   n_titles: 5                 # ตัวอย่างชื่อบทความต่อหัวข้อในไฟล์ตรวจ
 
+# ---------- คำอธิบายหัวข้อ + บทสรุปผู้บริหาร (ตัวเลขมาจาก pipeline เท่านั้น — ตรวจซ้ำหลัง LLM ตอบ) ----------
+narrative:
+  provider: template          # llm (llm.tasks.narrative / brief) | template (ประโยคแม่แบบจากตัวเลข ไม่เรียก LLM)
+  statuses: [EMERGING, HOT, DECLINING]   # สถานะที่ได้คำอธิบาย
+  top_n: 10                   # ต่อสถานะ (EMERGING/HOT ตาม emerging_score, DECLINING ตามอัตราลดลง)
+  n_titles: 5                 # ชื่อบทความตัวแทนที่ส่งให้ LLM
+  brief: true                 # บทสรุปผู้บริหาร (headline ของหน้า Overview)
+
 # ---------- LLM (ทุกงานผ่าน API แบบ OpenAI-compatible: POST {base_url}/chat/completions) ----------
 llm:
   prompts_dir: null           # null = โฟลเดอร์ prompts/ ของ repo (ไฟล์ .md เป็นต้นฉบับเดียวของ prompt)

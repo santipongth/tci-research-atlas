@@ -48,7 +48,8 @@ from atlas.jobs import (
 from atlas.llm import LlmConfigError, OpenAICompatLLM, extract_json
 from atlas.state import current_release
 
-JOBS: dict[str, str] = {"label": "atlas.label:label_job", "merge": "atlas.review:merge_job"}
+JOBS: dict[str, str] = {"label": "atlas.label:label_job", "merge": "atlas.review:merge_job",
+                        "narrative": "atlas.narrative:narrative_job", "brief": "atlas.narrative:brief_job"}
 PROGRESS_EVERY_S = 5.0
 
 REPAIR = ("The reply above does not match the required JSON format ({error}). "
