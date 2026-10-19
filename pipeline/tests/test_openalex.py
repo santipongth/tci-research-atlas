@@ -1,5 +1,6 @@
 import json
 import re
+import urllib.parse
 
 import pytest
 
@@ -86,28 +87,94 @@ def test_offline_flag_blocks_the_network(make_cfg, tmp_path):
         load_reference(cfg)                                 # conftest sets ATLAS_OFFLINE=1
 
 
-def test_http_fetcher_builds_polite_urls(monkeypatch, make_cfg, tmp_path):
+class FakeTransport:
+    """Serves the recorded fixtures over the HttpFetcher transport interface; scripted statuses first."""
+
+    def __init__(self, script=()):
+        self.script = list(script)
+        self.calls = []                                  # (url, headers)
+
+    def __call__(self, url, headers, timeout):
+        self.calls.append((url, dict(headers)))
+        if self.script:
+            status, hdr = self.script.pop(0)
+            if status != 200:
+                return status, hdr, b"{}"
+        path, _, query = url.partition("openalex.org")[2].partition("?")
+        params = {k: urllib.parse.unquote(v) for k, v in (p.split("=", 1) for p in query.split("&"))}
+        body = json.dumps(RecordedFetch()(path, params)).encode("utf-8")
+        return 200, {}, body
+
+
+def _fetcher(make_cfg, tmp_path, monkeypatch, transport, key=None, **over):
     cfg = make_cfg(tmp_path)
-    ocfg = {**cfg["taxonomy"]["openalex"], "mailto": "atlas@example.org"}
-    monkeypatch.delenv("ATLAS_OFFLINE")
-    monkeypatch.setenv("OPENALEX_API_KEY", "k123")
-    seen = {}
+    ocfg = {**cfg["taxonomy"]["openalex"], **over}
+    monkeypatch.delenv("ATLAS_OFFLINE", raising=False)
+    monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+    if key:
+        monkeypatch.setenv("OPENALEX_API_KEY", key)
+    cache = tmp_path / "state" / "openalex"
+    return HttpFetcher(ocfg, cache, transport=transport, sleep=lambda s: None), cache
 
-    class Resp:
-        def __enter__(self):
-            return self
 
-        def __exit__(self, *a):
-            return False
+def test_key_is_optional_and_only_sent_as_a_bearer_header(make_cfg, tmp_path, monkeypatch, capsys):
+    t = FakeTransport()
+    f, cache = _fetcher(make_cfg, tmp_path, monkeypatch, t, key="SECRETKEY", mailto="atlas@example.org")
+    assert f("/fields", {"per_page": 100}) == json.loads((OA / "fields.json").read_text(encoding="utf-8"))
+    url, headers = t.calls[0]
+    assert headers["Authorization"] == "Bearer SECRETKEY" and "SECRETKEY" not in url and "api_key" not in url
+    assert url.endswith("&mailto=atlas%40example.org")
+    assert "with key" in capsys.readouterr().out
+    cached = [p for p in cache.rglob("*") if p.is_file()]
+    assert cached and all("SECRETKEY" not in p.name and "SECRETKEY" not in p.read_text(encoding="utf-8")
+                          and "mailto" not in p.read_text(encoding="utf-8") for p in cached)
 
-        def read(self):
-            return b'{"results": []}'
+    t2 = FakeTransport()
+    f2, _ = _fetcher(make_cfg, tmp_path, monkeypatch, t2)         # keyless, same cache dir: served from cache
+    f2("/fields", {"per_page": 100})
+    assert t2.calls == [] and f2.n_cached == 1
+    f3, _ = _fetcher(make_cfg, tmp_path / "other", monkeypatch, t2)
+    f3("/fields", {"per_page": 100})
+    assert "Authorization" not in t2.calls[0][1] and "mailto" not in t2.calls[0][0]
+    assert "keyless" in capsys.readouterr().out
 
-    def fake_urlopen(req, timeout):
-        seen["url"] = req.full_url
-        return Resp()
 
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    assert HttpFetcher(ocfg)("/works", {"filter": "a:1,b:2", "per_page": 5}) == {"results": []}
-    assert seen["url"] == ("https://api.openalex.org/works?filter=a:1,b:2&per_page=5"
-                           "&mailto=atlas%40example.org&api_key=k123")
+def test_daily_budget_429_stops_cleanly_and_rerun_resumes_from_cache(make_cfg, tmp_path, monkeypatch):
+    t = FakeTransport([(200, {}), (200, {}), (429, {"X-RateLimit-Remaining": "0"})])
+    f, cache = _fetcher(make_cfg, tmp_path, monkeypatch, t, key="SECRETKEY")
+    with pytest.raises(OpenAlexUnavailable, match="tomorrow") as exc:
+        fetch_reference(f, "TH", 100, 42)
+    assert "SECRETKEY" not in str(exc.value) and "OPENALEX_API_KEY" in str(exc.value)
+    n_first = len(t.calls)
+    t2 = FakeTransport()
+    f2, _ = _fetcher(make_cfg, tmp_path, monkeypatch, t2)
+    df = fetch_reference(f2, "TH", 100, 42)
+    assert len(df) == 5 and f2.n_cached == n_first - 1 and len(t2.calls) == 6 - (n_first - 1)
+
+
+def test_per_second_429_is_retried_and_cost_is_tracked(make_cfg, tmp_path, monkeypatch):
+    t = FakeTransport([(429, {}), (429, {"X-RateLimit-Remaining": "7"})])
+    f, _ = _fetcher(make_cfg, tmp_path, monkeypatch, t)
+    f("/fields", {"per_page": 100})
+    assert len(t.calls) == 3 and f.n_network == 1
+    t = FakeTransport([(429, {})] * 3)
+    f, _ = _fetcher(make_cfg, tmp_path / "b", monkeypatch, t)
+    with pytest.raises(OpenAlexUnavailable, match="429"):
+        f("/fields", {"per_page": 100})
+
+
+def test_pages_only_with_a_key(make_cfg, tmp_path, monkeypatch):
+    for key, expected in (("k", 2), (None, 1)):
+        t = FakeTransport()
+        f, _ = _fetcher(make_cfg, tmp_path / str(key), monkeypatch, t, key=key, max_pages_keyed=2)
+        assert f.max_pages == expected
+        fetch_reference(f, "TH", 100, 42, pages=f.max_pages)
+        works = [u for u, _ in t.calls if "/works" in u]
+        assert len(works) == 3 * expected and (expected == 2) == any("page=2" in u for u in works)
+
+
+def test_offline_flag_blocks_the_network_for_uncached_requests(make_cfg, tmp_path, monkeypatch):
+    f, _ = _fetcher(make_cfg, tmp_path, monkeypatch, FakeTransport())
+    monkeypatch.setenv("ATLAS_OFFLINE", "1")
+    with pytest.raises(OpenAlexUnavailable, match="ATLAS_OFFLINE"):
+        f("/fields", {"per_page": 100})

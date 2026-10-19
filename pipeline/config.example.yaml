@@ -171,8 +171,13 @@ taxonomy:
   reference_path: null        # ไฟล์งานอ้างอิง (.jsonl/.parquet/.csv) แบบ offline — null = ดึงจาก OpenAlex API แล้ว cache ใน state_dir
   openalex:
     base_url: https://api.openalex.org
-    mailto: ""                # อีเมลติดต่อ (ส่งเป็นพารามิเตอร์ mailto)
-    api_key_env: OPENALEX_API_KEY   # ไม่บังคับ — ชื่อ env var ของ API key (การดึงหน้าแรกแบบ sample ไม่ต้องใช้ key)
+    mailto: null              # อีเมลติดต่อ (ไม่บังคับ — ถ้าใส่จะส่งเป็นพารามิเตอร์ mailto)
+    api_key_env: OPENALEX_API_KEY   # ไม่บังคับ — ชื่อ env var ของ API key (อ่านจาก env เท่านั้น ส่งทาง header Authorization: Bearer ไม่ใส่ใน URL/cache/log)
+                              #   ไม่มี key: งบ $0.10/วัน, 10 req/s, อ่านหน้าแรกเท่านั้น | มี key (ฟรี): งบ $1/วัน, 30 req/s, อ่านหลายหน้าได้
+                              #   งบวันหมด (429) → หยุดอย่างสุภาพ เก็บ cache ไว้ รันซ้ำพรุ่งนี้หรือตั้ง $OPENALEX_API_KEY แล้วรันต่อได้
+    requests_per_second_keyless: 8   # ความเร็วสูงสุดเมื่อไม่มี key (ขีดจำกัดของ OpenAlex = 10)
+    requests_per_second_keyed: 25    # ความเร็วสูงสุดเมื่อมี key (ขีดจำกัดของ OpenAlex = 30)
+    max_pages_keyed: 1        # จำนวนหน้า (x per_subfield งาน) ต่อ subfield เมื่อมี key; ไม่มี key = 1 หน้าเสมอ
     country_code: TH          # งานที่มีผู้แต่งสังกัดประเทศนี้
     per_subfield: 100         # จำนวนงานตัวอย่างต่อ subfield (สูงสุด 100 = 1 request)
     seed: 42

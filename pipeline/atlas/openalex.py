@@ -13,6 +13,7 @@ Set ATLAS_OFFLINE=1 to forbid network access (tests do).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -29,7 +30,6 @@ from tqdm import tqdm
 from atlas.io_utils import read_table, write_table
 
 REFERENCE_COLUMNS = ["work_id", "title", "abstract", "year", "subfield_id", "subfield_en", "field_id", "field_en"]
-MIN_INTERVAL = 0.12                     # seconds between requests: stays under the 10 req/s keyless limit
 Fetch = Callable[[str, dict], dict]
 
 
@@ -64,42 +64,100 @@ def flatten_work(w: dict) -> dict | None:
             "field_en": str(field.get("display_name", ""))}
 
 
-class HttpFetcher:
-    """GET base_url + path with query params → parsed JSON (stdlib only; retries with backoff)."""
+class OpenAlexBudgetExhausted(OpenAlexUnavailable):
+    """Daily budget used up (HTTP 429 with X-RateLimit-Remaining <= 0): resume tomorrow or set the API key."""
 
-    def __init__(self, ocfg: dict):
+
+def _urlopen_transport(url: str, headers: dict, timeout: float) -> tuple[int, dict, bytes]:
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return int(getattr(resp, "status", 200)), dict(getattr(resp, "headers", {}) or {}), resp.read()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers or {}), e.read()
+
+
+class HttpFetcher:
+    """GET base_url + path with query params → parsed JSON (stdlib only).
+
+    The API key is optional. Present in the env var → sent ONLY as `Authorization: Bearer` (never in the URL, so
+    it cannot reach the cache, logs or error messages); absent → keyless. Requests are throttled to the mode's
+    req/s. Every answer is cached by its URL WITHOUT credentials (cache_dir/requests/) when cache_dir is given, so
+    a re-run - after a daily-budget stop, or in the other mode - continues from the cache.
+    transport(url, headers, timeout) -> (status, headers, body) is injectable (tests).
+    """
+
+    def __init__(self, ocfg: dict, cache_dir: str | Path | None = None, transport=None, sleep=time.sleep,
+                 clock=time.monotonic):
         self.base = ocfg["base_url"].rstrip("/")
-        self.mailto = ocfg["mailto"]
-        self.api_key = os.environ.get(ocfg["api_key_env"], "")
+        self.mailto = ocfg.get("mailto") or ""
+        self._key = os.environ.get(ocfg["api_key_env"], "").strip()
+        self.keyed = bool(self._key)
+        rps = ocfg["requests_per_second_keyed" if self.keyed else "requests_per_second_keyless"]
+        self.interval = 1.0 / float(rps)
+        self.max_pages = int(ocfg["max_pages_keyed"]) if self.keyed else 1
         self.timeout, self.max_retries = float(ocfg["timeout"]), int(ocfg["max_retries"])
-        self._last = 0.0
+        self.cache_dir = Path(cache_dir) if cache_dir else None
+        self.transport, self._sleep, self._clock = transport or _urlopen_transport, sleep, clock
+        self._last = -1e9
+        self.cost_usd = 0.0
+        self.n_network = self.n_cached = 0
+        print("[openalex] mode: " + ("with key" if self.keyed else "keyless")
+              + "  (keyless: $0.10/day, 10 req/s | with key: $1/day, 30 req/s)")
+
+    def _cache_path(self, url: str) -> Path | None:
+        if not self.cache_dir:
+            return None
+        return self.cache_dir / "requests" / (hashlib.sha256(url.encode("utf-8")).hexdigest() + ".json")
 
     def __call__(self, path: str, params: dict) -> dict:
+        url = f"{self.base}{path}?{urllib.parse.urlencode(params, safe=':,|*')}"     # no credentials: the cache key
+        cp = self._cache_path(url)
+        if cp is not None and cp.exists():
+            self.n_cached += 1
+            return json.loads(cp.read_text(encoding="utf-8"))
         if os.environ.get("ATLAS_OFFLINE") == "1":
             raise OpenAlexUnavailable("ATLAS_OFFLINE=1 — network access disabled")
-        q = dict(params)
-        if self.mailto:
-            q["mailto"] = self.mailto
-        if self.api_key:
-            q["api_key"] = self.api_key
-        url = f"{self.base}{path}?{urllib.parse.urlencode(q, safe=':,|*')}"
+        send_url = url + (f"&mailto={urllib.parse.quote(self.mailto, safe='')}" if self.mailto else "")
+        headers = {"User-Agent": "tci-research-atlas"}
+        if self.keyed:
+            headers["Authorization"] = f"Bearer {self._key}"
         delay = 2.0
         for attempt in range(self.max_retries):
-            time.sleep(max(0.0, MIN_INTERVAL - (time.monotonic() - self._last)))
-            self._last = time.monotonic()
+            self._sleep(max(0.0, self.interval - (self._clock() - self._last)))
+            self._last = self._clock()
             try:
-                req = urllib.request.Request(url, headers={"User-Agent": "tci-research-atlas"})
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode("utf-8"))
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+                status, hdr, body = self.transport(send_url, headers, self.timeout)
+                hdr = {str(k).lower(): v for k, v in hdr.items()}
+                if status == 429:
+                    remaining = hdr.get("x-ratelimit-remaining")
+                    if remaining is not None and float(remaining) <= 0:
+                        raise OpenAlexBudgetExhausted(
+                            "OpenAlex daily budget used up (HTTP 429). Cached responses are kept: run the same "
+                            "command again tomorrow (the budget resets at midnight UTC), or set the "
+                            "OPENALEX_API_KEY environment variable (free key: $1/day) and re-run to continue.")
+                    raise TimeoutError("HTTP 429 (rate limit per second)")
+                if status >= 400:
+                    raise urllib.error.URLError(f"HTTP {status}")
+                data = json.loads(body.decode("utf-8"))
+            except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
                 if attempt == self.max_retries - 1:
-                    raise OpenAlexUnavailable(f"OpenAlex request failed: {e}") from e
-                time.sleep(delay)
+                    raise OpenAlexUnavailable(f"OpenAlex request failed: {e}") from None
+                self._sleep(delay)
                 delay *= 2
+                continue
+            self.n_network += 1
+            self.cost_usd += float((data.get("meta") or {}).get("cost_usd") or 0.0)
+            if cp is not None:
+                cp.parent.mkdir(parents=True, exist_ok=True)
+                tmp = cp.with_suffix(".tmp")
+                tmp.write_text(json.dumps(data), encoding="utf-8")
+                tmp.replace(cp)
+            return data
         raise OpenAlexUnavailable("unreachable")
 
 
-def fetch_reference(fetch: Fetch, country: str, per_subfield: int, seed: int) -> pd.DataFrame:
+def fetch_reference(fetch: Fetch, country: str, per_subfield: int, seed: int, pages: int = 1) -> pd.DataFrame:
     fields = fetch("/fields", {"per_page": 100, "select": "id,display_name"})["results"]
     subfields = []
     for f in fields:
@@ -108,11 +166,15 @@ def fetch_reference(fetch: Fetch, country: str, per_subfield: int, seed: int) ->
         subfields += [short_id(s["id"]) for s in res]
     rows = []
     for sid in tqdm(subfields, desc="openalex", disable=len(subfields) < 20):
-        res = fetch("/works", {
-            "filter": f"authorships.institutions.country_code:{country},primary_topic.subfield.id:{sid},has_abstract:true",
-            "sample": per_subfield, "seed": seed, "per_page": per_subfield,
-            "select": "id,title,publication_year,primary_topic,abstract_inverted_index"})["results"]
-        rows += [r for r in (flatten_work(w) for w in res) if r]
+        for page in range(1, pages + 1):
+            params = {
+                "filter": f"authorships.institutions.country_code:{country},primary_topic.subfield.id:{sid},has_abstract:true",
+                "sample": per_subfield * pages, "seed": seed, "per_page": per_subfield,
+                "select": "id,title,publication_year,primary_topic,abstract_inverted_index"}
+            if pages > 1:
+                params["page"] = page                     # more than one page needs an API key (see HttpFetcher)
+            res = fetch("/works", params)["results"]
+            rows += [r for r in (flatten_work(w) for w in res) if r]
     return pd.DataFrame(rows, columns=REFERENCE_COLUMNS).drop_duplicates("work_id").reset_index(drop=True)
 
 
@@ -139,13 +201,20 @@ def load_reference(cfg: dict, fetch: Fetch | None = None) -> tuple[pd.DataFrame,
         df = read_reference_file(tcfg["reference_path"])
         return df, {"origin": "file", "version": f"file:{Path(tcfg['reference_path']).name}", "n": len(df)}
     cache_dir = Path(cfg["pipeline"]["state_dir"]) / "openalex"
-    stem = f"reference_{ocfg['country_code']}_{ocfg['per_subfield']}_{ocfg['seed']}"
+    fetcher = fetch or HttpFetcher(ocfg, cache_dir)       # request-level cache: valid in both modes
+    pages = int(getattr(fetcher, "max_pages", 1))         # keyless is always 1 page
+    stem = f"reference_{ocfg['country_code']}_{ocfg['per_subfield']}_{ocfg['seed']}" + (
+        f"_p{pages}" if pages > 1 else "")
     meta_path = cache_dir / f"{stem}.json"
     if meta_path.exists():
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         return read_table(cache_dir / f"{stem}.parquet"), {**meta, "origin": "cache"}
-    df = fetch_reference(fetch or HttpFetcher(ocfg), ocfg["country_code"], int(ocfg["per_subfield"]),
-                         int(ocfg["seed"]))
+    try:
+        df = fetch_reference(fetcher, ocfg["country_code"], int(ocfg["per_subfield"]), int(ocfg["seed"]), pages)
+    finally:
+        if isinstance(fetcher, HttpFetcher):
+            print(f"[openalex] {fetcher.n_network} requests ({fetcher.n_cached} from cache), "
+                  f"cost ${fetcher.cost_usd:.4f}")
     if df.empty:
         raise OpenAlexUnavailable("OpenAlex returned no reference works")
     fetched = datetime.now(UTC).strftime("%Y-%m-%d")

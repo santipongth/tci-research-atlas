@@ -164,8 +164,11 @@ class TopicsCfg(_Strict):
 
 class OpenAlexCfg(_Strict):
     base_url: str = "https://api.openalex.org"
-    mailto: str = ""
+    mailto: str | None = None
     api_key_env: str = "OPENALEX_API_KEY"
+    requests_per_second_keyless: float = Field(8.0, gt=0)
+    requests_per_second_keyed: float = Field(25.0, gt=0)
+    max_pages_keyed: int = Field(1, ge=1)
     country_code: str = "TH"
     per_subfield: int = Field(100, ge=1, le=100)
     seed: int = 42
