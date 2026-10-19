@@ -1,0 +1,5 @@
+{"meta": {"count": 2, "db_response_time_ms": 3, "page": 1, "per_page": 100, "groups_count": null, "notice": "recorded-shape fixture (trimmed to 2 of 26 fields)"},
+ "results": [
+  {"id": "https://openalex.org/fields/17", "display_name": "Computer Science"},
+  {"id": "https://openalex.org/fields/33", "display_name": "Social Sciences"}
+ ]}

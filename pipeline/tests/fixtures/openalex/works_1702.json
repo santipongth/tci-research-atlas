@@ -1,0 +1,19 @@
+{"meta": {"count": 3, "page": 1, "per_page": 3, "groups_count": null, "notice": "No API key ... (ignored by the client)"},
+ "results": [
+  {"id": "https://openalex.org/W4399292033", "title": "Introducing CASUX: A Standardized Scale for Measuring the User Experience of Artificial Intelligence Based Conversational Agents",
+   "publication_year": 2024,
+   "primary_topic": {"id": "https://openalex.org/T12128", "display_name": "AI in Service Interactions", "score": 0.9028,
+     "subfield": {"id": "https://openalex.org/subfields/1702", "display_name": "Artificial Intelligence"},
+     "field": {"id": "https://openalex.org/fields/17", "display_name": "Computer Science"},
+     "domain": {"id": "https://openalex.org/domains/3", "display_name": "Physical Sciences"}},
+   "abstract_inverted_index": {"Conversational": [0], "agents": [1], "are": [2], "growing": [3], "in": [4], "education": [5]}},
+  {"id": "https://openalex.org/W1000000002", "title": "Large language models for Thai question answering",
+   "publication_year": 2025,
+   "primary_topic": {"id": "https://openalex.org/T10181", "display_name": "Natural Language Processing Techniques", "score": 0.99,
+     "subfield": {"id": "https://openalex.org/subfields/1702", "display_name": "Artificial Intelligence"},
+     "field": {"id": "https://openalex.org/fields/17", "display_name": "Computer Science"},
+     "domain": {"id": "https://openalex.org/domains/3", "display_name": "Physical Sciences"}},
+   "abstract_inverted_index": {"We": [0], "fine-tune": [1], "a": [2, 5], "language": [3], "model": [4], "Thai": [6], "corpus": [7]}},
+  {"id": "https://openalex.org/W1000000003", "title": "A work whose topic is unknown",
+   "publication_year": 2023, "primary_topic": null, "abstract_inverted_index": null}
+ ]}

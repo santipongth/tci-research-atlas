@@ -1,0 +1,17 @@
+{"meta": {"count": 2, "page": 1, "per_page": 2, "groups_count": null},
+ "results": [
+  {"id": "https://openalex.org/W1000000011", "title": "Mathematics learning achievement of Thai secondary students",
+   "publication_year": 2021,
+   "primary_topic": {"id": "https://openalex.org/T11000", "display_name": "Mathematics Education", "score": 0.95,
+     "subfield": {"id": "https://openalex.org/subfields/3304", "display_name": "Education"},
+     "field": {"id": "https://openalex.org/fields/33", "display_name": "Social Sciences"},
+     "domain": {"id": "https://openalex.org/domains/2", "display_name": "Social Sciences"}},
+   "abstract_inverted_index": {"Students": [0], "solved": [1], "problems": [2], "with": [3], "skill": [4], "exercises": [5]}},
+  {"id": "https://openalex.org/W1000000012", "title": "Teacher training in rural schools",
+   "publication_year": 2019,
+   "primary_topic": {"id": "https://openalex.org/T11001", "display_name": "Teacher Education", "score": 0.9,
+     "subfield": {"id": "https://openalex.org/subfields/3304", "display_name": "Education"},
+     "field": {"id": "https://openalex.org/fields/33", "display_name": "Social Sciences"},
+     "domain": {"id": "https://openalex.org/domains/2", "display_name": "Social Sciences"}},
+   "abstract_inverted_index": {"Rural": [0], "teachers": [1], "need": [2], "training": [3]}}
+ ]}

@@ -168,3 +168,30 @@ def test_stopped_run_reports_abandoned_requests(make_cfg, tmp_path, monkeypatch)
     with pytest.raises(RunStopped) as e:
         embed(cfg, embedder=FakeEmbedder())
     assert e.value.abandoned == 2                       # the CLI's prompt-exit path depends on it
+
+
+class _VecEmbedder:
+    model_id = "fake|texts"
+    n_retries = n_truncated = 0
+
+    def __init__(self):
+        self.calls = 0
+
+    def embed_batch(self, texts):
+        self.calls += 1
+        return np.array([[len(t), 1.0, 0.0, 0.0] for t in texts], dtype=np.float32)
+
+
+def test_embed_texts_goes_through_the_store_and_rejects_lite(make_cfg, tmp_path):
+    from atlas.embed import embed_texts
+
+    cfg = make_cfg(tmp_path)
+    cfg["embedding"]["provider"] = "local"
+    first = embed_texts(cfg, ["ab", "abcd"], embedder=_VecEmbedder())
+    again = _VecEmbedder()
+    second = embed_texts(cfg, ["abcd", "ab"], embedder=again)
+    assert again.calls == 0 and np.allclose(second, first[::-1])
+    assert np.allclose(np.linalg.norm(first, axis=1), 1.0) and first[1, 0] > first[0, 0]
+    cfg["embedding"]["provider"] = "lite"
+    with pytest.raises(ValueError, match="lite"):
+        embed_texts(cfg, ["x"])

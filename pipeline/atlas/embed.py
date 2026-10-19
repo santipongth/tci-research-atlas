@@ -96,6 +96,28 @@ def _normalize(arr: np.ndarray) -> np.ndarray:
     return (arr / np.maximum(np.linalg.norm(arr, axis=1, keepdims=True), 1e-9)).astype(np.float32)
 
 
+def embed_texts(cfg: dict, texts: list[str], embedder=None) -> np.ndarray:
+    """L2-normalised vectors for texts outside the corpus (OpenAlex reference works, bake-off samples).
+
+    Same machinery as the embed step: get_embedder → run_embedding → state_dir/embeddings/<store id>, so
+    texts already stored are free, an API run survives a crash and `atlas status` shows it. A stopped run
+    raises RunStopped (as embed() does). lite → ValueError (lite vectors exist only per fit — use
+    lite_embed() on all texts together).
+    """
+    if embedder is None and cfg["embedding"]["provider"] == "lite":
+        raise ValueError("lite vectors exist only per fit — use lite_embed() on all texts together")
+    embedder = embedder or get_embedder(cfg)
+    store = EmbeddingStore(store_root(cfg), embedder.model_id)
+    stats = run_embedding(list(texts), embedder, store, runner_cfg(cfg), progress=False)
+    if stats["status"] != "done":
+        left = stats["total"] - stats["cached"] - stats["embedded"]
+        raise RunStopped(f"embedding stopped with {left:,} texts left — run the same command again to resume",
+                         abandoned=int(stats.get("abandoned") or 0))
+    return _normalize(store.get([text_key(embedder.model_id, t) for t in texts]))
+
+
+
+
 def embed(cfg: dict, embedder=None) -> np.ndarray:
     work = Path(cfg["pipeline"]["work_dir"])
     docs = read_table(work / "02_docs.parquet")
