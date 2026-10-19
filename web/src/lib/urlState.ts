@@ -166,3 +166,8 @@ export const institutionsCodec = makeCodec<InstitutionsUrlState>({
   sort: oneOf('sort', INST_SORTS, 'articles'),
   dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
 })
+export const REGION_METRICS = ['articles', 'per100k'] as const
+export const regionsCodec = makeCodec<{ m: (typeof REGION_METRICS)[number]; view: View }>({
+  m: oneOf('m', REGION_METRICS, 'articles'),
+  view: oneOf('view', VIEWS, 'chart'),
+})

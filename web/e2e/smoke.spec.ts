@@ -24,6 +24,7 @@ const ROUTES = [
   { name: 'match', path: '/match' },
   { name: 'institutions', path: '/institutions' },
   { name: 'institution', path: '/institutions/mu-a' },
+  { name: 'regions', path: '/regions' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -220,11 +221,22 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.goto(`${EXAMPLE}#/institutions/nowhere`)
     await expect(page.locator('h1')).toContainText('nowhere')
   },
+  regions: async (page) => {
+    await expect(page.locator('svg.pmap path')).toHaveCount(77)
+    await expect(page.locator('svg.pmap path.pv-none')).toHaveCount(65)          // 12 provinces have data
+    await expect(page.locator('.pkey li')).toHaveCount(6)                         // 5 classes + no data
+    await page.getByLabel('บทความต่อประชากรแสนคน').check()
+    await expect(page).toHaveURL(/m=per100k/)
+    await expect(page.locator('svg.pmap path.pv-none')).toHaveCount(67)          // two have no population
+    await page.locator('#map').getByRole('tab', { name: 'ตาราง' }).click()
+    await expect(page.locator('#map tbody tr')).toHaveCount(12)
+    await expect(page.locator('#by-region tbody tr')).toHaveCount(5)
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []

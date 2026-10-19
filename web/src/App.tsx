@@ -21,6 +21,7 @@ const MatchPage = lazy(() => import('./pages/MatchPage'))
 // The executives' pages (P3), also on demand.
 const InstitutionsPage = lazy(() => import('./pages/InstitutionsPage'))
 const InstitutionPage = lazy(() => import('./pages/InstitutionPage'))
+const RegionsPage = lazy(() => import('./pages/RegionsPage'))
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="match" element={<Lazy><MatchPage /></Lazy>} />
         <Route path="institutions" element={<Lazy><InstitutionsPage /></Lazy>} />
         <Route path="institutions/:id" element={<Lazy><InstitutionPage /></Lazy>} />
+        <Route path="regions" element={<Lazy><RegionsPage /></Lazy>} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="data" element={<DataPage />} />
         <Route path="about" element={<AboutPage />} />
