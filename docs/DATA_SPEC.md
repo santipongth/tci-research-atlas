@@ -177,7 +177,7 @@
 | `overview.json` | `Overview` | KPI, จำนวนตามสถานะ, ยอดรายปี + พยากรณ์ยอดรวม, nowcast, lineage events, retired topics, data_quality (completeness), **brief** (headline + bullets, source llm/template) |
 | `taxonomy.json` | `TaxonomyFile` | source (openalex/agglomerative), groups (F33 / G03, ชื่อ TH/EN, สี token, ตำแหน่ง hub), subfields |
 | `topics.json` | `TopicsFile` | หัวข้อ: id T000123, group, ชื่อ, label_source, ขนาด, ตำแหน่ง, status, score, metrics, forecast, lineage, subfield, cross_field, nowcast |
-| `topics/<id>.json` | `TopicDetail` | บทความตัวแทน (ชื่อเรื่อง + ลิงก์ ThaiJO + พิกัด galaxy), วารสาร/สถาบันหลัก, คำสำคัญ, เพื่อนบ้าน, **narrative** |
+| `topics/<id>.json` | `TopicDetail` | บทความตัวแทน (ชื่อเรื่อง + ลิงก์ ThaiJO + พิกัด galaxy), วารสาร/สถาบันหลัก, คำสำคัญ, เพื่อนบ้าน, **narrative** — สถาบันนับตาม `org_key` (พับวรรณยุกต์/ตัวพิมพ์เพื่อรวมคำสะกดต่างกัน) แต่ `institutions[].key` เป็น**ชื่อที่เขียนจริง**ที่พบบ่อยที่สุดของ key นั้น (ส่วนชื่อองค์กรของสังกัด เช่น "มหาวิทยาลัยเกษตรศาสตร์" / "Naresuan University" — ไม่ตัดวรรณยุกต์ ไม่แปลงตัวพิมพ์; ไม่มีชื่อคณะ/ตำแหน่ง) |
 | `series.json`, `edges.json`, `keywords.json` | `SeriesFile`, `EdgesFile`, `KeywordsFile` | ยอดรายปีต่อหัวข้อ · เส้นเชื่อม · emerging keywords |
 | `output/data/latest.json` | `Latest` | {release, path: "<release>/manifest.json", schema_version, generated_at} |
 

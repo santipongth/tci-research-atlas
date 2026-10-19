@@ -5,7 +5,8 @@ construction; NaN/Infinity are rejected) and written as compact strict JSON. man
 every other file with its byte size and sha256, the interval level (ci_level), the v3 data-quality
 fields and the label/LLM accounting. Representative articles carry titles and links back to ThaiJO
 only — abstracts are never published (journal copyright). Institutions are counted at organisation
-level; no person is ranked (PDPA). A topic or keyword with no baseline articles is published with
+level (org_key) and published under their most frequent written name (atlas.orgs.org_display_names —
+tone marks and case kept); no person is ranked (PDPA). A topic or keyword with no baseline articles is published with
 share_ratio null and no_baseline true (the web says "new — no baseline").
 """
 from __future__ import annotations
@@ -25,6 +26,7 @@ from atlas.export import _git_hash, fine_labels
 from atlas.io_utils import read_table
 from atlas.label import representative_indices
 from atlas.lineage import topic_code
+from atlas.orgs import org_display_names
 from atlas.schema import contract as C
 from atlas.state import current_release, previous_release, release_dir
 from atlas.taxonomy import FALLBACK_GROUP_BASE, load_topic_groups
@@ -127,10 +129,11 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     galaxy = _optional(work / "09_galaxy.parquet")
     gxy = galaxy.set_index("article_id")[["gx", "gy"]] if galaxy is not None and len(galaxy) else None
     try:
-        authors = read_table(work / "01_authors.parquet")[["article_id", "org_key"]]
+        authors = read_table(work / "01_authors.parquet")
     except FileNotFoundError:
         authors = pd.DataFrame(columns=["article_id", "org_key"])
-    orgs = authors[authors["org_key"].astype(str) != ""].drop_duplicates()
+    org_names = org_display_names(authors)                  # org_key counts; its written name is published
+    orgs = authors.loc[authors["org_key"].astype(str) != "", ["article_id", "org_key"]].drop_duplicates()
 
     pos = lay[lay["kind"] == "topic"].set_index("id")
     hubs = lay[lay["kind"] == "group"].set_index("id")
@@ -187,6 +190,14 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
 
     # ---- topics/<id>.json
     titles = docs.set_index("article_id")
+    topic_of = pd.Series(labels_arr, index=docs["article_id"].to_numpy())
+    oc = (orgs.assign(topic_id=orgs["article_id"].map(topic_of)).dropna(subset=["topic_id"])
+          .astype({"topic_id": int}).query("topic_id >= 0")
+          .groupby(["topic_id", "org_key"]).size().rename("count").reset_index()      # one groupby for all topics
+          .sort_values(["topic_id", "count", "org_key"], ascending=[True, False, True])
+          .groupby("topic_id").head(int(ecfg["max_topic_orgs"])))
+    institutions = {int(t): [C.CountItem(key=org_names.get(k, k), count=int(n)) for k, n in zip(g["org_key"], g["count"])]
+                    for t, g in oc.groupby("topic_id")}
     for t in ids:
         members = np.where(labels_arr == t)[0]
         idx = representative_indices(emb[members], cents[t], int(ecfg["repr_articles"]),
@@ -203,8 +214,6 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
                 gy=_f(gxy.loc[aid, "gy"], 2) if gxy is not None and aid in gxy.index else None))
         member_ids = docs["article_id"].to_numpy()[members]
         jc = titles.loc[member_ids, "journal_name"].value_counts().head(int(ecfg["max_topic_journals"]))
-        oc = (orgs[orgs["article_id"].isin(set(member_ids))]["org_key"].value_counts()
-              .head(int(ecfg["max_topic_orgs"])))
         nb = pd.concat([edges[edges["s"] == t].rename(columns={"t": "o"})[["o", "w"]],
                         edges[edges["t"] == t].rename(columns={"s": "o"})[["o", "w"]]])
         nb = nb.sort_values(["w", "o"], ascending=[False, True]).head(int(ecfg["max_neighbors"]))
@@ -212,7 +221,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
         files[f"topics/{code[t]}.json"] = C.TopicDetail(
             id=code[t], articles=arts,
             journals=[C.CountItem(key=str(k), count=int(v)) for k, v in jc.items()],
-            institutions=[C.CountItem(key=str(k), count=int(v)) for k, v in oc.items()],
+            institutions=institutions.get(t, []),
             keywords=[k for k in str(lb["keywords"] or "").split("; ") if k] if lb is not None else [],
             neighbors=[code[int(o)] for o in nb["o"] if int(o) in code], narrative=narratives.get(t))
 

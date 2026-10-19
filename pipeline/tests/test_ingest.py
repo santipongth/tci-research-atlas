@@ -18,6 +18,24 @@ def test_org_key_prefers_university_level():
     assert org_key("ศูนย์ถ่ายทอดองค์ความรู้ ภูมิปัญญาและนวัตกรรมชุมชน", "") != ""
 
 
+def test_org_display_name_is_the_organisation_as_written():
+    from atlas.orgs import org_display_names, org_name
+
+    # the part org_key is built from, cleaned (glyphs, spacing) but never folded: tone marks, karan and case stay
+    assert org_name("คณะบริหารธุรกิจ มหาวิทยาลัยเกษตรศาสตร์", "") == "มหาวิทยาลัยเกษตรศาสตร์"
+    assert org_name("มหาวิทยาลัยฮาร์วาร์ด สหรัฐอเมริกา", "") == "มหาวิทยาลัยฮาร์วาร์ด"
+    assert org_name("", "Faculty of Business, Economics and Communications,  Naresuan University") == "Naresuan University"
+    assert org_name("ศูนย์ถ่ายทอดองค์ความรู้   ภูมิปัญญาและนวัตกรรมชุมชน", "") == "ศูนย์ถ่ายทอดองค์ความรู้ ภูมิปัญญาและนวัตกรรมชุมชน"
+    assert org_name("", "") == ""
+    authors = pd.DataFrame({
+        "affiliation_th": ["คณะเกษตร มหาวิทยาลัยเกษตรศาสตร์", "มหาวิทยาลัยเกษตรศาสตร", "คณะวิศวกรรมศาสตร์ มหาวิทยาลัยเกษตรศาสตร์",
+                           "", None],
+        "affiliation_en": ["", "", "", "Naresuan University", "Faculty of Medicine, Naresuan University"]})
+    authors["org_key"] = [org_key(t, e) for t, e in zip(authors["affiliation_th"].fillna(""), authors["affiliation_en"])]
+    names = org_display_names(authors)          # most frequent written form per key (2 × with karan beats 1 × without)
+    assert names == {"มหาวิทยาลัยเกษตรศาสตร": "มหาวิทยาลัยเกษตรศาสตร์", "naresuanuniversity": "Naresuan University"}
+
+
 def test_ingest_real_fixtures(make_cfg, thaijo_dir):
     cfg = make_cfg(thaijo_dir)
     df = ingest(cfg)

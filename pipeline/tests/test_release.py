@@ -55,6 +55,19 @@ def test_release_files_match_the_contract_and_link_back_to_thaijo(two_releases):
     assert tax["source"] == "agglomerative" and all(g["color"].startswith("cat-") for g in tax["groups"])
 
 
+def test_institutions_are_published_with_their_written_names(two_releases):
+    root, _ = two_releases
+    rel = root / "out" / "data" / "2026Q2"
+    inst = {i["key"]: i["count"] for p in (rel / "topics").glob("*.json")
+            for i in json.loads(p.read_text(encoding="utf-8"))["institutions"]}
+    # real fixture affiliations: the karan / tone marks and the case survive (org_key folds them for counting only)
+    assert "มหาวิทยาลัยเกษตรศาสตร์" in inst and "มหาวิทยาลัยฮาร์วาร์ด" in inst and "Naresuan University" in inst
+    assert inst["มหาวิทยาลัยนเรศวร"] == 5
+    assert not {"มหาวิทยาลัยเกษตรศาสตร", "naresuanuniversity", "มหาวิทยาลัยฮารวารด"} & set(inst)
+    ov = json.loads((rel / "overview.json").read_text(encoding="utf-8"))
+    assert ov["kpis"]["institutions"] == 8                          # counting is still by org_key
+
+
 def _copy(two_releases, tmp_path):
     root, cfg = two_releases
     dst = tmp_path / "data"
