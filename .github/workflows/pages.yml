@@ -1,15 +1,11 @@
 name: Pages
 
-# Public demo of web v2 on GitHub Pages with the SYNTHETIC example release (every page shows a "Sample data" banner).
-# Deployment is run by the maintainer (owner pre-authorised Pages + public releases). A real release replaces
-# web/dist/data with `uv run atlas publish --site web/dist` instead of `npm run stage:demo`.
+# Public demo of web v2 on GitHub Pages with the SYNTHETIC example release (every page shows a "Sample data" banner,
+# and the pages are marked noindex). It runs ONLY when the maintainer starts it by hand: a push must never replace a
+# real release that is live. A real release replaces web/dist/data with `uv run atlas publish --site web/dist`
+# instead of `npm run stage:demo` (the staging script also refuses a site folder that already holds a real release).
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "web/**"
-      - ".github/workflows/pages.yml"
 
 permissions:
   contents: read
