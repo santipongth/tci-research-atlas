@@ -386,7 +386,7 @@ gaps:                         # R5 ตัวหาช่องว่างงา
 sdg:                          # E8 SDG 17 เป้า + กรอบไทย (BCG / แผนด้าน ววน. / หมุดหมายแผนฯ 13) ระดับหัวข้อ
   enabled: true
   frameworks_path: null       # null = atlas/data/frameworks.yaml ที่มากับโค้ด (แก้คำสำคัญได้) — หรือชี้ไปไฟล์ YAML ของผู้ดูแล
-  method: auto                # auto = ความคล้ายของ centroid หัวข้อกับข้อความเป้าหมาย (embedding api/local) ถ้ามี ไม่งั้นนับคำสำคัญ; embedding | lexical
+  method: lexical             # lexical = นับคำสำคัญ (ค่าเริ่ม) | embedding/auto = ความคล้ายของ centroid หัวข้อ — ใช้หลังปรับ min_similarity กับข้อมูลจริงแล้วเท่านั้น
   min_similarity: 0.45        # embedding: cosine ≥ ค่านี้ (ปรับตามโมเดล)
   min_article_share: 0.15     # lexical: บทความของหัวข้อที่ชื่อเรื่อง/คำสำคัญมีคำของเป้าหมาย ≥ 15%
   max_goals_per_topic: 3      # เป้าหมายสูงสุดต่อหัวข้อ ต่อกรอบ

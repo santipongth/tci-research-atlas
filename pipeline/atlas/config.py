@@ -440,7 +440,7 @@ class SdgCfg(_Strict):
     """E8 SDGs + Thai frameworks, mapped at topic level (atlas/data/frameworks.yaml)."""
     enabled: bool = True
     frameworks_path: str | None = None    # null = the packaged atlas/data/frameworks.yaml
-    method: Literal["auto", "embedding", "lexical"] = "auto"
+    method: Literal["auto", "embedding", "lexical"] = "lexical"   # embedding threshold not yet calibrated on real data
     min_similarity: float = Field(0.45, ge=-1.0, le=1.0)
     min_article_share: float = Field(0.15, gt=0.0, le=1.0)
     max_goals_per_topic: int = Field(3, ge=1)
