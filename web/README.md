@@ -59,3 +59,8 @@ e2e/smoke.spec.ts  Playwright smoke spec เดียว
 - ไฟล์ `.tsx` export ได้เฉพาะ component — hook/context/helper อยู่ในไฟล์ `.ts`
 - ห้ามใช้ `href="#id"` ในหน้า (HashRouter) — ใช้ `scrollToId()`
 - ห้าม commit ข้อมูลจริง — repo มีแต่ `fixtures/` ที่สังเคราะห์ขึ้น
+
+## เว็บสาธิต (GitHub Pages)
+
+`.github/workflows/pages.yml` build เว็บแล้ววาง **รอบข้อมูลสังเคราะห์** (`npm run stage:demo -- dist`) — ทุกหน้ามีแถบ "ข้อมูลตัวอย่าง" เพราะ manifest ระบุ `embedding_provider: fixture` (สคริปต์ไม่ยอมวางรอบที่ไม่ได้ติดป้ายตัวอย่าง)
+เมื่อมีรอบข้อมูลจริง: ใช้ `uv run atlas publish --site web/dist` แทนขั้น stage:demo แล้ว deploy โฟลเดอร์เดิม (ผู้ดูแลเป็นผู้สั่ง deploy)

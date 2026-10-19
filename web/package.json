@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && vite build --mode offline && node scripts/finish-offline.mjs",
     "brief:pdf": "node scripts/brief-pdf.mjs",
+    "stage:demo": "node scripts/stage-demo-data.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
