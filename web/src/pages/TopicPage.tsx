@@ -109,7 +109,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
     ...(journals.length ? [{ id: 'journals', label: t('tp.journals.h') }] : []),
     ...(institutions.length ? [{ id: 'orgs', label: t('tp.orgs.h') }] : []),
   ]
-  const countTable = (id: string, title: string, rows: readonly CountItem[], header: string) => (
+  const countTable = (id: string, title: string, rows: readonly CountItem[], header: string, base: string) => (
     <DataTable
       caption={title}
       rows={rows}
@@ -117,7 +117,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
       stack={false}
       csvFilename={`atlas-${release.overview.release}-${topic.id}-${id}.csv`}
       columns={[
-        { key: 'key', csvHeader: 'name', header, rowHeader: true, cell: (r) => (r.id ? <Link to={`/journals/${r.id}`}>{r.key}</Link> : r.key), sortValue: (r) => r.key },
+        { key: 'key', csvHeader: 'name', header, rowHeader: true, cell: (r) => (r.id ? <Link to={`${base}/${r.id}`}>{r.key}</Link> : r.key), sortValue: (r) => r.key },
         { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
       ]}
     />
@@ -321,12 +321,12 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
 
           {journals.length ? (
             <Section id="journals" title={t('tp.journals.h')}>
-              {countTable('journals', t('table.n', { n: 2, title: t('tp.journals.table') }), journals, t('col.journal'))}
+              {countTable('journals', t('table.n', { n: 2, title: t('tp.journals.table') }), journals, t('col.journal'), '/journals')}
             </Section>
           ) : null}
           {institutions.length ? (
             <Section id="orgs" title={t('tp.orgs.h')}>
-              {countTable('institutions', t('table.n', { n: 3, title: t('tp.orgs.table') }), institutions, t('col.institution'))}
+              {countTable('institutions', t('table.n', { n: 3, title: t('tp.orgs.table') }), institutions, t('col.institution'), '/institutions')}
             </Section>
           ) : null}
         </div>

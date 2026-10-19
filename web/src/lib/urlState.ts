@@ -151,3 +151,18 @@ export const journalsCodec = makeCodec<JournalsUrlState>({
 })
 export const journalCodec = makeCodec<{ drift: View }>({ drift: oneOf('drift', VIEWS, 'chart') })
 export const methodsCodec = makeCodec<{ trend: View; mono: 'all' | 'only' }>({ trend: oneOf('trend', VIEWS, 'chart'), mono: oneOf('mono', ['all', 'only'] as const, 'all') })
+export const INST_SORTS = ['name', 'province', 'articles', 'recent', 'intl', 'partners'] as const
+export type InstSort = (typeof INST_SORTS)[number]
+export const INST_TYPE_FILTERS = ['all', 'university', 'rajabhat', 'rajamangala', 'hospital', 'government', 'research', 'company', 'other'] as const
+export interface InstitutionsUrlState {
+  q: string
+  type: (typeof INST_TYPE_FILTERS)[number]
+  sort: InstSort
+  dir: 'asc' | 'desc'
+}
+export const institutionsCodec = makeCodec<InstitutionsUrlState>({
+  q: text('q', 80),
+  type: oneOf('type', INST_TYPE_FILTERS, 'all'),
+  sort: oneOf('sort', INST_SORTS, 'articles'),
+  dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
+})

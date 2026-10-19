@@ -22,6 +22,8 @@ const ROUTES = [
   { name: 'methods', path: '/methods' },
   { name: 'changes', path: '/changes' },
   { name: 'match', path: '/match' },
+  { name: 'institutions', path: '/institutions' },
+  { name: 'institution', path: '/institutions/mu-a' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -197,11 +199,32 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     expect(page.url()).not.toContain('generative')                       // the pasted text never enters the URL
     expect(page.url()).not.toContain(encodeURIComponent('ปัญญา'))
   },
+  institutions: async (page) => {
+    const rows = page.locator('#institutions tbody tr')
+    await expect(rows).toHaveCount(8)
+    await page.getByLabel('ประเภทสถาบัน').selectOption('rajabhat')
+    await expect(rows).toHaveCount(1)
+    await expect(page).toHaveURL(/type=rajabhat/)
+    await page.getByLabel('ประเภทสถาบัน').selectOption('all')
+    await expect(page.locator('#partnerships tbody tr')).toHaveCount(6)
+    await expect(page.locator('#countries')).toContainText('ญี่ปุ่น')
+    await page.locator('#institutions').getByRole('link', { name: 'มหาวิทยาลัยตัวอย่าง ก' }).click()
+    await expect(page).toHaveURL(/#\/institutions\/mu-a$/)
+  },
+  institution: async (page) => {
+    await expect(page.locator('h1')).toHaveText('มหาวิทยาลัยตัวอย่าง ก')
+    await expect(page.locator('#topics tbody tr')).toHaveCount(5)
+    await expect(page.locator('#suggested')).toContainText('มหาวิทยาลัยเทคโนโลยีราชมงคลตัวอย่าง')
+    await page.goto(`${EXAMPLE}#/topics/T000101`)
+    await expect(page.locator('#orgs a[href$="/institutions/mu-a"]').first()).toBeVisible()
+    await page.goto(`${EXAMPLE}#/institutions/nowhere`)
+    await expect(page.locator('h1')).toContainText('nowhere')
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
