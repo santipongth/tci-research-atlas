@@ -8,17 +8,17 @@
 ```
 ┌─────────────────────────────┐         ┌──────────────────────────────┐
 │  pipeline/  (Python batch)  │         │  web/  (React dashboard)     │
-│  รันทุก 3 เดือน             │  JSON   │  โหลด /data/atlas_data.json  │
-│                             │ ──────► │  ตอน runtime → ไม่ต้องแก้โค้ด │
-│  คลัง .md จาก ThaiJO        │         │  bubble map · emerging ·      │
-│  → embed → cluster → label  │         │  forecast · insights          │
-│  → emerging → forecast      │         │  (ถ้าไม่มี JSON ใช้ข้อมูล     │
-│  → atlas_data.json          │         │   bundle 71 สาขาสำรอง)        │
+│  รันทุก 3 เดือน             │  JSON   │  เว็บ v2 อ่าน                │
+│                             │ ──────► │  data/latest.json →          │
+│  คลัง .md จาก ThaiJO        │         │  data/<release>/             │
+│  → embed → cluster → label  │         │  (ไม่มีข้อมูลสำรองฝังในเว็บ) │
+│  → emerging → forecast      │         │  overview · atlas · topic ·  │
+│  → data/<release>/          │         │  emerging · compare · brief  │
 └─────────────────────────────┘         └──────────────────────────────┘
 ```
 
-- **ไม่มีฐานข้อมูล ไม่มี backend** — เว็บเป็น static site ที่อ่าน JSON ไฟล์เดียว
-- **อัปเดตข้อมูล = วางไฟล์ `atlas_data.json` ใหม่ + build เว็บใหม่** เท่านั้น
+- **ไม่มีฐานข้อมูล ไม่มี backend** — เว็บเป็น static site ที่อ่าน JSON ของรอบล่าสุดตอนเปิดหน้า
+- **อัปเดตข้อมูล = `uv run atlas publish --site web/dist` (หรือคัดลอกโฟลเดอร์ `data/` ใหม่) — ไม่ต้อง build เว็บใหม่**
 
 ## Quick start
 
@@ -30,12 +30,12 @@ export ATLAS_EMBED_API_KEY=...             # ถ้าใช้ embedding แบ
 export ATLAS_LLM_API_KEY=...               # ถ้าใช้ LLM (ชื่อหัวข้อ/คำอธิบาย/บทสรุป) — ใช้ key เดียวกันได้
 uv run atlas profile /path/to/corpus --md ../logs/profile.md   # ขั้น 1: อ่านรายงานก่อนเสมอ
 uv run atlas run --config config.yaml      # ขั้น 2: ทั้งสาย (หรือ bash ../scripts/quarterly_run.sh)
-bash ../scripts/import_atlas.sh            # ขั้น 3: นำเข้าเว็บ + build
+bash ../scripts/import_atlas.sh            # ขั้น 3: build เว็บ + publish data/ + ไฟล์ออฟไลน์
 uv run pytest -q                           # ทดสอบ pipeline
 cd ../web && npm run dev                   # ดูผลที่ localhost
 ```
 
-ข้อมูลจริง (คลังบทความ, `atlas_data.json` ของจริง) **ไม่เข้า git** — repo เก็บเฉพาะตัวอย่าง 11 ไฟล์ใน `pipeline/tests/fixtures/` และ `atlas_data.example.json`
+ข้อมูลจริง (คลังบทความ, รอบข้อมูลจริง) **ไม่เข้า git** — repo เก็บเฉพาะตัวอย่าง 11 ไฟล์ใน `pipeline/tests/fixtures/` และรอบข้อมูลสังเคราะห์ใน `web/fixtures/`
 
 รอบรันจริงรายไตรมาส: ดู `docs/OPERATIONS.md` · สเปกข้อมูล: `docs/DATA_SPEC.md` · นิยาม emerging: `docs/EMERGING_SPEC.md` · แผนหลัก v2: `docs/superpowers/specs/2026-10-18-tci-atlas-v2-design.md`
 

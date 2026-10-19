@@ -67,7 +67,9 @@
 
 ## 3. Output: `atlas_data.json` (สัญญากับเว็บ)
 
-ผลิตโดย `atlas/export.py` — **ห้ามเปลี่ยน schema โดยไม่แก้ `web/src/lib/loader.ts` ตาม**
+> เว็บ v2 ไม่อ่านไฟล์นี้แล้ว (อ่าน contract v2 ใน §6) — คงไว้เพื่อความเข้ากันได้ และเลิกผลิตได้ใน P2
+
+ผลิตโดย `atlas/export.py` — **ห้ามเปลี่ยน contract v2 โดยไม่ generate types (`npm run gen:types`) และแก้เว็บตาม**
 
 ```jsonc
 {

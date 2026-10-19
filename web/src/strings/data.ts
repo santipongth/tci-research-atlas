@@ -2,7 +2,7 @@ import { defineStrings } from './define'
 
 export const data = defineStrings({
   'data.title': { th: 'ข้อมูลเปิด', en: 'Open data' },
-  'data.lede': { th: 'ดาวน์โหลดข้อมูลรอบ {release} ทั้งหมดเป็น JSON หรือ CSV ภายใต้สัญญาอนุญาต CC BY 4.0 พร้อมพจนานุกรมข้อมูลและรายงานคุณภาพข้อมูล', en: 'Download every file of release {release} as JSON or CSV under CC BY 4.0, with a data dictionary and a data-quality report.' },
+  'data.lede': { th: 'ดาวน์โหลดไฟล์หลักของข้อมูลรอบ {release} เป็น JSON หรือ CSV ภายใต้สัญญาอนุญาต CC BY 4.0 พร้อมพจนานุกรมข้อมูลและรายงานคุณภาพข้อมูล', en: 'Download the main files of release {release} as JSON or CSV under CC BY 4.0, with a data dictionary and a data-quality report.' },
   'data.dl.h': { th: 'ไฟล์ข้อมูล (JSON)', en: 'Data files (JSON)' },
   'data.dl.introHttp': { th: 'เป็นไฟล์เดียวกับที่เว็บนี้อ่าน ตรวจความถูกต้องได้ด้วยค่า sha256 ใน manifest.json', en: 'These are the same files this site reads; check them against the sha256 values in manifest.json.' },
   'data.dl.introOffline': { th: 'นี่คือไฟล์ฉบับออฟไลน์ ข้อมูลที่ดาวน์โหลดสร้างจากข้อมูลที่ฝังอยู่ในไฟล์ จึงอาจไม่ตรงกับค่า sha256 ทุกไบต์', en: 'This is the offline edition: downloads are rebuilt from the embedded data, so they may not match the sha256 values byte for byte.' },

@@ -9,13 +9,14 @@
 | **1 — Embedding (batch)** | รองรับ 3 โหมด: API (OpenAI-compatible: OpenAI/Gemini/OpenRouter/vLLM/Ollama), local (sentence-transformers, default BGE-M3) และ lite (TF-IDF+SVD บน CPU สำหรับ CI/ทดสอบ); journal ทุก batch + store ทุก `checkpoint_every`; resume ได้หลัง Ctrl-C/ปิดหน้าต่าง/ไฟดับ; `atlas embed` (retry ไม่จำกัด, `--background`, `atlas status`) | `pipeline/atlas/embed.py` + `embed_runner.py` |
 | **2 — Topic Clustering** | 2 ชั้น: fine (~หลายร้อย topic) + coarse (กลุ่มใหญ่บนแผนที่); fine = UMAP 10 มิติ + HDBSCAN (+ รวม cluster ที่ซ้ำ); outlier เข้าหัวข้อที่ใกล้ที่สุดเฉพาะเมื่อ cosine ≥ `outlier_min_similarity` (ไม่งั้น "ยังไม่จัดหมวด"); coarse = agglomerative clustering ของ centroid หัวข้อ (ไม่ใช่ HDBSCAN); c-TF-IDF ตัดคำด้วย pythainlp + author keywords (เหมาะกับไทย) | `pipeline/atlas/cluster.py` |
 | **3 — Atlas web** | React bubble map (pan/zoom), drill-down, 2 ภาษา (ไทย/EN), insights ที่คำนวณจากข้อมูล, live loader + fallback | `web/` |
-| **4 — Emerging Topic Analysis** | นิยาม TCI v3 (ดู EMERGING_SPEC.md: ช่วงเชื่อมั่น + ตัวกรองความกว้าง, 6 สถานะ), Kleinberg burst, novelty (สัดส่วนบทความในช่วง R + อายุหัวข้อ — lineage เทียบรอบก่อนผ่าน `state/releases/` มาใน P1), score 0–100, section "หัวข้อเกิดใหม่" บนเว็บ | `pipeline/atlas/emerging.py`, `web/src/sections/EmergingThemes.tsx` |
-| **5 — Research Trend Forecasting** | (P0) naive/OLS/Poisson ต่อ topic, เลือกโมเดลด้วย backtest, แสดงเฉพาะที่ผ่าน skill gate · (P1 Forecast v2) share × ยอดรวม, ช่วง 80/95 แบบ conformal, nowcast ของปีที่ยังไม่ครบ — ดู P1a ด้านล่าง | `pipeline/atlas/forecast.py`, ForecastChart ใน AtlasMap.tsx |
+| **4 — Emerging Topic Analysis** | นิยาม TCI v3 (ดู EMERGING_SPEC.md: ช่วงเชื่อมั่น + ตัวกรองความกว้าง, 6 สถานะ), Kleinberg burst, novelty (สัดส่วนบทความในช่วง R + อายุหัวข้อ — lineage เทียบรอบก่อนผ่าน `state/releases/` มาใน P1), score 0–100, section "หัวข้อเกิดใหม่" บนเว็บ | `pipeline/atlas/emerging.py`, `web/src/pages/EmergingPage.tsx` |
+| **5 — Research Trend Forecasting** | (P0) naive/OLS/Poisson ต่อ topic, เลือกโมเดลด้วย backtest, แสดงเฉพาะที่ผ่าน skill gate · (P1 Forecast v2) share × ยอดรวม, ช่วง 80/95 แบบ conformal, nowcast ของปีที่ยังไม่ครบ — ดู P1a ด้านล่าง | `pipeline/atlas/forecast.py`, `web/src/charts/TrendChart.tsx` |
 | **+ LLM Labeling** | ตั้งชื่อ topic ไทย+อังกฤษ, cache ด้วย key = hash ของ model + prompt (รันใหม่ไม่เสียเงินซ้ำ); P1 ย้ายไป LLM runner (`llm_runner.py`) | `pipeline/atlas/label.py`, `prompts/` |
 | **+ ThaiJO Markdown ingest (P0)** | parse ไฟล์ .md จาก ThaiJO (ซ่อม PUA/สระอำ, ปีจาก Published→DOI→issue, ผู้แต่ง/สังกัด/อ้างอิง), `atlas profile` | `pipeline/atlas/sources/thaijo_md.py`, `pipeline/atlas/profile.py` |
 | **+ Synthetic e2e (P0)** | คลังสังเคราะห์ 20K เรื่อง ฝังหัวข้อ EMERGING/WATCH/HOT/DECLINING แล้วตรวจว่ากู้คืนได้ | `pipeline/atlas/synth.py`, `pipeline/tests/test_e2e_synth.py` |
 | **+ CI (P0)** | GitHub Actions: ruff + pytest + JSON Schema drift, e2e (`pytest -m slow`), web (type drift + build) | `.github/workflows/ci.yml` |
-| **+ Live dashboard** | เว็บ fetch `/data/atlas_data.json` runtime — อัปเดตข้อมูลโดยไม่แก้โค้ด | `web/src/lib/loader.ts` |
+| **+ Live dashboard** | เว็บอ่าน `data/latest.json` runtime ผ่าน DataSource (Http \| Embedded) — อัปเดตข้อมูลโดยไม่ build เว็บใหม่ | `web/src/data/{source,release}.ts` |
+| **P1b/P1c Web v2** | 7 หน้า + brief, TH/EN, dark mode, URL state, offline HTML, PDF, GitHub Pages demo | `web/` |
 
 ## P1a — core analytics v2 (เสร็จ)
 

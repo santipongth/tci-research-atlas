@@ -16,7 +16,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     version: 3,
     date: '2026-10-18',
-    th: 'ช่วงเชื่อมั่นแบบ t ที่ทนต่อปีที่ไม่มีบทความ ธงเมื่อข้อมูลสังกัดไม่พอตรวจความกว้างของสถาบัน หัวข้อที่ประมาณอัตราโตไม่ได้ถือเป็น “ข้อมูลน้อย” และไม่นับปีที่ข้อมูลยังเข้าไม่ครบ',
-    en: 'A t-based interval that copes with years without articles, a flag when affiliations are too sparse to check institution breadth, topics whose growth cannot be estimated count as “low data”, and incomplete years are not counted.',
+    th: 'ช่วงเชื่อมั่นใช้ควอนไทล์ t เมื่อจำนวนบทความกระจายกว้างกว่าแบบปัวซอง (นอกนั้นใช้แบบปกติ) ทนต่อปีที่ไม่มีบทความ ธงเมื่อข้อมูลสังกัดไม่พอตรวจความกว้างของสถาบัน หัวข้อที่ประมาณอัตราโตไม่ได้ถือเป็น “ข้อมูลน้อย” และไม่นับปีที่ข้อมูลยังเข้าไม่ครบ',
+    en: 'A t-quantile interval when the counts are overdispersed (normal otherwise) that copes with years without articles, a flag when affiliations are too sparse to check institution breadth, topics whose growth cannot be estimated count as “low data”, and incomplete years are not counted.',
   },
 ]

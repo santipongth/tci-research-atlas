@@ -41,8 +41,18 @@ export const METHOD: readonly { id: string; h: Entry; body: readonly Entry[] }[]
     h: { th: 'การคาดการณ์', en: 'Forecasts' },
     body: [
       {
-        th: 'คาดการณ์ 2 ปีจากสัดส่วนของหัวข้อคูณจำนวนบทความรวม เลือกโมเดลด้วยการทดสอบย้อนหลังหลายจุด และแสดงตัวเลขเฉพาะหัวข้อที่โมเดลแม่นกว่าการใช้ค่าของปีล่าสุด หัวข้ออื่นแสดงว่า “แนวโน้มไม่แน่นอน” ช่วงคาดการณ์ 80% และ 95% ปรับให้ตรงกับความคลาดเคลื่อนจริงในอดีต',
-        en: 'Two-year forecasts multiply the topic’s share by the total number of articles. Models are chosen by back-testing from several starting points, and numbers are shown only where the model beats repeating last year’s value; other topics say “trend uncertain”. The 80% and 95% intervals are calibrated on past errors.',
+        th: 'คาดการณ์ 2 ปีจากสัดส่วนของหัวข้อคูณจำนวนบทความรวม เลือกโมเดลด้วยการทดสอบย้อนหลังหลายจุด และแสดงตัวเลขเฉพาะหัวข้อที่โมเดลแม่นกว่าการใช้ค่าของปีล่าสุดในการทดสอบย้อนหลังที่เชื่อถือได้อย่างน้อย 3 จุด หัวข้ออื่นแสดงว่า “แนวโน้มไม่แน่นอน” ช่วงคาดการณ์ 80% และ 95% ปรับให้ตรงกับความคลาดเคลื่อนจริงในอดีต',
+        en: 'Two-year forecasts multiply the topic’s share by the total number of articles. Models are chosen by back-testing from several starting points, and numbers are shown only where the model beats repeating last year’s value on at least 3 honest back-test points; other topics say “trend uncertain”. The 80% and 95% intervals are calibrated on past errors.',
+      },
+    ],
+  },
+  {
+    id: 'writing',
+    h: { th: 'ข้อความสรุปเขียนอย่างไร', en: 'How the summaries are written' },
+    body: [
+      {
+        th: 'ประโยคหัวเรื่อง บทสรุปผู้บริหาร และคำอธิบายหัวข้อเขียนจากแม่แบบข้อความเป็นค่าตั้งต้น ข้อความที่ AI เขียนจะใช้ได้ก็ต่อเมื่อตัวเลขทุกตัวในข้อความถูกตรวจเทียบกับผลจากระบบแล้วเท่านั้น',
+        en: 'The headline, the executive brief and the topic descriptions are written from templates by default. AI-written text is used only after every number in it has been checked against the pipeline’s results.',
       },
     ],
   },

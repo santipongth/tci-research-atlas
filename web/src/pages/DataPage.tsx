@@ -173,11 +173,11 @@ function OpenData({ release }: { release: AtlasRelease }) {
                     <span className="dl-note">{FILE_INFO[path] ? t(FILE_INFO[path]) : ''}{sizes.has(path) ? ` · ${fmtNum((sizes.get(path) ?? 0) / 1024, 0)} KB` : ''}</span>
                   </div>
                   {release.source === 'http' ? (
-                    <a className="btn-secondary" href={dataUrl(import.meta.env.BASE_URL, `${rel}/${path}`)} download={`atlas-${rel}-${path}`}>
+                    <a className="btn-secondary" href={dataUrl(import.meta.env.BASE_URL, `${rel}/${path}`)} download={`atlas-${rel}-${path}`} aria-label={`${t('data.dl.json')}: atlas-${rel}-${path}`}>
                       {t('data.dl.json')}
                     </a>
                   ) : (
-                    <button type="button" className="btn-secondary" onClick={() => downloadText(`atlas-${rel}-${path}`, JSON.stringify(value), 'application/json')}>
+                    <button type="button" className="btn-secondary" aria-label={`${t('data.dl.json')}: atlas-${rel}-${path}`} onClick={() => downloadText(`atlas-${rel}-${path}`, JSON.stringify(value), 'application/json')}>
                       {t('data.dl.json')}
                     </button>
                   )}
@@ -189,16 +189,16 @@ function OpenData({ release }: { release: AtlasRelease }) {
             <ul className="dl-list">
               <li>
                 <div><code>topics.csv</code><span className="dl-note">{t('data.csv.topics', { n: fmtInt(release.topics.length) })}</span></div>
-                <button type="button" className="btn-secondary" disabled={!release.topics.length} onClick={() => downloadText(`atlas-${rel}-topics.csv`, topicCsv())}>{t('csv.download')}</button>
+                <button type="button" className="btn-secondary" disabled={!release.topics.length} aria-label={`${t('csv.download')}: atlas-${rel}-topics.csv`} onClick={() => downloadText(`atlas-${rel}-topics.csv`, topicCsv())}>{t('csv.download')}</button>
               </li>
               <li>
                 <div><code>series.csv</code><span className="dl-note">{t('data.csv.series')}</span></div>
-                <button type="button" className="btn-secondary" disabled={!seriesRows.length} onClick={() => downloadText(`atlas-${rel}-series.csv`, seriesCsv())}>{t('csv.download')}</button>
+                <button type="button" className="btn-secondary" disabled={!seriesRows.length} aria-label={`${t('csv.download')}: atlas-${rel}-series.csv`} onClick={() => downloadText(`atlas-${rel}-series.csv`, seriesCsv())}>{t('csv.download')}</button>
               </li>
               {release.keywords?.length ? (
                 <li>
                   <div><code>keywords.csv</code><span className="dl-note">{t('data.csv.keywords')}</span></div>
-                  <button type="button" className="btn-secondary" onClick={() => downloadText(`atlas-${rel}-keywords.csv`, keywordCsv(release.keywords ?? []))}>{t('csv.download')}</button>
+                  <button type="button" className="btn-secondary" aria-label={`${t('csv.download')}: atlas-${rel}-keywords.csv`} onClick={() => downloadText(`atlas-${rel}-keywords.csv`, keywordCsv(release.keywords ?? []))}>{t('csv.download')}</button>
                 </li>
               ) : null}
             </ul>

@@ -20,4 +20,15 @@ describe('strings that state a definition threshold', () => {
     expect(translate('th', 'quad.declining.hint')).toContain('ไม่โต')
     expect(translate('en', 'quad.declining')).toBe('Flat or shrinking')
   })
+
+describe('about.def.intro', () => {
+  it('states the real checking order: LOW_DATA first, then EMERGING, WATCH, HOT, DECLINING, STABLE', () => {
+    for (const lang of ['th', 'en'] as const) {
+      const text = STR['about.def.intro'][lang]
+      const order = ['LOW_DATA', 'EMERGING', 'WATCH', 'HOT', 'DECLINING', 'STABLE'].map((k) => text.indexOf(k))
+      expect(order.every((n) => n >= 0), lang).toBe(true)
+      expect([...order].sort((a, b) => a - b), lang).toEqual(order)
+    }
+  })
+})
 })

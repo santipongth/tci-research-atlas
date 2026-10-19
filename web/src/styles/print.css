@@ -23,6 +23,9 @@
     --bg: #ffffff; --surface: #f3f4f5; --ink: #0b0c0e; --ink-2: #474e55; --border: #b1b4b6; --border-2: #dcdee0;
     --brand: #0f3557; --brand-ink: #ffffff; --brand-ink-2: #c9d7e4; --link: #1a5bb0; --hl: #ffe07a; --up: #00703c;
     --st-EMERGING: #13a08a; --st-WATCH: #c47a0c; --st-HOT: #a3124f; --st-DECLINING: #5b74cf; --st-STABLE: #6f777b; --st-LOW_DATA: #6f777b;
+    --tag-EMERGING-bg: #d7f0e9; --tag-EMERGING-ink: #0a4a3e; --tag-WATCH-bg: #fcebc9; --tag-WATCH-ink: #573700;
+    --tag-HOT-bg: #f7dae5; --tag-HOT-ink: #680b32; --tag-DECLINING-bg: #e1e6f8; --tag-DECLINING-ink: #22326d;
+    --tag-STABLE-bg: #eceeef; --tag-STABLE-ink: #363d43; --tag-LOW_DATA-bg: #ffffff; --tag-LOW_DATA-ink: #474e55;
   }
   body { font-size: 10pt; background: #ffffff; }
   .no-print, .skip, .nav, .phase, .ftr, .tbl-tools, .zoom, .tablist, .rail { display: none !important; }
@@ -38,6 +41,8 @@
   .brief-head, mark, .chip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   table, figure, .fr-group, .point { break-inside: avoid; }
   h1, h2, h3 { break-after: avoid; }
+  /* the status tables start on a fresh page, after the headline, KPIs and points */
+  .brief > section[aria-labelledby="brief-status"] { break-before: page; }
   a { color: inherit; text-decoration: none; }
   .tabpanel { border: 0; padding: 0; }
 }

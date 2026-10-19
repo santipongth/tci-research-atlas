@@ -19,6 +19,7 @@
 tci-research-atlas/
 ├── CLAUDE.md               ← ไฟล์นี้
 ├── README.md               ← ภาพรวมสำหรับทีม (ภาษาไทย)
+├── DESIGN.md               ← ระบบดีไซน์ (tokens + กฎ) — ชนะ catalog ทั่วไปเสมอ
 ├── docs/
 │   ├── ARCHITECTURE.md     ← การออกแบบระบบ + การไหลของข้อมูล
 │   ├── DATA_SPEC.md        ← สเปก input (ThaiJO Markdown) และ output (atlas_data.json)
@@ -37,15 +38,16 @@ tci-research-atlas/
 │   ├── tests/              ← pytest (มี test_emerging.py ครอบคลุมนิยาม emerging)
 │   ├── scripts/            ← run_all.sh
 │   └── requirements.txt    ← export จาก uv.lock สำหรับติดตั้งแบบไม่ใช้ uv (ทางหลักคือ `uv sync`)
-├── web/                    ← React + TypeScript + Vite + Tailwind (Phase 3)
-│   ├── src/sections/       ← AtlasMap, EmergingThemes, GroupRanking, Insights, ...
-│   ├── src/lib/loader.ts   ← โหลด /data/atlas_data.json → normalize → fallback ข้อมูล bundle
-│   ├── src/data/atlas.ts   ← ข้อมูล bundle (71 สาขาจริง) + interfaces หลัก
-│   └── public/data/atlas_data.example.json ← ตัวอย่างไฟล์จาก pipeline
+├── web/                    ← เว็บ v2: React 19 + Vite + TS + Tailwind 4, HashRouter (ดู web/README.md)
+│   ├── src/data/           ← contract.ts (generated) · source.ts (Http | Embedded) · release.ts (loader)
+│   ├── src/styles/tokens.css ← design tokens light/dark (ค่าตาม DESIGN.md)
+│   ├── src/strings/        ← ข้อความ UI ไทย+อังกฤษทุกตัว
+│   ├── src/pages/          ← overview · atlas · topics/:id · emerging · compare · data · about · brief
+│   └── fixtures/           ← รอบข้อมูลสังเคราะห์ (example + empty) สำหรับ dev/test — ไม่ใช่ข้อมูลจริง
 ├── prompts/                ← LLM prompts ทั้งหมด (ฉบับเดียว — โค้ดอ่านไฟล์ตอนรัน)
 └── scripts/
     ├── quarterly_run.sh    ← สคริปต์รัน batch รายไตรมาส (เรียกจาก cron)
-    └── import_atlas.sh     ← คัดลอกผล pipeline เข้า web/public/data/ + build
+    └── import_atlas.sh     ← build เว็บ + atlas publish --site web/dist (วาง data/ + ไฟล์ออฟไลน์)
 ```
 
 ## 3. แผนฟีเจอร์ 5 Phase (สถานะปัจจุบัน)
@@ -54,12 +56,12 @@ tci-research-atlas/
 |---|---|---|---|
 | 1 | Embedding (batch, API **หรือ** local model) | `pipeline/atlas/embed.py` | ✅ พร้อมใช้ |
 | 2 | Topic Clustering 2 ชั้น (UMAP+HDBSCAN, c-TF-IDF) | `pipeline/atlas/cluster.py` | ✅ พร้อมใช้ |
-| 3 | Atlas web (bubble map, drill-down, 2 ภาษา) | `web/` | ✅ พร้อมใช้ |
-| 4 | Emerging Topic Analysis (นิยาม TCI + burst + score) | `pipeline/atlas/emerging.py` + `web/src/sections/EmergingThemes.tsx` | ✅ พร้อมใช้ |
-| 5 | Research Trend Forecasting (OLS/Poisson, backtest) | `pipeline/atlas/forecast.py` + ForecastChart ในเว็บ | ✅ พร้อมใช้ |
+| 3 | Atlas web v2 (7 หน้า + brief, 2 ภาษา, dark mode, URL state, offline HTML, PDF) | `web/` | ✅ พร้อมใช้ |
+| 4 | Emerging Topic Analysis (นิยาม v3 + burst + score) | `pipeline/atlas/emerging.py` + `web/src/pages/EmergingPage.tsx` | ✅ พร้อมใช้ |
+| 5 | Research Trend Forecasting (Forecast v2, skill gate) | `pipeline/atlas/forecast.py` + `web/src/charts/TrendChart.tsx` | ✅ พร้อมใช้ |
 | + | LLM labeling + merge duplicates | `pipeline/atlas/label.py` | ✅ พร้อมใช้ |
-| + | Live dashboard (โหลด JSON runtime, fallback bundle) | `web/src/lib/loader.ts` | ✅ พร้อมใช้ |
-| P1 | ID หัวข้อถาวร + lineage, OpenAlex taxonomy, Forecast v2, emerging keywords, แผนที่นิ่ง | `pipeline/atlas/{lineage,taxonomy,forecast,keywords,layout}.py` | ✅ pipeline (เว็บ v2 = P1b) |
+| + | Live dashboard (อ่าน data/latest.json ตอนเปิดหน้า, แถบแจ้งเมื่อโหลดไม่ได้) | `web/src/data/{source,release}.ts` | ✅ พร้อมใช้ |
+| P1 | ID หัวข้อถาวร + lineage, OpenAlex taxonomy, Forecast v2, emerging keywords, แผนที่นิ่ง | `pipeline/atlas/{lineage,taxonomy,forecast,keywords,layout}.py` | ✅ |
 | P1 | LLM ผ่าน API (label · merge · narrative · brief) + review/overrides | `pipeline/atlas/{llm,llm_runner,label,review,narrative}.py` | ✅ |
 | P1 | Contract v2 release + validate + publish --site (+ offline HTML) | `pipeline/atlas/{export_v2,validate,publish}.py` | ✅ |
 
@@ -92,21 +94,24 @@ uv run atlas bakeoff -c config.yaml --kind all           # เทียบ embed
 ### Web (ทำงานใน `web/`)
 
 ```bash
-npm install
-npm run dev        # dev server
-npm run build      # build → dist/
+npm ci
+npm run dev                  # dev server (ข้อมูลตัวอย่างจาก fixtures/example/data)
+npm run lint && npx tsc -b && npm test
+npm run build                # dist/ + dist/offline-template.html
+npm run e2e                  # Playwright smoke (หลัง build; ครั้งแรก npx playwright install chromium)
+npm run brief:pdf -- --data fixtures/example/data   # brief-th.pdf / brief-en.pdf (ไม่บังคับ)
 ```
 
 ### รอบรันรายไตรมาส (จาก root)
 
 ```bash
 bash scripts/quarterly_run.sh [pipeline/config.yaml]      # profile คลัง + รัน pipeline ครบ
-bash scripts/import_atlas.sh                              # คัดลอก JSON เข้าเว็บ + build
+bash scripts/import_atlas.sh                              # build เว็บ + atlas publish --site web/dist
 ```
 
 รายละเอียดเชิงปฏิบัติการทั้งหมดอยู่ใน `docs/OPERATIONS.md`
 
-## 5. Data contract สำคัญที่สุด: `atlas_data.json`
+## 5. Data contract สำคัญที่สุด: contract v2 (`data/<release>/`)
 
 **นี่คือสัญญาระหว่าง pipeline กับเว็บ — ห้ามเปลี่ยนโดยไม่แก้ทั้งสองฝั่ง**
 
@@ -114,13 +119,11 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 - ฟิลด์ใหม่ของ 1.1 ต่อหัวข้อ: `share_growth`, `share_growth_lo`, `share_growth_hi`, `n_journals_R`, `n_orgs_R`, `journal_driven`, `orgs_unverified`, `coherence`, `forecast_uncertain` (+ `meta.assigned_articles`, `meta.unassigned_articles`, `meta.as_of_year`, `meta.trimmed_years`, `meta.n_orgs_unverified`); status มี 6 ค่า (EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA); `forecast` เป็น null เว้นแต่ผ่าน skill gate และสถานะไม่ใช่ LOW_DATA
 - data contract v2 อยู่ที่ `pipeline/atlas/schema/contract.py` → ต้องสร้างใหม่พร้อมกัน: `uv run atlas schema` แล้ว `npm run gen:types` (ใน `web/`) — CI ตรวจ drift ทั้งสองขั้น
 - contract v2 ถูกเขียนจริงแล้ว (P1): `output/data/<release>/*.json` + `output/data/latest.json` (รายละเอียดใน `docs/DATA_SPEC.md` §6) — ช่วงเชื่อมั่นใช้ชื่อ `*_lo/*_hi` เสมอ ระดับอยู่ใน `manifest.ci_level`; `share_ratio` เป็น null เมื่อ `no_baseline`; `definition_version` ยังเป็น 3
-- เว็บ v2 (P1b) อ่าน `data/latest.json` แบบ path สัมพัทธ์จาก `BASE_URL` (ไม่เรียก API ตอน runtime) หรือข้อมูลที่ฝังใน `atlas-offline.html`
-- ฝั่งบริโภค: `web/src/lib/loader.ts` — ฟังก์ชัน `normalize()` แปลง pipeline schema → web schema:
-  - `nodeId` → `id`, `kind: "topic"` → `kind: "field"`, `nTopics` → `nFields`
-  - `emerging_score` → `emergingScore`, `burst_years` → `burstYears`, `orgs_unverified` → `orgsUnverified`
-  - `meta.total_topics` → `totalFields`, `meta.last_complete_year` → `lastCompleteYear`
-- เว็บ fetch `/data/atlas_data.json` ตอน runtime (`cache: "no-cache"`) — ถ้าไม่มีไฟล์/โหลดไม่ได้ → ใช้ข้อมูล bundle ใน `src/data/atlas.ts` แทน (หน้าเว็บไม่มีวันขาว)
-- **การอัปเดตข้อมูล = วางไฟล์ JSON ใหม่เท่านั้น ไม่ต้องแก้โค้ดเว็บ** (แต่ต้อง build ใหม่เพราะ public/ ถูกคัดลอกเข้า dist/)
+- ฝั่งบริโภค (เว็บ v2): `web/src/data/source.ts` (HttpSource อ่าน `./data/latest.json` → `./data/<release>/*.json` แบบ path สัมพัทธ์จาก `BASE_URL`; EmbeddedSource อ่าน `{latest, files}` ที่ `atlas publish` ฝังใน `atlas-offline.html`) + `web/src/data/release.ts` (`loadRelease`: ตรวจ schema major = 2 ด้วย zod, โหลดไฟล์หลัก, `overview.json` ของรอบก่อนสำหรับ Δ, `topics/<id>.json` เมื่อเปิดหัวข้อ)
+- ชนิดข้อมูลเว็บมาจาก `web/src/data/contract.ts` ที่ generate เท่านั้น ผ่าน `web/src/data/types.ts` (ชนิดซ้อนดึงด้วย indexed access เช่น `TopicsFile['topics'][number]` เพราะชื่อ interface ที่ generate ไม่คงที่)
+- ข้อเท็จจริงที่ UI ใช้: share/growth เป็นทศนิยม (0.10 = 10%), ระดับช่วงเชื่อมั่นคือ `manifest.ci_level`, `share_ratio: null` + `no_baseline: true` → "ใหม่ — ไม่มีในช่วงฐาน", `low_data_reason ∈ {few_articles, not_estimable}`, `forecast.show === false` → "แนวโน้มไม่แน่นอน", นิยามสถานะแสดงจาก `manifest.definition_version` (ตอนนี้ 3)
+- โหลดไม่ได้ / schema ผิด major / ไฟล์เสีย → แถบแจ้งเหตุผล (หน้าเว็บไม่มีวันขาว) — **ไม่มีข้อมูล bundle สำรองแล้ว**
+- **การอัปเดตข้อมูล = `uv run atlas publish --site <เว็บที่ build แล้ว>` หรือคัดลอกโฟลเดอร์ `data/` ใหม่ — ไม่ต้อง build เว็บใหม่**; `atlas_data.json` (schema 1.1) ยังถูกเขียนโดย pipeline แต่เว็บ v2 ไม่อ่านแล้ว
 
 ## 6. กฎการพัฒนา (Do / Don't)
 
@@ -144,12 +147,18 @@ bash scripts/import_atlas.sh                              # คัดลอก J
 
 ### Web
 
-- **DO** อ่าน `web/src/data/atlas.ts` เพื่อดู interfaces หลัก (`AtlasNode`, `TopicForecast`, `TopicStatus`) ก่อนแก้ UI
-- **DO** คง design tokens: bg `#f5f6f2`, ink `#161611`, accent `#FF5F1F`, panel ขาว radius 7px; fonts: IBM Plex Sans Thai (UI), IBM Plex Mono (ตัวเลข), Noto Serif Thai (display)
-- **DO** รองรับ 2 ภาษาทุกสตริง — เพิ่ม key ใน `web/src/lib/i18n.ts` ทั้ง `th` และ `en`
-- **DO** ทำให้ section ใหม่ "หดตัวเอง" (return null) เมื่อข้อมูลไม่มีฟิลด์นั้น — เหมือน `EmergingThemes.tsx` ที่ซ่อนตัวถ้าไม่มี status
-- **DON'T** แก้ Tailwind เป็น dynamic class (เช่น `bg-[${color}]` จาก string ต่อกัน) — compile ไม่ผ่าน; ใช้ inline style แทนถ้าต้อง dynamic
-- **DON'T** ใส่ข้อมูลจริงลง `public/data/atlas_data.json` ใน repo — repo เก็บเฉพาะ `atlas_data.example.json`; ไฟล์จริงวางตอน deploy
+- **DO** อ่าน `DESIGN.md` ก่อนทำ UI — ชนะ catalog ทั่วไปเสมอ; งาน UI ใช้ skill `impeccable` ก่อน และกราฟใช้ skill `dataviz`
+- **DO** ใช้ design tokens จาก `web/src/styles/tokens.css` เท่านั้น (`var(--…)`): ฐาน Civic modern — ฟอนต์ **Sarabun** อย่างเดียว (self-hosted, `src/assets/fonts/`), civic blue `#0f3557`, link blue `#1a5bb0`, focus yellow `#ffd43b` (ใช้กับ focus เท่านั้น), ink `#0b0c0e`, พื้นขาว, มุมเหลี่ยม; ไฮไลต์ประโยคหัวเรื่อง `#ffe07a` แบบแถบครึ่งล่าง; สีสาขาเป็น token `cat-01…cat-12` — tokens เดิม `#f5f6f2`/`#161611`/`#FF5F1F` และ IBM Plex/Noto Serif **เลิกใช้แล้ว**
+- **DO** แสดงสถานะด้วยรูปทรง + สี + ชื่อเสมอ (▲ EMERGING · ◆ WATCH · ● HOT · ▼ DECLINING · ■ STABLE · วงประ LOW_DATA); สีสถานะใช้กับสถานะเท่านั้น; เปลี่ยนสีต้องผ่าน `web/src/styles/palette.test.ts` (CVD + contrast ทั้ง light/dark)
+- **DO** รองรับ 2 ภาษาทุกสตริง — เพิ่ม key ใน `web/src/strings/<หน้า>.ts` ทั้ง `th` และ `en` (`i18n.test.ts` ตรวจ)
+- **DO** ทุกกราฟมีแท็บตาราง + คำบรรยายมีเลข ("แผนภูมิ n", "ตาราง n") + บรรทัด "ที่มา:"; ตารางเรียงได้ (`aria-sort`) และ export CSV ได้
+- **DO** ทำให้ section "หดตัวเอง" (ไม่ render) เมื่อข้อมูลไม่มีฟิลด์นั้น; หน้าเว็บไม่มีวันขาว
+- **DO** เก็บสถานะตัวกรอง/การเลือกไว้ใน URL ผ่าน `useUrlState` + codec ใน `web/src/lib/urlState.ts`
+- **DO** ไฟล์ `.tsx` export ได้เฉพาะ component (กฎ react-refresh) — hook/context/helper อยู่ใน `.ts`; ห้าม setState แบบ synchronous ใน effect และห้ามอ่าน `ref.current` ระหว่าง render (react-hooks v7)
+- **DON'T** ใช้ Tailwind class แบบ dynamic (`bg-[${color}]`) — ใช้ inline style `var(--…)` หรือ class ที่เขียนไว้ใน CSS ครบทุกค่า (`chip-${status}`)
+- **DON'T** ใช้ `href="#id"` ในหน้า (HashRouter จะเปลี่ยน route) — ใช้ `scrollToId()`
+- **DON'T** โหลดอะไรจากเซิร์ฟเวอร์ภายนอกตอน runtime (ฟอนต์, CDN, analytics) และไม่เรียก API/LLM จากเว็บ
+- **DON'T** commit ข้อมูลจริง — repo มีแต่ `web/fixtures/` (สังเคราะห์); ข้อมูลจริงวางด้วย `atlas publish --site` ตอน deploy
 
 ### LLM prompts
 

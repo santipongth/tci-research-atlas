@@ -48,7 +48,7 @@ uv run atlas publish  -c config.yaml --site ../web/dist      # วาง data/<r
 - **โฟลเดอร์รอบต้องคงชื่อเดิม**: `atlas validate` เป็น error เมื่อ `manifest.release` ไม่ตรงกับชื่อโฟลเดอร์ (ห้ามเปลี่ยนชื่อ/ก๊อปปี้เป็นชื่ออื่น) และเตือน (ข้าม diff) เมื่อไม่พบโฟลเดอร์ของรอบก่อนหน้าที่ manifest อ้างถึง; ชื่อรอบต้องเป็นรูป YYYYQn (เช่น `2026Q4`) — ชื่อแปลก ๆ อย่าง `../x` ถูกปฏิเสธ
 - `atlas-offline.html` = เว็บทั้งหน้าในไฟล์เดียว (ส่งอีเมล/เปิดโดยไม่ต่อเน็ตได้) — สร้างด้วย Python จาก `offline-template.html` ของ web build; ถ้าโฟลเดอร์เว็บยังไม่มีไฟล์นี้ publish จะเตือนแล้วข้ามไป
 - ต้องการไฟล์แนบ GitHub Release ด้วย: เติม `--tarball` (ได้ tar.gz ที่ทำซ้ำได้ + sha256 + release notes และคำสั่ง `gh release create` ให้คนรันเอง — โปรแกรมไม่อัปโหลดเอง)
-- เว็บปัจจุบัน (schema 1.1) ยังใช้ `bash scripts/import_atlas.sh` ได้จนกว่าเว็บ v2 จะขึ้น
+- ทางลัด (จาก root): `bash scripts/import_atlas.sh` = `npm run build` ใน web แล้ว `atlas publish --site web/dist`
 
 ### ขั้น 4 — ตรวจหน้าเว็บ + เผยแพร่
 
@@ -186,8 +186,8 @@ uv run atlas embed -c config.yaml
 | log ขึ้น `[embed] WARNING: embedding.provider is 'lite'` | config ใช้ `lite` (สำหรับ CI) กับคลังจริง | เปลี่ยนเป็น `embedding.provider: local` (หรือ `api`) แล้วรันใหม่ — อย่าเผยแพร่ผลจาก lite |
 | `ValueError: HDBSCAN found no clusters in N documents` | `hdbscan_min_cluster_size` ใหญ่เกินคลัง หรือ embedding ผิดปกติ (เช่น lite/โมเดลผิด) | ลด `clustering.fine.hdbscan_min_cluster_size` / `hdbscan_min_samples`; ตรวจ `work/03_meta.json` (model_id) — pipeline จะไม่รวมทุกอย่างเป็นหัวข้อเดียวเงียบ ๆ อีกแล้ว (ยกเว้นคลังจิ๋ว < 2 × min_cluster_size) |
 | label เป็นภาษาอังกฤษหมด | โมเดลไม่ถนัดไทย | เปลี่ยนโมเดลใน `llm.tasks.label.model` (เช่น typhoon / gpt-4o / gemini-2.0-flash) แล้ว `atlas llm --check` — cache key (model + prompt) เปลี่ยน เฉพาะ label จะถูกสร้างใหม่ |
-| หน้าเว็บยังเป็นข้อมูลเก่า | ลืม build ใหม่ หรือ browser cache | `import_atlas.sh` ต้องรันจนจบ (มี build ในตัว); hard-refresh |
-| หน้าเว็บ badge ขึ้น "○ ข้อมูลตัวอย่าง" | JSON ไม่ถูกวาง/โหลดไม่ได้ | เช็ก `web/public/data/atlas_data.json` มีจริง และ deploy มีไฟล์นี้ด้วย |
+| หน้าเว็บยังเป็นข้อมูลเก่า | latest.json ยังชี้รอบเก่า หรือ cache | ตรวจ `data/latest.json` บน host; hard-refresh (เว็บอ่านด้วย no-cache) |
+| แถบ "ยังไม่มีชุดข้อมูล" / "รุ่นของข้อมูลไม่ตรง" | ไม่มี `data/latest.json` หรือ schema ไม่ใช่ 2.x | รัน `atlas publish --site` ใหม่ / อัปเดตเว็บให้ตรงรุ่น |
 | forecast ไม่มีบาง topic | ประวัติ < 6 ปี, ไม่ผ่าน skill gate (ดีกว่า naive ไม่พอ) หรือมีจุด backtest ซื่อสัตย์น้อยกว่า `forecast.min_honest_points` | เป็นเรื่องปกติ (`forecast.min_history_years`, `forecast.min_skill`, `forecast.min_honest_points`); ใน JSON จะเป็น `forecast: null` + `forecast_uncertain` |
 | หัวข้อเกือบทั้งหมดเป็น LOW_DATA | corpus เล็ก/ช่วงปีสั้น หรือ `min_articles_recent` สูงไป | ตรวจรายงาน profile; ปรับ `emerging.min_articles_recent` เฉพาะเมื่อมีเหตุผล (กระทบนิยาม ต้อง bump `definition_version`) |
 | หัวข้อขึ้น WATCH เยอะ | วารสารเข้ามาอัปโหลดย้อนหลังเป็นชุด (journal-entry bias) | ดู profile หัวข้อ "วารสารที่อัปโหลดย้อนหลัง"; WATCH คือสัญญาณเตือน ไม่ใช่ข้อสรุป |
@@ -212,7 +212,7 @@ uv run atlas embed -c config.yaml
 ## 5. การย้อนกลับ (rollback)
 
 - เว็บบน Kimi: ใช้ version card ย้อนกลับเวอร์ชันก่อนหน้าได้ทันที
-- ข้อมูล: คัดลอก `atlas_data.json` จาก `runs/<ไตรมาสก่อน>/` กลับมาแล้ว `import_atlas.sh` ใหม่
+- ข้อมูล: แก้ `data/latest.json` ให้ชี้รอบก่อน (โฟลเดอร์รอบเก่ายังอยู่ใน data/) — ไม่ต้อง build ใหม่
 
 ## 6. LLM ผ่าน API (ชื่อหัวข้อ · คู่ที่อาจซ้ำ · คำอธิบาย · บทสรุปผู้บริหาร)
 

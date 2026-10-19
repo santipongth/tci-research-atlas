@@ -2,6 +2,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   pipeline:
@@ -40,6 +41,7 @@ jobs:
 
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: web
@@ -53,4 +55,44 @@ jobs:
       - run: npm ci
       - name: TypeScript contract types are up to date
         run: npm run gen:types && git diff --exit-code -- src/data/contract.ts
+      - name: Fixtures match their generator
+        run: npm run fixtures && git diff --exit-code -- fixtures
+      - run: npm run lint
+      - run: npm test
+      - name: Build (tsc -b, Pages site, offline template)
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Playwright smoke (every route, empty release, a11y, phone width, offline file)
+        run: npm run e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-results
+          path: web/test-results
+          retention-days: 7
+
+  brief-pdf:
+    needs: web
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Executive brief PDF (sample data)
+        run: npm run brief:pdf -- --data fixtures/example/data --out ../brief-pdf
+      - uses: actions/upload-artifact@v7
+        with:
+          name: brief-pdf
+          path: brief-pdf/*.pdf
+          retention-days: 30

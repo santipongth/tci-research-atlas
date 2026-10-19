@@ -2,7 +2,7 @@
 
 ## 1. หลักการออกแบบ
 
-1. **แยกผลิตจากแสดงผลสมบูรณ์** — pipeline (Python, batch, หนัก) กับเว็บ (React, static, เบา) รู้จักกันผ่านไฟล์เดียว: `atlas_data.json` เปลี่ยนโค้ดฝั่งใดฝั่งหนึ่งได้อิสระ ตราบใดที่ data contract ไม่เปลี่ยน
+1. **แยกผลิตจากแสดงผลสมบูรณ์** — pipeline (Python, batch, หนัก) กับเว็บ (React, static, เบา) รู้จักกันผ่าน contract v2 (`data/<release>/` + `data/latest.json`; `atlas_data.json` คงไว้เพื่อความเข้ากันได้เท่านั้น) เปลี่ยนโค้ดฝั่งใดฝั่งหนึ่งได้อิสระ ตราบใดที่ data contract ไม่เปลี่ยน
 2. **ไม่มี backend/database** — ลดภาระ infra ของทีมเป็นศูนย์; เว็บ static ใช้ได้ทุกที่ (Kimi publish, GitHub Pages, nginx)
 3. **ทุกอย่าง resume ได้** — pipeline เขียน checkpoint หลังทุก step ลง `work_dir`; รันใหม่ = ข้าม step ที่ทำแล้ว (เลือกด้วย `--step/-s`)
 4. **ตัวเลขต้องอธิบายได้** — ทุก metric ที่ขึ้นหน้าเว็บมีนิยามเขียนไว้ใน `EMERGING_SPEC.md` และทดสอบใน `tests/` เพราะผู้บริหารจะถือตัวเลขนี้ไปคุยต่อ
@@ -50,7 +50,7 @@ corpus/*.md (ThaiJO scrape)            ← ตรวจก่อนด้วย:
         ▼
 [layout]     แผนที่นิ่งข้ามรอบ (UMAP เริ่มจากรอบก่อน + Procrustes + anchor) + galaxy บทความ → work/09_*
         ▼
-[export]     output/atlas_data.json (schema 1.1 — เว็บปัจจุบัน) + output/data/<release>/ (contract v2) + latest.json
+[export]     output/atlas_data.json (schema 1.1 — เว็บ v2 ไม่อ่านแล้ว) + output/data/<release>/ (contract v2) + latest.json
         ▼
 atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>  →  data/<release>/ + data/latest.json + atlas-offline.html
 เว็บ v2 อ่าน data/latest.json แบบ path สัมพัทธ์จาก BASE_URL — ไม่เรียก API ตอน runtime; อัปเดตรายไตรมาส = คัดลอกโฟลเดอร์ data
@@ -62,39 +62,28 @@ atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>
 
 ## 3. โครงสร้างเว็บ (web/)
 
+เว็บ v2: `./data/latest.json` → `./data/<release>/*.json` (HttpSource) หรือข้อมูลฝังในไฟล์ออฟไลน์ (EmbeddedSource) → `loadRelease()` → render (HashRouter, ไม่มีข้อมูลสำรองฝังในเว็บ)
+
 | ไฟล์ | หน้าที่ |
 |---|---|
-| `src/pages/Home.tsx` | ประกอบทุก section, เรียก `loadAtlas()`, state ภาษา (th/en), data freshness badge |
-| `src/lib/loader.ts` | **หัวใจของ live dashboard** — fetch JSON, `normalize()` schema pipeline→web, fallback |
-| `src/data/atlas.ts` | interfaces (`AtlasNode`, `TopicForecast`, `TopicStatus`) + ข้อมูล bundle 71 สาขาจริง |
-| `src/lib/i18n.ts` | dictionary th/en ทุกสตริง + helpers (`fmt`, `pct`) |
-| `src/sections/AtlasMap.tsx` | bubble map SVG (pan/zoom ด้วย viewBox transform), `STATUS_STYLE`, DetailPanel + ForecastChart |
-| `src/sections/EmergingThemes.tsx` | รายการหัวข้อเรียงตาม emergingScore + filter chips ตามสถานะ (ซ่อนตัวเองถ้าไม่มีข้อมูล status) |
-| `src/sections/GroupRanking.tsx` | ตารางอันดับกลุ่ม คลิกเพื่อไฮไลต์บนแผนที่ |
-| `src/sections/Insights.tsx` | อินไซต์ที่คำนวณจากข้อมูล ณ รอบนั้น (บางอันหดตัวถ้าไม่มี entity ที่เกี่ยว) |
-| `src/sections/StatsBand.tsx`, `Header.tsx`, `Methodology.tsx` | แถบสถิติ, แถบนำทาง, ส่วนอธิบายวิธี |
+| `src/data/source.ts` + `src/data/release.ts` | แหล่งข้อมูล (Http \| Embedded) และ loader ที่ตรวจ schema major — แถบแจ้งเมื่อโหลดไม่ได้ |
+| `src/data/contract.ts` (generated) + `types.ts` | ชนิดข้อมูลจาก `contract.schema.json` (`npm run gen:types`) |
+| `src/pages/*Page.tsx` | overview · atlas · topics/:id · emerging · compare · data · about · brief |
+| `src/charts/` | forest plot · portfolio matrix · trend · multi-line (ทุกกราฟมีแท็บตาราง) |
+| `src/features/atlas/` | แผนที่ภูมิประเทศ (canvas + SVG overlay) + ดัชนีหัวข้อ |
+| `src/strings/` | ข้อความ UI ไทย+อังกฤษ (`i18n.test.ts` ตรวจครบคู่) |
+| `src/styles/tokens.css` | design tokens light/dark |
 
-### รูปแบบ bubble map
+รายละเอียดคำสั่งและโครงสร้างโค้ด: `web/README.md`
 
-- SVG เดียว viewBox 1680×1040, pan/zoom ด้วย state `{k, x, y}` แปลงเป็น `transform` ของ `<g>` ราก
-- wheel zoom ผูก non-passive listener ผ่าน callback ref (React ผูก passive โดยดีฟอลต์ → preventDefault ไม่ได้)
-- node = วงกลม ขนาด ∝ √(จำนวนบทความ), สี = กลุ่ม, จุดส้มเล็กมุมขวาบน = EMERGING
-- label ใช้ `paint-order: stroke` (พื้นขาวรอบตัวอักษร) และพลิกขึ้นเหนือ node ถ้าใกล้ขอบล่าง
-- ตัวเลขยักษ์จาง ๆ (ghost numeral) เป็น watermark กลางแผนที่
+### แผนที่ภูมิประเทศ
 
-## 4. Design tokens (ห้ามดrifท์)
+- พื้นที่แผนที่ 10 × 6 ช่อง (A–J, 1–6) วาดสีสาขาตามความหนาแน่น + เส้นชั้นความสูงบน canvas; หัวข้อที่มีสถานะเด่นเป็นสัญลักษณ์ SVG ที่โฟกัสได้ ส่วนหัวข้ออื่นเป็นจุดและค้นหาได้
+- ป้ายชื่อทุกชนิดผ่านการวางแบบเลี่ยงการชน (`src/lib/labels.ts`, `placeCentered`); pan/zoom ด้วยลาก ปุ่ม และแป้นพิมพ์
 
-| token | ค่า | ใช้กับ |
-|---|---|---|
-| bg | `#f5f6f2` | พื้นหลังหน้า |
-| ink | `#161611` | ตัวอักษรหลัก |
-| accent | `#FF5F1F` | จุดเน้น, EMERGING, score bar |
-| panel | `#ffffff` radius 7px | การ์ด/แผง |
-| font UI | IBM Plex Sans Thai | ข้อความทั่วไป |
-| font data | IBM Plex Mono | ตัวเลข, eyebrow, label เทคนิค |
-| font display | Noto Serif Thai | หัวข้อใหญ่ |
+## 4. Design tokens
 
-สถานะสี: EMERGING `#FF5F1F` · HOT `#E5484D` · DECLINING `#697177` · STABLE `#30A46C`
+ฐาน Civic modern: ฟอนต์ Sarabun (self-hosted), civic blue `#0f3557`, link `#1a5bb0`, focus yellow `#ffd43b`, ink `#0b0c0e` — ค่าทั้งหมดอยู่ที่ `DESIGN.md` และ `web/src/styles/tokens.css` (ตรวจ CVD + contrast ด้วย `palette.test.ts`); สถานะแสดงด้วยรูปทรง + สี + ชื่อเสมอ
 
 ## 5. ทำไมไม่มี backend
 
