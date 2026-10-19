@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router'
 import { useRouteFocus } from '../lib/useRouteFocus'
+import { DataBanner } from './DataBanner'
 import { Footer } from './Footer'
 import { Header } from './Header'
 import { PhaseBanner } from './PhaseBanner'
@@ -12,6 +13,7 @@ export function Layout() {
       <SkipLink />
       <Header />
       <PhaseBanner />
+      <DataBanner />
       <main id="main" tabIndex={-1}>
         <Outlet />
       </main>

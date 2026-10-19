@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
+    "fixtures": "node scripts/make-fixtures.mjs",
+    "e2e": "playwright test",
     "gen:types": "node scripts/gen-types.mjs",
     "vendor:fonts": "node scripts/vendor-fonts.mjs"
   },
