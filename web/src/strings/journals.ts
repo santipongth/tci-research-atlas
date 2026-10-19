@@ -52,6 +52,7 @@ export const journals = defineStrings({
   'jr.inhouseSubInferred': { th: 'บทความที่มีผู้แต่งจาก {o} (อนุมานจากบทความ — ไม่มีในทะเบียน)', en: 'Articles with an author from {o} (inferred from the articles — not in the registry)' },
   'jr.noOwner': { th: 'ยังระบุสถาบันเจ้าของไม่ได้', en: 'Owner institution unknown' },
   'jr.orgsSub': { th: '{n} สถาบัน เทียบเท่ากับ {e} สถาบันที่มีบทความเท่ากัน', en: '{n} institutions, as diverse as {e} equal ones' },
+  'jr.orgsSubN': { th: '{n} สถาบัน', en: '{n} institutions' },
   'jr.foreignSub': { th: 'บทความที่มีผู้แต่งสังกัดต่างประเทศอย่างน้อย 1 คน', en: 'Articles with at least one author affiliated abroad' },
   'jr.coverageSub': { th: 'คิดจากบทความที่ระบุสังกัดได้ {p}', en: 'Based on the {p} of articles with a known affiliation' },
   'jr.topics.h': { th: 'ขอบเขตหัวข้อ', en: 'Topic scope' },

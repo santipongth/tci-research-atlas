@@ -14,6 +14,7 @@ import TopicPage from './pages/TopicPage'
 
 // The editors' pages load on demand: their code (and the data they fetch) stays out of the first download.
 const JournalsPage = lazy(() => import('./pages/JournalsPage'))
+const JournalPage = lazy(() => import('./pages/JournalPage'))
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="topics/:id" element={<TopicPage />} />
         <Route path="emerging" element={<EmergingPage />} />
         <Route path="journals" element={<Lazy><JournalsPage /></Lazy>} />
+        <Route path="journals/:id" element={<Lazy><JournalPage /></Lazy>} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="data" element={<DataPage />} />
         <Route path="about" element={<AboutPage />} />

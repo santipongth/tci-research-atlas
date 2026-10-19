@@ -117,7 +117,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
       stack={false}
       csvFilename={`atlas-${release.overview.release}-${topic.id}-${id}.csv`}
       columns={[
-        { key: 'key', csvHeader: 'name', header, rowHeader: true, cell: (r) => r.key, sortValue: (r) => r.key },
+        { key: 'key', csvHeader: 'name', header, rowHeader: true, cell: (r) => (r.id ? <Link to={`/journals/${r.id}`}>{r.key}</Link> : r.key), sortValue: (r) => r.key },
         { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
       ]}
     />

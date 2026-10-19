@@ -18,6 +18,7 @@ const ROUTES = [
   { name: 'about', path: '/about' },
   { name: 'brief', path: '/brief' },
   { name: 'journals', path: '/journals' },
+  { name: 'journal', path: '/journals/so02.example0' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -151,11 +152,22 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.getByRole('link', { name: 'วารสารวิชาการตัวอย่าง ก' }).click()
     await expect(page).toHaveURL(/#\/journals\/so02\.example0$/)
   },
+  journal: async (page) => {
+    await expect(page.locator('h1')).toHaveText('วารสารวิชาการตัวอย่าง ก')
+    await expect(page.locator('#topics table')).toBeVisible()
+    await expect(page.locator('#peers')).toContainText('example2')
+    await expect(page.locator('#completeness')).toContainText('DOI')
+    await expect(page.locator('#opportunities')).toContainText('ยานยนต์ไฟฟ้า')
+    await page.locator('#drift').getByRole('tab', { name: 'ตาราง' }).click()
+    await expect(page).toHaveURL(/drift=table/)
+    await page.goto(`${EXAMPLE}#/journals/so02.nowhere`)
+    await expect(page.locator('h1')).toContainText('so02.nowhere')
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
@@ -262,6 +274,8 @@ test('the offline file works from file:// without a single network request', asy
   await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
   await page.goto(`${url}#/atlas`)
   await expect(page.locator('canvas.terrain')).toBeVisible()
+  await page.goto(`${url}#/journals/so02.example0`)
+  await expect(page.locator('h1')).toHaveText('วารสารวิชาการตัวอย่าง ก')
   expect(remote).toEqual([])
   expect(errors).toEqual([])
 })
