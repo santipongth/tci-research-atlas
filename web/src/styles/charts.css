@@ -1,0 +1,92 @@
+/* Overview: Editorial headline + KPI tiles + main points + status summary; forest plot; portfolio matrix. */
+@layer components {
+  .headline-block { margin-top: 26px; padding: 22px 0 6px; border-top: 2px solid var(--ink); }
+  .headline { font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem); font-weight: 600; line-height: 1.5; max-width: 30ch; text-wrap: balance; }
+  [lang="en"] .headline { max-width: 34ch; }
+  .headline a { color: inherit; text-decoration-thickness: 2px; text-underline-offset: 0.18em; }
+  .headline a:hover { color: var(--link); }
+  .headline-src { margin-top: 8px; font-size: 0.875rem; color: var(--ink-2); }
+  mark { background: linear-gradient(transparent 52%, var(--hl) 52%, var(--hl) 92%, transparent 92%); background-repeat: no-repeat; background-size: 100% 100%; color: inherit; padding-inline: 0.06em; }
+  @media (prefers-reduced-motion: no-preference) {
+    .headline mark { animation: hl-swipe 900ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+  }
+  @keyframes hl-swipe { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+
+  .kpis { margin: 18px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .kpi { border: 1px solid var(--border); padding: 14px 16px 12px; min-width: 0; background: var(--bg); }
+  .kpi dt { font-size: 0.9375rem; font-weight: 600; line-height: 1.5; }
+  .kpi dd { margin: 0; }
+  .kpi .v { display: block; font-size: clamp(1.75rem, 1.4rem + 1vw, 2.375rem); font-weight: 700; line-height: 1.5; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .d { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 0.9375rem; color: var(--up); font-weight: 600; line-height: 1.5; }
+  .kpi .d.is-down { color: var(--ink-2); }
+  .kpi .d svg { width: 11px; height: 11px; flex: none; display: inline-block; }
+  .kpi .d-ref { font-weight: 400; color: var(--ink-2); }
+  @media (max-width: 640px) { .kpis { grid-template-columns: 1fr 1fr; gap: 10px; } .kpi { padding: 12px; } }
+
+  .points { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+  .point { padding: 16px 20px; background: var(--surface); border-left: 4px solid var(--brand); }
+  .point p { font-size: 1.0625rem; line-height: 1.7; max-width: 46em; }
+
+  .st-sum { margin: 18px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); }
+  .st-sum div { padding: 12px 14px 12px 0; border-bottom: 1px solid var(--border); min-width: 0; }
+  .st-sum div:not(:nth-child(3n+1)) { padding-left: 14px; border-left: 1px solid var(--border-2); }
+  .st-sum dd { margin: 4px 0 0; font-size: 1.75rem; font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  .st-sum dd small { font-size: 0.875rem; font-weight: 400; color: var(--ink-2); margin-left: 6px; }
+  @media (max-width: 640px) {
+    .st-sum { grid-template-columns: 1fr 1fr; }
+    .st-sum div:not(:nth-child(3n+1)) { padding-left: 0; border-left: 0; }
+    .st-sum div:nth-child(even) { padding-left: 12px; border-left: 1px solid var(--border-2); }
+  }
+  .flag { color: var(--ink-2); font-weight: 700; }
+
+  .forest { margin-top: 6px; }
+  .fr-axis, .fr-row { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr) 104px; gap: 0 20px; }
+  .fr-axis { align-items: end; position: sticky; top: 0; z-index: 2; background: var(--bg); padding-top: 6px; border-bottom: 1px solid var(--border); }
+  .fr-axislabel { font-size: 0.8125rem; color: var(--ink-2); line-height: 1.5; padding-bottom: 6px; }
+  .fr-axis svg { display: block; overflow: visible; }
+  .ax-tick { font-size: 12px; fill: var(--ink-2); font-family: var(--font); font-variant-numeric: tabular-nums; }
+  .ax-ref { font-size: 12px; fill: var(--ink); font-weight: 600; font-family: var(--font); }
+  .fr-group { margin-top: 24px; }
+  .fr-ghead { padding-bottom: 8px; }
+  .fr-gname { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 1.1875rem; line-height: 1.5; }
+  .fr-gname small { font-weight: 400; font-size: 0.875rem; color: var(--ink-2); }
+  .fr-grule { margin-top: 2px; font-size: 0.875rem; color: var(--ink-2); line-height: 1.6; max-width: 60ch; }
+  .fr-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-2); }
+  .fr-row { align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-2); color: var(--ink); text-decoration: none; }
+  .fr-row:hover { background: var(--surface); color: var(--ink); text-decoration: none; }
+  .fr-row:hover .fr-name b { text-decoration: underline; }
+  .fr-name { min-width: 0; padding-left: 4px; }
+  .fr-name b { display: block; font-weight: 600; font-size: 1rem; line-height: 1.5; color: var(--link); }
+  .fr-name span { display: block; font-size: 0.8125rem; color: var(--ink-2); line-height: 1.5; }
+  .fr-row:focus-visible .fr-name b, .fr-row:focus-visible .fr-name span, .fr-row:focus-visible .fr-val span { color: var(--focus-ink); }
+  .fr-plot { min-width: 0; height: 26px; }
+  .fr-val { text-align: right; padding-right: 4px; font-variant-numeric: tabular-nums; }
+  .fr-val b { display: block; font-weight: 600; font-size: 1rem; line-height: 1.5; }
+  .fr-val span { display: block; font-size: 0.75rem; color: var(--ink-2); line-height: 1.5; }
+  .fr-more { margin-top: 8px; font-size: 0.9375rem; }
+  @media (max-width: 640px) {
+    .fr-axis, .fr-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .fr-axislabel { display: none; }
+    .fr-axis-plot { grid-column: 1 / -1; }
+    .fr-plot { grid-column: 1 / -1; grid-row: 2; }
+  }
+
+  .pf-host { width: 100%; min-height: 340px; }
+  .pf { display: block; overflow: visible; }
+  .pf text { font-family: var(--font); }
+  .pf-gl { stroke: var(--border-2); stroke-width: 1; }
+  .pf-axis0 { stroke: var(--ink); stroke-width: 1; }
+  .pf-split { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; }
+  .pf-split-label { font-size: 12.5px; fill: var(--ink-2); }
+  .pf-tick { font-size: 13px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .pf-axis-title { font-size: 13.5px; fill: var(--ink); font-weight: 600; }
+  .pf-qname { font-size: 15px; font-weight: 700; fill: var(--ink); }
+  .pf-qcount { font-size: 12.5px; font-weight: 400; fill: var(--ink-2); }
+  .pf-node { cursor: pointer; outline: none; }
+  .pf-node .hit { fill: transparent; }
+  .pf-node .mk { stroke-width: 2; }
+  .pf-node:hover .mk { stroke: var(--ink); stroke-width: 2.5; }
+  .pf-node:focus-visible .hit { fill: var(--focus); }
+  .pf-node:focus-visible .mk { stroke: var(--focus-ink); stroke-width: 3; }
+  .pf-ltext { font-size: 13px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+}

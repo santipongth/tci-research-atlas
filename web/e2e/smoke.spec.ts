@@ -21,6 +21,16 @@ type Check = (page: Page) => Promise<void>
 /** Page-specific checks against the example release; each page task adds one line between the markers. */
 const CHECKS: Partial<Record<RouteName, Check>> = {
   // checks:start
+  overview: async (page) => {
+    await expect(page.locator('.headline mark').first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /โมเดลภาษาขนาดใหญ่/ }).first()).toBeVisible()
+    await expect(page.locator('.kpi')).toHaveCount(6)
+    await expect(page.locator('.kpi .d').first()).toContainText('2026Q3')
+    await expect(page.locator('.fr-row').first()).toBeVisible()
+    await page.getByRole('tab', { name: 'ตาราง' }).first().click()
+    await expect(page.getByRole('table').first()).toBeVisible()
+    await expect(page).toHaveURL(/st=table/)
+  },
   // checks:end
 }
 
