@@ -254,6 +254,7 @@ class NowcastCfg(_Strict):
     min_months: int = Field(3, ge=1, le=12)
     profile_years: int = Field(3, ge=1)
     as_of: str | None = Field(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    min_month_share: float = Field(0.02, ge=0.0, lt=1.0)  # a month sets "as of" only with >= this share of the year
 
 
 class ForecastCfg(_Strict):
@@ -267,6 +268,7 @@ class ForecastCfg(_Strict):
     min_train_years: int = Field(4, ge=3)
     min_skill: float = 0.0
     max_mase: float = Field(1.0, gt=0.0)
+    min_honest_points: int = Field(3, ge=1)               # honest backtest points a shown forecast needs
     min_calibration: int = Field(20, ge=1)
     dispersion_fallback: float = Field(0.1, ge=0.0)      # NB alpha when the trend model cannot be fitted
     sigma_floor: float = Field(0.5, ge=0.0)              # a count interval is never narrower than +/- this
@@ -287,6 +289,7 @@ class KeywordsCfg(_Strict):
     min_growth_lo: float = 0.0
     max_terms: int = Field(50, ge=1)
     smoothing_articles: float = Field(0.5, gt=0.0)
+    min_key_length: int = Field(2, ge=1)                  # shorter normalised keywords are dropped
 
 
 class LayoutCfg(_Strict):

@@ -11,18 +11,23 @@ Models (forecast.models):
   ets_damped  damped-trend Holt (statsmodels) on share  × N̂
 
 Rolling-origin CV: origins o = T−cv_origins … T−1, horizons h ≤ horizon with o + h ≤ T; an origin
-trains on years ≤ o only (≥ min_train_years) — including the N̂ it uses. The published model is the one
-with the lowest MAE pooled over every (o, h). Skill is scored honestly, without reusing the data that
-picked the model: at each origin after the first, the model chosen from EARLIER origins is evaluated
-(honest_records). MASE = that MAE / mean|c_t − c_{t−1}| over the history; skill = 1 − MAE / MAE(naive).
-Shown only when best ≠ naive, skill > min_skill and MASE < max_mase ("แนวโน้มไม่แน่นอน" otherwise).
+trains on years ≤ o only (≥ min_train_years) — including the N̂ it uses, whose total model is also chosen
+on years ≤ o only. The published model is the one with the lowest MAE pooled over every (o, h). Skill is
+scored honestly, without reusing the data that picked the model: at each origin after the first, the
+model chosen from EARLIER origins is evaluated (honest_records). MASE = that MAE / mean|c_t − c_{t−1}|
+over the history; skill = 1 − MAE / MAE(naive). Shown only when best ≠ naive, skill > min_skill,
+MASE < max_mase and the topic has ≥ min_honest_points honest points ("แนวโน้มไม่แน่นอน" otherwise).
 
 Intervals 80/95%: NB2 scale σ(μ) = sqrt(μ + α·μ²) with the topic's α; split-conformal factor
-q_h = the ⌈(n+1)·level⌉-th smallest |c − ĉ| / σ over ALL topics' CV errors at horizon h; interval
-ĉ ± q_h·σ floored at 0. Fewer than min_calibration scores → normal quantiles (1.2816 / 1.9600).
+q_h = the ⌈(n+1)·level⌉-th smallest |c − ĉ| / σ over ALL topics' honest CV errors at horizon h (the
+same honest records as skill: errors of the model picked because it scored best on those very points
+are too small and give too narrow intervals); interval ĉ ± q_h·σ floored at 0. Fewer than
+min_calibration scores → normal quantiles (1.2816 / 1.9600).
 
-Nowcast: partial year Y = last_complete_year + 1. full-year estimate = ytd / f(m), f(m) = share of
-a year's articles published by month m in the last profile_years complete years.
+Nowcast: only for the running calendar year Y = last_complete_year + 1 = emerging.as_of_year (a year the
+backfill guard trimmed gets none). full-year estimate = ytd / f(m), f(m) = share of a year's articles
+published by month m in the last profile_years complete years; m = nowcast.as_of, else the latest month
+of Y (≤ the snapshot month) holding ≥ nowcast.min_month_share of Y's dated articles.
 Outputs: work/08_forecasts, work/08_forecast_meta.json
 """
 from __future__ import annotations
@@ -31,6 +36,7 @@ import json
 import math
 import warnings
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from statistics import NormalDist
 
@@ -39,6 +45,7 @@ import pandas as pd
 
 from atlas.config import ForecastCfg
 from atlas.io_utils import read_table, write_table
+from atlas.topics_time import as_of_year
 
 FORECAST_COLUMNS = ["topic_id", "model", "backtest_mae", "backtest_mape", "mase", "skill_vs_naive", "show",
                     "hist_years", "hist_counts", "fc_years", "fc_mean", "fc_lo", "fc_hi",
@@ -208,7 +215,8 @@ def honest_records(bt: dict[str, list], models: list[str]) -> tuple[list, list]:
     Model choice and skill scoring must not share data: at origin k the model with the lowest MAE over
     origins < k is "selected", and its error at k is what skill and MASE use.
     The first origin only seeds the choice. → (selected-model records, naive records) on the same points.
-    (Interval calibration keeps using the published model's own CV errors — see conformal_factors.)
+    Interval calibration (conformal_factors) uses these same selected-model records: the published model's
+    own CV errors are optimistic (it was picked for scoring best on them) and give too narrow intervals.
     """
     oks = sorted({r[0] for v in bt.values() for r in v})
     chosen, naive = [], []
@@ -243,6 +251,17 @@ def month_fraction(months: pd.DataFrame, years: list[int], as_of: int) -> float:
     return float(sub.loc[sub["month"] <= as_of, "count"].sum()) / total if total else 0.0
 
 
+def nowcast_month(in_year: pd.DataFrame, min_share: float, cap: int) -> int:
+    """Latest month ≤ cap holding ≥ min_share of the year's dated articles (0 = none) — the "as of" month.
+
+    A few forward-dated articles (an issue dated December, indexed in April) must not make the year look
+    published through December; cap = the snapshot month, since later months cannot be complete yet.
+    """
+    total = float(in_year["count"].sum())
+    ok = in_year[(in_year["month"] <= cap) & (in_year["count"] > 0) & (in_year["count"] >= min_share * total)]
+    return int(ok["month"].max()) if len(ok) else 0
+
+
 # ------------------------------------------------------------------ all topics
 def forecast_all(series: pd.DataFrame, totals: pd.Series, last_year: int, fcfg: dict,
                  horizon: int | None = None) -> tuple[pd.DataFrame, dict]:
@@ -253,8 +272,11 @@ def forecast_all(series: pd.DataFrame, totals: pd.Series, last_year: int, fcfg: 
     years = [y for y in sorted(int(y) for y in totals.index) if y <= last_year]
     N = totals.reindex(years).to_numpy(dtype=float)
     models = list(dict.fromkeys(["naive", *fcfg["models"]]))
-    total_model = choose_total_model(N, list(fcfg["total_models"]), H, cvo, mtr)
-    n_hat = {i: total_forecast(total_model, N[:i + 1], H) for i in range(max(0, len(N) - 1 - cvo), len(N) - 1)}
+    tms = list(fcfg["total_models"])
+    total_model = choose_total_model(N, tms, H, cvo, mtr)          # for the published future only
+    # each origin's N̂ uses a total model chosen on years ≤ that origin (no look-ahead into later totals)
+    n_hat = {i: total_forecast(choose_total_model(N[:i + 1], tms, H, cvo, mtr), N[:i + 1], H)
+             for i in range(max(0, len(N) - 1 - cvo), len(N) - 1)}
     N_future = total_forecast(total_model, N, H)
     fut_years = list(range(last_year + 1, last_year + 1 + H))
 
@@ -278,22 +300,31 @@ def forecast_all(series: pd.DataFrame, totals: pd.Series, last_year: int, fcfg: 
         scale = float(np.mean(np.abs(np.diff(c)))) if len(c) > 1 else 0.0
         mase = round(mae_sel / scale, 3) if scale > 0 else math.nan       # gate on the value we publish
         skill = 1 - mae_sel / mae_naive if mae_naive > 0 else 0.0
-        for _, h, a, p, s in bt[best]:                  # interval calibration: the published model's CV errors
+        for _, h, a, p, s in chosen:                    # interval calibration: the honest CV errors
             scores[h].append(abs(a - p) / s)
         fits.append({"topic_id": int(tid), "best": best, "c": c, "N": Nt, "years": years[first:],
-                     "mae": mae_sel, "mape": mape, "mase": mase, "skill": skill})
+                     "mae": mae_sel, "mape": mape, "mase": mase, "skill": skill, "n_honest": len(chosen)})
 
     q = conformal_factors(scores, int(fcfg["min_calibration"]))
     rows = []
+    n_failed = 0
     for f in fits:
-        mean = np.maximum(predict_counts(f["best"], f["c"], f["N"], N_future, nbp), 0.0)
+        model = f["best"]
+        try:
+            mean = np.maximum(predict_counts(model, f["c"], f["N"], N_future, nbp), 0.0)
+            if not np.isfinite(mean).all():
+                raise ValueError("non-finite forecast")
+        except Exception:  # noqa: BLE001 — the full-history fit failed: publish the naive line, never a trend
+            model, n_failed = "naive", n_failed + 1
+            mean = np.maximum(predict_counts(model, f["c"], f["N"], N_future, nbp), 0.0)
         sig = nb_sigma(mean, dispersion(f["c"], f["N"], nbp), nbp)
-        show = bool(f["best"] != "naive" and f["skill"] > float(fcfg["min_skill"])
-                    and math.isfinite(f["mase"]) and f["mase"] < float(fcfg["max_mase"]))
+        show = bool(model != "naive" and f["skill"] > float(fcfg["min_skill"])
+                    and math.isfinite(f["mase"]) and f["mase"] < float(fcfg["max_mase"])
+                    and f["n_honest"] >= int(fcfg["min_honest_points"]))
         lo = {lv: [round(max(float(mean[i] - q[i + 1][lv] * sig[i]), 0.0), 1) for i in range(H)] for lv in LEVELS}
         hi = {lv: [round(float(mean[i] + q[i + 1][lv] * sig[i]), 1) for i in range(H)] for lv in LEVELS}
         rows.append({
-            "topic_id": f["topic_id"], "model": f["best"],
+            "topic_id": f["topic_id"], "model": model,
             "backtest_mae": round(f["mae"], 2), "backtest_mape": round(f["mape"], 2),
             "mase": f["mase"] if math.isfinite(f["mase"]) else None,
             "skill_vs_naive": round(f["skill"], 3), "show": show,
@@ -304,6 +335,9 @@ def forecast_all(series: pd.DataFrame, totals: pd.Series, last_year: int, fcfg: 
             "fc_lo80": json.dumps(lo[0.8]), "fc_hi80": json.dumps(hi[0.8]),
             "fc_lo95": json.dumps(lo[0.95]), "fc_hi95": json.dumps(hi[0.95]),
         })
+    if n_failed:
+        print(f"[forecast] WARNING: {n_failed} topics: the chosen model could not be fitted on the full history "
+              "- published as naive, not shown")
     meta = {"total_model": total_model, "total_years": fut_years,
             "total_mean": [round(float(v), 1) for v in N_future],
             "conformal": {str(h): {str(lv): round(v, 4) for lv, v in d.items()} for h, d in q.items()},
@@ -364,11 +398,23 @@ def forecast(cfg: dict) -> pd.DataFrame:
     meta["nowcast"] = None
     nc = f["nowcast"]
     months_path, partial_path = work / "06_months.parquet", work / "06_partial_year.parquet"
-    if nc["enabled"] and months_path.exists() and partial_path.exists():
+    year = last + 1
+    running = int(meta6.get("as_of_year") or as_of_year(cfg["emerging"]))
+    if nc["enabled"] and year != running:
+        print(f"[forecast] no nowcast: the partial year {year} is not the running year {running} "
+              "(the backfill guard held it back as incomplete)")
+    elif nc["enabled"] and months_path.exists() and partial_path.exists():
         months, partial = read_table(months_path), read_table(partial_path)
-        year = last + 1
         in_year = months[months["year"] == year]
-        as_of = int(nc["as_of"][5:7]) if nc["as_of"] else (int(in_year["month"].max()) if len(in_year) else 0)
+        today = date.today()
+        as_of = 0
+        if nc["as_of"] and int(nc["as_of"][:4]) == year:
+            as_of = int(nc["as_of"][5:7])
+        elif nc["as_of"]:
+            print(f"[forecast] WARNING: forecast.nowcast.as_of={nc['as_of']} is not in the partial year {year} "
+                  "- ignored, the month is taken from the data")
+        if not as_of:
+            as_of = nowcast_month(in_year, float(nc["min_month_share"]), today.month if running == today.year else 12)
         prof_years = list(range(last - int(nc["profile_years"]) + 1, last + 1))
         frac = month_fraction(months, prof_years, as_of) if as_of else 0.0
         if as_of >= int(nc["min_months"]) and frac > 0:

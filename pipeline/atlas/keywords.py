@@ -23,6 +23,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from atlas.config import KeywordsCfg
 from atlas.emerging import share_growth
 from atlas.io_utils import read_table, write_table
 from atlas.thai import norm_key
@@ -32,8 +33,8 @@ KEYWORD_COLUMNS = ["term", "key", "count_recent", "count_baseline", "share_ratio
                    "journal_driven", "topic_id", "emerging"]
 
 
-def keyword_rows(docs: pd.DataFrame) -> pd.DataFrame:
-    """One row per (article, keyword key): article_id, year, journal, key, term."""
+def keyword_rows(docs: pd.DataFrame, min_key_length: int = KeywordsCfg().min_key_length) -> pd.DataFrame:
+    """One row per (article, keyword key): article_id, year, journal, key, term (keys ≥ min_key_length)."""
     rows = []
     for aid, year, journal, th, en in zip(docs["article_id"], docs["year"], docs["journal_name"],
                                           docs["keywords_th"].fillna("").astype(str),
@@ -43,7 +44,7 @@ def keyword_rows(docs: pd.DataFrame) -> pd.DataFrame:
         seen = set()
         for term in (t.strip() for t in f"{th};{en}".split(";")):
             key = norm_key(term)
-            if len(key) >= 2 and key not in seen:
+            if len(key) >= min_key_length and key not in seen:
                 seen.add(key)
                 rows.append((aid, int(year), journal, key, term))
     return pd.DataFrame(rows, columns=["article_id", "year", "journal", "key", "term"])
@@ -123,7 +124,7 @@ def keywords(cfg: dict) -> pd.DataFrame:
         orgs = read_table(work / "01_authors.parquet")[["article_id", "org_key"]]
     except FileNotFoundError:
         orgs = pd.DataFrame(columns=["article_id", "org_key"])
-    out = emerging_keywords(keyword_rows(docs), totals, int(meta["last_complete_year"]), cfg["emerging"],
+    out = emerging_keywords(keyword_rows(docs, int(cfg["keywords"]["min_key_length"])), totals, int(meta["last_complete_year"]), cfg["emerging"],
                             cfg["keywords"], orgs.drop_duplicates(), read_table(work / "06_journal_first_year.parquet"),
                             read_table(work / "04_fine_topics.parquet"))
     write_table(out, work / "07_keywords.parquet")

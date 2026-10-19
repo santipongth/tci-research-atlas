@@ -41,6 +41,8 @@ def test_keyword_rows_fold_case_spacing_and_duplicates():
                          "keywords_th": ["การศึกษา; การศึกษา "], "keywords_en": ["ChatGPT; chat gpt; x"]})
     kw = keyword_rows(docs)
     assert sorted(kw["key"]) == ["chatgpt", "การศึกษา"]          # 1-char key dropped, "chat gpt" = "ChatGPT"
+    assert "x" in set(keyword_rows(docs, min_key_length=1)["key"])   # keywords.min_key_length
+    assert CFG["keywords"]["min_key_length"] == 2
 
 
 def test_emerging_requires_novelty_persistence_breadth_and_growth():

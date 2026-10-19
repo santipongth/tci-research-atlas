@@ -212,3 +212,10 @@ def test_corrupt_cache_files_are_cache_misses_and_get_rewritten(make_cfg, tmp_pa
     df, m = load_reference(cfg, RecordedFetch())
     assert m["origin"] == "api" and len(df) == 5
     assert json.loads(meta.read_text(encoding="utf-8"))["n"] == 5
+    for bad in (b"", b"\x80\x04not a pickle"):              # the .pkl fallback, truncated or corrupt
+        for p in meta.parent.glob(meta.stem + ".*"):
+            if p.suffix != ".json":
+                p.unlink()
+        meta.with_suffix(".pkl").write_bytes(bad)
+        df, m = load_reference(cfg, RecordedFetch())
+        assert m["origin"] == "api" and len(df) == 5

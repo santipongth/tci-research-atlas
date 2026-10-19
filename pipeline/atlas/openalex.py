@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import pickle
 import time
 import urllib.error
 import urllib.parse
@@ -232,7 +233,8 @@ def load_reference(cfg: dict, fetch: Fetch | None = None) -> tuple[pd.DataFrame,
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
             return read_table(cache_dir / f"{stem}.parquet"), {**meta, "origin": "cache"}
-        except (ValueError, OSError):                  # half-written / corrupt: rebuilt (from the request cache)
+        # half-written / corrupt parquet, or its .pkl fallback: rebuilt (from the request cache)
+        except (ValueError, OSError, EOFError, pickle.UnpicklingError):
             print(f"[openalex] cached reference {meta_path.name} is unreadable - building it again")
     try:
         df = fetch_reference(fetcher, ocfg["country_code"], int(ocfg["per_subfield"]), int(ocfg["seed"]), pages)
