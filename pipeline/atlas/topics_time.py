@@ -1,7 +1,11 @@
 """Yearly series per topic + journal/institution tables for Emerging v3, with backfill guard.
 
 corpus_total counts ALL dated articles (assigned or not) — it is the share denominator.
-Outputs: 06_series, 06_topic_journal_year, 06_topic_org_year, 06_journal_first_year, 06_meta.json
+Years after last_complete_year (v3 rule, unchanged) are kept for the Forecast v2 nowcast only:
+06_partial_year (topic counts) and 06_months (articles per publication month, dates that agree with the
+article year). They are computed after the cutoff and never feed back into it.
+Outputs: 06_series, 06_topic_journal_year, 06_topic_org_year, 06_journal_first_year, 06_months,
+06_partial_year, 06_meta.json
 """
 from __future__ import annotations
 
@@ -53,9 +57,23 @@ def last_complete_year(totals: pd.Series, ecfg: dict) -> int:
     return cand
 
 
+def publication_months(docs: pd.DataFrame) -> pd.DataFrame:
+    """year, month, count from `published` dates that agree with the article year (1970/lost dates drop out)."""
+    if "published" not in docs.columns:
+        return pd.DataFrame(columns=["year", "month", "count"])
+    m = docs["published"].fillna("").astype(str).str.extract(r"^(\d{4})-(\d{2})")
+    y = pd.to_numeric(m[0], errors="coerce")
+    y = y.where(y <= 2400, y - 543)                               # Buddhist Era dates
+    mon = pd.to_numeric(m[1], errors="coerce")
+    ok = (y == docs["year"]) & mon.between(1, 12)
+    out = pd.DataFrame({"year": docs.loc[ok, "year"].astype(int), "month": mon[ok].astype(int)})
+    return out.groupby(["year", "month"]).size().rename("count").reset_index()
+
+
 def build_series(cfg: dict) -> pd.DataFrame:
     work = Path(cfg["pipeline"]["work_dir"])
-    docs = read_table(work / "02_docs.parquet")[["article_id", "year", "journal_name"]]
+    docs = read_table(work / "02_docs.parquet")
+    docs = docs[[c for c in ("article_id", "year", "journal_name", "published") if c in docs.columns]]
     fine = read_table(work / "04_fine_topics.parquet")
     try:
         authors = read_table(work / "01_authors.parquet")[["article_id", "org_key"]]
@@ -69,10 +87,14 @@ def build_series(cfg: dict) -> pd.DataFrame:
     jfirst = (d.groupby("journal_name")["year"].min().rename("first_year").reset_index()
               .rename(columns={"journal_name": "journal"}))
 
-    totals = d.groupby("year").size()
-    cutoff = last_complete_year(totals, cfg["emerging"])
-    trimmed = [int(y) for y in totals.index if y > cutoff]     # forward-dated / incomplete years: kept in the
-    d, totals = d[d["year"] <= cutoff], totals[totals.index <= cutoff]   # corpus, excluded from trends
+    all_totals = d.groupby("year").size()
+    cutoff = last_complete_year(all_totals, cfg["emerging"])    # definition v3, unchanged
+    how = {"method": "configured" if cfg["emerging"].get("min_year_complete") is not None else "median"}
+    trimmed = [int(y) for y in all_totals.index if y > cutoff]  # forward-dated / incomplete years: kept in the
+    later = d[(d["year"] > cutoff) & (d["fine_topic"] >= 0)]     # corpus, excluded from trends, used for nowcast
+    partial = (later.groupby(["fine_topic", "year"]).size().rename("count").reset_index()
+               .rename(columns={"fine_topic": "topic_id"}))
+    d, totals = d[d["year"] <= cutoff], all_totals[all_totals.index <= cutoff]
     a = d[d["fine_topic"] >= 0]
 
     orgs = authors[authors["org_key"].astype(str) != ""].drop_duplicates(["article_id", "org_key"])
@@ -96,12 +118,17 @@ def build_series(cfg: dict) -> pd.DataFrame:
     write_table(js, work / "06_topic_journal_year.parquet")
     write_table(os_, work / "06_topic_org_year.parquet")
     write_table(jfirst, work / "06_journal_first_year.parquet")
+    dated = docs[docs["year"].notna()].assign(year=lambda x: x["year"].astype(int))
+    write_table(publication_months(dated), work / "06_months.parquet")
+    write_table(partial, work / "06_partial_year.parquet")
     (work / "06_meta.json").write_text(json.dumps({
         "last_complete_year": int(cutoff),
         "as_of_year": as_of_year(cfg["emerging"]),
         "trimmed_years": trimmed,
         "years": [int(y) for y in totals.index],
         "totals": {str(int(y)): int(c) for y, c in totals.items()},
+        "partial_totals": {str(int(y)): int(c) for y, c in all_totals.items() if y > cutoff},
+        "completeness": how,
     }), encoding="utf-8")
     print(f"[series] {s['topic_id'].nunique()} topics × {len(totals)} years (≤ {cutoff}; "
           f"excluded years {trimmed or 'none'}) → 06_series")

@@ -84,3 +84,30 @@ def test_min_year_complete_override_wins():
 def test_as_of_before_any_data_is_an_error():
     with pytest.raises(ValueError, match="as_of_year"):
         _lcy({y: 1000 for y in range(2015, 2025)}, as_of_year=2010)
+
+
+# ---- P1: partial-year tables for the nowcast (definition v3 unchanged)
+def test_publication_months_and_partial_year(make_cfg, tmp_path):
+    from atlas.topics_time import publication_months
+
+    docs = pd.DataFrame({"year": [2024, 2024, 2025, 2016, 2014],
+                         "published": ["2024-03-02", "2024-11-30", "2025-02-01", "2559-07-01", "1970-01-01"]})
+    m = publication_months(docs.astype({"year": "Int64"}))
+    assert sorted(map(tuple, m[["year", "month"]].to_numpy().tolist())) == [(2016, 7), (2024, 3), (2024, 11), (2025, 2)]
+    cfg = make_cfg(tmp_path)
+    cfg["emerging"]["as_of_year"] = 2026
+    work = tmp_path / "work"
+    rows, topics = [], []
+    for y in range(2019, 2025):
+        n = 2 if y == 2024 else 10
+        for i in range(n):
+            rows.append({"article_id": f"{y}-{i}", "year": y, "journal_name": "jA", "published": f"{y}-0{i % 9 + 1}-01"})
+            topics.append({"article_id": f"{y}-{i}", "fine_topic": 0})
+    write_table(pd.DataFrame(rows), work / "02_docs.parquet")
+    write_table(pd.DataFrame(topics), work / "04_fine_topics.parquet")
+    build_series(cfg)
+    meta = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
+    assert meta["last_complete_year"] == 2023 and meta["trimmed_years"] == [2024]       # the v3 rule, unchanged
+    assert meta["partial_totals"] == {"2024": 2} and meta["completeness"] == {"method": "median"}
+    assert read_table(work / "06_partial_year.parquet").to_dict("records") == [{"topic_id": 0, "year": 2024, "count": 2}]
+    assert read_table(work / "06_months.parquet")["count"].sum() == 52
