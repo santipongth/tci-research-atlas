@@ -22,12 +22,15 @@ import numpy as np
 import pandas as pd
 
 from atlas.checkpoints import load_aligned
+from atlas.diff import load_snapshot, make_snapshot, quarter_diff, write_snapshot
 from atlas.export import _git_hash, fine_labels
+from atlas.export_editors import journal_files, match_file, methods_file
 from atlas.io_utils import read_table
 from atlas.label import representative_indices
 from atlas.lineage import topic_code
 from atlas.llm_runner import release_spend
 from atlas.orgs import org_display_names
+from atlas.registry import journal_keys, journal_path
 from atlas.schema import contract as C
 from atlas.state import is_newest, known_releases, previous_release, release_dir, snapshot_at, work_release
 from atlas.taxonomy import FALLBACK_GROUP_BASE, load_topic_groups
@@ -218,6 +221,12 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
             nowcast=nowcast))
     files: dict[str, C._Model] = {"topics.json": C.TopicsFile(topics=topics)}
 
+    # ---- editors' journal module (P2, optional) — before the topic details, which link journals by id
+    topic_group = {t: group_code(groups.loc[t, "group_id"], source) for t in ids}
+    editor_files, jid, jname = journal_files(cfg, work, code, topic_group)
+    files.update(editor_files)
+    jkey_of = pd.Series(journal_keys(docs).to_numpy(), index=docs["article_id"].to_numpy())
+
     # ---- topics/<id>.json
     titles = docs.set_index("article_id")
     topic_of = pd.Series(labels_arr, index=docs["article_id"].to_numpy())
@@ -243,14 +252,15 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
                 gx=_f(gxy.loc[aid, "gx"], 2) if gxy is not None and aid in gxy.index else None,
                 gy=_f(gxy.loc[aid, "gy"], 2) if gxy is not None and aid in gxy.index else None))
         member_ids = docs["article_id"].to_numpy()[members]
-        jc = titles.loc[member_ids, "journal_name"].value_counts().head(int(ecfg["max_topic_journals"]))
+        jc = jkey_of.loc[member_ids].value_counts().head(int(ecfg["max_topic_journals"]))
         nb = pd.concat([edges[edges["s"] == t].rename(columns={"t": "o"})[["o", "w"]],
                         edges[edges["t"] == t].rename(columns={"s": "o"})[["o", "w"]]])
         nb = nb.sort_values(["w", "o"], ascending=[False, True]).head(int(ecfg["max_neighbors"]))
         lb = labels.loc[t] if t in labels.index else None
         files[f"topics/{code[t]}.json"] = C.TopicDetail(
             id=code[t], articles=arts,
-            journals=[C.CountItem(key=str(k), count=int(v)) for k, v in jc.items()],
+            journals=[C.CountItem(key=jname.get(k) or journal_path(k), count=int(v), id=jid.get(k))
+                      for k, v in jc.items() if k],
             institutions=institutions.get(t, []),
             keywords=[k for k in str(lb["keywords"] or "").split("; ") if k] if lb is not None else [],
             neighbors=[code[int(o)] for o in nb["o"] if int(o) in code], narrative=narratives.get(t))
@@ -337,6 +347,17 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
                                    text_quality={str(k): int(v) for k, v in tq.value_counts().items()}))
     emb_meta = _read_json(work / "03_meta.json")
     modules = ["overview", "taxonomy", "topics", "topic_detail", "series", "edges"] + (["keywords"] if kw is not None else [])
+    if editor_files:
+        modules += ["journals", "journal_detail"]
+    if (mf := methods_file(cfg, work, code)) is not None:
+        files["methods.json"] = mf
+        modules.append("methods")
+    if (mx := match_file(work, code, jid)) is not None:
+        files["match.json"] = mx
+        modules.append("match")
+    if prev and (diff := release_diff(cfg, release, prev, files)) is not None:
+        files["diff.json"] = diff
+        modules.append("diff")
     errs = _optional(work / "01_ingest_errors.parquet")
     files["manifest.json"] = C.Manifest(
         release=release, generated_at=now, pipeline_version=_git_hash(), config_hash=config_hash(cfg),
@@ -348,6 +369,26 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
         ingest_errors=len(errs) if errs is not None else None,          # unknown is never published as 0
         labels=_label_stats(cfg, labels), llm=_llm_stats(cfg, work, brief, release))
     return files
+
+
+def release_snapshot(release: str, files: dict[str, C._Model]) -> dict:
+    """What the next release's diff compares with (atlas.diff)."""
+    j = files.get("journals.json")
+    return make_snapshot(release, [t.model_dump(mode="json") for t in files["topics.json"].topics],
+                         files["overview.json"].kpis.model_dump(mode="json"),
+                         [x.id for x in j.journals] if j is not None else None)
+
+
+def release_diff(cfg: dict, release: str, prev: str, files: dict[str, C._Model]) -> C.DiffFile | None:
+    snap, source = load_snapshot(cfg, prev)
+    if snap is None:
+        print(f"[export] previous release {prev}: no snapshot in state_dir and no folder in output/data — "
+              "diff.json skipped")
+        return None
+    lineage = {t.id: {"event": t.lineage.event, "parents": t.lineage.parents} for t in files["topics.json"].topics}
+    d = quarter_diff(release_snapshot(release, files), snap, lineage, int(cfg["changes"]["movers"]),
+                     float(cfg["changes"]["min_share_delta"]))
+    return C.DiffFile(previous_source=source, **d)
 
 
 def _label_stats(cfg: dict, labels: pd.DataFrame) -> C.LabelStats:
@@ -368,6 +409,8 @@ def _llm_stats(cfg: dict, work: Path, brief: dict, release: str) -> list[C.LlmTa
     merge = _read_json(work / "05_merge_meta.json").get("llm")
     found += [merge] if merge else []
     found += list((brief.get("llm") or {}).values())
+    methods_llm = _read_json(work / "12_methods_meta.json").get("llm")
+    found += [methods_llm] if methods_llm else []
     keys = ("from_cache", "generated", "repaired", "fallback")
     return [C.LlmTaskStats(task=s["task"], model=str(s.get("model", "")), items=int(s.get("items", 0)),
                            **{k: int(s.get(k, 0)) for k in keys}, cost_usd=round(release_spend(cfg, s["task"], release), 4),
@@ -398,6 +441,7 @@ def write_release(cfg: dict) -> Path:
         entries.append(C.FileEntry(path=rel, bytes=len(data), sha256=hashlib.sha256(data).hexdigest()))
     manifest = files["manifest.json"].model_copy(update={"files": entries})
     (out / "manifest.json").write_bytes(_dump(C.Manifest.model_validate(manifest.model_dump())))
+    write_snapshot(cfg, release, release_snapshot(release, files))     # the next quarter's diff reads it
     others = [p.name for p in root.iterdir() if (p / "manifest.json").exists() and p.name != release]
     if is_newest(release, others, known_releases(cfg)):            # re-exporting an older quarter never moves latest.json back
         latest = C.Latest(release=release, path=f"{release}/manifest.json", generated_at=manifest.generated_at)

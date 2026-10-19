@@ -3,7 +3,8 @@
 Pydantic models are the source of truth → JSON Schema (`atlas schema`) → TypeScript
 (`npm run gen:types` in web/). CI fails when either generated file drifts.
 Files: manifest.json, overview.json, taxonomy.json, topics.json, topics/<id>.json, series.json,
-edges.json, keywords.json; output/data/latest.json points at the newest release.
+edges.json, keywords.json; P2 (2.1): journals.json, journals/<id>.json, methods.json, diff.json, match.json —
+optional modules listed in manifest.modules. output/data/latest.json points at the newest release.
 Strict JSON: NaN/Infinity are validation errors. Colours are design-token keys (cat-01…), never hex.
 Uncertainty bounds keep level-agnostic names (share_growth_lo/_hi); the level is manifest.ci_level.
 """
@@ -15,7 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "2.1.0"                  # 2.1: editors' modules (journals, methods, diff, match)
 Status = Literal["EMERGING", "WATCH", "HOT", "DECLINING", "STABLE", "LOW_DATA"]
 TOPIC_ID = r"^T\d{6}$"
 GROUP_ID = r"^[FG]\d{2,}$"                # F = OpenAlex field id, G = agglomerative fallback group
@@ -275,6 +276,8 @@ class RepresentativeArticle(_Model):
 class CountItem(_Model):
     key: str
     count: int
+    id: str | None = Field(None, description="journal id (journals/<id>.json) when the item is a journal of a "
+                                             "release with the journals module")
 
 
 class Narrative(_Model):
@@ -321,16 +324,296 @@ class Latest(_Model):
     generated_at: str
 
 
+# ---------------------------------------------------------------------- P2 editors' modules (schema 2.1)
+JOURNAL_ID = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
+Completeness = Literal["abstract_en", "title_en", "keywords_en", "doi", "references", "refs_romanized", "affiliations"]
+
+
+class YearWindow(_Model):
+    start: int
+    end: int
+
+
+class JournalSummary(_Model):
+    id: str = Field(pattern=JOURNAL_ID, description="journals/<id>.json; stable across releases")
+    key: str = Field(description="corpus key <server>:<OJS path> (or name:<normalised name>)")
+    path: str = Field(description="OJS path — shown when the registry gives no name")
+    name_th: str = ""
+    name_en: str = ""
+    issn: str = ""
+    eissn: str = ""
+    tci_tier: int | None = Field(None, ge=1, le=3)
+    tci_field: str = ""
+    publisher: str = ""
+    url: str = ""
+    in_registry: bool = False
+    articles: int
+    articles_window: int
+    articles_recent: int = 0
+    first_year: int | None = None
+    last_year: int | None = None
+    active: bool = Field(description="published in the recent window R")
+    low_data: bool = Field(description="fewer than min_articles in the window: every rate is null")
+    group: str | None = Field(None, description="map group holding most of its window articles")
+    completeness: float | None = Field(None, ge=0, le=100, description="D2 metadata completeness 0–100 (not the "
+                                                                       "official TCI assessment)")
+    owner: str = Field("", description="owner institution as written (registry) or its most frequent written name")
+    owner_source: Literal["registry", "inferred"] | None = None
+    owner_matched: bool = Field(False, description="the owner was found among the authors' organisations")
+    inhouse_share: float | None = None
+    n_orgs: int = 0
+    effective_orgs: float | None = None
+    foreign_share: float | None = None
+    affiliation_coverage: float | None = None
+    methods_coverage: float | None = None
+
+
+class SpecialIssueTopic(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    hosts: int
+    top_host_share: float
+    articles_recent: int
+
+
+class JournalsFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    window: YearWindow
+    recent: YearWindow
+    baseline: YearWindow
+    min_articles: int
+    completeness_weights: dict[str, float]
+    inhouse_flag_share: float | None = Field(None, description="journals.inhouse_flag_share: only journals whose "
+                                                               "owner_source is 'registry' may be marked above it; "
+                                                               "null = no mark")
+    special_issue_statuses: list[Status] = Field(default_factory=list)
+    special_issue_max_hosts: int = 0
+    special_issue_min_host_articles: int = 0
+    drift_reference_years: int = 0
+    journals: list[JournalSummary]
+    special_issue: list[SpecialIssueTopic] = Field(default_factory=list)
+
+
+class JournalYear(_Model):
+    year: int
+    articles: int
+
+
+class TopicShare(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    count: int
+    share: float
+
+
+class DriftPoint(_Model):
+    year: int
+    articles: int
+    distance: float | None = Field(description="Jensen–Shannon distance to the reference years; null = too few")
+
+
+class TopicShift(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    share_before: float
+    share_after: float
+
+
+class Peer(_Model):
+    id: str = Field(pattern=JOURNAL_ID)
+    similarity: float
+
+
+class CompletenessItem(_Model):
+    key: Completeness
+    rate: float | None
+    n: int
+
+
+class MethodShare(_Model):
+    method: str
+    count: int
+    share: float
+
+
+class JournalOpportunity(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    reason: Literal["in_scope", "adjacent"]
+    journal_articles: int
+    hosts: int
+
+
+class JournalDetail(_Model):
+    schema_version: str = SCHEMA_VERSION
+    id: str = Field(pattern=JOURNAL_ID)
+    years: list[JournalYear] = Field(default_factory=list)
+    topics: list[TopicShare] = Field(default_factory=list)
+    drift: list[DriftPoint] = Field(default_factory=list)
+    gained: list[TopicShift] = Field(default_factory=list)
+    lost: list[TopicShift] = Field(default_factory=list)
+    peers: list[Peer] = Field(default_factory=list)
+    completeness: list[CompletenessItem] = Field(default_factory=list)
+    methods: list[MethodShare] = Field(default_factory=list)
+    opportunities: list[JournalOpportunity] = Field(default_factory=list)
+
+
+class MethodInfo(_Model):
+    key: str
+    th: str
+    en: str
+
+
+class MethodYears(_Model):
+    years: list[int]
+    articles: list[int]
+    shares: dict[str, list[float]]
+
+    @model_validator(mode="after")
+    def _aligned(self):
+        n = len(self.years)
+        if len(self.articles) != n or any(len(v) != n for v in self.shares.values()):
+            raise ValueError("every method series must have one value per year")
+        return self
+
+
+class TopicMethods(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    articles: int
+    with_methods: int
+    coverage: float
+    methods: list[MethodShare]
+    sample_size_n: int = 0
+    sample_size_median: float | None = None
+    sample_size_q1: float | None = None
+    sample_size_q3: float | None = None
+    monoculture_share: float | None = None
+    monoculture: bool = False
+    note: Narrative | None = None
+
+
+class MethodsFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    lexicon_version: str
+    window: YearWindow
+    articles: int
+    with_methods: int
+    monoculture_methods: list[str]
+    monoculture_min_share: float
+    monoculture_share: float | None = None
+    min_articles: int
+    methods: list[MethodInfo]
+    corpus: list[MethodShare]
+    by_year: MethodYears
+    topics: list[TopicMethods]
+
+
+class KpiChange(_Model):
+    key: str
+    previous: float
+    current: float
+
+
+class NewTopic(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    event: Literal["new", "split", "merge"]
+    parents: list[str] = Field(default_factory=list)
+
+
+class RetiredTopic(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    th: str = ""
+    en: str = ""
+    merged_into: str | None = Field(None, pattern=TOPIC_ID, description="the topic of this release it merged into "
+                                                                       "(lineage); null = it ended")
+
+
+class RestructuredTopic(_Model):
+    topic: str = Field(pattern=TOPIC_ID, description="a topic that kept its id through a merge or a split")
+    event: Literal["split", "merge"]
+    parents: list[str] = Field(default_factory=list)
+
+
+class StatusChange(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    previous: Status
+    current: Status
+
+
+class Mover(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    share_previous: float
+    share_current: float
+
+
+class DiffFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    release: str
+    previous_release: str
+    previous_source: Literal["state", "output"]
+    kpis: list[KpiChange]
+    new_topics: list[NewTopic]
+    retired: list[RetiredTopic]
+    restructured: list[RestructuredTopic] = Field(default_factory=list)
+    status_changes: list[StatusChange]
+    movers: list[Mover]
+    journals_compared: bool
+    new_journals: list[str] = Field(default_factory=list)
+
+
+class MatchTopic(_Model):
+    id: str = Field(pattern=TOPIC_ID)
+    terms: list[int]
+    weights: list[float]
+
+
+class MatchJournal(_Model):
+    id: str = Field(pattern=JOURNAL_ID)
+    topics: list[str]
+    shares: list[float]
+
+
+class MatchIndex(_Model):
+    schema_version: str = SCHEMA_VERSION
+    analyzer: Literal["char_wb3"]
+    fold: Literal["atlas-fold-1"]
+    docs: int
+    max_terms: int
+    min_similarity: float
+    fit_topics: int
+    min_query_chars: int
+    grams: list[str]
+    idf: list[float]
+    topics: list[MatchTopic]
+    journals: list[MatchJournal] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _aligned(self):
+        if len(self.grams) != len(self.idf):
+            raise ValueError("grams and idf differ in length")
+        n = len(self.grams)
+        for t in self.topics:
+            if len(t.terms) != len(t.weights) or any(not 0 <= i < n for i in t.terms):
+                raise ValueError(f"match topic {t.id}: terms/weights misaligned or out of range")
+        for j in self.journals:
+            if len(j.topics) != len(j.shares):
+                raise ValueError(f"match journal {j.id}: topics/shares misaligned")
+        return self
+
+
+P2_FILE_MODELS: dict[str, type[_Model]] = {"journals.json": JournalsFile, "methods.json": MethodsFile,
+                                           "diff.json": DiffFile, "match.json": MatchIndex}
+
+
 # published file → model (validate + export use the same table); topics/<id>.json → TopicDetail
 FILE_MODELS: dict[str, type[_Model]] = {
     "manifest.json": Manifest, "overview.json": Overview, "taxonomy.json": TaxonomyFile,
     "topics.json": TopicsFile, "series.json": SeriesFile, "edges.json": EdgesFile, "keywords.json": KeywordsFile,
+    **P2_FILE_MODELS,
 }
 
 
 def model_for(path: str) -> type[_Model] | None:
     if path.startswith("topics/") and path.endswith(".json"):
         return TopicDetail
+    if path.startswith("journals/") and path.endswith(".json"):
+        return JournalDetail
     return FILE_MODELS.get(path)
 
 
@@ -339,7 +622,8 @@ def contract_json_schema() -> dict:
 
     files = {"manifest": Manifest, "overview": Overview, "taxonomy": TaxonomyFile, "topics": TopicsFile,
              "topic_detail": TopicDetail, "series": SeriesFile, "edges": EdgesFile, "keywords": KeywordsFile,
-             "latest": Latest}
+             "latest": Latest, "journals": JournalsFile, "journal_detail": JournalDetail, "methods": MethodsFile,
+             "diff": DiffFile, "match": MatchIndex}
     _, top = models_json_schema([(m, "validation") for m in files.values()], ref_template="#/definitions/{model}")
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",

@@ -44,12 +44,65 @@
       "title": "Brief",
       "type": "object"
     },
+    "CompletenessItem": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "enum": [
+            "abstract_en",
+            "title_en",
+            "keywords_en",
+            "doi",
+            "references",
+            "refs_romanized",
+            "affiliations"
+          ],
+          "title": "Key",
+          "type": "string"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rate"
+        }
+      },
+      "required": [
+        "key",
+        "rate",
+        "n"
+      ],
+      "title": "CompletenessItem",
+      "type": "object"
+    },
     "CountItem": {
       "additionalProperties": false,
       "properties": {
         "count": {
           "title": "Count",
           "type": "integer"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "journal id (journals/<id>.json) when the item is a journal of a release with the journals module",
+          "title": "Id"
         },
         "key": {
           "title": "Key",
@@ -94,6 +147,130 @@
       "title": "DataQuality",
       "type": "object"
     },
+    "DiffFile": {
+      "additionalProperties": false,
+      "properties": {
+        "journals_compared": {
+          "title": "Journals Compared",
+          "type": "boolean"
+        },
+        "kpis": {
+          "items": {
+            "$ref": "#/definitions/KpiChange"
+          },
+          "title": "Kpis",
+          "type": "array"
+        },
+        "movers": {
+          "items": {
+            "$ref": "#/definitions/Mover"
+          },
+          "title": "Movers",
+          "type": "array"
+        },
+        "new_journals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "New Journals",
+          "type": "array"
+        },
+        "new_topics": {
+          "items": {
+            "$ref": "#/definitions/NewTopic"
+          },
+          "title": "New Topics",
+          "type": "array"
+        },
+        "previous_release": {
+          "title": "Previous Release",
+          "type": "string"
+        },
+        "previous_source": {
+          "enum": [
+            "state",
+            "output"
+          ],
+          "title": "Previous Source",
+          "type": "string"
+        },
+        "release": {
+          "title": "Release",
+          "type": "string"
+        },
+        "restructured": {
+          "items": {
+            "$ref": "#/definitions/RestructuredTopic"
+          },
+          "title": "Restructured",
+          "type": "array"
+        },
+        "retired": {
+          "items": {
+            "$ref": "#/definitions/RetiredTopic"
+          },
+          "title": "Retired",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status_changes": {
+          "items": {
+            "$ref": "#/definitions/StatusChange"
+          },
+          "title": "Status Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "release",
+        "previous_release",
+        "previous_source",
+        "kpis",
+        "new_topics",
+        "retired",
+        "status_changes",
+        "movers",
+        "journals_compared"
+      ],
+      "title": "DiffFile",
+      "type": "object"
+    },
+    "DriftPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Jensen–Shannon distance to the reference years; null = too few",
+          "title": "Distance"
+        },
+        "year": {
+          "title": "Year",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "year",
+        "articles",
+        "distance"
+      ],
+      "title": "DriftPoint",
+      "type": "object"
+    },
     "Edge": {
       "additionalProperties": false,
       "properties": {
@@ -131,7 +308,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -322,6 +499,493 @@
       "title": "GroupInfo",
       "type": "object"
     },
+    "JournalDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "completeness": {
+          "items": {
+            "$ref": "#/definitions/CompletenessItem"
+          },
+          "title": "Completeness",
+          "type": "array"
+        },
+        "drift": {
+          "items": {
+            "$ref": "#/definitions/DriftPoint"
+          },
+          "title": "Drift",
+          "type": "array"
+        },
+        "gained": {
+          "items": {
+            "$ref": "#/definitions/TopicShift"
+          },
+          "title": "Gained",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "lost": {
+          "items": {
+            "$ref": "#/definitions/TopicShift"
+          },
+          "title": "Lost",
+          "type": "array"
+        },
+        "methods": {
+          "items": {
+            "$ref": "#/definitions/MethodShare"
+          },
+          "title": "Methods",
+          "type": "array"
+        },
+        "opportunities": {
+          "items": {
+            "$ref": "#/definitions/JournalOpportunity"
+          },
+          "title": "Opportunities",
+          "type": "array"
+        },
+        "peers": {
+          "items": {
+            "$ref": "#/definitions/Peer"
+          },
+          "title": "Peers",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/definitions/TopicShare"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "years": {
+          "items": {
+            "$ref": "#/definitions/JournalYear"
+          },
+          "title": "Years",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "JournalDetail",
+      "type": "object"
+    },
+    "JournalOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+        "hosts": {
+          "title": "Hosts",
+          "type": "integer"
+        },
+        "journal_articles": {
+          "title": "Journal Articles",
+          "type": "integer"
+        },
+        "reason": {
+          "enum": [
+            "in_scope",
+            "adjacent"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "reason",
+        "journal_articles",
+        "hosts"
+      ],
+      "title": "JournalOpportunity",
+      "type": "object"
+    },
+    "JournalSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "description": "published in the recent window R",
+          "title": "Active",
+          "type": "boolean"
+        },
+        "affiliation_coverage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Affiliation Coverage"
+        },
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "articles_recent": {
+          "default": 0,
+          "title": "Articles Recent",
+          "type": "integer"
+        },
+        "articles_window": {
+          "title": "Articles Window",
+          "type": "integer"
+        },
+        "completeness": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "D2 metadata completeness 0–100 (not the official TCI assessment)",
+          "title": "Completeness"
+        },
+        "effective_orgs": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Orgs"
+        },
+        "eissn": {
+          "default": "",
+          "title": "Eissn",
+          "type": "string"
+        },
+        "first_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Year"
+        },
+        "foreign_share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Foreign Share"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "map group holding most of its window articles",
+          "title": "Group"
+        },
+        "id": {
+          "description": "journals/<id>.json; stable across releases",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "in_registry": {
+          "default": false,
+          "title": "In Registry",
+          "type": "boolean"
+        },
+        "inhouse_share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inhouse Share"
+        },
+        "issn": {
+          "default": "",
+          "title": "Issn",
+          "type": "string"
+        },
+        "key": {
+          "description": "corpus key <server>:<OJS path> (or name:<normalised name>)",
+          "title": "Key",
+          "type": "string"
+        },
+        "last_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Year"
+        },
+        "low_data": {
+          "description": "fewer than min_articles in the window: every rate is null",
+          "title": "Low Data",
+          "type": "boolean"
+        },
+        "methods_coverage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Methods Coverage"
+        },
+        "n_orgs": {
+          "default": 0,
+          "title": "N Orgs",
+          "type": "integer"
+        },
+        "name_en": {
+          "default": "",
+          "title": "Name En",
+          "type": "string"
+        },
+        "name_th": {
+          "default": "",
+          "title": "Name Th",
+          "type": "string"
+        },
+        "owner": {
+          "default": "",
+          "description": "owner institution as written (registry) or its most frequent written name",
+          "title": "Owner",
+          "type": "string"
+        },
+        "owner_matched": {
+          "default": false,
+          "description": "the owner was found among the authors' organisations",
+          "title": "Owner Matched",
+          "type": "boolean"
+        },
+        "owner_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "registry",
+                "inferred"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner Source"
+        },
+        "path": {
+          "description": "OJS path — shown when the registry gives no name",
+          "title": "Path",
+          "type": "string"
+        },
+        "publisher": {
+          "default": "",
+          "title": "Publisher",
+          "type": "string"
+        },
+        "tci_field": {
+          "default": "",
+          "title": "Tci Field",
+          "type": "string"
+        },
+        "tci_tier": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tci Tier"
+        },
+        "url": {
+          "default": "",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "path",
+        "articles",
+        "articles_window",
+        "active",
+        "low_data"
+      ],
+      "title": "JournalSummary",
+      "type": "object"
+    },
+    "JournalYear": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "year": {
+          "title": "Year",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "year",
+        "articles"
+      ],
+      "title": "JournalYear",
+      "type": "object"
+    },
+    "JournalsFile": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "$ref": "#/definitions/YearWindow"
+        },
+        "completeness_weights": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Completeness Weights",
+          "type": "object"
+        },
+        "drift_reference_years": {
+          "default": 0,
+          "title": "Drift Reference Years",
+          "type": "integer"
+        },
+        "inhouse_flag_share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "journals.inhouse_flag_share: only journals whose owner_source is 'registry' may be marked above it; null = no mark",
+          "title": "Inhouse Flag Share"
+        },
+        "journals": {
+          "items": {
+            "$ref": "#/definitions/JournalSummary"
+          },
+          "title": "Journals",
+          "type": "array"
+        },
+        "min_articles": {
+          "title": "Min Articles",
+          "type": "integer"
+        },
+        "recent": {
+          "$ref": "#/definitions/YearWindow"
+        },
+        "schema_version": {
+          "default": "2.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "special_issue": {
+          "items": {
+            "$ref": "#/definitions/SpecialIssueTopic"
+          },
+          "title": "Special Issue",
+          "type": "array"
+        },
+        "special_issue_max_hosts": {
+          "default": 0,
+          "title": "Special Issue Max Hosts",
+          "type": "integer"
+        },
+        "special_issue_min_host_articles": {
+          "default": 0,
+          "title": "Special Issue Min Host Articles",
+          "type": "integer"
+        },
+        "special_issue_statuses": {
+          "items": {
+            "enum": [
+              "EMERGING",
+              "WATCH",
+              "HOT",
+              "DECLINING",
+              "STABLE",
+              "LOW_DATA"
+            ],
+            "type": "string"
+          },
+          "title": "Special Issue Statuses",
+          "type": "array"
+        },
+        "window": {
+          "$ref": "#/definitions/YearWindow"
+        }
+      },
+      "required": [
+        "window",
+        "recent",
+        "baseline",
+        "min_articles",
+        "completeness_weights",
+        "journals"
+      ],
+      "title": "JournalsFile",
+      "type": "object"
+    },
     "KeywordsFile": {
       "additionalProperties": false,
       "properties": {
@@ -333,7 +997,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -342,6 +1006,30 @@
         "keywords"
       ],
       "title": "KeywordsFile",
+      "type": "object"
+    },
+    "KpiChange": {
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "title": "Current",
+          "type": "number"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "previous": {
+          "title": "Previous",
+          "type": "number"
+        }
+      },
+      "required": [
+        "key",
+        "previous",
+        "current"
+      ],
+      "title": "KpiChange",
       "type": "object"
     },
     "Kpis": {
@@ -456,7 +1144,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -640,7 +1328,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -675,6 +1363,350 @@
       "title": "Manifest",
       "type": "object"
     },
+    "MatchIndex": {
+      "additionalProperties": false,
+      "properties": {
+        "analyzer": {
+          "const": "char_wb3",
+          "title": "Analyzer",
+          "type": "string"
+        },
+        "docs": {
+          "title": "Docs",
+          "type": "integer"
+        },
+        "fit_topics": {
+          "title": "Fit Topics",
+          "type": "integer"
+        },
+        "fold": {
+          "const": "atlas-fold-1",
+          "title": "Fold",
+          "type": "string"
+        },
+        "grams": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Grams",
+          "type": "array"
+        },
+        "idf": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Idf",
+          "type": "array"
+        },
+        "journals": {
+          "items": {
+            "$ref": "#/definitions/MatchJournal"
+          },
+          "title": "Journals",
+          "type": "array"
+        },
+        "max_terms": {
+          "title": "Max Terms",
+          "type": "integer"
+        },
+        "min_query_chars": {
+          "title": "Min Query Chars",
+          "type": "integer"
+        },
+        "min_similarity": {
+          "title": "Min Similarity",
+          "type": "number"
+        },
+        "schema_version": {
+          "default": "2.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/definitions/MatchTopic"
+          },
+          "title": "Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "analyzer",
+        "fold",
+        "docs",
+        "max_terms",
+        "min_similarity",
+        "fit_topics",
+        "min_query_chars",
+        "grams",
+        "idf",
+        "topics"
+      ],
+      "title": "MatchIndex",
+      "type": "object"
+    },
+    "MatchJournal": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "shares": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Shares",
+          "type": "array"
+        },
+        "topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "topics",
+        "shares"
+      ],
+      "title": "MatchJournal",
+      "type": "object"
+    },
+    "MatchTopic": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^T\\d{6}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "terms": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Terms",
+          "type": "array"
+        },
+        "weights": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Weights",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "terms",
+        "weights"
+      ],
+      "title": "MatchTopic",
+      "type": "object"
+    },
+    "MethodInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "th": {
+          "title": "Th",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "th",
+        "en"
+      ],
+      "title": "MethodInfo",
+      "type": "object"
+    },
+    "MethodShare": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "share": {
+          "title": "Share",
+          "type": "number"
+        }
+      },
+      "required": [
+        "method",
+        "count",
+        "share"
+      ],
+      "title": "MethodShare",
+      "type": "object"
+    },
+    "MethodYears": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Articles",
+          "type": "array"
+        },
+        "shares": {
+          "additionalProperties": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "Shares",
+          "type": "object"
+        },
+        "years": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Years",
+          "type": "array"
+        }
+      },
+      "required": [
+        "years",
+        "articles",
+        "shares"
+      ],
+      "title": "MethodYears",
+      "type": "object"
+    },
+    "MethodsFile": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "by_year": {
+          "$ref": "#/definitions/MethodYears"
+        },
+        "corpus": {
+          "items": {
+            "$ref": "#/definitions/MethodShare"
+          },
+          "title": "Corpus",
+          "type": "array"
+        },
+        "lexicon_version": {
+          "title": "Lexicon Version",
+          "type": "string"
+        },
+        "methods": {
+          "items": {
+            "$ref": "#/definitions/MethodInfo"
+          },
+          "title": "Methods",
+          "type": "array"
+        },
+        "min_articles": {
+          "title": "Min Articles",
+          "type": "integer"
+        },
+        "monoculture_methods": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Monoculture Methods",
+          "type": "array"
+        },
+        "monoculture_min_share": {
+          "title": "Monoculture Min Share",
+          "type": "number"
+        },
+        "monoculture_share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monoculture Share"
+        },
+        "schema_version": {
+          "default": "2.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/definitions/TopicMethods"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "window": {
+          "$ref": "#/definitions/YearWindow"
+        },
+        "with_methods": {
+          "title": "With Methods",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "lexicon_version",
+        "window",
+        "articles",
+        "with_methods",
+        "monoculture_methods",
+        "monoculture_min_share",
+        "min_articles",
+        "methods",
+        "corpus",
+        "by_year",
+        "topics"
+      ],
+      "title": "MethodsFile",
+      "type": "object"
+    },
+    "Mover": {
+      "additionalProperties": false,
+      "properties": {
+        "share_current": {
+          "title": "Share Current",
+          "type": "number"
+        },
+        "share_previous": {
+          "title": "Share Previous",
+          "type": "number"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "share_previous",
+        "share_current"
+      ],
+      "title": "Mover",
+      "type": "object"
+    },
     "Narrative": {
       "additionalProperties": false,
       "properties": {
@@ -701,6 +1733,38 @@
         "source"
       ],
       "title": "Narrative",
+      "type": "object"
+    },
+    "NewTopic": {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "new",
+            "split",
+            "merge"
+          ],
+          "title": "Event",
+          "type": "string"
+        },
+        "parents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parents",
+          "type": "array"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "event"
+      ],
+      "title": "NewTopic",
       "type": "object"
     },
     "Overview": {
@@ -792,7 +1856,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -814,6 +1878,26 @@
         "data_quality"
       ],
       "title": "Overview",
+      "type": "object"
+    },
+    "Peer": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "similarity": {
+          "title": "Similarity",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "similarity"
+      ],
+      "title": "Peer",
       "type": "object"
     },
     "RepresentativeArticle": {
@@ -891,6 +1975,77 @@
       "title": "RepresentativeArticle",
       "type": "object"
     },
+    "RestructuredTopic": {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "split",
+            "merge"
+          ],
+          "title": "Event",
+          "type": "string"
+        },
+        "parents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parents",
+          "type": "array"
+        },
+        "topic": {
+          "description": "a topic that kept its id through a merge or a split",
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "event"
+      ],
+      "title": "RestructuredTopic",
+      "type": "object"
+    },
+    "RetiredTopic": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "default": "",
+          "title": "En",
+          "type": "string"
+        },
+        "merged_into": {
+          "anyOf": [
+            {
+              "pattern": "^T\\d{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "the topic of this release it merged into (lineage); null = it ended",
+          "title": "Merged Into"
+        },
+        "th": {
+          "default": "",
+          "title": "Th",
+          "type": "string"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic"
+      ],
+      "title": "RetiredTopic",
+      "type": "object"
+    },
     "SeriesFile": {
       "additionalProperties": false,
       "properties": {
@@ -902,7 +2057,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -930,6 +2085,77 @@
         "topics"
       ],
       "title": "SeriesFile",
+      "type": "object"
+    },
+    "SpecialIssueTopic": {
+      "additionalProperties": false,
+      "properties": {
+        "articles_recent": {
+          "title": "Articles Recent",
+          "type": "integer"
+        },
+        "hosts": {
+          "title": "Hosts",
+          "type": "integer"
+        },
+        "top_host_share": {
+          "title": "Top Host Share",
+          "type": "number"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "hosts",
+        "top_host_share",
+        "articles_recent"
+      ],
+      "title": "SpecialIssueTopic",
+      "type": "object"
+    },
+    "StatusChange": {
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "enum": [
+            "EMERGING",
+            "WATCH",
+            "HOT",
+            "DECLINING",
+            "STABLE",
+            "LOW_DATA"
+          ],
+          "title": "Current",
+          "type": "string"
+        },
+        "previous": {
+          "enum": [
+            "EMERGING",
+            "WATCH",
+            "HOT",
+            "DECLINING",
+            "STABLE",
+            "LOW_DATA"
+          ],
+          "title": "Previous",
+          "type": "string"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "previous",
+        "current"
+      ],
+      "title": "StatusChange",
       "type": "object"
     },
     "SubfieldInfo": {
@@ -1002,7 +2228,7 @@
           "title": "Holdout Accuracy Subfield"
         },
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1257,7 +2483,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -1388,6 +2614,113 @@
         }
       },
       "title": "TopicLineage",
+      "type": "object"
+    },
+    "TopicMethods": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "coverage": {
+          "title": "Coverage",
+          "type": "number"
+        },
+        "methods": {
+          "items": {
+            "$ref": "#/definitions/MethodShare"
+          },
+          "title": "Methods",
+          "type": "array"
+        },
+        "monoculture": {
+          "default": false,
+          "title": "Monoculture",
+          "type": "boolean"
+        },
+        "monoculture_share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monoculture Share"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Narrative"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sample_size_median": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample Size Median"
+        },
+        "sample_size_n": {
+          "default": 0,
+          "title": "Sample Size N",
+          "type": "integer"
+        },
+        "sample_size_q1": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample Size Q1"
+        },
+        "sample_size_q3": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample Size Q3"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        },
+        "with_methods": {
+          "title": "With Methods",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "topic",
+        "articles",
+        "with_methods",
+        "coverage",
+        "methods"
+      ],
+      "title": "TopicMethods",
       "type": "object"
     },
     "TopicMetrics": {
@@ -1580,11 +2913,61 @@
       "title": "TopicNowcast",
       "type": "object"
     },
+    "TopicShare": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "share": {
+          "title": "Share",
+          "type": "number"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "count",
+        "share"
+      ],
+      "title": "TopicShare",
+      "type": "object"
+    },
+    "TopicShift": {
+      "additionalProperties": false,
+      "properties": {
+        "share_after": {
+          "title": "Share After",
+          "type": "number"
+        },
+        "share_before": {
+          "title": "Share Before",
+          "type": "number"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "share_before",
+        "share_after"
+      ],
+      "title": "TopicShift",
+      "type": "object"
+    },
     "TopicsFile": {
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "2.0.0",
+          "default": "2.1.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1620,11 +3003,39 @@
       ],
       "title": "YearCount",
       "type": "object"
+    },
+    "YearWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "YearWindow",
+      "type": "object"
     }
   },
   "properties": {
+    "diff": {
+      "$ref": "#/definitions/DiffFile"
+    },
     "edges": {
       "$ref": "#/definitions/EdgesFile"
+    },
+    "journal_detail": {
+      "$ref": "#/definitions/JournalDetail"
+    },
+    "journals": {
+      "$ref": "#/definitions/JournalsFile"
     },
     "keywords": {
       "$ref": "#/definitions/KeywordsFile"
@@ -1634,6 +3045,12 @@
     },
     "manifest": {
       "$ref": "#/definitions/Manifest"
+    },
+    "match": {
+      "$ref": "#/definitions/MatchIndex"
+    },
+    "methods": {
+      "$ref": "#/definitions/MethodsFile"
     },
     "overview": {
       "$ref": "#/definitions/Overview"

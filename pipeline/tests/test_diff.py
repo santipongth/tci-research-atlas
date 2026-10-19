@@ -26,7 +26,8 @@ def test_quarter_diff_lists_new_retired_changed_and_movers():
     assert d["release"] == "2026Q4" and d["previous_release"] == "2026Q3"
     assert d["new_topics"] == [{"topic": "T000004", "event": "split", "parents": ["T000003"]},
                                {"topic": "T000005", "event": "new", "parents": []}]
-    assert d["retired"] == [{"topic": "T000003", "th": "เก่า", "en": "T000003"}]
+    assert d["retired"] == [{"topic": "T000003", "th": "เก่า", "en": "T000003", "merged_into": None}]  # split parent
+    assert d["restructured"] == []
     assert d["status_changes"] == [{"topic": "T000001", "previous": "STABLE", "current": "EMERGING"}]
     assert [m["topic"] for m in d["movers"]] == ["T000001"]          # T000002 moved 0.0002 < 0.0005
     assert {k["key"]: (k["previous"], k["current"]) for k in d["kpis"]}["articles"] == (1000, 1100)
@@ -34,6 +35,32 @@ def test_quarter_diff_lists_new_retired_changed_and_movers():
     no_j = quarter_diff(CUR, {**PREV, "journals": None}, {}, 10, 0.0)
     assert not no_j["journals_compared"] and no_j["new_journals"] == []
     assert len(quarter_diff(CUR, PREV, {}, movers=1, min_share_delta=0.0)["movers"]) == 1
+
+
+def test_a_merge_is_visible_not_a_plain_disappearance():
+    """T1 + T2 merge into the topic that keeps id T1: T2 is retired *into* T1 and T1 is listed as restructured."""
+    prev = make_snapshot("2026Q3", [_topic("T000001", "STABLE", 100, 0.01), _topic("T000002", "STABLE", 80, 0.008)],
+                         {"articles": 1000}, None)
+    cur = make_snapshot("2026Q4", [_topic("T000001", "STABLE", 180, 0.018)], {"articles": 1000}, None)
+    lineage = {"T000001": {"event": "merge", "parents": ["T000001", "T000002"]}}
+    d = quarter_diff(cur, prev, lineage, 10, 0.0)
+    assert d["new_topics"] == []
+    assert d["retired"] == [{"topic": "T000002", "th": "ก", "en": "T000002", "merged_into": "T000001"}]
+    assert d["restructured"] == [{"topic": "T000001", "event": "merge", "parents": ["T000001", "T000002"]}]
+    gone = quarter_diff(cur, prev, {}, 10, 0.0)                       # no lineage: a plain disappearance
+    assert gone["retired"][0]["merged_into"] is None and gone["restructured"] == []
+
+
+def test_a_split_lists_the_continuing_parent_and_the_new_child():
+    prev = make_snapshot("2026Q3", [_topic("T000001", "STABLE", 200, 0.02)], {"articles": 1000}, None)
+    cur = make_snapshot("2026Q4", [_topic("T000001", "STABLE", 120, 0.012), _topic("T000003", "STABLE", 80, 0.008)],
+                        {"articles": 1000}, None)
+    lineage = {"T000001": {"event": "split", "parents": ["T000001"]},
+               "T000003": {"event": "split", "parents": ["T000001"]}}
+    d = quarter_diff(cur, prev, lineage, 10, 0.0)
+    assert d["new_topics"] == [{"topic": "T000003", "event": "split", "parents": ["T000001"]}]
+    assert d["restructured"] == [{"topic": "T000001", "event": "split", "parents": ["T000001"]}]
+    assert d["retired"] == []
 
 
 @pytest.fixture

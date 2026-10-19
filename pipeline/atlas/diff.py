@@ -61,7 +61,10 @@ def load_snapshot(cfg: dict, release: str) -> tuple[dict | None, str]:
 
 
 def quarter_diff(cur: dict, prev: dict, lineage: dict[str, dict], movers: int, min_share_delta: float) -> dict:
-    """What changed from `prev` to `cur` (snapshots). lineage: current topic id → {event, parents}."""
+    """What changed from `prev` to `cur` (snapshots). lineage: current topic id → {event, parents}.
+
+    A merge keeps one parent's id, so the merged topic is not new: it is listed under `restructured` (with
+    the split parents that keep their id), and the parent whose id ended is retired with `merged_into`."""
     ct, pt = cur["topics"], prev["topics"]
     common = sorted(set(ct) & set(pt))
     new = []
@@ -69,8 +72,12 @@ def quarter_diff(cur: dict, prev: dict, lineage: dict[str, dict], movers: int, m
         lin = lineage.get(tid, {})
         event = lin.get("event") if lin.get("event") in ("split", "merge") else "new"
         new.append({"topic": tid, "event": event, "parents": list(lin.get("parents", []))})
-    retired = [{"topic": tid, "th": pt[tid].get("th", ""), "en": pt[tid].get("en", "")}
-               for tid in sorted(set(pt) - set(ct))]
+    merged_into = {p: tid for tid in sorted(ct) if lineage.get(tid, {}).get("event") == "merge"
+                   for p in lineage[tid].get("parents", []) if p != tid}
+    retired = [{"topic": tid, "th": pt[tid].get("th", ""), "en": pt[tid].get("en", ""),
+                "merged_into": merged_into.get(tid)} for tid in sorted(set(pt) - set(ct))]
+    restructured = [{"topic": t, "event": lineage[t]["event"], "parents": list(lineage[t].get("parents", []))}
+                    for t in common if lineage.get(t, {}).get("event") in ("split", "merge")]
     order = {s: i for i, s in enumerate(STATUS_ORDER)}
     changes = sorted(({"topic": t, "previous": pt[t]["status"], "current": ct[t]["status"]}
                       for t in common if pt[t]["status"] != ct[t]["status"]),
@@ -82,6 +89,6 @@ def quarter_diff(cur: dict, prev: dict, lineage: dict[str, dict], movers: int, m
             for k in KPI_KEYS if k in cur["kpis"] and k in prev.get("kpis", {})]
     compared = cur.get("journals") is not None and prev.get("journals") is not None
     return {"release": cur["release"], "previous_release": prev["release"], "kpis": kpis, "new_topics": new,
-            "retired": retired, "status_changes": changes, "movers": moved[:movers],
+            "retired": retired, "restructured": restructured, "status_changes": changes, "movers": moved[:movers],
             "journals_compared": compared,
             "new_journals": sorted(set(cur["journals"]) - set(prev["journals"])) if compared else []}
