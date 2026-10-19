@@ -172,3 +172,4 @@ export const regionsCodec = makeCodec<{ m: (typeof REGION_METRICS)[number]; view
   view: oneOf('view', VIEWS, 'chart'),
 })
 export const sdgCodec = makeCodec<{ fw: string }>({ fw: text('fw', 24) })
+export const gapsCodec = makeCodec<{ all: 'no' | 'yes' }>({ all: oneOf('all', ['no', 'yes'] as const, 'no') })

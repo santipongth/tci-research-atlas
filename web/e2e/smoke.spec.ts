@@ -27,6 +27,7 @@ const ROUTES = [
   { name: 'regions', path: '/regions' },
   { name: 'sdg', path: '/sdg' },
   { name: 'global', path: '/global' },
+  { name: 'gaps', path: '/gaps' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -247,11 +248,22 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#opportunities')).toContainText('Artificial Intelligence')
     await expect(page.locator('#all tbody tr')).toHaveCount(11)
   },
+  gaps: async (page) => {
+    await expect(page.locator('#world tbody tr')).toHaveCount(3)
+    await expect(page.locator('#few tbody tr')).toHaveCount(2)
+    await expect(page.locator('#bridges tbody tr')).toHaveCount(2)
+    const risk = page.locator('#risk tbody tr')
+    await expect(risk).toHaveCount(2)
+    await page.getByLabel('แสดงหน่วยที่ไม่กระจุกตัวด้วย').check()
+    await expect(risk).toHaveCount(4)
+    await expect(page).toHaveURL(/all=yes/)
+    await expect(page.locator('#risk')).toContainText('มหาวิทยาลัยราชภัฏตัวอย่าง')
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
