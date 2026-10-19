@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-      - run: uv sync --locked
+      - run: uv sync --locked --extra leiden --extra fast
       - run: uv run ruff check .
       - run: uv run pytest -q
       - name: data-contract JSON Schema is up to date
@@ -24,7 +24,7 @@ jobs:
   e2e:
     needs: pipeline
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: pipeline
@@ -34,8 +34,8 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-      - run: uv sync --locked
-      - name: synthetic corpus recovers planted EMERGING / WATCH / HOT / DECLINING
+      - run: uv sync --locked --extra leiden --extra fast
+      - name: synthetic corpus — P0 planted signals + P1 two-quarter acceptance
         run: uv run pytest -m slow -q
 
   web:

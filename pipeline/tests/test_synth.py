@@ -53,3 +53,16 @@ def test_ingest_loses_no_synthetic_article(make_cfg, tmp_path):
     originals = [p for p in corpus.glob("*.md") if "_dup" not in p.name]
     df = ingest(make_cfg(corpus))
     assert len(df) == len(originals)                 # dedup removes exactly the planted _dup copies
+
+
+
+def test_id_offset_makes_a_disjoint_late_batch_with_unique_dois(tmp_path):
+    from atlas.ingest import read_thaijo_tables
+
+    base = generate(tmp_path / "base", n=600, seed=3)
+    extra = generate(tmp_path / "extra", n=200, seed=8, id_offset=1_000_000)
+    assert not set(base["article_id"]) & set(extra["article_id"])
+    arts = read_thaijo_tables(tmp_path)[0].drop_duplicates("article_id")
+    dois = arts.loc[arts["doi"] != "", "doi"]
+    assert dois.is_unique                      # DOI dedup in ingest must never merge two synthetic articles
+    assert len(arts) == len(base) + len(extra)

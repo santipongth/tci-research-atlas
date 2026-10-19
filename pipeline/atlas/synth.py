@@ -194,14 +194,14 @@ def _article_md(rng, idx, topic, year, journal, host) -> tuple[str, str]:
     return article_id, "\n".join(lines) + "\n"
 
 
-def generate(out_dir: str | Path, n: int = 20_000, seed: int = 7) -> pd.DataFrame:
+def generate(out_dir: str | Path, n: int = 20_000, seed: int = 7, id_offset: int = 0) -> pd.DataFrame:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
     counts = yearly_counts(n, seed)
     by_key = {t[0]: t for t in TOPICS}
     home = {t[0]: list(rng.choice(JOURNALS, 4, replace=False)) for t in TOPICS}
-    truth, idx = [], 0
+    truth, idx = [], id_offset
     for row in counts.itertuples(index=False):
         topic = by_key[row.topic]
         for _ in range(row.count):
