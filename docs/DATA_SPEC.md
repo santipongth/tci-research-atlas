@@ -36,8 +36,8 @@
 | `04_coarse_topics` | cluster | article_id, coarse_topic (−1 = ยังไม่จัดหมวด) |
 | `04_topic_info` | cluster | topic_id, size, top_terms, top_keywords, coarse_topic, coherence |
 | `04_centroids.npy`, `04_centroid_ids.json` | cluster | centroid ต่อหัวข้อ |
-| `05_labels` | label | level, topic_id, name_th, name_en, description, keywords, cache_key (key ของ LLM cache หรือ `"fallback"`), label_source (`llm` \| `keywords` \| `override`) |
-| `05_labels_meta.json` | label | provider, model_id, topics, from_cache, generated, repaired, fallback, overrides, unknown_overrides, cost_usd |
+| `05_labels` | label | level, topic_id, name_th, name_en, description, keywords, cache_key (key ของ LLM cache หรือ `"fallback"`), label_source (`llm` \| `keywords` \| `override` \| `reused` = ชื่อของรอบก่อน: lineage `continue` และคำสำคัญ + คำเด่นยังทับซ้อนกับชุดคำตอนตั้งชื่อ ≥ `labeling.reuse_min_jaccard` — ไม่เรียก LLM) |
+| `05_labels_meta.json` | label | provider, model_id, topics, from_cache, generated, repaired, fallback, reused, overrides, unknown_overrides, cost_usd (การรันครั้งนี้) |
 | `05_merge_suggestions`, `05_merge_meta.json` | label | topic_a, topic_b, similarity, same_topic (True/False/None), reason, source · สถิติ LLM งาน merge |
 | `06_series` | series | topic_id, year, count, count_with_org, corpus_total, share |
 | `06_topic_journal_year`, `06_topic_org_year`, `06_journal_first_year`, `06_meta.json` | series | ใช้คำนวณความกว้าง + ปีสมบูรณ์ล่าสุด; `06_meta.json` = last_complete_year, as_of_year, trimmed_years (ปีที่มีข้อมูลแต่ไม่ใช้คำนวณแนวโน้ม), years, totals (บทความที่นำมาวิเคราะห์ต่อปี), n_articles (ทั้งคลัง = `kpis.articles` — headline ของบทสรุปบอกจำนวนที่วิเคราะห์พร้อมป้ายกำกับ) |
@@ -61,7 +61,7 @@
 | `…/<store>/truncated.parquet` | embed | key, original_chars, used_chars, run_started_at — ข้อความที่ server รับไม่ได้จนต้องตัด (ต่อท้ายทุกรอบ, สะสม; `atlas status` แสดงจำนวนรวม) |
 | `state/llm_cache/<task>.jsonl` | label, narrate | cache + journal ของทุก call LLM: key = sha256(model + prompt_version + prompt) · output (null = บันทึกค่าใช้จ่ายของ call ที่ใช้ fallback) · cost_usd · release |
 | `state/llm_cache/progress.json`, `.lock`, `run.lock`, `stop.flag`, `run.log` | label, narrate | ไฟล์งานแบบเดียวกับ embedding store (P0 `atlas.jobs`): สถานะ (`atlas status`, kind `llm`), OS lock กันรันซ้อน (+ ข้อมูล PID), คำขอหยุด (`atlas llm-stop`), log ของ `atlas llm --background` |
-| `state/releases/index.json`, `state/releases/<release>/topics/`, `…/layout.parquet` | cluster, layout | ลำดับรอบ · assignments, registry (born/status/last_seen), lineage, model.json · ตำแหน่งหัวข้อ |
+| `state/releases/index.json`, `state/releases/<release>/topics/`, `…/layout.parquet`, `…/labels.parquet` | cluster, layout, label | ลำดับรอบ · assignments, registry (born/status/last_seen), lineage, model.json · ตำแหน่งหัวข้อ · ชื่อหัวข้อจากเครื่อง (ก่อน overrides): topic_id, name_th/en, description, keywords, cache_key, origin (`llm` \| `keywords`), label_terms (ชุดคำที่ใช้ตั้งชื่อ — รอบถัดไปเทียบ Jaccard กับชุดนี้ จึงไม่ไหลทีละนิด) |
 | `state/openalex/reference_*.parquet` + `.json` | taxonomy | งานอ้างอิง OpenAlex ที่ดึงแล้ว (ไม่ดึงซ้ำ; cache ใช้ร่วมกันทั้งโหมดมี key และไม่มี key) |
 | `pipeline/registry/label_overrides.csv` (นอก state; ไม่เข้า git) | label | ชื่อที่บรรณาธิการแก้: topic_id (T000123), name_th, name_en, description, reviewer, reviewed_at, note |
 
@@ -175,10 +175,10 @@
 
 | ไฟล์ | model | เนื้อหา |
 |---|---|---|
-| `manifest.json` | `Manifest` | release, previous_release, definition_version, **ci_level** (ระดับของช่วง `*_lo/*_hi` ทุกตัว), as_of_year, trimmed_years, embedding_provider/model, taxonomy_version, n_orgs_unverified, ingest_errors, labels {provider, llm, keywords, overrides}, llm [{task, model, items, from_cache, generated, repaired, fallback, cost_usd}], files [{path, bytes, sha256}] |
+| `manifest.json` | `Manifest` | release, previous_release, definition_version, **ci_level** (ระดับของช่วง `*_lo/*_hi` ทุกตัว), as_of_year, trimmed_years, embedding_provider/model, taxonomy_version, n_orgs_unverified, ingest_errors (null = ไม่มีบันทึก — ไม่ใช่ 0), labels {provider, llm, keywords, overrides, reused}, llm [{task, model, items, from_cache, generated, repaired, fallback, cost_usd = ยอดรวมของรอบข้อมูลนี้ทุกครั้งที่รัน (จาก journal), this_run_cost_usd = เฉพาะการรันล่าสุด}], files [{path, bytes, sha256}] |
 | `overview.json` | `Overview` | KPI, จำนวนตามสถานะ, ยอดรายปี + พยากรณ์ยอดรวม, nowcast, lineage events, retired topics, data_quality (completeness), **brief** (headline + bullets, source llm/template) |
-| `taxonomy.json` | `TaxonomyFile` | source (openalex/agglomerative), groups (F33 / G03, ชื่อ TH/EN, สี token, ตำแหน่ง hub), subfields |
-| `topics.json` | `TopicsFile` | หัวข้อ: id T000123, group, ชื่อ, label_source, ขนาด, ตำแหน่ง, status, score, metrics, forecast, lineage, subfield, cross_field, nowcast |
+| `taxonomy.json` | `TaxonomyFile` | source (openalex/agglomerative), groups (F33 / G03, ชื่อ TH/EN, สี token, ตำแหน่ง hub), subfields — สีผูกกับรหัสกลุ่ม ไม่ใช่ลำดับขนาด: สาขา OpenAlex ใช้ตารางคงที่ (`export_v2.FIELD_COLOR`; 12 สาขาที่พบบ่อยใน TCI ได้สีไม่ซ้ำกัน), กลุ่ม `G<n>` = `cat-(n mod 12 + 1)`; ถ้าสองกลุ่มในรอบเดียวกันได้สีเดียวกัน รหัสที่น้อยกว่าคงสีไว้ อีกกลุ่มเลื่อนไปสีว่างถัดไป (ตัดสินจากชุดรหัสเท่านั้น ไม่ใช่ขนาด) → กลุ่มเดิมสีเดิมทุกไตรมาส |
+| `topics.json` | `TopicsFile` | หัวข้อ: id T000123, group, ชื่อ, label_source (`llm` \| `keywords` \| `override` \| `reused`), ขนาด, ตำแหน่ง, status, score, metrics, forecast, lineage, subfield, cross_field, nowcast |
 | `topics/<id>.json` | `TopicDetail` | บทความตัวแทน (ชื่อเรื่อง + ลิงก์ ThaiJO + พิกัด galaxy), วารสาร/สถาบันหลัก, คำสำคัญ, เพื่อนบ้าน, **narrative** — สถาบันนับตาม `org_key` (พับวรรณยุกต์/ตัวพิมพ์เพื่อรวมคำสะกดต่างกัน) แต่ `institutions[].key` เป็น**ชื่อที่เขียนจริง**ที่พบบ่อยที่สุดของ key นั้น (ส่วนชื่อองค์กรของสังกัด เช่น "มหาวิทยาลัยเกษตรศาสตร์" / "Naresuan University" — ไม่ตัดวรรณยุกต์ ไม่แปลงตัวพิมพ์; ไม่มีชื่อคณะ/ตำแหน่ง) |
 | `series.json`, `edges.json`, `keywords.json` | `SeriesFile`, `EdgesFile`, `KeywordsFile` | ยอดรายปีต่อหัวข้อ · เส้นเชื่อม · emerging keywords |
 | `output/data/latest.json` | `Latest` | {release, path: "<release>/manifest.json", schema_version, generated_at} — ชี้รอบใหม่สุดเท่านั้น (export/publish รอบเก่ากว่าไม่ย้าย; `atlas publish --set-latest` บังคับ) · `generated_at` ของทุกไฟล์ = snapshot_at (UTC) ของ work_dir จึง export ซ้ำได้ไฟล์เดิมทุกไบต์ |

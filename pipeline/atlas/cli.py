@@ -122,6 +122,7 @@ def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure
     from atlas.api_http import ApiConfigError, TransientGaveUp
     from atlas.embed_runner import StoreSaveFailed
     from atlas.jobs import LockHeld, LockUnsupported, RunStopped
+    from atlas.llm_runner import RESUME_COMMAND
     from atlas.pipeline import run
     from atlas.state import ReleaseMismatch
 
@@ -132,6 +133,7 @@ def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure
             os._exit(code)
         return code
 
+    token = RESUME_COMMAND.set(f"uv run atlas {resume} -c {_cfg_arg(config)}")   # named by `atlas status`
     try:
         if ensure_docs:
             _ensure_docs(cfg)
@@ -169,6 +171,8 @@ def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure
             traceback.print_exc()
             return done(EXIT_FAILED, e)
         raise
+    finally:
+        RESUME_COMMAND.reset(token)
     return 0
 
 

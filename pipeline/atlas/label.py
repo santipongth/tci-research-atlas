@@ -7,8 +7,15 @@ labeling.provider = off: names from the topic's most distinctive author keywords
 Either way the editors' file labeling.overrides_path (CSV keyed by the stable topic id T000123)
 wins, so corrections stick across quarters.
 
+Reuse across quarters: a topic whose lineage event is `continue` keeps the previous release's name
+(label_source "reused", no LLM call) while its top author keywords + c-TF-IDF terms still overlap the set
+the name was made from by >= labeling.reuse_min_jaccard (Jaccard). New, split and merged topics and
+materially changed ones are named afresh; a keyword-fallback name is never kept (the LLM is asked again).
+The machine names of every release (before overrides) are kept in state_dir/releases/<release>/labels.parquet
+with the term set they were made from, so the comparison never drifts quarter by quarter.
+
 Outputs: work/05_labels (level, topic_id, name_th, name_en, description, keywords, cache_key,
-label_source ∈ llm | keywords | override) and work/05_labels_meta.json (counts + LLM spend).
+label_source ∈ llm | keywords | override | reused) and work/05_labels_meta.json (counts + LLM spend).
 """
 from __future__ import annotations
 
@@ -24,12 +31,14 @@ from atlas.io_utils import read_table, write_table
 from atlas.lineage import topic_code
 from atlas.llm_runner import LlmItem, LlmJob, run_job
 from atlas.prompts import load_prompt, prompt_version, render_prompt
-from atlas.state import work_release
+from atlas.state import previous_release, release_dir, work_release
 from atlas.thai import thai_ratio
 
 PROMPT_NAME = "topic_label.th"
 LABEL_COLUMNS = ["level", "topic_id", "name_th", "name_en", "description", "keywords", "cache_key", "label_source"]
 OVERRIDE_COLUMNS = ["topic_id", "name_th", "name_en", "description", "reviewer", "reviewed_at", "note"]
+STATE_LABEL_COLUMNS = ["topic_id", "name_th", "name_en", "description", "keywords", "cache_key", "origin",
+                       "label_terms"]           # origin: llm | keywords; label_terms: the set the name was made from
 
 
 class LabelOut(BaseModel):
@@ -87,15 +96,58 @@ def _fallback(top_keywords: str, top_terms: str, tid: int) -> dict:
             "description": "", "keywords": kws[:6]}
 
 
-def label_job(cfg: dict) -> LlmJob:
-    """One LLM item per topic (registered in llm_runner.JOBS for `atlas llm --dry-run`)."""
+def label_terms(top_keywords, top_terms) -> set[str]:
+    """A topic's top author keywords + c-TF-IDF terms (04_topic_info), lowercased — what a name is made from."""
+    return {x.strip().lower() for s in (top_keywords, top_terms) for x in str(s or "").split(";") if x.strip()}
+
+
+def jaccard(a: set, b: set) -> float:
+    return len(a & b) / len(a | b) if a | b else 0.0
+
+
+def _terms_text(terms: set[str]) -> str:
+    return "; ".join(sorted(terms))
+
+
+def reuse_plan(cfg: dict, info: pd.DataFrame, release: str | None = None) -> dict[int, dict]:
+    """{topic_id: the previous release's machine label} for the topics that keep their name this release."""
+    work = Path(cfg["pipeline"]["work_dir"])
+    prev = previous_release(cfg, release or work_release(cfg))
+    path = release_dir(cfg, prev) / "labels.parquet" if prev else None
+    try:
+        lin = read_table(work / "04_lineage.parquet")
+        old = read_table(path) if path is not None else None
+    except FileNotFoundError:
+        return {}
+    if old is None:
+        return {}
+    cont = set(lin.loc[lin["event"] == "continue", "topic_id"].astype(int))
+    old = old.drop_duplicates("topic_id", keep="last").set_index("topic_id")
+    thr = float(cfg["labeling"]["reuse_min_jaccard"])
+    plan = {}
+    for r in info.itertuples():
+        tid = int(r.topic_id)
+        if tid not in cont or tid not in old.index or str(old.loc[tid, "origin"]) != "llm":
+            continue
+        made_from = {x for x in str(old.loc[tid, "label_terms"]).split("; ") if x}
+        if jaccard(label_terms(r.top_keywords, r.top_terms), made_from) >= thr:
+            plan[tid] = old.loc[tid].to_dict()
+    return plan
+
+
+def label_job(cfg: dict, skip: set[int] | None = None) -> LlmJob:
+    """One LLM item per topic that needs a name (registered in llm_runner.JOBS for `atlas llm --dry-run`);
+    skip: topics that keep the previous release's name (default: reuse_plan)."""
     work = Path(cfg["pipeline"]["work_dir"])
     info = read_table(work / "04_topic_info.parquet")
+    skip = set(reuse_plan(cfg, info)) if skip is None else skip
     template = load_prompt(PROMPT_NAME, cfg["llm"]["prompts_dir"])
     titles = topic_titles(cfg)
     items = []
     for r in info.itertuples():
         tid = int(r.topic_id)
+        if tid in skip:
+            continue
         prompt = render_prompt(template, keywords=r.top_keywords, terms=r.top_terms,
                                titles="\n".join(f"- {t}" for t in titles.get(tid, [])))
         items.append(LlmItem(topic_code(tid), prompt, _fallback(r.top_keywords, r.top_terms, tid)))
@@ -129,28 +181,41 @@ def load_overrides(path: str | Path | None) -> pd.DataFrame:
 def label(cfg: dict, llm=None) -> pd.DataFrame:
     """llm: an object with .model_id and .chat(messages) (tests); None → the configured endpoint, if needed."""
     work = Path(cfg["pipeline"]["work_dir"])
-    work_release(cfg)                    # refuse before any LLM call when pipeline.release names another release
+    release = work_release(cfg)          # refuse before any LLM call when pipeline.release names another release
     info = read_table(work / "04_topic_info.parquet")
     provider = cfg["labeling"]["provider"]
-    rows, stats = [], {"from_cache": 0, "generated": 0, "repaired": 0, "fallback": 0, "cost_usd": 0.0, "model": ""}
+    reuse = reuse_plan(cfg, info, release)
+    rows, machine, results = [], [], {}
+    stats = {"from_cache": 0, "generated": 0, "repaired": 0, "fallback": 0, "cost_usd": 0.0, "model": ""}
     if provider == "llm":
-        job = label_job(cfg)
-        results, stats = run_job(cfg, job, llm)
-        for r in info.itertuples():
-            code = topic_code(int(r.topic_id))
-            res = results[code]
-            out = res.output
-            kws = out.get("keywords", [])
-            rows.append({"level": "fine", "topic_id": int(r.topic_id), "name_th": out["name_th"],
-                         "name_en": out["name_en"], "description": out.get("description", ""),
-                         "keywords": "; ".join(kws) if isinstance(kws, list) else str(kws),
-                         "cache_key": res.key or "fallback",
-                         "label_source": "llm" if res.source != "fallback" else "keywords"})
-    else:
-        for r in info.itertuples():
-            fb = _fallback(r.top_keywords, r.top_terms, int(r.topic_id))
-            rows.append({"level": "fine", "topic_id": int(r.topic_id), **fb, "keywords": "; ".join(fb["keywords"]),
-                         "cache_key": "fallback", "label_source": "keywords"})
+        job = label_job(cfg, skip=set(reuse))
+        if job.items:
+            results, stats = run_job(cfg, job, llm)
+        else:                                              # every name reused: no runner, no endpoint needed
+            stats["model"] = llm.model_id if llm is not None else cfg["llm"]["tasks"]["label"]["model"]
+    for r in info.itertuples():
+        tid = int(r.topic_id)
+        made_from = _terms_text(label_terms(r.top_keywords, r.top_terms))
+        if tid in reuse:                                   # last release's name: no LLM call
+            o = reuse[tid]
+            row = {k: "" if pd.isna(o[k]) else str(o[k]) for k in ("name_th", "name_en", "description", "keywords",
+                                                                     "cache_key")}
+            row["label_source"], origin, made_from = "reused", "llm", str(o["label_terms"])
+        elif provider == "llm":
+            res = results[topic_code(tid)]
+            kws = res.output.get("keywords", [])
+            row = {"name_th": res.output["name_th"], "name_en": res.output["name_en"],
+                   "description": res.output.get("description", ""),
+                   "keywords": "; ".join(kws) if isinstance(kws, list) else str(kws),
+                   "cache_key": res.key or "fallback", "label_source": "llm" if res.source != "fallback" else "keywords"}
+            origin = row["label_source"]
+        else:
+            fb = _fallback(r.top_keywords, r.top_terms, tid)
+            row = {**fb, "keywords": "; ".join(fb["keywords"]), "cache_key": "fallback", "label_source": "keywords"}
+            origin = "keywords"
+        rows.append({"level": "fine", "topic_id": tid, **row})
+        machine.append({"topic_id": tid, **{k: row[k] for k in STATE_LABEL_COLUMNS[1:6]}, "origin": origin,
+                        "label_terms": made_from})
     out = pd.DataFrame(rows, columns=LABEL_COLUMNS)
 
     ov = load_overrides(cfg["labeling"]["overrides_path"])
@@ -170,13 +235,17 @@ def label(cfg: dict, llm=None) -> pd.DataFrame:
     if unknown:
         print(f"[label] WARNING: {len(unknown)} overrides name topics that no longer exist: {', '.join(unknown[:10])}")
     write_table(out, work / "05_labels.parquet")
+    # the machine names (before overrides) for the next release's reuse — persistent, unlike work_dir
+    write_table(pd.DataFrame(machine, columns=STATE_LABEL_COLUMNS), release_dir(cfg, release, create=True)
+                / "labels.parquet")
+    n_reused = int((out["label_source"] == "reused").sum())
     meta = {"provider": provider, "model_id": stats["model"], "topics": len(out),
             "from_cache": stats["from_cache"], "generated": stats["generated"], "repaired": stats["repaired"],
             "fallback": int((out["cache_key"] == "fallback").sum()) if provider == "llm" else 0,
-            "overrides": applied, "unknown_overrides": unknown, "cost_usd": stats["cost_usd"]}
+            "reused": n_reused, "overrides": applied, "unknown_overrides": unknown, "cost_usd": stats["cost_usd"]}
     (work / "05_labels_meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-    print(f"[label] {len(out)} topics: {meta['generated']} new, {meta['from_cache']} cached, "
-          f"{meta['fallback']} keyword fallback, {applied} editor overrides")
+    print(f"[label] {len(out)} topics: {meta['generated']} new, {meta['from_cache']} cached, {n_reused} reused "
+          f"from the previous release, {meta['fallback']} keyword fallback, {applied} editor overrides")
     if cfg["labeling"]["merge"]["enabled"]:
         from atlas.review import suggest_merges  # local import: atlas.review imports this module
 

@@ -107,6 +107,7 @@ labeling:
   overrides_path: ./registry/label_overrides.csv   # ชื่อที่บรรณาธิการแก้ (topic_id แบบ T000123) — ชนะชื่อจาก LLM ทุกรอบ; ไม่มีไฟล์ = ไม่มีการแก้
   n_repr_docs: 8              # บทความตัวแทน (ใกล้ centroid + กระจายด้วย MMR)
   mmr_lambda: 0.7
+  reuse_min_jaccard: 0.5      # หัวข้อที่ lineage = continue ใช้ชื่อรอบก่อน (ไม่เรียก LLM) ถ้าคำสำคัญผู้เขียน + คำเด่น c-TF-IDF ยังทับซ้อนกับชุดคำตอนตั้งชื่อ ≥ ค่านี้ (Jaccard 0–1; 1 = ต้องเหมือนเดิมทุกคำ, 0 = ใช้ชื่อเดิมเสมอ); ชื่อจาก fallback คำสำคัญไม่ถูกใช้ต่อ, overrides ยังชนะ
   merge:                      # คู่หัวข้อที่อาจซ้ำ → ข้อเสนอให้บรรณาธิการ (ไม่รวมอัตโนมัติ)
     enabled: true
     min_similarity: 0.85      # centroid cosine ≥ ค่านี้ = ผู้สมัคร

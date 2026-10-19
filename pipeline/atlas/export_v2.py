@@ -26,12 +26,21 @@ from atlas.export import _git_hash, fine_labels
 from atlas.io_utils import read_table
 from atlas.label import representative_indices
 from atlas.lineage import topic_code
+from atlas.llm_runner import release_spend
 from atlas.orgs import org_display_names
 from atlas.schema import contract as C
 from atlas.state import is_newest, known_releases, previous_release, release_dir, snapshot_at, work_release
 from atlas.taxonomy import FALLBACK_GROUP_BASE, load_topic_groups
 
 N_COLOR_TOKENS = 12
+# Map colours follow the group id, never its size rank, so a group keeps its colour across quarters.
+# OpenAlex fields (Scopus ASJC ids 11–36) → fixed tokens: the 12 fields most common in TCI journals get distinct
+# tokens; the other 14 share tokens with fields of another domain. Agglomerative / fallback groups G<n> → n mod 12.
+# Two groups of one release that want the same token: the lower id keeps it, the other takes the next free token
+# (group_colors) — decided by the set of ids only, never by size.
+FIELD_COLOR = {"33": 1, "14": 2, "12": 3, "27": 4, "11": 5, "32": 6, "20": 7, "22": 8, "17": 9, "29": 10, "23": 11,
+               "36": 12, "13": 1, "15": 2, "16": 3, "18": 4, "19": 5, "21": 6, "24": 7, "25": 10, "26": 12, "28": 8,
+               "30": 11, "31": 4, "34": 9, "35": 6}
 
 
 def _f(v, nd: int = 4) -> float | None:
@@ -71,6 +80,26 @@ def group_code(gid: int, source: str) -> str:
     if gid >= FALLBACK_GROUP_BASE:
         return f"G{gid - FALLBACK_GROUP_BASE:02d}"
     return f"{'F' if source == 'openalex' else 'G'}{gid:02d}"
+
+
+def group_color(code: str) -> str:
+    """Design token of a published group code (F<field> | G<n>) — a fixed function of the id."""
+    n = int(code[1:])
+    k = FIELD_COLOR.get(str(n), n % N_COLOR_TOKENS + 1) if code.startswith("F") else n % N_COLOR_TOKENS + 1
+    return f"cat-{k:02d}"
+
+
+def group_colors(codes) -> dict[str, str]:
+    """{group code: token} for one release: group_color, with collisions moved to the next free token (≤ 12 groups
+    never share a colour; beyond 12 the extra groups keep their preferred token)."""
+    out, used = {}, set()
+    for code in sorted(set(codes), key=lambda c: (c[0] != "F", int(c[1:]))):
+        want = int(group_color(code)[4:])
+        free = [t for t in ((want - 1 + i) % N_COLOR_TOKENS + 1 for i in range(N_COLOR_TOKENS)) if t not in used]
+        tok = free[0] if free else want
+        used.add(tok)
+        out[code] = f"cat-{tok:02d}"
+    return out
 
 
 def _metrics(e: pd.Series, min_recent: int) -> C.TopicMetrics:
@@ -231,15 +260,16 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     order = gsize.sort_values("sum", ascending=False).index.tolist()
     names = groups.drop_duplicates("group_id").set_index("group_id")
     group_rows = []
-    for rank, gid in enumerate(order):
+    colors = group_colors(group_code(g, source) for g in order)
+    for gid in order:
         th, en = str(names.loc[gid, "group_th"] or ""), str(names.loc[gid, "group_en"] or "")
         if not th or not en:                      # agglomerative fallback: name of its largest topic
             big = int(info[info["topic_id"].map(groups["group_id"]) == gid].sort_values("size").iloc[-1]["topic_id"])
             th = th or (str(labels.loc[big, "name_th"] or "") if big in labels.index else "") or code[big]
             en = en or (str(labels.loc[big, "name_en"] or "") if big in labels.index else "") or code[big]
         h = hubs.loc[gid] if gid in hubs.index else None
-        group_rows.append(C.GroupInfo(id=group_code(gid, source), th=th, en=en,
-                                      color=f"cat-{rank % N_COLOR_TOKENS + 1:02d}", size=int(gsize.loc[gid, "sum"]),
+        gcode = group_code(gid, source)
+        group_rows.append(C.GroupInfo(id=gcode, th=th, en=en, color=colors[gcode], size=int(gsize.loc[gid, "sum"]),
                                       n_topics=int(gsize.loc[gid, "count"]), x=float(h["x"]) if h is not None else 0.0,
                                       y=float(h["y"]) if h is not None else 0.0, r=float(h["r"]) if h is not None else 0.0))
     subfields = []
@@ -315,29 +345,33 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
         embedding_provider=str(cfg["embedding"]["provider"]), embedding_model=str(emb_meta.get("model_id", "")),
         taxonomy_version=taxmeta.get("version"), modules=modules, previous_release=prev,
         n_orgs_unverified=int(em["orgs_unverified"].astype(bool).sum()) if "orgs_unverified" in em else 0,
-        ingest_errors=len(errs) if errs is not None else 0,
-        labels=_label_stats(cfg, labels), llm=_llm_stats(work, brief))
+        ingest_errors=len(errs) if errs is not None else None,          # unknown is never published as 0
+        labels=_label_stats(cfg, labels), llm=_llm_stats(cfg, work, brief, release))
     return files
 
 
 def _label_stats(cfg: dict, labels: pd.DataFrame) -> C.LabelStats:
     src = labels["label_source"] if "label_source" in labels else pd.Series("keywords", index=labels.index)
     return C.LabelStats(provider=cfg["labeling"]["provider"], llm=int((src == "llm").sum()),
-                        keywords=int((src == "keywords").sum()), overrides=int((src == "override").sum()))
+                        keywords=int((src == "keywords").sum()), overrides=int((src == "override").sum()),
+                        reused=int((src == "reused").sum()))
 
 
-def _llm_stats(work: Path, brief: dict) -> list[C.LlmTaskStats]:
-    """Per LLM task of this run: items, cache hits, new calls, repairs, fallbacks and spend."""
+def _llm_stats(cfg: dict, work: Path, brief: dict, release: str) -> list[C.LlmTaskStats]:
+    """Per LLM task: items, cache hits, new calls, repairs and fallbacks of the last run; cost_usd = the release's
+    whole spend on the task (sum of its journal), this_run_cost_usd = the last run's."""
     found = []
     lab = _read_json(work / "05_labels_meta.json")
     if lab.get("provider") == "llm":
-        found.append({**lab, "task": "label", "model": lab.get("model_id", ""), "items": lab.get("topics", 0)})
+        found.append({**lab, "task": "label", "model": lab.get("model_id", ""),
+                      "items": int(lab.get("topics", 0)) - int(lab.get("reused", 0))})     # reused names: no LLM item
     merge = _read_json(work / "05_merge_meta.json").get("llm")
     found += [merge] if merge else []
     found += list((brief.get("llm") or {}).values())
     keys = ("from_cache", "generated", "repaired", "fallback")
     return [C.LlmTaskStats(task=s["task"], model=str(s.get("model", "")), items=int(s.get("items", 0)),
-                           **{k: int(s.get(k, 0)) for k in keys}, cost_usd=round(float(s.get("cost_usd", 0.0)), 4))
+                           **{k: int(s.get(k, 0)) for k in keys}, cost_usd=round(release_spend(cfg, s["task"], release), 4),
+                           this_run_cost_usd=round(float(s.get("cost_usd", 0.0)), 4))
             for s in found]
 
 

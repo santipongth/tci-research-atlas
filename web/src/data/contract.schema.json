@@ -423,6 +423,12 @@
           ],
           "title": "Provider",
           "type": "string"
+        },
+        "reused": {
+          "default": 0,
+          "description": "topics that kept the previous release's name (lineage continue, keywords unchanged by labeling.reuse_min_jaccard) — no LLM call",
+          "title": "Reused",
+          "type": "integer"
         }
       },
       "required": [
@@ -467,6 +473,7 @@
       "additionalProperties": false,
       "properties": {
         "cost_usd": {
+          "description": "spend of this task for the whole release: every run, from the LLM journal",
           "title": "Cost Usd",
           "type": "number"
         },
@@ -497,6 +504,12 @@
         "task": {
           "title": "Task",
           "type": "string"
+        },
+        "this_run_cost_usd": {
+          "default": 0.0,
+          "description": "spend of the run that produced this export",
+          "title": "This Run Cost Usd",
+          "type": "number"
         }
       },
       "required": [
@@ -563,9 +576,17 @@
           "type": "string"
         },
         "ingest_errors": {
-          "default": 0,
-          "title": "Ingest Errors",
-          "type": "integer"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "files that could not be read or parsed; null = not recorded (work_dir from before per-file error recording)",
+          "title": "Ingest Errors"
         },
         "labels": {
           "anyOf": [
@@ -1069,7 +1090,8 @@
           "enum": [
             "llm",
             "keywords",
-            "override"
+            "override",
+            "reused"
           ],
           "title": "Label Source",
           "type": "string"

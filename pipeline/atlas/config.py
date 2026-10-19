@@ -146,6 +146,7 @@ class LabelingCfg(_Strict):
     merge: MergeCfg = Field(default_factory=MergeCfg)
     n_repr_docs: int = 8
     mmr_lambda: float = Field(0.7, ge=0.0, le=1.0)
+    reuse_min_jaccard: float = Field(0.5, ge=0.0, le=1.0)   # continue topic keeps last release's name at ≥ this overlap
 
     @field_validator("provider", mode="before")
     @classmethod

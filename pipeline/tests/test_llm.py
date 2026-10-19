@@ -383,3 +383,23 @@ def test_run_guarded_keeps_the_p0_messages_and_names_the_resume_command(monkeypa
     code, err = outcome(RunStopped("budget"))
     assert code == 130 and err.startswith(f"[{tag}] \N{THAI CHARACTER HO HIP}")
     assert f"resume: uv run atlas {tag} -c config.yaml" in err
+
+
+@pytest.mark.parametrize("resume", ["run", "llm"])
+def test_status_names_the_command_that_was_running(monkeypatch, make_cfg, tmp_path, resume):
+    import atlas.llm_runner as lr
+    import atlas.pipeline as pl
+    from atlas.cli import _run_guarded
+
+    seen = {}
+
+    def run(cfg, steps):                              # inside the pipeline: what the LLM runner will record
+        seen["resume"] = lr.RESUME_COMMAND.get()
+        seen["snapshot"] = LlmRunner(cfg, _job(["a"]))._snapshot("stopped")["resume"]
+    monkeypatch.setattr(pl, "run", run)
+    assert _run_guarded(_cfg(make_cfg, tmp_path), [], None, tag=resume, resume=resume) == 0
+    assert seen == {"resume": f"uv run atlas {resume} -c config.yaml", "snapshot": f"uv run atlas {resume} -c config.yaml"}
+    assert lr.RESUME_COMMAND.get() == "uv run atlas llm"                # reset afterwards
+    text = "\n".join(lr.status_extra({"stop_reason": "budget", "resume": seen["resume"]}))
+    assert f"run `uv run atlas {resume} -c config.yaml` again to continue" in text
+    assert "run `uv run atlas llm` again" in "\n".join(lr.status_extra({"stop_reason": "budget"}))   # older progress.json

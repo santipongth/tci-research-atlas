@@ -28,6 +28,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, CancelledError, Future, ThreadPoolExecutor, wait
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -51,6 +52,8 @@ from atlas.state import work_release
 JOBS: dict[str, str] = {"label": "atlas.label:label_job", "merge": "atlas.review:merge_job",
                         "narrative": "atlas.narrative:narrative_job", "brief": "atlas.narrative:brief_job"}
 PROGRESS_EVERY_S = 5.0
+# the command that continues a stopped job (`atlas run` or `atlas llm`, set by the CLI) — shown by `atlas status`
+RESUME_COMMAND: ContextVar[str] = ContextVar("atlas_llm_resume", default="uv run atlas llm")
 
 REPAIR = ("The reply above does not match the required JSON format ({error}). "
           "Reply again with ONLY the corrected JSON object, nothing else.")
@@ -226,7 +229,7 @@ class LlmRunner:
                 "generated": s["generated"], "repaired": s["repaired"], "fallback": s["fallback"],
                 "retries": self.retries, "truncated": 0, "cost_usd": round(s["cost_usd"], 4),
                 "release": self.release, "release_spend_usd": round(self.spent, 4), "budget_usd": self.budget,
-                "stop_reason": self.stopping if status == "stopped" else None,
+                "stop_reason": self.stopping if status == "stopped" else None, "resume": RESUME_COMMAND.get(),
                 "last_error": self.last_error, "last_error_at": self.last_error_at,
                 "started_at": self.started_at, "updated_at": now_iso()}
 
@@ -380,6 +383,12 @@ def dry_run_all(cfg: dict, tasks: list[str] | None = None) -> list[dict]:
     return rows
 
 
+def release_spend(cfg: dict, task: str, release: str) -> float:
+    """USD a task spent on `release` over every run (its journal, incl. paid calls that ended in a fallback)."""
+    return sum(float(r.get("cost_usd", 0.0)) for r in _read_jsonl(llm_dir(cfg) / f"{task}.jsonl")
+               if r.get("release") == release and r.get("task", task) == task)
+
+
 def request_stop(cfg: dict) -> Path:
     flag = StopFlag(llm_dir(cfg) / STOP)
     flag.request()
@@ -396,7 +405,8 @@ def status_extra(info: dict) -> list[str]:
              f"{int(info.get('repaired') or 0):,} · fallback {int(info.get('fallback') or 0):,}",
              f"  cost                  : {info.get('cost_usd', 0)} USD this run · {spend}"]
     if info.get("stop_reason"):
-        lines.append(f"  stopped by            : {info['stop_reason']} — run `atlas llm` again to continue")
+        lines.append(f"  stopped by            : {info['stop_reason']} — run `{info.get('resume') or 'uv run atlas llm'}` "
+                     f"again to continue")
     return lines
 
 

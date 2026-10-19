@@ -154,3 +154,94 @@ def test_yaml_provider_aliases(tmp_path):
     assert cfg["labeling"]["provider"] == "llm"
     assert Path(cfg["labeling"]["overrides_path"]) == (tmp_path / "registry" / "o.csv").resolve()
     assert load_config(None)["labeling"]["overrides_path"] is None    # tests never read a real overrides file
+
+
+# ---- label reuse across quarters (lineage "continue" + unchanged keywords → the previous release's name)
+WORDS = {0: ["rice", "paddy", "irrigation"], 1: ["diabetes", "insulin", "glucose"], 2: ["tourism", "hotel", "travel"],
+         3: ["robot", "sensor", "automation"], 4: ["poetry", "novel", "literature"]}
+
+
+def _quarter(cfg, release, blobs=(0, 1, 2, 3), words=None, mode="auto", extra=0):
+    """A clustered work_dir for `release`: one well-separated blob of 30 articles per entry of `blobs`."""
+    from atlas.cluster import cluster
+
+    words = {**WORDS, **(words or {})}
+    work = Path(cfg["pipeline"]["work_dir"])
+    rng = np.random.default_rng(0)
+    rows, X = [], []
+    for c in blobs:
+        for i in range(30 + (extra if c == 0 else 0)):
+            w = words[c]
+            rows.append({"article_id": f"b{c}-{i}", "title": f"{w[0]} {w[1]} paper {i}", "doc_text": " ".join(w * 3),
+                         "keywords_th": "", "keywords_en": "; ".join(w)})
+            X.append(np.eye(16)[c] + rng.normal(0, 0.05, 16))
+    X = np.array(X, dtype=np.float32)
+    X /= np.linalg.norm(X, axis=1, keepdims=True)
+    write_table(pd.DataFrame(rows), work / "02_docs.parquet")
+    np.save(work / "03_embeddings.npy", X)
+    (work / "03_meta.json").write_text(json.dumps({"model_id": "fake|1", "n": len(X), "dim": 16}), encoding="utf-8")
+    cfg["pipeline"]["release"] = release
+    cfg["topics"]["mode"] = mode
+    cluster(cfg)
+
+
+def _reuse_cfg(make_cfg, tmp_path):
+    cfg = _llm_cfg(make_cfg, tmp_path)
+    cfg["clustering"].update(reducer="pca", n_groups=2)
+    cfg["clustering"]["fine"].update(hdbscan_min_cluster_size=20, hdbscan_min_samples=5)
+    cfg["labeling"]["merge"]["enabled"] = False
+    return cfg
+
+
+def test_unchanged_continue_topics_keep_their_names_without_llm_calls(make_cfg, tmp_path):
+    cfg = _reuse_cfg(make_cfg, tmp_path)
+    _quarter(cfg, "2026Q1")
+    q1 = label(cfg, llm=FakeLLM()).set_index("topic_id")
+    assert (q1["label_source"] == "llm").all() and len(q1) == 4
+    assert (tmp_path / "state" / "releases" / "2026Q1" / "labels.parquet").exists()
+
+    _quarter(cfg, "2026Q2", extra=3)                                # assign: every topic continues
+    second = FakeLLM()
+    second.model_id = "another-model"                              # a cache miss for every prompt: only reuse saves
+    q2 = label(cfg, llm=second).set_index("topic_id")
+    assert second.calls == 0
+    assert q2[["name_th", "name_en"]].equals(q1[["name_th", "name_en"]]) and (q2["label_source"] == "reused").all()
+    assert _meta(cfg)["reused"] == 4 and _meta(cfg)["generated"] == 0
+
+    # refit: a new topic (blob 4) and a topic whose keywords changed materially get new names; the rest are reused
+    _quarter(cfg, "2026Q3", blobs=(0, 1, 2, 3, 4), words={1: ["vaccine", "virus", "immunity"]}, mode="fit")
+    third = FakeLLM(lambda p, n: json.dumps({"name_th": f"ใหม่ {n}", "name_en": f"New {n}"}, ensure_ascii=False))
+    third.model_id = "third-model"
+    q3 = label(cfg, llm=third).set_index("topic_id")
+    work = tmp_path / "work"
+    events = read_table(work / "04_lineage.parquet").set_index("topic_id")["event"]
+    fine = read_table(work / "04_fine_topics.parquet").set_index("article_id")["fine_topic"]
+    fresh = set(q3.index[q3["name_en"].str.startswith("New ")])
+    assert third.calls == 2 and len(q3) == 5 and fresh == {int(fine["b1-0"]), int(fine["b4-0"])}
+    assert events[int(fine["b1-0"])] == "continue" and events[int(fine["b4-0"])] == "new"
+    assert (q3.loc[sorted(fresh), "label_source"] == "llm").all()
+    rest = q3.drop(index=sorted(fresh))
+    assert (rest["label_source"] == "reused").all() and rest["name_en"].equals(q1.loc[rest.index, "name_en"])
+
+
+def test_reuse_never_keeps_a_keyword_fallback_and_overrides_still_win(make_cfg, tmp_path):
+    cfg = _reuse_cfg(make_cfg, tmp_path)
+    cfg["labeling"]["provider"] = "off"
+    _quarter(cfg, "2026Q1")
+    label(cfg)
+    _quarter(cfg, "2026Q2")
+    path = tmp_path / "overrides.csv"
+    path.write_text("topic_id,name_th,name_en\nT000001,ชื่อของบรรณาธิการ,Editor's name\n", encoding="utf-8")
+    cfg["labeling"]["overrides_path"] = str(path)
+    q2 = label(cfg).set_index("topic_id")
+    assert (q2.drop(index=[1])["label_source"] == "keywords").all()      # keyword names are rebuilt every quarter
+    assert q2.loc[1, "label_source"] == "override" and q2.loc[1, "name_en"] == "Editor's name"
+    assert _meta(cfg)["reused"] == 0
+
+
+def test_manifest_counts_reused_labels():
+    from atlas.export_v2 import _label_stats
+
+    labels = pd.DataFrame({"label_source": ["llm", "reused", "reused", "keywords", "override"]})
+    st = _label_stats({"labeling": {"provider": "llm"}}, labels)
+    assert (st.llm, st.reused, st.keywords, st.overrides) == (1, 2, 1, 1)

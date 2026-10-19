@@ -40,7 +40,8 @@ class LlmTaskStats(_Model):
     generated: int
     repaired: int
     fallback: int
-    cost_usd: float
+    cost_usd: float = Field(description="spend of this task for the whole release: every run, from the LLM journal")
+    this_run_cost_usd: float = Field(0.0, description="spend of the run that produced this export")
 
 
 class LabelStats(_Model):
@@ -48,6 +49,8 @@ class LabelStats(_Model):
     llm: int = Field(description="topics named by the LLM (incl. cached names)")
     keywords: int = Field(description="topics named from author keywords (provider off or LLM fallback)")
     overrides: int = Field(description="topics whose name an editor corrected (labeling.overrides_path)")
+    reused: int = Field(0, description="topics that kept the previous release's name (lineage continue, keywords "
+                                       "unchanged by labeling.reuse_min_jaccard) — no LLM call")
 
 
 class Manifest(_Model):
@@ -67,7 +70,8 @@ class Manifest(_Model):
     files: list[FileEntry] = Field(default_factory=list)
     previous_release: str | None = None
     n_orgs_unverified: int = 0
-    ingest_errors: int = 0
+    ingest_errors: int | None = Field(None, description="files that could not be read or parsed; null = not "
+                                                        "recorded (work_dir from before per-file error recording)")
     labels: LabelStats | None = None
     llm: list[LlmTaskStats] = Field(default_factory=list)
 
@@ -128,7 +132,7 @@ class Topic(_Model):
     en: str
     description: str = ""
     keywords: list[str] = Field(default_factory=list)
-    label_source: Literal["llm", "keywords", "override"] = "keywords"
+    label_source: Literal["llm", "keywords", "override", "reused"] = "keywords"
     size: int
     x: float
     y: float

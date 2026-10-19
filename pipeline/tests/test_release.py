@@ -425,3 +425,50 @@ def test_publishing_an_older_release_keeps_the_site_latest(two_releases, tmp_pat
     assert "latest.json still points at 2026Q2" in capsys.readouterr().out
     publish({**cfg, "pipeline": {**cfg["pipeline"], "release": "2026Q1"}}, site=site, set_latest=True)
     assert json.loads((site / "data" / "latest.json").read_text(encoding="utf-8"))["release"] == "2026Q1"
+
+
+def test_ingest_errors_are_null_when_not_recorded(two_releases, tmp_path):
+    cfg = _workspace(two_releases, tmp_path, "2026Q2")
+    man = tmp_path / "out" / "data" / "2026Q2" / "manifest.json"
+    run(cfg, ["export"])
+    assert json.loads(man.read_text(encoding="utf-8"))["ingest_errors"] == 0           # recorded: no file failed
+    (tmp_path / "work" / "01_ingest_errors.parquet").unlink()                         # a work_dir from before P0 F11
+    run(cfg, ["export"])
+    assert json.loads(man.read_text(encoding="utf-8"))["ingest_errors"] is None        # unknown, never a claimed 0
+    Manifest.model_validate_json(man.read_text(encoding="utf-8"))
+
+
+def test_manifest_llm_cost_is_the_release_total_plus_this_run(two_releases, tmp_path):
+    from atlas.export_v2 import _llm_stats
+
+    cfg = _workspace(two_releases, tmp_path, "2026Q2")
+    work, cache = tmp_path / "work", tmp_path / "state" / "llm_cache"
+    cache.mkdir(parents=True)
+    (cache / "label.jsonl").write_text("\n".join(json.dumps(r) for r in [
+        {"key": "a", "task": "label", "release": "2026Q1", "cost_usd": 0.5, "output": {}},
+        {"key": "b", "task": "label", "release": "2026Q2", "cost_usd": 0.01, "output": None},   # paid, then fallback
+        {"key": "c", "task": "label", "release": "2026Q2", "cost_usd": 0.02, "output": {}}]) + "\n", encoding="utf-8")
+    (work / "05_labels_meta.json").write_text(json.dumps({"provider": "llm", "model_id": "m", "topics": 3, "reused": 2,
+                                                          "generated": 1, "cost_usd": 0.02}), encoding="utf-8")
+    (st,) = _llm_stats(cfg, work, {}, "2026Q2")
+    assert (st.task, st.cost_usd, st.this_run_cost_usd) == ("label", 0.03, 0.02)
+    assert st.items == 1                                           # 2 of 3 topics kept last release's name
+
+
+def test_group_colours_follow_the_group_id_not_its_size_rank(two_releases):
+    import re
+
+    from atlas.export_v2 import group_color, group_colors
+
+    common = ["F33", "F14", "F12", "F27", "F11", "F32", "F20", "F22", "F17", "F29", "F23", "F36"]
+    assert len({group_color(c) for c in common}) == 12          # the 12 most common TCI fields never share a colour
+    assert all(re.fullmatch(r"cat-(0[1-9]|1[0-2])", group_color(f"F{f}")) for f in range(11, 37))
+    assert [group_color(f"G{n:02d}") for n in range(13)] == [f"cat-{n % 12 + 1:02d}" for n in range(13)]
+    assert group_color("F33") == "cat-01" and group_color("F99") == group_color("F99")   # unknown field: stable too
+    root, _ = two_releases
+    tax = json.loads((root / "out" / "data" / "2026Q2" / "taxonomy.json").read_text(encoding="utf-8"))
+    assert all(g["color"] == group_colors([x["id"] for x in tax["groups"]])[g["id"]] for g in tax["groups"])
+    # one release's groups never share a colour (≤ 12): a collision moves the higher id to the next free token
+    assert group_colors(["F23", "F30", "F14"]) == {"F23": "cat-11", "F30": "cat-12", "F14": "cat-02"}
+    assert group_colors(["F30", "F14"]) == {"F30": "cat-11", "F14": "cat-02"}            # no collision: as preferred
+    assert len(set(group_colors([f"F{f}" for f in range(11, 23)]).values())) == 12
