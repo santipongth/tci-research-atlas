@@ -31,8 +31,6 @@ from atlas.io_utils import read_table, write_table
 from atlas.state import previous_release, release_dir
 from atlas.taxonomy import load_topic_groups
 
-MARGIN = 90.0
-
 
 def procrustes_fit(A: np.ndarray, B: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
     """Similarity transform (scale s, orthogonal R, shift t) with s·A·R + t ≈ B (least squares)."""
@@ -44,11 +42,11 @@ def procrustes_fit(A: np.ndarray, B: np.ndarray) -> tuple[float, np.ndarray, np.
     return s, R, mb - s * ma @ R
 
 
-def _minmax_to_view(pos: np.ndarray, W: float, H: float) -> np.ndarray:
+def _minmax_to_view(pos: np.ndarray, W: float, H: float, margin: float) -> np.ndarray:
     out = pos.astype(float).copy()
     for ax, size in ((0, W), (1, H)):
         lo, hi = out[:, ax].min(), out[:, ax].max()
-        out[:, ax] = MARGIN + (out[:, ax] - lo) / max(hi - lo, 1e-6) * (size - 2 * MARGIN)
+        out[:, ax] = margin + (out[:, ax] - lo) / max(hi - lo, 1e-6) * (size - 2 * margin)
     return out
 
 
@@ -74,6 +72,7 @@ def init_positions(ids: list[int], C: np.ndarray, prev_xy: dict[int, tuple[float
 def topic_positions(ids: list[int], C: np.ndarray, lcfg: dict, seed: int,
                     prev_xy: dict[int, tuple[float, float]]) -> np.ndarray:
     W, H = float(lcfg["view_w"]), float(lcfg["view_h"])
+    margin = float(lcfg["margin"])
     init = init_positions(ids, C, prev_xy, int(lcfg["init_neighbors"])) if lcfg["stable"] and prev_xy else None
     if len(ids) >= 4:
         import umap
@@ -86,7 +85,7 @@ def topic_positions(ids: list[int], C: np.ndarray, lcfg: dict, seed: int,
         pos = np.stack([np.cos(ang), np.sin(ang)], axis=1)
     keep = [i for i, t in enumerate(ids) if t in prev_xy]
     if init is None or len(keep) < 3:
-        return _minmax_to_view(pos, W, H)
+        return _minmax_to_view(pos, W, H, margin)
     P = np.array([prev_xy[ids[i]] for i in keep], dtype=float)
     s, R, t = procrustes_fit(pos[keep], P)
     aligned = s * pos @ R + t
@@ -98,8 +97,8 @@ def topic_positions(ids: list[int], C: np.ndarray, lcfg: dict, seed: int,
     for i in range(len(ids)):                                # a new topic moves with its nearest old neighbours
         if ids[i] not in prev_xy:
             out[i] = aligned[i] + shift[np.argsort(-sims[i])[:int(lcfg["init_neighbors"])]].mean(axis=0)
-    out[:, 0] = np.clip(out[:, 0], MARGIN, W - MARGIN)
-    out[:, 1] = np.clip(out[:, 1], MARGIN, H - MARGIN)
+    out[:, 0] = np.clip(out[:, 0], margin, W - margin)
+    out[:, 1] = np.clip(out[:, 1], margin, H - margin)
     return out
 
 

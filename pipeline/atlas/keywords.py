@@ -3,7 +3,7 @@
 Terms = author keywords (TH + EN), grouped by norm_key (case, spacing and lost tone marks fold together);
 counts are documents per year. Windows R / B / W are the Emerging windows (emerging.*). A term is
 emerging when it is
-  novel       share_R / share_B ≥ novelty_min_ratio (B smoothed by half an article) and it is not a
+  novel       share_R / share_B ≥ novelty_min_ratio (B smoothed by keywords.smoothing_articles, default half an article) and it is not a
               generic term (in ≤ max_doc_share of all documents)
   persistent  present in ≥ min_active_years of the W years
   communal    ≥ min_orgs institutions in R, and not journal-driven (≥ min_journals journals in R and
@@ -67,7 +67,7 @@ def emerging_keywords(kw: pd.DataFrame, totals: pd.Series, last_year: int, ecfg:
     cnt_R = by_year.reindex(columns=R, fill_value=0).sum(axis=1)
     cnt_B = by_year.reindex(columns=B, fill_value=0).sum(axis=1)
     doc_share = by_year.sum(axis=1) / max(n_docs, 1.0)
-    eps_B = 0.5 / max(N_B, 1.0)
+    eps_B = float(kcfg["smoothing_articles"]) / max(N_B, 1.0)
     ratio = (cnt_R / N_R + eps_B) / (cnt_B / max(N_B, 1.0) + eps_B)
     active = (by_year.reindex(columns=W, fill_value=0) > 0).sum(axis=1)
     cand = ((cnt_R >= int(kcfg["min_docs_recent"])) & (doc_share <= float(kcfg["max_doc_share"]))

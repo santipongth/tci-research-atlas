@@ -30,12 +30,14 @@ from __future__ import annotations
 import json
 import math
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from statistics import NormalDist
 
 import numpy as np
 import pandas as pd
 
+from atlas.config import ForecastCfg
 from atlas.io_utils import read_table, write_table
 
 FORECAST_COLUMNS = ["topic_id", "model", "backtest_mae", "backtest_mape", "mase", "skill_vs_naive", "show",
@@ -74,7 +76,24 @@ def total_forecast(model: str, N: np.ndarray, h: int) -> np.ndarray:
     return np.maximum(out, 1.0)
 
 
-def nb_trend(c: np.ndarray, N: np.ndarray) -> tuple[float, float, float, float]:
+@dataclass(frozen=True)
+class NbParams:
+    """Result-changing constants of the NB interval (forecast.alpha_min/alpha_max/dispersion_fallback/sigma_floor)."""
+    alpha_min: float
+    alpha_max: float
+    dispersion_fallback: float
+    sigma_floor: float
+
+    @classmethod
+    def from_cfg(cls, fcfg: dict) -> NbParams:
+        return cls(float(fcfg["alpha_min"]), float(fcfg["alpha_max"]), float(fcfg["dispersion_fallback"]),
+                   float(fcfg["sigma_floor"]))
+
+
+NB_DEFAULT = NbParams.from_cfg(ForecastCfg().model_dump())      # the shipped defaults, for callers without a config
+
+
+def nb_trend(c: np.ndarray, N: np.ndarray, nb_params: NbParams = NB_DEFAULT) -> tuple[float, float, float, float]:
     """log E[c_t] = log N_t + a + b·(t − t̄) → (a, b, alpha, t̄) with NB2 alpha by moments."""
     import statsmodels.api as sm
 
@@ -86,7 +105,7 @@ def nb_trend(c: np.ndarray, N: np.ndarray) -> tuple[float, float, float, float]:
         pois = sm.GLM(c, X, family=sm.families.Poisson(), offset=np.log(N)).fit()
         mu = np.asarray(pois.fittedvalues, dtype=float)
         dof = max(len(c) - 2, 1)
-        alpha = float(np.clip(np.sum(((c - mu) ** 2 - mu) / np.maximum(mu, 1e-9) ** 2) / dof, 1e-6, 10.0))
+        alpha = float(np.clip(np.sum(((c - mu) ** 2 - mu) / np.maximum(mu, 1e-9) ** 2) / dof, nb_params.alpha_min, nb_params.alpha_max))
         nb = sm.GLM(c, X, family=sm.families.NegativeBinomial(alpha=alpha), offset=np.log(N)).fit()
     a, b = (float(v) for v in nb.params)
     if not (math.isfinite(a) and math.isfinite(b)):
@@ -94,13 +113,14 @@ def nb_trend(c: np.ndarray, N: np.ndarray) -> tuple[float, float, float, float]:
     return a, b, alpha, tm
 
 
-def share_forecast(model: str, c: np.ndarray, N: np.ndarray, h: int) -> np.ndarray:
+def share_forecast(model: str, c: np.ndarray, N: np.ndarray, h: int,
+                   nb_params: NbParams = NB_DEFAULT) -> np.ndarray:
     s = c / N
     steps = np.arange(1, h + 1)
     if model == "drift":
         out = s[-1] + steps * (s[-1] - s[0]) / max(len(s) - 1, 1)
     elif model == "nb_glm":
-        a, b, _, tm = nb_trend(c, N)
+        a, b, _, tm = nb_trend(c, N, nb_params)
         out = np.exp(a + b * (len(c) - 1 + steps - tm))
     elif model == "ets_damped":
         out = holt_damped(s, h)
@@ -109,23 +129,24 @@ def share_forecast(model: str, c: np.ndarray, N: np.ndarray, h: int) -> np.ndarr
     return np.clip(out, 0.0, 1.0)
 
 
-def predict_counts(model: str, c: np.ndarray, N: np.ndarray, N_future: np.ndarray) -> np.ndarray:
+def predict_counts(model: str, c: np.ndarray, N: np.ndarray, N_future: np.ndarray,
+                   nb_params: NbParams = NB_DEFAULT) -> np.ndarray:
     if model == "naive":
         return np.repeat(float(c[-1]), len(N_future))
-    return share_forecast(model, c, N, len(N_future)) * N_future
+    return share_forecast(model, c, N, len(N_future), nb_params) * N_future
 
 
-def dispersion(c: np.ndarray, N: np.ndarray) -> float:
-    """NB2 alpha of a topic (0 = Poisson); falls back to 0.1 when the trend model cannot be fitted."""
+def dispersion(c: np.ndarray, N: np.ndarray, nb_params: NbParams = NB_DEFAULT) -> float:
+    """NB2 alpha of a topic (0 = Poisson); forecast.dispersion_fallback when the trend model cannot be fitted."""
     try:
-        return nb_trend(c, N)[2]
+        return nb_trend(c, N, nb_params)[2]
     except Exception:  # noqa: BLE001
-        return 0.1
+        return nb_params.dispersion_fallback
 
 
-def nb_sigma(mu: np.ndarray, alpha: float) -> np.ndarray:
+def nb_sigma(mu: np.ndarray, alpha: float, nb_params: NbParams = NB_DEFAULT) -> np.ndarray:
     mu = np.maximum(np.asarray(mu, dtype=float), 0.0)
-    return np.sqrt(mu + alpha * mu ** 2) + 0.5          # +0.5: a count interval is never narrower than ±½
+    return np.sqrt(mu + alpha * mu ** 2) + nb_params.sigma_floor     # forecast.sigma_floor: never narrower than ±floor
 
 
 # ------------------------------------------------------------------ backtest
@@ -148,7 +169,8 @@ def choose_total_model(N: np.ndarray, models: list[str], horizon: int, cv_origin
 
 
 def backtest_topic(c: np.ndarray, N: np.ndarray, models: list[str], n_hat: dict[int, np.ndarray], offset: int,
-                   horizon: int, cv_origins: int, min_train: int) -> dict[str, list[tuple[int, int, float, float, float]]]:
+                   horizon: int, cv_origins: int, min_train: int,
+                   nb_params: NbParams = NB_DEFAULT) -> dict[str, list[tuple[int, int, float, float, float]]]:
     """model → [(origin, h, actual, predicted, sigma)] over all rolling origins; models that fail anywhere are dropped.
 
     c, N start at the topic's first year = index `offset` of the corpus years; n_hat[i] is the corpus-total
@@ -159,19 +181,19 @@ def backtest_topic(c: np.ndarray, N: np.ndarray, models: list[str], n_hat: dict[
     for o in origins(len(c), cv_origins, min_train):
         h = min(horizon, len(c) - 1 - o)
         N_hat = n_hat[offset + o][:h]
-        alpha = dispersion(c[:o + 1], N[:o + 1])
+        alpha = dispersion(c[:o + 1], N[:o + 1], nb_params)
         for m in models:
             if m in failed:
                 continue
             try:
-                p = np.maximum(predict_counts(m, c[:o + 1], N[:o + 1], N_hat), 0.0)
+                p = np.maximum(predict_counts(m, c[:o + 1], N[:o + 1], N_hat, nb_params), 0.0)
             except Exception:  # noqa: BLE001 — a model that cannot fit this origin is out for the topic
                 failed.add(m)
                 continue
             if not np.isfinite(p).all():                 # NaN/inf predictions never enter the MAE
                 failed.add(m)
                 continue
-            sig = nb_sigma(p, alpha)
+            sig = nb_sigma(p, alpha, nb_params)
             out[m] += [(o, k + 1, float(c[o + 1 + k]), float(p[k]), float(sig[k])) for k in range(h)]
     return {m: v for m, v in out.items() if m not in failed and v}
 
@@ -226,6 +248,7 @@ def forecast_all(series: pd.DataFrame, totals: pd.Series, last_year: int, fcfg: 
                  horizon: int | None = None) -> tuple[pd.DataFrame, dict]:
     """series: topic_id, year, count (years ≤ last_year) · totals: corpus articles by year (index = year)."""
     H = int(horizon or fcfg["horizon"])
+    nbp = NbParams.from_cfg(fcfg)
     cvo, mtr = int(fcfg["cv_origins"]), int(fcfg["min_train_years"])
     years = [y for y in sorted(int(y) for y in totals.index) if y <= last_year]
     N = totals.reindex(years).to_numpy(dtype=float)
@@ -242,7 +265,7 @@ def forecast_all(series: pd.DataFrame, totals: pd.Series, last_year: int, fcfg: 
         c, Nt = cnt[first:], N[first:]                      # history starts at the topic's first article
         if len(c) < int(fcfg["min_history_years"]) or c.sum() == 0:
             continue
-        bt = backtest_topic(c, Nt, models, n_hat, first, H, cvo, mtr)
+        bt = backtest_topic(c, Nt, models, n_hat, first, H, cvo, mtr, nbp)
         if "naive" not in bt:
             continue
         mae = {m: _mae(v) for m, v in bt.items()}
@@ -263,8 +286,8 @@ def forecast_all(series: pd.DataFrame, totals: pd.Series, last_year: int, fcfg: 
     q = conformal_factors(scores, int(fcfg["min_calibration"]))
     rows = []
     for f in fits:
-        mean = np.maximum(predict_counts(f["best"], f["c"], f["N"], N_future), 0.0)
-        sig = nb_sigma(mean, dispersion(f["c"], f["N"]))
+        mean = np.maximum(predict_counts(f["best"], f["c"], f["N"], N_future, nbp), 0.0)
+        sig = nb_sigma(mean, dispersion(f["c"], f["N"], nbp), nbp)
         show = bool(f["best"] != "naive" and f["skill"] > float(fcfg["min_skill"])
                     and math.isfinite(f["mase"]) and f["mase"] < float(fcfg["max_mase"]))
         lo = {lv: [round(max(float(mean[i] - q[i + 1][lv] * sig[i]), 0.0), 1) for i in range(H)] for lv in LEVELS}

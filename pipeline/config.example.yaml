@@ -250,6 +250,7 @@ keywords:
   max_new_journal_share: 0.5  # บทความจากวารสารที่เพิ่งเข้าระบบใน R ต้อง < 50%
   min_growth_lo: 0.0          # โตจริง: CI ล่างของอัตราโต share > ค่านี้
   max_terms: 50               # จำนวนคำสูงสุดที่ส่งออก
+  smoothing_articles: 0.5     # ปรับสัดส่วนช่วงฐานด้วยบทความสมมติกี่เรื่อง (กันหารศูนย์ของคำใหม่) — มีผลต่อ novelty_min_ratio
 
 # ---------- Forecast v2 — share × ยอดรวม corpus ----------
 forecast:
@@ -261,6 +262,10 @@ forecast:
   min_train_years: 4          # จุดตั้งต้นต้องมีข้อมูลฝึกอย่างน้อยเท่านี้
   min_skill: 0.0              # แสดงตัวเลขเฉพาะเมื่อ skill เทียบ naive > ค่านี้ (ไม่งั้น "แนวโน้มไม่แน่นอน")
   max_mase: 1.0               # ... และ MASE < ค่านี้
+  dispersion_fallback: 0.1    # NB alpha (ความแปรปรวนเกิน Poisson) เมื่อ fit แนวโน้มของหัวข้อไม่ได้
+  sigma_floor: 0.5            # ช่วงพยากรณ์ของจำนวนนับไม่แคบกว่า ± ค่านี้ (บทความ)
+  alpha_min: 1.0e-6           # ขอบล่างของ NB alpha ที่ประมาณด้วย moments
+  alpha_max: 10.0             # ขอบบน
   min_calibration: 20         # ค่าคลาดเคลื่อนจาก backtest อย่างน้อยเท่านี้ต่อ horizon จึงใช้ conformal (ไม่งั้นใช้ normal)
   nowcast:                    # ประมาณยอดทั้งปีของปีที่ยังไม่ครบ จากยอดสะสมตามเดือนตีพิมพ์
     enabled: true
@@ -279,6 +284,7 @@ layout:
   anchor: 0.9                 # 1 = หัวข้อเดิมอยู่ตำแหน่งเดิมทุกประการ, 0 = ตาม UMAP รอบนี้ (หลังจัดแนวแล้ว)
   init_neighbors: 3           # หัวข้อใหม่วางตามหัวข้อเดิมที่คล้ายที่สุด 3 หัวข้อ
   galaxy: true                # พิกัดบทความรอบหัวข้อ (work/09_galaxy)
+  margin: 90                  # ขอบเว้นรอบแผนที่ (พิกเซลของ view_w × view_h) ที่หัวข้อไม่ล้ำเข้าไป
 
 export:
   formats: [json, csv]

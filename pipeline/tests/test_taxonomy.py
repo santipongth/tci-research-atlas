@@ -7,7 +7,7 @@ import pandas as pd
 from atlas.export import build_atlas
 from atlas.io_utils import read_table, write_table
 from atlas.synth import SUBFIELDS, TOPICS, reference_works
-from atlas.taxonomy import FIELD_TH, knn_vote, load_topic_groups, taxonomy
+from atlas.taxonomy import FALLBACK_GROUP_BASE, FIELD_TH, knn_vote, load_topic_groups, taxonomy
 
 KEYS = ["genai_edu", "math_learning", "print_media"]
 
@@ -135,12 +135,12 @@ def test_stale_taxonomy_never_drops_topics_and_export_matches_layout(make_cfg, t
                               "group_th": [FIELD_TH["17"], FIELD_TH["33"]]}), work / "10_taxonomy.parquet")
     np.save(work / "04_centroids.npy", np.eye(3, 8, dtype=np.float32))
     (work / "04_centroid_ids.json").write_text("[1, 2, 3]", encoding="utf-8")
-    assert load_topic_groups(work).set_index("topic_id")["group_id"].to_dict() == {1: 17, 2: 33, 3: 5}
+    assert load_topic_groups(work).set_index("topic_id")["group_id"].to_dict() == {1: 17, 2: 33, 3: FALLBACK_GROUP_BASE + 5}
     assert "WARNING" in capsys.readouterr().out
 
     layout(cfg)
     lay = read_table(work / "09_layout.parquet")
-    assert lay[lay["kind"] == "topic"].set_index("id")["parent"].to_dict() == {1: 17, 2: 33, 3: 5}
+    assert lay[lay["kind"] == "topic"].set_index("id")["parent"].to_dict() == {1: 17, 2: 33, 3: FALLBACK_GROUP_BASE + 5}
     write_table(pd.DataFrame({"article_id": range(60)}), work / "02_docs.parquet")
     write_table(pd.DataFrame({"level": "fine", "topic_id": [1, 2, 3], "name_th": ["a", "b", "c"],
                               "name_en": ["A", "B", "C"], "description": "", "keywords": "", "cache_key": "x"}),
@@ -155,5 +155,15 @@ def test_stale_taxonomy_never_drops_topics_and_export_matches_layout(make_cfg, t
     export(cfg)
     atlas = json.loads((tmp_path / "out" / "atlas_data.json").read_text(encoding="utf-8"))
     groups = {n["nodeId"]: n["group"] for n in atlas["nodes"] if n["kind"] == "topic"}
-    assert groups == {"t1": "g17", "t2": "g33", "t3": "g5"}                 # same group ids as the layout
-    assert atlas["meta"]["total_topics"] == 3 and {g["id"] for g in atlas["groups"]} == {"g17", "g33", "g5"}
+    assert groups == {"t1": "g17", "t2": "g33", "t3": "g1005"}                 # same group ids as the layout
+    assert atlas["meta"]["total_topics"] == 3 and {g["id"] for g in atlas["groups"]} == {"g17", "g33", "g1005"}
+
+
+def test_fallback_group_never_collides_with_an_openalex_field(tmp_path):
+    work = tmp_path / "work"
+    write_table(pd.DataFrame({"topic_id": [1, 2, 3], "size": [30, 20, 10], "coarse_topic": [0, 0, 17],
+                              "top_terms": "", "top_keywords": "", "coherence": 0.5}), work / "04_topic_info.parquet")
+    write_table(pd.DataFrame({"topic_id": [1, 2], "group_id": [17, 33], "group_en": ["Computer Science", "Social"],
+                              "group_th": [FIELD_TH["17"], FIELD_TH["33"]]}), work / "10_taxonomy.parquet")
+    g = load_topic_groups(work).set_index("topic_id")["group_id"].to_dict()
+    assert g[3] != g[1] and g[3] >= FALLBACK_GROUP_BASE            # coarse 17 is not OpenAlex field 17

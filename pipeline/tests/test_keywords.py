@@ -80,3 +80,14 @@ def test_keywords_step_and_disabled_switch(make_cfg, tmp_path):
     assert len(read_table(work / "07_keywords.parquet")) == len(out)
     cfg["keywords"]["enabled"] = False
     assert keywords(cfg).empty and read_table(work / "07_keywords.parquet").empty
+
+
+def test_smoothing_articles_is_a_config_key():
+    docs, authors = _docs()
+    totals = docs.groupby("year").size()
+    totals.index = totals.index.astype(int)
+    jfirst = docs.groupby("journal_name")["year"].min().rename("first_year").reset_index().rename(
+        columns={"journal_name": "journal"})
+    heavy = {**CFG["keywords"], "smoothing_articles": 1e6}           # B swamped by pseudo-articles → ratio ≈ 1
+    out = emerging_keywords(keyword_rows(docs), totals, 2024, CFG["emerging"], heavy, authors, jfirst)
+    assert "chatgpt" not in set(out["key"])

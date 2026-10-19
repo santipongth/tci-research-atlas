@@ -86,3 +86,11 @@ def test_layout_without_previous_release_fills_the_view(make_cfg, tmp_path):
     xs = [x for x, _ in _positions(tmp_path).values()]
     assert min(xs) == 90.0 and max(xs) == cfg["layout"]["view_w"] - 90.0
     assert not (tmp_path / "work" / "09_galaxy.parquet").exists()
+
+
+def test_margin_is_a_config_key():
+    from atlas.layout import _minmax_to_view
+
+    pos = np.array([[0.0, 0.0], [1.0, 2.0]])
+    assert _minmax_to_view(pos, 1000, 800, 90)[0].tolist() == [90.0, 90.0]
+    assert _minmax_to_view(pos, 1000, 800, 10)[1].tolist() == [990.0, 790.0]

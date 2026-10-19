@@ -84,13 +84,16 @@ def topic_votes(labels: np.ndarray, emb: np.ndarray, ids: list[int], C: np.ndarr
     return pd.DataFrame(rows)
 
 
+FALLBACK_GROUP_BASE = 1000      # group_id = 1000 + coarse topic for topics a stale 10_taxonomy does not know
+
+
 def load_topic_groups(work: str | Path) -> pd.DataFrame:
     """topic_id, group_id (int), group_en, group_th for every topic of 04_topic_info.
 
     From 10_taxonomy when the taxonomy step ran, else the P0 coarse groups. A 10_taxonomy that does not match
     04_topic_info (re-clustered without re-running taxonomy) is used only for the topics it knows; every other
-    topic keeps its coarse group, with a WARNING. Export and layout both read this function, so they always
-    agree and no topic disappears from the map.
+    topic keeps its coarse group (id FALLBACK_GROUP_BASE + coarse, never an OpenAlex field id), with a WARNING.
+    Export and layout both read this function, so they always agree and no topic disappears from the map.
     """
     work = Path(work)
     info = read_table(work / "04_topic_info.parquet")
@@ -100,6 +103,7 @@ def load_topic_groups(work: str | Path) -> pd.DataFrame:
         t = read_table(work / "10_taxonomy.parquet")
     except FileNotFoundError:
         return coarse
+    agglomerative = "source" in t.columns and bool((t["source"] == "agglomerative").all())
     t = t[["topic_id", "group_id", "group_en", "group_th"]].astype({"group_id": int})
     known, wanted = set(t["topic_id"].astype(int)), set(info["topic_id"].astype(int))
     if known == wanted:
@@ -109,7 +113,10 @@ def load_topic_groups(work: str | Path) -> pd.DataFrame:
           "atlas run -c <config.yaml> -s taxonomy -s layout -s export")
     out = coarse[["topic_id"]].merge(t, on="topic_id", how="left")
     miss = out["group_id"].isna().to_numpy()
-    out.loc[miss, "group_id"] = coarse.loc[miss, "group_id"].to_numpy()
+    # coarse ids share the number range of OpenAlex field ids (11-36): offset them so a stale topic never lands in
+    # an unrelated field (an agglomerative 10_taxonomy already uses coarse ids, so there they stay as they are)
+    shift = 0 if agglomerative else FALLBACK_GROUP_BASE
+    out.loc[miss, "group_id"] = coarse.loc[miss, "group_id"].to_numpy() + shift
     out[["group_en", "group_th"]] = out[["group_en", "group_th"]].fillna("").astype(str)
     return out.astype({"group_id": int})
 

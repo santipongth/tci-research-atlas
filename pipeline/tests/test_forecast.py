@@ -141,10 +141,26 @@ def test_non_finite_predictions_never_win_and_no_finite_baseline_means_no_foreca
     s, tot = _panel({1: [round(N[i] * 0.02 * 1.08 ** i) for i in range(13)]}, N)
 
     def nan_for(bad):
-        return lambda m, c, n, n_future: np.full(len(n_future), np.nan) if m in bad else real(m, c, n, n_future)
+        return lambda m, c, n, n_future, *a: np.full(len(n_future), np.nan) if m in bad else real(m, c, n, n_future, *a)
 
     monkeypatch.setattr(F, "predict_counts", nan_for({"drift", "nb_glm"}))
     r = forecast_all(s, tot, 2024, FCFG)[0].iloc[0]
     assert r["model"] not in ("drift", "nb_glm") and np.isfinite(r["backtest_mae"])
     monkeypatch.setattr(F, "predict_counts", nan_for({"naive"}))
     assert forecast_all(s, tot, 2024, FCFG)[0].empty            # no finite baseline → no skill → no forecast
+
+
+def test_nb_constants_are_config_keys(monkeypatch):
+    import atlas.forecast as F
+
+    nb = F.NbParams.from_cfg({**FCFG, "sigma_floor": 2.0, "dispersion_fallback": 0.7})
+    assert F.NbParams.from_cfg(FCFG) == F.NB_DEFAULT
+    assert F.nb_sigma(np.array([0.0]), 0.0, nb)[0] == 2.0 and F.nb_sigma(np.array([0.0]), 0.0)[0] == 0.5
+    monkeypatch.setattr(F, "nb_trend", lambda *a, **k: (_ for _ in ()).throw(ValueError("x")))
+    assert F.dispersion(np.ones(5), np.ones(5), nb) == 0.7 and F.dispersion(np.ones(5), np.ones(5)) == 0.1
+    N = [1000.0 * 1.05 ** i for i in range(13)]
+    s, tot = _panel({1: [round(N[i] * 0.02 * 1.08 ** i) for i in range(13)]}, N)
+    narrow = F.forecast_all(s, tot, 2024, FCFG)[0].iloc[0]
+    wide = F.forecast_all(s, tot, 2024, {**FCFG, "sigma_floor": 50.0})[0].iloc[0]
+    assert json.loads(wide["fc_hi80"])[0] - json.loads(wide["fc_lo80"])[0] > \
+        json.loads(narrow["fc_hi80"])[0] - json.loads(narrow["fc_lo80"])[0]

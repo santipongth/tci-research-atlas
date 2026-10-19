@@ -268,6 +268,10 @@ class ForecastCfg(_Strict):
     min_skill: float = 0.0
     max_mase: float = Field(1.0, gt=0.0)
     min_calibration: int = Field(20, ge=1)
+    dispersion_fallback: float = Field(0.1, ge=0.0)      # NB alpha when the trend model cannot be fitted
+    sigma_floor: float = Field(0.5, ge=0.0)              # a count interval is never narrower than +/- this
+    alpha_min: float = Field(1e-6, gt=0.0)               # clip bounds of the moment-estimated NB alpha
+    alpha_max: float = Field(10.0, gt=0.0)
     nowcast: NowcastCfg = Field(default_factory=NowcastCfg)
 
 
@@ -282,6 +286,7 @@ class KeywordsCfg(_Strict):
     max_new_journal_share: float = Field(0.5, gt=0.0, le=1.0)
     min_growth_lo: float = 0.0
     max_terms: int = Field(50, ge=1)
+    smoothing_articles: float = Field(0.5, gt=0.0)
 
 
 class LayoutCfg(_Strict):
@@ -295,6 +300,7 @@ class LayoutCfg(_Strict):
     anchor: float = Field(0.9, ge=0.0, le=1.0)
     init_neighbors: int = Field(3, ge=1)
     galaxy: bool = True
+    margin: float = Field(90.0, ge=0.0)
 
 
 class ExportCfg(_Strict):
