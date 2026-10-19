@@ -5,14 +5,15 @@ import { common } from './common'
 import { compare } from './compare'
 import { data } from './data'
 import { emerging } from './emerging'
+import { journals } from './journals'
 import { modules } from './modules'
 import { overview } from './overview'
 import { topic } from './topic'
 import { ui } from './ui'
 
 /** Every string file, so the parity test can detect a key defined twice. */
-export const PARTS = { common, ui, overview, emerging, topic, atlas, compare, data, about, brief, modules } as const
+export const PARTS = { common, ui, overview, emerging, topic, atlas, compare, data, about, brief, modules, journals } as const
 
-export const STR = { ...common, ...ui, ...overview, ...emerging, ...topic, ...atlas, ...compare, ...data, ...about, ...brief, ...modules }
+export const STR = { ...common, ...ui, ...overview, ...emerging, ...topic, ...atlas, ...compare, ...data, ...about, ...brief, ...modules, ...journals }
 
 export type StrKey = keyof typeof STR

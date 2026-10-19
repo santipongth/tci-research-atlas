@@ -1,5 +1,7 @@
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
+import { RouteLoading } from './components/RouteLoading'
 import AboutPage from './pages/AboutPage'
 import AtlasPage from './pages/AtlasPage'
 import BriefPage from './pages/BriefPage'
@@ -9,6 +11,13 @@ import EmergingPage from './pages/EmergingPage'
 import NotFoundPage from './pages/NotFoundPage'
 import OverviewPage from './pages/OverviewPage'
 import TopicPage from './pages/TopicPage'
+
+// The editors' pages load on demand: their code (and the data they fetch) stays out of the first download.
+const JournalsPage = lazy(() => import('./pages/JournalsPage'))
+
+function Lazy({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
+}
 
 export default function App() {
   return (
@@ -20,6 +29,7 @@ export default function App() {
         <Route path="atlas" element={<AtlasPage />} />
         <Route path="topics/:id" element={<TopicPage />} />
         <Route path="emerging" element={<EmergingPage />} />
+        <Route path="journals" element={<Lazy><JournalsPage /></Lazy>} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="data" element={<DataPage />} />
         <Route path="about" element={<AboutPage />} />

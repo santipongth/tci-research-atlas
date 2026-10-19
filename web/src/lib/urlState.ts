@@ -134,3 +134,19 @@ export const compareCodec = makeCodec<CompareUrlState>({
 
 export const overviewCodec = makeCodec<{ st: View; pf: View }>({ st: oneOf('st', VIEWS, 'chart'), pf: oneOf('pf', VIEWS, 'chart') })
 export const topicCodec = makeCodec<{ trend: View }>({ trend: oneOf('trend', VIEWS, 'chart') })
+export const JOURNAL_SORTS = ['name', 'tier', 'articles', 'completeness', 'inhouse', 'orgs', 'foreign'] as const
+export type JournalSort = (typeof JOURNAL_SORTS)[number]
+export const TIERS = ['all', '1', '2', '3', 'none'] as const
+export interface JournalsUrlState {
+  q: string
+  tier: (typeof TIERS)[number]
+  sort: JournalSort
+  dir: 'asc' | 'desc'
+}
+export const journalsCodec = makeCodec<JournalsUrlState>({
+  q: text('q', 80),
+  tier: oneOf('tier', TIERS, 'all'),
+  sort: oneOf('sort', JOURNAL_SORTS, 'articles'),
+  dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
+})
+export const journalCodec = makeCodec<{ drift: View }>({ drift: oneOf('drift', VIEWS, 'chart') })

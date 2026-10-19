@@ -17,6 +17,7 @@ const ROUTES = [
   { name: 'data', path: '/data' },
   { name: 'about', path: '/about' },
   { name: 'brief', path: '/brief' },
+  { name: 'journals', path: '/journals' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -135,11 +136,26 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.brief .headline mark').first()).toBeVisible()
     await expect(page.locator('.brief-t').first().locator('tbody tr')).toHaveCount(5)
   },
+  journals: async (page) => {
+    const rows = page.locator('#journals tbody tr')
+    await expect(rows).toHaveCount(6)
+    await expect(page.locator('#journals')).toContainText('example2')          // no registry name → the OJS name
+    await expect(page.locator('#journals .flag', { hasText: 'อนุมาน' }).first()).toBeVisible()
+    await page.getByLabel('ค้นหาวารสาร (ชื่อ, ชื่อ OJS หรือ ISSN)').fill('example5')
+    await expect(rows).toHaveCount(1)
+    await expect(page).toHaveURL(/q=example5/)
+    await page.getByLabel('ค้นหาวารสาร (ชื่อ, ชื่อ OJS หรือ ISSN)').fill('')
+    await page.getByLabel('กลุ่มวารสาร TCI').selectOption('1')
+    await expect(rows).toHaveCount(2)
+    await expect(page.locator('#special-issues')).toContainText('ไมโครพลาสติก')
+    await page.getByRole('link', { name: 'วารสารวิชาการตัวอย่าง ก' }).click()
+    await expect(page).toHaveURL(/#\/journals\/so02\.example0$/)
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
