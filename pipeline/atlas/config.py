@@ -389,6 +389,12 @@ class MatchCfg(_Strict):
     min_query_chars: int = Field(40, ge=1)
 
 
+class ChangesCfg(_Strict):
+    """Quarter diff (diff.json, page /changes)."""
+    movers: int = Field(10, ge=0)
+    min_share_delta: float = Field(0.0005, ge=0.0)
+
+
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
@@ -510,6 +516,7 @@ class AtlasConfig(_Strict):
     journals: JournalsCfg = Field(default_factory=JournalsCfg)
     methods: MethodsCfg = Field(default_factory=MethodsCfg)
     match: MatchCfg = Field(default_factory=MatchCfg)
+    changes: ChangesCfg = Field(default_factory=ChangesCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)

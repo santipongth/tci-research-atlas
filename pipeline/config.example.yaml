@@ -349,6 +349,11 @@ match:
   journal_min_share: 0.02     # ...เฉพาะหัวข้อที่เป็น ≥ 2% ของบทความวารสารในช่วง journals.window_years
   min_query_chars: 40         # ข้อความที่วางต้องยาวอย่างน้อยเท่านี้ (หลังตัดช่องว่าง)
 
+# ---------- P2 อะไรเปลี่ยนตั้งแต่รอบก่อน (diff.json, หน้า /changes) ----------
+changes:
+  movers: 10                  # หัวข้อที่สัดส่วนช่วง R เปลี่ยนมากที่สุด
+  min_share_delta: 0.0005     # เปลี่ยน < 0.05 จุดร้อยละ ไม่นับเป็น mover
+
 export:
   formats: [json, csv]
   include_forecast_in_json: true

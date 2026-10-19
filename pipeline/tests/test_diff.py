@@ -1,0 +1,60 @@
+"""Quarter diff: snapshots in state_dir, fallback to the previous release folder, what changed."""
+import json
+
+import pytest
+
+from atlas.config import load_config
+from atlas.diff import load_snapshot, make_snapshot, quarter_diff, write_snapshot
+
+
+def _topic(tid, status, size, share, th="ก"):
+    return {"id": tid, "status": status, "size": size, "score": 50.0, "th": th, "en": tid,
+            "metrics": {"share_recent": share}}
+
+
+PREV = make_snapshot("2026Q3", [_topic("T000001", "STABLE", 100, 0.010), _topic("T000002", "HOT", 300, 0.030),
+                                _topic("T000003", "DECLINING", 50, 0.004, th="เก่า")],
+                     {"articles": 1000, "topics": 3, "journals": 2}, ["so02.A", "so02.B"])
+CUR = make_snapshot("2026Q4", [_topic("T000001", "EMERGING", 140, 0.016), _topic("T000002", "HOT", 310, 0.0302),
+                               _topic("T000004", "LOW_DATA", 20, 0.001), _topic("T000005", "STABLE", 60, 0.005)],
+                    {"articles": 1100, "topics": 4, "journals": 3}, ["so02.A", "so02.B", "so02.C"])
+
+
+def test_quarter_diff_lists_new_retired_changed_and_movers():
+    lineage = {"T000004": {"event": "split", "parents": ["T000003"]}, "T000005": {"event": "new", "parents": []}}
+    d = quarter_diff(CUR, PREV, lineage, movers=10, min_share_delta=0.0005)
+    assert d["release"] == "2026Q4" and d["previous_release"] == "2026Q3"
+    assert d["new_topics"] == [{"topic": "T000004", "event": "split", "parents": ["T000003"]},
+                               {"topic": "T000005", "event": "new", "parents": []}]
+    assert d["retired"] == [{"topic": "T000003", "th": "เก่า", "en": "T000003"}]
+    assert d["status_changes"] == [{"topic": "T000001", "previous": "STABLE", "current": "EMERGING"}]
+    assert [m["topic"] for m in d["movers"]] == ["T000001"]          # T000002 moved 0.0002 < 0.0005
+    assert {k["key"]: (k["previous"], k["current"]) for k in d["kpis"]}["articles"] == (1000, 1100)
+    assert d["journals_compared"] and d["new_journals"] == ["so02.C"]
+    no_j = quarter_diff(CUR, {**PREV, "journals": None}, {}, 10, 0.0)
+    assert not no_j["journals_compared"] and no_j["new_journals"] == []
+    assert len(quarter_diff(CUR, PREV, {}, movers=1, min_share_delta=0.0)["movers"]) == 1
+
+
+@pytest.fixture
+def cfg(tmp_path):
+    c = load_config(None)
+    c["pipeline"].update(state_dir=str(tmp_path / "state"), output_dir=str(tmp_path / "out"))
+    return c
+
+
+def test_snapshot_round_trip_through_state(cfg):
+    write_snapshot(cfg, "2026Q3", PREV)
+    snap, source = load_snapshot(cfg, "2026Q3")
+    assert source == "state" and snap == json.loads(json.dumps(PREV))
+
+
+def test_fallback_reads_the_previous_release_folder(cfg, tmp_path):
+    folder = tmp_path / "out" / "data" / "2026Q2"
+    folder.mkdir(parents=True)
+    (folder / "topics.json").write_text(json.dumps({"topics": [_topic("T000001", "HOT", 10, 0.01), {"id": "bad"}]}),
+                                        encoding="utf-8")
+    (folder / "overview.json").write_text(json.dumps({"kpis": {"articles": 10, "topics": 1}}), encoding="utf-8")
+    snap, source = load_snapshot(cfg, "2026Q2")
+    assert source == "output" and list(snap["topics"]) == ["T000001"] and snap["journals"] is None
+    assert load_snapshot(cfg, "2025Q1") == (None, "")
