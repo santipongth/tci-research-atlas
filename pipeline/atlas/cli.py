@@ -588,3 +588,23 @@ def publish_cmd(
     if tarball:
         typer.echo(f"tarball: {r['tarball']}\nsha256:  {r['sha256']}\nnotes:   {r['notes']}")
         typer.echo(f"upload it yourself (needs the owner's go-ahead):\n  {r['gh_command']}")
+
+
+@app.command("bakeoff")
+def bakeoff_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+    kind: str = typer.Option("all", help="embedding | clustering | all"),
+    truth: Path = typer.Option(None, help="CSV with article_id,topic (synthetic corpus _truth.csv)"),
+    out: Path = typer.Option(None, help="write the Markdown report here"),
+) -> None:
+    """Compare embedding models and clustering algorithms on the current work_dir (Markdown report)."""
+    from atlas.bakeoff import run_bakeoff
+    from atlas.config import load_config
+
+    if kind not in ("embedding", "clustering", "all"):
+        raise typer.BadParameter("kind must be embedding, clustering or all")
+    md = run_bakeoff(load_config(config), kind, truth)
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(md, encoding="utf-8")
+    typer.echo(md)
