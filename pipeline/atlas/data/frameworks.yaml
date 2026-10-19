@@ -1,0 +1,63 @@
+# Goals and keywords for the topic-level mapping of atlas/sdg.py (P3, E8). Curated and editable by the maintainers:
+# keywords are matched in article titles and keywords (Thai as text, Latin words as whole words, tone marks ignored);
+# avoid words that are also common in other senses (e.g. การศึกษา also means "a study of", เมือง is in การเมือง).
+# Names follow the official titles; check them against the source documents before a public release:
+#   SDGs — United Nations, https://sdgs.un.org/goals (Thai names as used by สศช.)
+#   BCG Model — โมเดลเศรษฐกิจ BCG (เศรษฐกิจชีวภาพ · เศรษฐกิจหมุนเวียน · เศรษฐกิจสีเขียว)
+#   แผนด้านการอุดมศึกษา วิทยาศาสตร์ วิจัยและนวัตกรรม พ.ศ. 2566–2570 — 4 แพลตฟอร์ม
+#   แผนพัฒนาเศรษฐกิจและสังคมแห่งชาติ ฉบับที่ 13 (พ.ศ. 2566–2570) — 13 หมุดหมาย
+version: 1
+frameworks:
+  - key: sdg
+    th: "เป้าหมายการพัฒนาที่ยั่งยืน (SDGs)"
+    en: "Sustainable Development Goals"
+    goals:
+      - {id: sdg-01, number: 1, th: "ขจัดความยากจน", en: "No poverty", keywords: [ความยากจน, คนจน, ผู้มีรายได้น้อย, หนี้ครัวเรือน, สวัสดิการสังคม, poverty, low-income, household debt, social welfare, social protection]}
+      - {id: sdg-02, number: 2, th: "ขจัดความหิวโหย", en: "Zero hunger", keywords: [ความมั่นคงทางอาหาร, ภาวะทุพโภชนาการ, เกษตรกร, ผลผลิตทางการเกษตร, การปลูกข้าว, food security, malnutrition, farmers, crop yield, agriculture]}
+      - {id: sdg-03, number: 3, th: "สุขภาพและความเป็นอยู่ที่ดี", en: "Good health and well-being", keywords: [สุขภาพ, ผู้ป่วย, โรงพยาบาล, สาธารณสุข, การพยาบาล, โรคเรื้อรัง, health, patients, nursing, public health, disease, mortality]}
+      - {id: sdg-04, number: 4, th: "การศึกษาที่มีคุณภาพ", en: "Quality education", keywords: [การเรียนการสอน, การเรียนรู้, นักเรียน, ผู้เรียน, หลักสูตร, สถานศึกษา, ครู, education, learning, students, teachers, curriculum, school]}
+      - {id: sdg-05, number: 5, th: "ความเท่าเทียมทางเพศ", en: "Gender equality", keywords: [ความเท่าเทียมทางเพศ, สตรี, ผู้หญิง, เพศสภาพ, ความรุนแรงในครอบครัว, gender, women, female, domestic violence, LGBT]}
+      - {id: sdg-06, number: 6, th: "น้ำสะอาดและการสุขาภิบาล", en: "Clean water and sanitation", keywords: [น้ำดื่ม, น้ำเสีย, คุณภาพน้ำ, การสุขาภิบาล, ทรัพยากรน้ำ, drinking water, wastewater, water quality, sanitation, water resources]}
+      - {id: sdg-07, number: 7, th: "พลังงานสะอาดที่เข้าถึงได้", en: "Affordable and clean energy", keywords: [พลังงานทดแทน, พลังงานแสงอาทิตย์, เซลล์แสงอาทิตย์, ชีวมวล, การอนุรักษ์พลังงาน, renewable energy, solar, biomass, energy efficiency, electricity]}
+      - {id: sdg-08, number: 8, th: "งานที่มีคุณค่าและการเติบโตทางเศรษฐกิจ", en: "Decent work and economic growth", keywords: [การจ้างงาน, แรงงาน, การเติบโตทางเศรษฐกิจ, ผู้ประกอบการ, การท่องเที่ยว, employment, labour, labor, economic growth, entrepreneurship, tourism]}
+      - {id: sdg-09, number: 9, th: "อุตสาหกรรม นวัตกรรม และโครงสร้างพื้นฐาน", en: "Industry, innovation and infrastructure", keywords: [นวัตกรรม, อุตสาหกรรม, โครงสร้างพื้นฐาน, การผลิต, เทคโนโลยีดิจิทัล, innovation, industry, infrastructure, manufacturing, digital technology]}
+      - {id: sdg-10, number: 10, th: "ลดความเหลื่อมล้ำ", en: "Reduced inequalities", keywords: [ความเหลื่อมล้ำ, ความไม่เท่าเทียม, แรงงานข้ามชาติ, คนพิการ, ผู้พิการ, กลุ่มเปราะบาง, inequality, migrant workers, disability, vulnerable groups, social inclusion]}
+      - {id: sdg-11, number: 11, th: "เมืองและชุมชนที่ยั่งยืน", en: "Sustainable cities and communities", keywords: [ชุมชนเมือง, ผังเมือง, การพัฒนาเมือง, ที่อยู่อาศัย, การขนส่งสาธารณะ, มรดกทางวัฒนธรรม, urban, housing, public transport, urban planning, cultural heritage, smart city]}
+      - {id: sdg-12, number: 12, th: "การผลิตและการบริโภคที่ยั่งยืน", en: "Responsible consumption and production", keywords: [การบริโภคอย่างยั่งยืน, ขยะ, การรีไซเคิล, ขยะอาหาร, ห่วงโซ่อุปทานสีเขียว, sustainable consumption, waste, recycling, food waste, green supply chain]}
+      - {id: sdg-13, number: 13, th: "การรับมือการเปลี่ยนแปลงสภาพภูมิอากาศ", en: "Climate action", keywords: [การเปลี่ยนแปลงสภาพภูมิอากาศ, ภาวะโลกร้อน, ก๊าซเรือนกระจก, การปล่อยคาร์บอน, climate change, global warming, greenhouse gas, carbon emissions, climate adaptation]}
+      - {id: sdg-14, number: 14, th: "ทรัพยากรทางทะเล", en: "Life below water", keywords: [ทะเล, ชายฝั่ง, ปะการัง, การประมง, ไมโครพลาสติก, ทรัพยากรทางทะเล, marine, coastal, coral, fisheries, microplastics]}
+      - {id: sdg-15, number: 15, th: "ระบบนิเวศบนบก", en: "Life on land", keywords: [ป่าไม้, ป่าชุมชน, ความหลากหลายทางชีวภาพ, สัตว์ป่า, การใช้ที่ดิน, ระบบนิเวศ, forest, biodiversity, wildlife, land use, ecosystem]}
+      - {id: sdg-16, number: 16, th: "สันติภาพ ความยุติธรรม และสถาบันที่เข้มแข็ง", en: "Peace, justice and strong institutions", keywords: [กฎหมาย, กระบวนการยุติธรรม, การทุจริต, ธรรมาภิบาล, สิทธิมนุษยชน, การเมือง, law, justice, corruption, governance, human rights]}
+      - {id: sdg-17, number: 17, th: "ความร่วมมือเพื่อการพัฒนาที่ยั่งยืน", en: "Partnerships for the goals", keywords: [ความร่วมมือระหว่างประเทศ, การค้าระหว่างประเทศ, อาเซียน, ภาคีเครือข่าย, international cooperation, international trade, ASEAN, partnership]}
+  - key: bcg
+    th: "โมเดลเศรษฐกิจ BCG"
+    en: "BCG economy model"
+    goals:
+      - {id: bcg-bio, number: 1, th: "เศรษฐกิจชีวภาพ", en: "Bio-economy", keywords: [เศรษฐกิจชีวภาพ, เทคโนโลยีชีวภาพ, สมุนไพร, จุลินทรีย์, อาหารเพื่อสุขภาพ, bioeconomy, biotechnology, herbal, microbial, functional food]}
+      - {id: bcg-circular, number: 2, th: "เศรษฐกิจหมุนเวียน", en: "Circular economy", keywords: [เศรษฐกิจหมุนเวียน, ขยะ, การรีไซเคิล, การใช้ซ้ำ, วัสดุเหลือใช้, circular economy, recycling, waste, upcycling, by-product]}
+      - {id: bcg-green, number: 3, th: "เศรษฐกิจสีเขียว", en: "Green economy", keywords: [เศรษฐกิจสีเขียว, พลังงานทดแทน, การท่องเที่ยวเชิงนิเวศ, คาร์บอนต่ำ, สิ่งแวดล้อม, green economy, renewable energy, ecotourism, low carbon, environment]}
+  - key: hesi
+    th: "แผนด้าน ววน. พ.ศ. 2566–2570"
+    en: "Higher education, science, research and innovation plan 2023–2027"
+    goals:
+      - {id: hesi-1, number: 1, th: "การพัฒนากำลังคนและสถาบันความรู้", en: "Workforce and knowledge institutions", keywords: [กำลังคน, การพัฒนาบุคลากร, ทักษะ, อุดมศึกษา, สถาบันอุดมศึกษา, workforce, human resource development, skills, higher education, upskilling]}
+      - {id: hesi-2, number: 2, th: "การวิจัยและนวัตกรรมเพื่อตอบโจทย์ท้าทายของสังคม", en: "Research and innovation for societal challenges", keywords: [สังคมสูงวัย, ผู้สูงอายุ, คุณภาพชีวิต, ภัยพิบัติ, สาธารณสุข, ageing society, older adults, quality of life, disaster, public health]}
+      - {id: hesi-3, number: 3, th: "การวิจัยและนวัตกรรมเพื่อเพิ่มขีดความสามารถในการแข่งขัน", en: "Research and innovation for competitiveness", keywords: [ขีดความสามารถในการแข่งขัน, นวัตกรรม, อุตสาหกรรม, ผู้ประกอบการ, สตาร์ทอัพ, competitiveness, innovation, industry, entrepreneurs, startup]}
+      - {id: hesi-4, number: 4, th: "การวิจัยและนวัตกรรมเพื่อการพัฒนาเชิงพื้นที่และลดความเหลื่อมล้ำ", en: "Research and innovation for area development and less inequality", keywords: [ชุมชน, ท้องถิ่น, เศรษฐกิจฐานราก, วิสาหกิจชุมชน, ความเหลื่อมล้ำ, community, local development, grassroots economy, community enterprise, rural development]}
+  - key: nesdp13
+    th: "หมุดหมายแผนพัฒนาฯ ฉบับที่ 13"
+    en: "Milestones of the 13th National Economic and Social Development Plan"
+    goals:
+      - {id: nesdp13-01, number: 1, th: "ไทยเป็นประเทศชั้นนำด้านสินค้าเกษตรและเกษตรแปรรูปมูลค่าสูง", en: "High-value agricultural and processed agricultural products", keywords: [เกษตรแปรรูป, ผลิตภัณฑ์เกษตร, เกษตรอัจฉริยะ, มูลค่าเพิ่ม, agro-processing, agricultural products, smart farming, value added]}
+      - {id: nesdp13-02, number: 2, th: "ไทยเป็นจุดหมายของการท่องเที่ยวที่เน้นคุณภาพและความยั่งยืน", en: "Quality and sustainable tourism", keywords: [การท่องเที่ยว, นักท่องเที่ยว, ท่องเที่ยวโดยชุมชน, การท่องเที่ยวอย่างยั่งยืน, tourism, tourists, community-based tourism, sustainable tourism]}
+      - {id: nesdp13-03, number: 3, th: "ไทยเป็นฐานการผลิตยานยนต์ไฟฟ้าที่สำคัญของโลก", en: "A global production base for electric vehicles", keywords: [ยานยนต์ไฟฟ้า, รถยนต์ไฟฟ้า, แบตเตอรี่, สถานีอัดประจุ, electric vehicle, electric vehicles, EV, battery, charging station]}
+      - {id: nesdp13-04, number: 4, th: "ไทยเป็นศูนย์กลางทางการแพทย์และสุขภาพมูลค่าสูง", en: "A high-value medical and health hub", keywords: [การแพทย์, ท่องเที่ยวเชิงสุขภาพ, อุปกรณ์การแพทย์, เวชภัณฑ์, medical, health tourism, wellness, medical devices, pharmaceutical]}
+      - {id: nesdp13-05, number: 5, th: "ไทยเป็นประตูการค้าการลงทุนและยุทธศาสตร์ทางโลจิสติกส์ที่สำคัญของภูมิภาค", en: "A regional gateway for trade, investment and logistics", keywords: [โลจิสติกส์, การค้าระหว่างประเทศ, การลงทุน, โซ่อุปทาน, ห่วงโซ่อุปทาน, ระเบียงเศรษฐกิจพิเศษภาคตะวันออก, logistics, international trade, investment, supply chain]}
+      - {id: nesdp13-06, number: 6, th: "ไทยเป็นฐานการผลิตอุปกรณ์อิเล็กทรอนิกส์อัจฉริยะและอุตสาหกรรมดิจิทัลของอาเซียน", en: "ASEAN's base for smart electronics and the digital industry", keywords: [ดิจิทัล, อิเล็กทรอนิกส์, ปัญญาประดิษฐ์, อินเทอร์เน็ตของสรรพสิ่ง, ซอฟต์แวร์, digital, electronics, artificial intelligence, internet of things, software]}
+      - {id: nesdp13-07, number: 7, th: "ไทยมีวิสาหกิจขนาดกลางและขนาดย่อมที่เข้มแข็ง มีศักยภาพสูง และสามารถแข่งขันได้", en: "Strong and competitive SMEs", keywords: [วิสาหกิจขนาดกลางและขนาดย่อม, เอสเอ็มอี, ธุรกิจขนาดย่อม, ผู้ประกอบการ, SME, SMEs, small business, entrepreneurs]}
+      - {id: nesdp13-08, number: 8, th: "ไทยมีพื้นที่และเมืองอัจฉริยะที่น่าอยู่ ปลอดภัย เติบโตได้อย่างยั่งยืน", en: "Liveable, safe and smart cities and areas", keywords: [เมืองอัจฉริยะ, ผังเมือง, การพัฒนาเมือง, ชุมชนเมือง, smart city, urban development, urban planning]}
+      - {id: nesdp13-09, number: 9, th: "ไทยมีความยากจนข้ามรุ่นลดลง และมีความคุ้มครองทางสังคมที่เพียงพอ เหมาะสม", en: "Less intergenerational poverty and adequate social protection", keywords: [ความยากจน, ความคุ้มครองทางสังคม, สวัสดิการ, ผู้มีรายได้น้อย, poverty, social protection, welfare, low-income]}
+      - {id: nesdp13-10, number: 10, th: "ไทยมีเศรษฐกิจหมุนเวียนและสังคมคาร์บอนต่ำ", en: "A circular economy and low-carbon society", keywords: [เศรษฐกิจหมุนเวียน, คาร์บอนต่ำ, ก๊าซเรือนกระจก, ขยะ, circular economy, low carbon, greenhouse gas, waste]}
+      - {id: nesdp13-11, number: 11, th: "ไทยสามารถลดความเสี่ยงและผลกระทบจากภัยธรรมชาติและการเปลี่ยนแปลงสภาพภูมิอากาศ", en: "Lower risks from natural disasters and climate change", keywords: [ภัยพิบัติ, อุทกภัย, น้ำท่วม, ภัยแล้ง, การเปลี่ยนแปลงสภาพภูมิอากาศ, disaster, flood, drought, climate change]}
+      - {id: nesdp13-12, number: 12, th: "ไทยมีกำลังคนสมรรถนะสูง มุ่งเรียนรู้อย่างต่อเนื่อง ตอบโจทย์การพัฒนาแห่งอนาคต", en: "A high-skilled workforce learning throughout life", keywords: [กำลังคน, ทักษะ, การเรียนรู้ตลอดชีวิต, สมรรถนะ, workforce, skills, lifelong learning, competency]}
+      - {id: nesdp13-13, number: 13, th: "ไทยมีภาครัฐที่ทันสมัย มีประสิทธิภาพ และตอบโจทย์ประชาชน", en: "A modern, efficient and responsive public sector", keywords: [ภาครัฐ, การบริหารราชการ, รัฐบาลดิจิทัล, การบริการสาธารณะ, ธรรมาภิบาล, public sector, public administration, digital government, public service, governance]}
