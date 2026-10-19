@@ -4,7 +4,12 @@
               JSON files on disk that the manifest does not list → warning
 2. schema     every file validates against its pydantic model (atlas/schema/contract.py)
 3. coherence  unique topic ids; one topics/<id>.json per topic; series and edges only name known
-              topics; every topic's group exists in taxonomy.json; KPI topic count matches
+              topics; every topic's group exists in taxonomy.json; KPI topic count matches;
+              editors' modules (2.1): unique journal ids with one journals/<id>.json each, peers / topic
+              journal links / match journals name known journals, every topic id in journals, methods,
+              diff (incl. restructured / merged_into) and match is a topic of this release (retired ones
+              are not); files above
+              validation.max_file_bytes → warning (static hosts cap single files)
 4. diff       against the previous release folder (manifest.previous_release next to this one, or
               --previous): topic count change, share of last release's ids kept, status changes of
               continuing topics, large size swings, a shrinking corpus (thresholds: validation.*)
@@ -41,7 +46,7 @@ def _load(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _check_files(root: Path, rep: Report) -> dict[str, object]:
+def _check_files(root: Path, rep: Report, max_bytes: int = 50_000_000) -> dict[str, object]:
     """Integrity + schema. Returns {relative path: validated model} for files that passed."""
     try:
         manifest = Manifest.model_validate(_load(root / "manifest.json"))
@@ -61,6 +66,8 @@ def _check_files(root: Path, rep: Report) -> dict[str, object]:
             rep.errors.append(f"{entry.path}: listed in the manifest but missing")
             continue
         data = p.read_bytes()
+        if len(data) > max_bytes:
+            rep.warnings.append(f"{entry.path}: {len(data):,} bytes > validation.max_file_bytes ({max_bytes:,})")
         if len(data) != entry.bytes or hashlib.sha256(data).hexdigest() != entry.sha256:
             rep.errors.append(f"{entry.path}: size/sha256 differs from the manifest (file changed after export?)")
             continue
@@ -106,6 +113,57 @@ def _check_coherence(models: dict, rep: Report) -> None:
         rep.errors.append(f"overview.json: kpis.topics={ov.kpis.topics} but topics.json has {len(ids)}")
     rep.stats.update(topics=len(ids), articles=ov.kpis.articles if ov is not None else None,
                      statuses=ov.status_counts if ov is not None else {})
+
+
+def _unknown(ids, known: set[str]) -> list[str]:
+    return sorted({i for i in ids if i not in known})
+
+
+def _check_editors(models: dict, rep: Report) -> None:
+    """Cross-file references of the P2 modules (journals, methods, diff, match)."""
+    topics = models.get("topics.json")
+    if topics is None:
+        return
+    known = {t.id for t in topics.topics}
+    jf = models.get("journals.json")
+    jids: set[str] | None = None
+    if jf is not None:
+        ids = [j.id for j in jf.journals]
+        jids = set(ids)
+        if len(jids) != len(ids):
+            rep.errors.append("journals.json: duplicate journal ids")
+        missing = [i for i in ids if f"journals/{i}.json" not in models]
+        if missing:
+            rep.errors.append(f"{len(missing)} journals have no valid journals/<id>.json (e.g. {missing[0]})")
+        if bad := _unknown((s.topic for s in jf.special_issue), known):
+            rep.errors.append(f"journals.json: special-issue topics not in topics.json: {bad[:5]}")
+    for path, m in models.items():
+        if path.startswith("journals/"):
+            refs = [t.topic for t in m.topics] + [s.topic for s in m.gained + m.lost] + [o.topic for o in m.opportunities]
+            if bad := _unknown(refs, known):
+                rep.errors.append(f"{path}: topics not in topics.json: {bad[:5]}")
+            if jids is not None and (bad := _unknown((p.id for p in m.peers), jids)):
+                rep.errors.append(f"{path}: peers not in journals.json: {bad[:5]}")
+        elif path.startswith("topics/") and jids is not None:
+            if bad := _unknown((j.id for j in m.journals if j.id), jids):
+                rep.errors.append(f"{path}: journal links not in journals.json: {bad[:5]}")
+    if (mf := models.get("methods.json")) is not None and (bad := _unknown((t.topic for t in mf.topics), known)):
+        rep.errors.append(f"methods.json: topics not in topics.json: {bad[:5]}")
+    if (df := models.get("diff.json")) is not None:
+        refs = ([t.topic for t in df.new_topics] + [c.topic for c in df.status_changes] + [m.topic for m in df.movers]
+                + [r.topic for r in df.restructured] + [r.merged_into for r in df.retired if r.merged_into])
+        if bad := _unknown(refs, known):
+            rep.errors.append(f"diff.json: topics not in topics.json: {bad[:5]}")
+        if still := sorted({r.topic for r in df.retired} & known):
+            rep.errors.append(f"diff.json: retired topics still in topics.json: {still[:5]}")
+    if (mx := models.get("match.json")) is not None:
+        if bad := _unknown((t.id for t in mx.topics), known):
+            rep.errors.append(f"match.json: topics not in topics.json: {bad[:5]}")
+        refs = [t for j in mx.journals for t in j.topics]
+        if bad := _unknown(refs, known):
+            rep.errors.append(f"match.json: journal topics not in topics.json: {bad[:5]}")
+        if jids is not None and (bad := _unknown((j.id for j in mx.journals), jids)):
+            rep.errors.append(f"match.json: journals not in journals.json: {bad[:5]}")
 
 
 def _diff(models: dict, prev_root: Path, vcfg: dict, rep: Report) -> None:
@@ -161,8 +219,9 @@ def _check_llm(manifest: Manifest | None, rep: Report) -> None:
 def validate_release(release_dir: str | Path, previous_dir: str | Path | None, vcfg: dict) -> Report:
     root = Path(release_dir)
     rep = Report(release_dir=str(root))
-    models = _check_files(root, rep)
+    models = _check_files(root, rep, int(vcfg.get("max_file_bytes", 50_000_000)))
     _check_coherence(models, rep)
+    _check_editors(models, rep)
     manifest = models.get("manifest.json")
     _check_llm(manifest, rep)
     if manifest is not None and manifest.release != root.name:

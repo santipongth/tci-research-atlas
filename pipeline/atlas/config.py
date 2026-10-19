@@ -403,6 +403,7 @@ class ExportCfg(_Strict):
     max_topic_journals: int = Field(10, ge=1)
     max_topic_orgs: int = Field(10, ge=1)
     max_neighbors: int = Field(6, ge=0)
+    offline_exclude: list[str] = Field(default_factory=lambda: ["match.json"])
 
 
 class ValidateCfg(_Strict):
@@ -412,6 +413,7 @@ class ValidateCfg(_Strict):
     size_swing_ratio: float = Field(2.0, gt=1.0)
     size_swing_min_articles: int = Field(50, ge=1)
     max_article_drop: float = Field(0.02, ge=0.0, le=1.0)
+    max_file_bytes: int = Field(50_000_000, ge=1)
 
 
 class BakeoffCandidate(_Strict):

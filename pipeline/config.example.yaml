@@ -362,6 +362,7 @@ export:
   max_topic_journals: 10
   max_topic_orgs: 10
   max_neighbors: 6
+  offline_exclude: [match.json]   # ไฟล์ที่ไม่ใส่ใน HTML เดี่ยว (atlas-offline.html ≤ ~15MB) — หน้า /match ในไฟล์ offline บอกให้ใช้เว็บออนไลน์
 
 # ---------- atlas validate: เทียบกับรอบก่อน ----------
 validation:
@@ -371,6 +372,7 @@ validation:
   size_swing_ratio: 2.0       # ขนาดหัวข้อเปลี่ยน ≥ 2 เท่า (ขึ้นหรือลง) → warning
   size_swing_min_articles: 50 # ...เฉพาะหัวข้อที่มี ≥ 50 บทความ
   max_article_drop: 0.02      # บทความทั้งหมดลดลง > 2% → error
+  max_file_bytes: 50000000    # ไฟล์ใดใหญ่กว่า 50MB → warning (GitHub Pages รับไฟล์ละไม่เกิน 100MB)
 
 # ---------- atlas bakeoff: เทียบ embedding/clustering ด้วยตัวเลข ----------
 bakeoff:

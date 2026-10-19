@@ -9,7 +9,9 @@ Validates first (refuses on errors, and on warnings unless allow_warnings). Then
                                  an older quarter keeps it, with a warning; set_latest / --set-latest forces)
   <site>/atlas-offline.html      the single-file edition: the web build's offline-template.html with the
                                  release injected into <script type="application/json" id="atlas-data">
-                                 by plain string replacement (Python only — no Node on the operator's machine)
+                                 by plain string replacement (Python only — no Node on the operator's machine);
+                                 files in export.offline_exclude (default match.json, the largest) stay out of it —
+                                 the offline /match page says it needs the web edition
 Older releases already in <site>/data/ stay (the web can compare quarters), and the earlier releases this one
 builds on (manifest.previous_release, then its previous_release, …) that the site lacks are restored from
 output/data/ — e.g. after `npm run build` emptied dist/data. A release folder already on the site is never
@@ -82,11 +84,14 @@ def release_notes(release_dir: str | Path) -> str:
     return "\n".join(lines)
 
 
-def offline_bundle(release_dir: str | Path, latest: dict) -> dict:
-    """{latest, files: {relative path: parsed JSON}} — what atlas-offline.html carries."""
+def offline_bundle(release_dir: str | Path, latest: dict, exclude=()) -> dict:
+    """{latest, files: {relative path: parsed JSON}} — what atlas-offline.html carries; paths equal to (or inside
+    a folder named by) an entry of `exclude` are left out."""
     root = Path(release_dir)
-    files = {p.relative_to(root).as_posix(): json.loads(p.read_text(encoding="utf-8"))
-             for p in sorted(root.rglob("*.json"))}
+    skip = tuple(str(e).strip("/") for e in exclude)
+    files = {rel: json.loads(p.read_text(encoding="utf-8"))
+             for p in sorted(root.rglob("*.json"))
+             if not any((rel := p.relative_to(root).as_posix()) == e or rel.startswith(f"{e}/") for e in skip)}
     return {"latest": latest, "files": files}
 
 
@@ -165,7 +170,8 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
               f"{current} (atlas-offline.html unchanged); pass --set-latest to make {release} the latest")
     elif template.exists():
         (site / "data" / "latest.json").write_text(json.dumps(latest_json, ensure_ascii=False), encoding="utf-8")
-        html = inject_offline(template.read_text(encoding="utf-8"), offline_bundle(release_dir, latest_json))
+        exclude = tuple(cfg["export"]["offline_exclude"]) if cfg else ()
+        html = inject_offline(template.read_text(encoding="utf-8"), offline_bundle(release_dir, latest_json, exclude))
         offline = site / OFFLINE_HTML
         offline.write_text(html, encoding="utf-8", newline="")     # same bytes on Windows and Linux
     else:

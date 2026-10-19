@@ -536,3 +536,59 @@ def test_registry_names_journals_in_the_release(two_releases, tmp_path):
     topics = json.loads((rel / "topics.json").read_text(encoding="utf-8"))["topics"]
     detail = json.loads((rel / f"topics/{topics[0]['id']}.json").read_text(encoding="utf-8"))
     assert detail["journals"][0]["key"] == "วารสารทดสอบ"
+
+
+def _rewrite(rel_dir, path, obj):
+    """Replace one published file and keep the manifest's size/sha256 in step (a coherent tampering)."""
+    data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+    (rel_dir / path).write_bytes(data)
+    man = json.loads((rel_dir / "manifest.json").read_text(encoding="utf-8"))
+    for f in man["files"]:
+        if f["path"] == path:
+            f.update(bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
+    (rel_dir / "manifest.json").write_text(json.dumps(man), encoding="utf-8")
+
+
+def test_validate_checks_the_editor_modules(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    rel = data / "2026Q2"
+    assert validate_release(rel, None, cfg["validation"]).exit_code == 0
+    detail = json.loads((rel / "journals/so02.BECJournal.json").read_text(encoding="utf-8"))
+    _rewrite(rel, "journals/so02.BECJournal.json", {**detail, "peers": [{"id": "so09.Ghost", "similarity": 0.5}]})
+    diff = json.loads((rel / "diff.json").read_text(encoding="utf-8"))
+    _rewrite(rel, "diff.json", {**diff, "movers": [{"topic": "T999999", "share_previous": 0.1, "share_current": 0.2}]})
+    rep = validate_release(rel, None, {**cfg["validation"], "max_file_bytes": 100})
+    assert rep.exit_code == 2
+    assert any("peers not in journals.json: ['so09.Ghost']" in e for e in rep.errors)
+    assert any("diff.json: topics not in topics.json: ['T999999']" in e for e in rep.errors)
+    assert any("validation.max_file_bytes" in w for w in rep.warnings)
+
+
+def test_offline_edition_leaves_out_the_match_index(two_releases, tmp_path):
+    import re
+
+    from atlas.publish import publish
+
+    root, cfg = two_releases
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "offline-template.html").write_text(TEMPLATE, encoding="utf-8")
+    publish({**cfg, "pipeline": {**cfg["pipeline"], "release": "2026Q2"}}, site=site)
+    html = (site / "atlas-offline.html").read_text(encoding="utf-8")
+    files = json.loads(re.search(r'id="atlas-data">(.*?)</script>', html, re.S).group(1))["files"]
+    assert "match.json" not in files and "journals.json" in files and "diff.json" in files
+    assert (site / "data" / "2026Q2" / "match.json").exists()          # the web edition keeps it
+
+
+def test_validate_checks_the_merge_links_of_the_diff(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    rel = data / "2026Q2"
+    diff = json.loads((rel / "diff.json").read_text(encoding="utf-8"))
+    _rewrite(rel, "diff.json", {**diff, "retired": [{"topic": "T999990", "merged_into": "T999991"}],
+                                "restructured": [{"topic": "T999992", "event": "merge", "parents": []}]})
+    rep = validate_release(rel, None, cfg["validation"])
+    assert any("diff.json: topics not in topics.json: ['T999991', 'T999992']" in e for e in rep.errors)
