@@ -3,13 +3,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 from typer.testing import CliRunner
 
 from atlas.cli import app
 from atlas.io_utils import read_table, write_table
 from atlas.label import label
 from atlas.llm import Reply
-from atlas.review import export_review, import_review, merge_candidates, suggest_merges
+from atlas.review import REVIEW_COLUMNS, export_review, import_review, merge_candidates, suggest_merges
 
 
 class FakeLLM:
@@ -101,3 +102,32 @@ def test_review_cli_export(make_cfg, tmp_path):
     r = CliRunner().invoke(app, ["review", "export", "-c", str(cfg_path)])
     assert r.exit_code == 0, r.output
     assert (tmp_path / "out" / "review" / "2026Q4_label_review.csv").exists()
+
+
+def _review_csv(tmp_path, rows, name="r.csv", drop=()):
+    cols = [c for c in REVIEW_COLUMNS if c not in drop]
+    df = pd.DataFrame([{c: r.get(c, "") for c in cols} for r in rows], columns=cols)
+    p = tmp_path / name
+    df.to_csv(p, index=False, encoding="utf-8-sig")
+    return p
+
+
+def test_import_never_blanks_an_existing_override(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    cfg["labeling"]["overrides_path"] = str(tmp_path / "registry" / "label_overrides.csv")
+    import_review(cfg, _review_csv(tmp_path, [{"topic_id": "T000001", "name_th_fixed": "ไทยแก้", "name_en_fixed": "En one",
+                                               "reviewer": "a"}], "a.csv"))
+    import_review(cfg, _review_csv(tmp_path, [{"topic_id": "T000001", "name_en_fixed": "En two"}], "b.csv"))
+    ov = pd.read_csv(cfg["labeling"]["overrides_path"], dtype=str, encoding="utf-8-sig").fillna("")
+    assert ov.loc[0, "name_th"] == "ไทยแก้" and ov.loc[0, "name_en"] == "En two" and ov.loc[0, "reviewer"] == "a"
+
+
+def test_import_reports_missing_columns_and_bad_ids(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    cfg["labeling"]["overrides_path"] = str(tmp_path / "registry" / "label_overrides.csv")
+    bad = _review_csv(tmp_path, [{"topic_id": "T000001"}], "m.csv", drop=("name_en_fixed",))
+    with pytest.raises(ValueError, match=r"name_en_fixed.*expected columns"):
+        import_review(cfg, bad)
+    rows = [{"topic_id": "T000001"}, {"topic_id": "abc", "name_th_fixed": "x"}]
+    with pytest.raises(ValueError, match=r"row 3: topic_id 'abc' is not T000123 or an integer"):
+        import_review(cfg, _review_csv(tmp_path, rows, "i.csv"))

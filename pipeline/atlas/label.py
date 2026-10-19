@@ -101,6 +101,15 @@ def label_job(cfg: dict) -> LlmJob:
     return LlmJob("label", LabelOut, prompt_version(template), items)
 
 
+def parse_topic_id(value: str, where: str = "") -> int:
+    """'T000123' / 't123' / '123' → 123; a clear error naming the place (CSV row) and the value otherwise."""
+    text = str(value).strip()
+    digits = text[1:] if text[:1] in "Tt" else text
+    if not digits.isdigit():
+        raise ValueError(f"{where + ': ' if where else ''}topic_id {text!r} is not T000123 or an integer")
+    return int(digits)
+
+
 def load_overrides(path: str | Path | None) -> pd.DataFrame:
     """Editors' corrections (CSV, UTF-8 with or without BOM): topic_id (T000123 or 123), name_th, name_en, …"""
     if not path or not Path(path).exists():
@@ -112,7 +121,7 @@ def load_overrides(path: str | Path | None) -> pd.DataFrame:
     for c in OVERRIDE_COLUMNS:
         if c not in df.columns:
             df[c] = ""
-    df["topic_id"] = df["topic_id"].str.strip().str.lstrip("Tt").astype(int)
+    df["topic_id"] = [parse_topic_id(v, f"{path}: row {i + 2}") for i, v in enumerate(df["topic_id"])]
     return df[OVERRIDE_COLUMNS].drop_duplicates("topic_id", keep="last")
 
 

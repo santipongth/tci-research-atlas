@@ -24,7 +24,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from atlas.io_utils import read_table, write_table
-from atlas.label import OVERRIDE_COLUMNS, load_overrides, topic_titles
+from atlas.label import OVERRIDE_COLUMNS, load_overrides, parse_topic_id, topic_titles
 from atlas.lineage import topic_code
 from atlas.llm_runner import LlmItem, LlmJob, run_job
 from atlas.prompts import load_prompt, prompt_version, render_prompt
@@ -150,13 +150,24 @@ def import_review(cfg: dict, path: str | Path) -> dict:
     if not target:
         raise ValueError("set labeling.overrides_path in the config (e.g. ./registry/label_overrides.csv)")
     rev = pd.read_csv(path, dtype=str, encoding="utf-8-sig").fillna("")
+    missing = [c for c in REVIEW_COLUMNS if c not in rev.columns]
+    if missing:
+        raise ValueError(f"{path}: missing columns {missing}; expected columns: {', '.join(REVIEW_COLUMNS)}")
     fixed = rev[(rev["name_th_fixed"].str.strip() != "") | (rev["name_en_fixed"].str.strip() != "")]
     ov = load_overrides(target)
     today = date.today().isoformat()
-    new = pd.DataFrame([{"topic_id": int(r.topic_id.strip().lstrip("Tt")), "name_th": r.name_th_fixed.strip(),
-                         "name_en": r.name_en_fixed.strip(), "description": "", "reviewer": r.reviewer.strip(),
-                         "reviewed_at": today, "note": r.note.strip()} for r in fixed.itertuples()],
-                       columns=OVERRIDE_COLUMNS)
+    old = ov.set_index("topic_id").to_dict("index")
+    rows = []
+    for r in fixed.itertuples():
+        tid = parse_topic_id(r.topic_id, f"{path}: row {r.Index + 2}")
+        prev = old.get(tid, {})
+        # a blank field keeps the existing override's value: fixing only name_en must not revert name_th
+        rows.append({"topic_id": tid, "name_th": r.name_th_fixed.strip() or prev.get("name_th", ""),
+                     "name_en": r.name_en_fixed.strip() or prev.get("name_en", ""),
+                     "description": prev.get("description", ""),
+                     "reviewer": r.reviewer.strip() or prev.get("reviewer", ""), "reviewed_at": today,
+                     "note": r.note.strip() or prev.get("note", "")})
+    new = pd.DataFrame(rows, columns=OVERRIDE_COLUMNS)
     merged = pd.concat([ov[~ov["topic_id"].isin(new["topic_id"])], new], ignore_index=True).sort_values("topic_id")
     merged["topic_id"] = merged["topic_id"].map(topic_code)
     Path(target).parent.mkdir(parents=True, exist_ok=True)
