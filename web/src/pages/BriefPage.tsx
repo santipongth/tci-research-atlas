@@ -69,6 +69,7 @@ function Brief({ release }: { release: AtlasRelease }) {
       ) : null}
       <section aria-labelledby="brief-kpi">
         <h2 id="brief-kpi">{t('brief.kpi')}</h2>
+        {release.previousMissing ? <p className="note">{t('prev.missing', { prev: release.previousMissing })}</p> : null}
         <table className="t brief-t">
           <thead>
             <tr>

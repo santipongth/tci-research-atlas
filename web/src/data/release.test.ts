@@ -14,6 +14,7 @@ describe('loadRelease', () => {
     expect(r.groupById.size).toBe(8)
     expect(r.keywords?.length).toBeGreaterThan(0)
     expect(r.previousOverview).toBeNull() // the offline file carries one release
+    expect(r.previousMissing).toBe('2026Q3')
     expect(r.sample).toBe(true)
     expect(r.ciLevel).toBe(0.9)
     expect(r.definitionVersion).toBe(3)
@@ -25,6 +26,7 @@ describe('loadRelease', () => {
   it('reads the previous release overview over HTTP for KPI deltas', async () => {
     const r = await loadRelease(new HttpSource('./', fixtureFetch('example', './')))
     expect(r.previousOverview?.release).toBe('2026Q3')
+    expect(r.previousMissing).toBeNull()
   })
 
   it('loads an empty release and skips modules the manifest does not list', async () => {
@@ -72,7 +74,18 @@ describe('loadRelease', () => {
     }) as typeof fetch
     const r = await loadRelease(new HttpSource('./', evil))
     expect(r.previousOverview).toBeNull()
+    expect(r.previousMissing).toBeNull() // a hostile name is never echoed
     expect(asked.some((u) => u.includes('..'))).toBe(false)
+  })
+
+  it('reports a previous release that is not on the site, with one request for it', async () => {
+    const asked: string[] = []
+    const base = fixtureFetch('example', './', asked)
+    const gone = ((input: RequestInfo | URL, init?: RequestInit) => (String(input).includes('2026Q3/') ? (asked.push(String(input)), Promise.resolve(new Response('', { status: 404 }))) : base(input, init))) as typeof fetch
+    const r = await loadRelease(new HttpSource('./', gone))
+    expect(r.previousOverview).toBeNull()
+    expect(r.previousMissing).toBe('2026Q3')
+    expect(asked.filter((u) => u.includes('2026Q3/'))).toHaveLength(1)
   })
 
   it('parses schema majors', () => {

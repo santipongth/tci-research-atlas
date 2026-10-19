@@ -33,7 +33,13 @@ function Overview({ release }: { release: AtlasRelease }) {
     ...(hasTopics ? [{ id: 'status', label: t('ov.status.h') }] : []),
     ...(plotted.length ? [{ id: 'portfolio', label: t('ov.pf.h') }] : []),
   ]
-  const kpiIntro = release.previousOverview ? t('ov.kpi.intro', { prev: release.previousOverview.release }) : ov.previous_release ? undefined : t('firstRelease')
+  const kpiIntro = release.previousOverview
+    ? t('ov.kpi.intro', { prev: release.previousOverview.release })
+    : release.previousMissing
+      ? t('prev.missing', { prev: release.previousMissing })
+      : ov.previous_release
+        ? undefined
+        : t('firstRelease')
   return (
     <div className="container">
       <PageHeader

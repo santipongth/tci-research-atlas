@@ -19,6 +19,8 @@ export interface AtlasRelease {
   edges: EdgesFile['edges']
   keywords: EmergingKeyword[] | null
   previousOverview: Overview | null
+  /** previous_release is set but its folder is not on this site (or not in the offline file): Δ is hidden and the pages say why */
+  previousMissing: string | null
   topicById: ReadonlyMap<string, Topic>
   groupById: ReadonlyMap<string, GroupInfo>
   ciLevel: number
@@ -83,6 +85,7 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
     edges: edgesFile?.edges ?? [],
     keywords: keywordsFile?.keywords ?? null,
     previousOverview,
+    previousMissing: previous && isReleaseName(previous) && !previousOverview ? previous : null,
     topicById: new Map(topics.map((t) => [t.id, t])),
     groupById: new Map(taxonomy.groups.map((g) => [g.id, g])),
     ciLevel: manifest.ci_level ?? 0.9,

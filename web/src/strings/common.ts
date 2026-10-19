@@ -101,6 +101,7 @@ export const common = defineStrings({
   'col.reason': { th: 'เหตุผล', en: 'Reason' },
   'unit.pp': { th: 'จุด', en: 'pp' },
   delta: { th: 'จาก {prev}', en: 'vs {prev}' },
+  'prev.missing': { th: 'ไม่พบข้อมูลรอบก่อนหน้า ({prev}) บนเว็บไซต์นี้ จึงไม่แสดงการเปลี่ยนแปลง', en: 'The previous release ({prev}) is not on this site, so changes are not shown.' },
   firstRelease: { th: 'รอบแรก ยังไม่มีรอบก่อนให้เทียบ', en: 'First release: nothing to compare with yet' },
   addToCompare: { th: 'เพิ่มในการเปรียบเทียบ', en: 'Add to comparison' },
   seeAll: { th: 'ดูทั้งหมด {n} หัวข้อ', en: 'See all {n} topics' },
