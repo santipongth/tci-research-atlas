@@ -36,6 +36,7 @@ from atlas.export_exec import (
     topic_institutions,
     topic_sdg_numbers,
 )
+from atlas.export_research import references_file, topic_citations
 from atlas.io_utils import read_table
 from atlas.label import representative_indices
 from atlas.lineage import topic_code
@@ -249,6 +250,15 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
         if model is not None:
             files[name] = model
 
+    # ---- researchers' modules (P4, optional)
+    skipped = skipped_modules(cfg, work)
+    refs_model, why = references_file(cfg, work, code, jid, jname)
+    if refs_model is not None:
+        files["references.json"] = refs_model
+    elif why:
+        skipped["references"] = why
+    cited_topic = topic_citations(work)        # None unless internal citation is published
+
     # ---- topics/<id>.json
     titles = docs.set_index("article_id")
     topic_of = pd.Series(labels_arr, index=docs["article_id"].to_numpy())
@@ -288,7 +298,8 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
                       for k, v in jc.items() if k],
             institutions=institutions.get(t, []),
             keywords=[k for k in str(lb["keywords"] or "").split("; ") if k] if lb is not None else [],
-            neighbors=[code[int(o)] for o in nb["o"] if int(o) in code], narrative=narratives.get(t))
+            neighbors=[code[int(o)] for o in nb["o"] if int(o) in code], narrative=narratives.get(t),
+            cited_in_tci=cited_topic.get(t, (0, 0))[0] if cited_topic is not None else None)
 
     # ---- taxonomy.json (groups = map hubs)
     gsize = info.assign(g=info["topic_id"].map(groups["group_id"])).groupby("g")["size"].agg(["sum", "count"])
@@ -380,6 +391,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     modules += [m for m in ("institutions", "regions", "sdg", "global", "gaps") if f"{m}.json" in files]
     if "institutions.json" in files:
         modules.append("institution_detail")
+    modules += [m for m in ("references",) if f"{m}.json" in files]
     if (mf := methods_file(cfg, work, code)) is not None:
         files["methods.json"] = mf
         modules.append("methods")
@@ -399,7 +411,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
         n_orgs_unverified=int(em["orgs_unverified"].astype(bool).sum()) if "orgs_unverified" in em else 0,
         ingest_errors=len(errs) if errs is not None else None,          # unknown is never published as 0
         labels=_label_stats(cfg, labels), llm=_llm_stats(cfg, work, brief, release),
-        skipped_modules=skipped_modules(cfg, work))
+        skipped_modules=skipped)
     return files
 
 

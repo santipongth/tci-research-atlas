@@ -4,7 +4,7 @@ Pydantic models are the source of truth → JSON Schema (`atlas schema`) → Typ
 (`npm run gen:types` in web/). CI fails when either generated file drifts.
 Files: manifest.json, overview.json, taxonomy.json, topics.json, topics/<id>.json, series.json,
 edges.json, keywords.json; P2 (2.1): journals.json, journals/<id>.json, methods.json, diff.json, match.json; P3 (2.2):
-institutions.json, institutions/<id>.json, regions.json, sdg.json, global.json, gaps.json —
+institutions.json, institutions/<id>.json, regions.json, sdg.json, global.json, gaps.json; P4 (2.3): references.json —
 optional modules listed in manifest.modules. output/data/latest.json points at the newest release.
 Strict JSON: NaN/Infinity are validation errors. Colours are design-token keys (cat-01…), never hex.
 Uncertainty bounds keep level-agnostic names (share_growth_lo/_hi); the level is manifest.ci_level.
@@ -17,7 +17,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "2.2.0"                  # 2.1: editors' modules; 2.2: executives' modules (institutions … gaps)
+SCHEMA_VERSION = "2.3.0"                  # 2.1: editors' modules; 2.2: executives' modules; 2.3: researchers' modules
 Status = Literal["EMERGING", "WATCH", "HOT", "DECLINING", "STABLE", "LOW_DATA"]
 TOPIC_ID = r"^T\d{6}$"
 GROUP_ID = r"^[FG]\d{2,}$"                # F = OpenAlex field id, G = agglomerative fallback group
@@ -310,6 +310,8 @@ class TopicDetail(_Model):
     keywords: list[str] = Field(default_factory=list)
     neighbors: list[str] = Field(default_factory=list)
     narrative: Narrative | None = None
+    cited_in_tci: int | None = Field(None, description="citations this topic's articles received from other corpus "
+                                                       "articles (references.json internal); null = not published")
 
 
 class EmergingKeyword(_Model):
@@ -829,6 +831,75 @@ class GapsFile(_Model):
     concentration: list[Concentration]
 
 
+# ---------------------------------------------------------------------- P4 researchers' modules (schema 2.3)
+class JournalRefs(_Model):
+    """D7 reference practice of one journal over the window (counted references only)."""
+    journal: str = Field(description="journal name")
+    id: str | None = Field(None, description="journals/<id>.json when the release has the journals module")
+    articles: int = Field(description="window articles of the journal")
+    articles_with_refs: int
+    refs_median: float = Field(description="median counted references per article (articles with references)")
+    age_median: float | None = Field(description="median reference age in years (article year − reference year)")
+    share_recent: float | None = Field(description="share of dated references at most recent_years old")
+    share_thai: float = Field(description="share of references written in Thai script")
+    share_doi: float = Field(description="share of references that carry a DOI")
+
+
+class TopicCitations(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    received: int = Field(description="citations its articles received from corpus articles")
+    given: int = Field(description="citations its articles gave to corpus articles")
+
+
+class CitationFlow(_Model):
+    source: str = Field(pattern=TOPIC_ID, description="citing topic")
+    target: str = Field(pattern=TOPIC_ID, description="cited topic")
+    n: int
+
+
+class CitedArticle(_Model):
+    article_id: str
+    title: str
+    title_en: str = ""
+    year: int | None = None
+    journal: str = ""
+    url: str = ""
+    doi: str = ""
+    topic: str | None = Field(None, pattern=TOPIC_ID)
+    count: int = Field(description="distinct corpus articles that cite it")
+
+
+class InternalCitations(_Model):
+    """R12 — citations between corpus articles (DOI or exact title match)."""
+    matches: int
+    citing_articles: int
+    cited_articles: int
+    share_doi: float = Field(description="share of matches found by DOI (the rest by title)")
+    share_title: float
+    min_flow: int
+    topics: list[TopicCitations]
+    flows: list[CitationFlow]
+    top_articles: list[CitedArticle]
+
+
+class ReferencesFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    window: YearWindow
+    articles: int = Field(description="articles in the window")
+    articles_with_refs: int = Field(description="window articles with ≥ 1 counted reference")
+    coverage: float
+    refs_counted: int
+    min_coverage: float
+    min_journal_articles: int
+    recent_years: int
+    journals: list[JournalRefs]
+    internal: InternalCitations | None = None
+    internal_reason: str | None = Field(None, description="why `internal` is null")
+
+
+P4_FILE_MODELS: dict[str, type[_Model]] = {"references.json": ReferencesFile}
+
+
 P3_FILE_MODELS: dict[str, type[_Model]] = {"institutions.json": InstitutionsFile, "regions.json": RegionsFile,
                                            "sdg.json": SdgFile, "global.json": GlobalFile, "gaps.json": GapsFile}
 
@@ -843,6 +914,7 @@ FILE_MODELS: dict[str, type[_Model]] = {
     "topics.json": TopicsFile, "series.json": SeriesFile, "edges.json": EdgesFile, "keywords.json": KeywordsFile,
     **P2_FILE_MODELS,
     **P3_FILE_MODELS,
+    **P4_FILE_MODELS,
 }
 
 
@@ -864,7 +936,7 @@ def contract_json_schema() -> dict:
              "latest": Latest, "journals": JournalsFile, "journal_detail": JournalDetail, "methods": MethodsFile,
              "diff": DiffFile, "match": MatchIndex, "institutions": InstitutionsFile,
              "institution_detail": InstitutionDetail, "regions": RegionsFile, "sdg": SdgFile, "global": GlobalFile,
-             "gaps": GapsFile}
+             "gaps": GapsFile, "references": ReferencesFile}
     _, top = models_json_schema([(m, "validation") for m in files.values()], ref_template="#/definitions/{model}")
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",

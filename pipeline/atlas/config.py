@@ -455,6 +455,19 @@ class BenchmarkCfg(_Strict):
     max_activity_index: float = Field(0.5, gt=0.0)
 
 
+class ReferencesCfg(_Strict):
+    """D7 reference practice per journal + R12 citations inside the corpus (P4) — published only when enough
+    articles have parsed references."""
+    enabled: bool = True
+    min_coverage: float = Field(0.5, ge=0.0, le=1.0)     # share of window articles with ≥ 1 counted reference
+    min_journal_articles: int = Field(20, ge=1)          # journals with fewer window articles with references: not listed
+    recent_years: int = Field(5, ge=0)                   # a reference this many years older than its article is "recent"
+    min_title_chars: int = Field(15, ge=5)               # shortest normalised title / reference segment that may match
+    min_internal_matches: int = Field(20, ge=0)          # fewer matches → internal citation not published
+    min_flow: int = Field(3, ge=1)                       # topic → topic citation flows below this are not listed
+    top_articles: int = Field(50, ge=0)                  # most-cited-in-TCI articles listed
+
+
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
@@ -584,6 +597,7 @@ class AtlasConfig(_Strict):
     gaps: GapsCfg = Field(default_factory=GapsCfg)
     sdg: SdgCfg = Field(default_factory=SdgCfg)
     benchmark: BenchmarkCfg = Field(default_factory=BenchmarkCfg)
+    references: ReferencesCfg = Field(default_factory=ReferencesCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)

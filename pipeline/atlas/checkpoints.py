@@ -42,3 +42,23 @@ def load_aligned(work: str | Path) -> tuple[pd.DataFrame, np.ndarray]:
         if fp and fp != docs_fingerprint(df["article_id"]):
             raise CheckpointMismatch("03_embeddings.npy was built for a different 02_docs — re-run the embed step")
     return df, emb
+
+
+def analysed_window(work: str | Path) -> tuple[int, int] | None:
+    """(first, last) year of the analysed corpus (06_meta.json: series years plus the trimmed recent years, so the
+    newest issues stay findable) — None when the series step has not run."""
+    p = Path(work) / "06_meta.json"
+    if not p.exists():
+        return None
+    meta = json.loads(p.read_text(encoding="utf-8"))
+    years = [int(y) for y in meta.get("years", [])] + [int(y) for y in meta.get("trimmed_years", [])]
+    return (min(years), max(years)) if years else None
+
+
+def article_topics(work: str | Path) -> pd.Series:
+    """article_id → fine topic id (−1 = unassigned) for the articles of 02_docs."""
+    work = Path(work)
+    docs = read_table(work / "02_docs.parquet")[["article_id"]]
+    fine = read_table(work / "04_fine_topics.parquet")[["article_id", "fine_topic"]]
+    t = docs.merge(fine, on="article_id", how="left")
+    return pd.Series(t["fine_topic"].fillna(-1).astype(int).to_numpy(), index=t["article_id"].astype(str).to_numpy())
