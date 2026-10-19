@@ -6,12 +6,19 @@ Graph: each article links to its k most similar articles (cosine), weight = cosi
 made undirected (an edge kept once, maximum weight). Modularity Leiden with `resolution`;
 communities smaller than min_cluster_size become −1 (unassigned), like HDBSCAN noise. Python's
 `random` module drives igraph's RNG, so seeding it makes runs reproducible.
+
+Memory: the kNN search multiplies a block of rows by all n vectors; the block has knn_chunk(n) rows so one
+block holds at most KNN_CHUNK_ELEMENTS similarities (~256 MB of float32) whatever the corpus size. It is a
+memory bound only — every row's neighbours are the same for any block size.
 """
 from __future__ import annotations
 
 import random
 
 import numpy as np
+
+KNN_CHUNK_ELEMENTS = 2 ** 26       # similarities per block (chunk rows × n); memory only, never changes results
+KNN_MIN_CHUNK = 64
 
 
 def has_igraph() -> bool:
@@ -22,9 +29,16 @@ def has_igraph() -> bool:
     return True
 
 
-def knn_edges(emb: np.ndarray, k: int, chunk: int = 2048) -> tuple[np.ndarray, np.ndarray]:
-    """→ (edges [m, 2] with i < j, weights [m]) of the symmetrised kNN graph."""
+def knn_chunk(n: int) -> int:
+    """Rows per block of the n × n similarity search: max(64, 2**26 // n) — 64 rows at 1M articles."""
+    return max(KNN_MIN_CHUNK, KNN_CHUNK_ELEMENTS // max(int(n), 1))
+
+
+def knn_edges(emb: np.ndarray, k: int, chunk: int | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """→ (edges [m, 2] with i < j, weights [m]) of the symmetrised kNN graph (chunk: rows per block,
+    default knn_chunk(n))."""
     n = len(emb)
+    chunk = int(chunk or knn_chunk(n))
     k = max(1, min(k, n - 1))
     src, dst, w = [], [], []
     for s in range(0, n, chunk):
