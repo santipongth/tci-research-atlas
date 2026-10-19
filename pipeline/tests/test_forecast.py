@@ -272,3 +272,22 @@ def test_nowcast_ignores_a_forward_dated_month_and_a_wrong_year_as_of(make_cfg, 
     assert nc["as_of_month"] == 4 and "as_of=2023-06 is not in the partial year 2024" in capsys.readouterr().out
     nc, _ = _nowcast_run(make_cfg, tmp_path, *args, as_of="2024-06")
     assert nc["as_of_month"] == 6                              # an as_of in the partial year is used as given
+
+
+def test_nowcast_month_is_capped_at_the_recorded_snapshot_not_today(make_cfg, tmp_path):
+    # snapshot April 2024 (recorded at cluster/series time); the data already holds months up to September
+    extra = [{"year": 2024, "month": m, "count": 75} for m in range(1, 10)]
+    cfg = make_cfg(tmp_path)
+    work = tmp_path / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    years = list(range(2012, 2024))
+    write_table(pd.DataFrame([{"topic_id": 1, "year": y, "count": 50} for y in years]), work / "06_series.parquet")
+    (work / "06_meta.json").write_text(json.dumps({
+        "last_complete_year": 2023, "as_of_year": 2024, "snapshot_at": "2024-04-15T10:00:00+07:00", "years": years,
+        "totals": {str(y): 1000 for y in years}, "partial_totals": {"2024": 675}}), encoding="utf-8")
+    months = [{"year": y, "month": m, "count": 83} for y in range(2020, 2024) for m in range(1, 13)]
+    write_table(pd.DataFrame(months + extra), work / "06_months.parquet")
+    write_table(pd.DataFrame([{"topic_id": 1, "year": 2024, "count": 30}]), work / "06_partial_year.parquet")
+    forecast(cfg)
+    nc = json.loads((work / "08_forecast_meta.json").read_text(encoding="utf-8"))["nowcast"]
+    assert nc["as_of_month"] == 4                             # was 9: the cap came from today's date

@@ -33,6 +33,7 @@ from atlas.label import topic_titles
 from atlas.lineage import topic_code
 from atlas.llm_runner import LlmItem, LlmJob, run_job
 from atlas.prompts import load_prompt, prompt_version, render_prompt
+from atlas.state import work_release
 
 TOPIC_PROMPT, BRIEF_PROMPT = "topic_narrative.th", "executive_brief.th"
 NARRATIVE_COLUMNS = ["topic_id", "status", "th", "en", "source"]
@@ -435,6 +436,7 @@ def _use_llm(cfg: dict, task: str, llm) -> bool:
 
 def narrate(cfg: dict, llm=None) -> pd.DataFrame:
     work = Path(cfg["pipeline"]["work_dir"])
+    work_release(cfg)                    # refuse before any LLM call when pipeline.release names another release
     labels, em, _, last = _inputs(cfg)
     stats = {}
     job = narrative_job(cfg)

@@ -123,6 +123,7 @@ def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure
     from atlas.embed_runner import StoreSaveFailed
     from atlas.jobs import LockHeld, LockUnsupported, RunStopped
     from atlas.pipeline import run
+    from atlas.state import ReleaseMismatch
 
     def done(code: int, e: BaseException) -> int:
         if getattr(e, "abandoned", 0):
@@ -141,6 +142,9 @@ def _run_guarded(cfg: dict, steps: list[str] | None, config: Path | None, ensure
                    f"  run the same command again: uv run atlas {resume} -c {_cfg_arg(config)}", err=True)
         return done(EXIT_FAILED, e)
     except LockUnsupported as e:
+        typer.echo(f"[{tag}] ERROR: {e}", err=True)
+        return done(EXIT_CONFIG, e)
+    except ReleaseMismatch as e:                     # nothing was written for the wrong release
         typer.echo(f"[{tag}] ERROR: {e}", err=True)
         return done(EXIT_CONFIG, e)
     except ApiConfigError as e:
@@ -538,7 +542,8 @@ def review_import_cmd(
 @app.command("validate")
 def validate_cmd(
     config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
-    release: str = typer.Option(None, help="release to check (default: pipeline.release / current quarter)"),
+    release: str = typer.Option(None, help="release to check (default: pipeline.release, else the release "
+                                            "work_dir was clustered for, else the current quarter)"),
     release_dir: Path = typer.Option(None, "--dir", help="check this folder instead of output/data/<release>"),
     previous: Path = typer.Option(None, help="previous release folder (default: manifest.previous_release)"),
 ) -> None:
@@ -547,12 +552,12 @@ def validate_cmd(
     Exit code 0 = clean, 1 = warnings, 2 = errors.
     """
     from atlas.config import load_config
-    from atlas.state import _checked, current_release
+    from atlas.state import _checked, default_release
     from atlas.validate import render_report, validate_release
 
     cfg = load_config(config)
     try:
-        name = _checked(release) if release else current_release(cfg)
+        name = _checked(release) if release else default_release(cfg)
     except ValueError as e:
         raise typer.BadParameter(str(e)) from e
     root = release_dir or Path(cfg["pipeline"]["output_dir"]) / "data" / name
@@ -564,12 +569,15 @@ def validate_cmd(
 @app.command("publish")
 def publish_cmd(
     config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
-    release: str = typer.Option(None, help="release to publish (default: pipeline.release / current quarter)"),
+    release: str = typer.Option(None, help="release to publish (default: pipeline.release, else the release "
+                                            "work_dir was clustered for, else the current quarter)"),
     site: Path = typer.Option(None, "--site", help="the static web folder: writes data/<release>/, "
                               "data/latest.json and atlas-offline.html"),
     tarball: bool = typer.Option(False, "--tarball", help="also package a reproducible tar.gz + notes "
                                  "for a GitHub Release (printed command, never uploaded)"),
     allow_warnings: bool = typer.Option(False, "--allow-warnings", help="publish even when validation warns"),
+    set_latest: bool = typer.Option(False, "--set-latest", help="point the site's latest.json at this release even "
+                                    "when a newer release is on the site"),
 ) -> None:
     """Validate a release, then put it on the static site and/or package it. Never uploads anything.
 
@@ -582,7 +590,7 @@ def publish_cmd(
         typer.echo("nothing to do: pass --site <web folder> and/or --tarball", err=True)
         raise typer.Exit(2)
     try:
-        r = publish(load_config(config), release, allow_warnings, site, tarball)
+        r = publish(load_config(config), release, allow_warnings, site, tarball, set_latest)
     except PublishRefused as e:
         typer.echo(f"refused: {e}", err=True)
         raise typer.Exit(2) from e

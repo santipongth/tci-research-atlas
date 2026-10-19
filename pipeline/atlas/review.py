@@ -28,7 +28,7 @@ from atlas.label import OVERRIDE_COLUMNS, load_overrides, parse_topic_id, topic_
 from atlas.lineage import topic_code
 from atlas.llm_runner import LlmItem, LlmJob, run_job
 from atlas.prompts import load_prompt, prompt_version, render_prompt
-from atlas.state import current_release
+from atlas.state import work_release
 
 PROMPT_NAME = "topic_merge.th"
 MERGE_COLUMNS = ["topic_a", "topic_b", "similarity", "same_topic", "reason", "source"]
@@ -139,7 +139,7 @@ def export_review(cfg: dict, out: str | Path | None = None, n: int | None = None
              "ok": "", "name_th_fixed": "", "name_en_fixed": "", "reviewer": "", "note": ""}
             for r in chosen.itertuples()]
     path = Path(out) if out else (Path(cfg["pipeline"]["output_dir"]) / "review"
-                                  / f"{current_release(cfg)}_label_review.csv")
+                                  / f"{work_release(cfg)}_label_review.csv")
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows, columns=REVIEW_COLUMNS).to_csv(path, index=False, encoding="utf-8-sig")
     return path

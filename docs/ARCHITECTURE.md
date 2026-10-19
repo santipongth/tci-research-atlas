@@ -57,6 +57,7 @@ atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>
 ```
 
 - งาน LLM ทั้งหมดเป็นระดับหัวข้อ (ชื่อ คู่ซ้ำ คำอธิบาย บทสรุป) ผ่าน adapter เดียวแบบ OpenAI-compatible (`atlas/llm.py`) บนแกน HTTP ร่วมกับ embedding (`atlas/api_http.py`) — ไม่มี SDK ของผู้ให้บริการรายใด
+- รอบข้อมูลเลือกครั้งเดียวที่ `cluster` (`pipeline.release` หรือไตรมาสของวันที่รัน) แล้วบันทึกพร้อมเวลา snapshot ใน `work/04_topics_meta.json`; ทุกขั้นหลังจากนั้นและ validate/publish ใช้รอบที่บันทึกไว้ (`atlas.state.work_release` — config ที่ชี้รอบอื่นถูกปฏิเสธ) และใช้ snapshot เดียวกันสำหรับ as_of_year, nowcast และ generated_at
 - ข้อมูลที่ต้องอยู่ข้ามรอบอยู่ใน `state_dir` เท่านั้น: embeddings, llm_cache, releases/<release>/ (ID หัวข้อ, ตำแหน่งบนแผนที่), openalex/
 - รันซ้ำ step ใดของรอบเดิม = ผลเหมือนเดิม (อ่านรอบ *ก่อน* เสมอ เขียนทับเฉพาะโฟลเดอร์ของรอบนี้) — ความปลอดภัยของรอบ: ชื่อรอบถูกตรวจรูปแบบ, ID หัวข้อไม่ถูกใช้ซ้ำ, สั่งรันรอบเก่าขณะมีรอบใหม่กว่าอยู่แล้วจะถูกปฏิเสธ, ไม่มี state หัวข้อของรอบก่อนหน้า = error (ไม่เดา)
 

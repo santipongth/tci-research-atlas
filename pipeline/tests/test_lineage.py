@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -127,7 +128,9 @@ def test_cluster_step_keeps_ids_across_releases(make_cfg, tmp_path):
     assert meta["mode"] == "fit" and meta["kept_fraction"] == 1.0 and meta["events"]["continue"] == 4
 
     again = cluster(cfg)                                                          # same release re-run: idempotent
-    assert json.loads((work / "04_topics_meta.json").read_text(encoding="utf-8")) == meta
+    rerun = json.loads((work / "04_topics_meta.json").read_text(encoding="utf-8"))
+    assert {k: v for k, v in rerun.items() if k != "snapshot_at"} == {k: v for k, v in meta.items() if k != "snapshot_at"}
+    assert meta["release"] == "2026Q3" and datetime.fromisoformat(meta["snapshot_at"]).tzinfo is not None
     assert (tmp_path / "state" / "releases" / "2026Q3" / "topics" / "assignments.parquet").exists()
     assert len(set(again.tolist())) == 4
 

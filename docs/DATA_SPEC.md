@@ -43,9 +43,9 @@
 | `06_topic_journal_year`, `06_topic_org_year`, `06_journal_first_year`, `06_meta.json` | series | ใช้คำนวณความกว้าง + ปีสมบูรณ์ล่าสุด; `06_meta.json` = last_complete_year, as_of_year, trimmed_years (ปีที่มีข้อมูลแต่ไม่ใช้คำนวณแนวโน้ม), years, totals (บทความที่นำมาวิเคราะห์ต่อปี), n_articles (ทั้งคลัง = `kpis.articles` — headline ของบทสรุปบอกจำนวนที่วิเคราะห์พร้อมป้ายกำกับ) |
 | `07_emerging` | emerging | ดู docs/EMERGING_SPEC.md §3 + org_coverage_R, orgs_unverified, status, journal_driven, emerging_score, definition_version (คอลัมน์ครบแม้ไม่มีหัวข้อ) |
 | `09_layout`, `09_edges` | layout | id, kind, x, y, r, parent · s, t, w |
-| `04_lineage`, `04_topics_meta.json` | cluster | event (new/continue/split/merge/retired), topic_id, parents · release, previous_release, mode (fit/assign), kept_fraction, events |
+| `04_lineage`, `04_topics_meta.json` | cluster | event (new/continue/split/merge/retired), topic_id, parents · release (รอบที่ทุกขั้นหลัง cluster ต้องเขียน — `atlas.state.work_release`), previous_release, mode (fit/assign), kept_fraction, events, snapshot_at (เวลาท้องถิ่น ISO 8601 พร้อม offset: ใช้กำหนด as_of_year, เพดานเดือน nowcast และ generated_at) |
 | `06_months`, `06_partial_year` | series | year, month, count (วันที่ตีพิมพ์ที่ตรงกับปี) · topic_id, year, count ของปีหลัง last_complete_year (ใช้ทำ nowcast) |
-| `06_meta.json` (เพิ่ม) | series | partial_totals (ยอดบทความของปีหลัง last_complete_year), completeness {method: median (backfill guard v3) \| configured} |
+| `06_meta.json` (เพิ่ม) | series | partial_totals (ยอดบทความของปีหลัง last_complete_year), completeness {method: median (backfill guard v3) \| configured}, snapshot_at (คัดลอกจาก 04_topics_meta) |
 | `07_keywords` | keywords | term, key, count_recent, count_baseline, share_ratio, no_baseline, growth(_lo/_hi), n_active_years, n_orgs_R, n_journals_R, new_journal_share, journal_driven, topic_id, emerging |
 | `08_forecasts` (v2), `08_forecast_meta.json` | forecast | model, backtest_mae/mape, mase, skill_vs_naive, show, hist/fc (JSON) + fc_lo80/hi80/lo95/hi95, nowcast_* · total_model, conformal, n_calibration, nowcast — ช่วงคาลิเบรตจากเรคคอร์ดที่ซื่อสัตย์ของโมเดลที่เลือก; `show` ต้องมีจุด backtest ซื่อสัตย์ ≥ `forecast.min_honest_points`; nowcast มีเฉพาะปีปฏิทินที่กำลังดำเนินอยู่ (`forecast.nowcast.min_month_share`) |
 | `09_galaxy` | layout | article_id, topic_id, gx, gy |
@@ -181,7 +181,7 @@
 | `topics.json` | `TopicsFile` | หัวข้อ: id T000123, group, ชื่อ, label_source, ขนาด, ตำแหน่ง, status, score, metrics, forecast, lineage, subfield, cross_field, nowcast |
 | `topics/<id>.json` | `TopicDetail` | บทความตัวแทน (ชื่อเรื่อง + ลิงก์ ThaiJO + พิกัด galaxy), วารสาร/สถาบันหลัก, คำสำคัญ, เพื่อนบ้าน, **narrative** — สถาบันนับตาม `org_key` (พับวรรณยุกต์/ตัวพิมพ์เพื่อรวมคำสะกดต่างกัน) แต่ `institutions[].key` เป็น**ชื่อที่เขียนจริง**ที่พบบ่อยที่สุดของ key นั้น (ส่วนชื่อองค์กรของสังกัด เช่น "มหาวิทยาลัยเกษตรศาสตร์" / "Naresuan University" — ไม่ตัดวรรณยุกต์ ไม่แปลงตัวพิมพ์; ไม่มีชื่อคณะ/ตำแหน่ง) |
 | `series.json`, `edges.json`, `keywords.json` | `SeriesFile`, `EdgesFile`, `KeywordsFile` | ยอดรายปีต่อหัวข้อ · เส้นเชื่อม · emerging keywords |
-| `output/data/latest.json` | `Latest` | {release, path: "<release>/manifest.json", schema_version, generated_at} |
+| `output/data/latest.json` | `Latest` | {release, path: "<release>/manifest.json", schema_version, generated_at} — ชี้รอบใหม่สุดเท่านั้น (export/publish รอบเก่ากว่าไม่ย้าย; `atlas publish --set-latest` บังคับ) · `generated_at` ของทุกไฟล์ = snapshot_at (UTC) ของ work_dir จึง export ซ้ำได้ไฟล์เดิมทุกไบต์ |
 
 - `metrics.share_ratio` เป็น **null** และ `no_baseline: true` เมื่อไม่มีบทความในช่วงฐาน (เว็บแสดง "ใหม่ — ไม่มีฐานเปรียบเทียบ") — เช่นเดียวกับ keyword
 - `metrics.low_data_reason`: `few_articles` (count_recent < `min_articles_recent`) หรือ `not_estimable` (ประมาณอัตราโตไม่ได้) เมื่อ status = LOW_DATA

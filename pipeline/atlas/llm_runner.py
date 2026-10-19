@@ -46,7 +46,7 @@ from atlas.jobs import (
     process_started_epoch,
 )
 from atlas.llm import LlmConfigError, OpenAICompatLLM, extract_json
-from atlas.state import current_release
+from atlas.state import work_release
 
 JOBS: dict[str, str] = {"label": "atlas.label:label_job", "merge": "atlas.review:merge_job",
                         "narrative": "atlas.narrative:narrative_job", "brief": "atlas.narrative:brief_job"}
@@ -115,7 +115,7 @@ class LlmRunner:
         self.dir = llm_dir(cfg)
         self.dir.mkdir(parents=True, exist_ok=True)
         self.cache_path = self.dir / f"{job.task}.jsonl"
-        self.release = current_release(cfg)
+        self.release = work_release(cfg)                  # spend is booked to the work_dir's release
         self._mutex = threading.Lock()
         records = _read_jsonl(self.cache_path)
         self.cache = {r["key"]: r for r in records if r.get("output") is not None}

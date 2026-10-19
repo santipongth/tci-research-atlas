@@ -2,6 +2,8 @@
 import hashlib
 import json
 import shutil
+from datetime import date, datetime
+from pathlib import Path
 
 import pytest
 
@@ -321,3 +323,105 @@ def test_diff_skips_malformed_previous_topic_entries(two_releases, tmp_path):
     (prev / "topics.json").write_text(json.dumps(t), encoding="utf-8")
     rep = validate_release(data / "2026Q2", prev, cfg["validation"])
     assert any("lack id/size/status" in w for w in rep.warnings)
+
+
+# ---- release ↔ work_dir guard (P1a final review): a step after `cluster` never writes another release
+def _workspace(two_releases, tmp_path, release):
+    """A private copy of work/state/out of the fixture (work_dir clustered for 2026Q2) with pipeline.release set."""
+    root, cfg = two_releases
+    for d in ("work", "state", "out"):
+        shutil.copytree(root / d, tmp_path / d)
+    pipe = {**cfg["pipeline"], "work_dir": str(tmp_path / "work"), "state_dir": str(tmp_path / "state"),
+            "output_dir": str(tmp_path / "out"), "release": release}
+    return {**cfg, "pipeline": pipe}
+
+
+def _digest(folder):
+    return {p.relative_to(folder).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(folder.rglob("*")) if p.is_file()}
+
+
+@pytest.mark.parametrize("release", ["2027Q1", "2026Q1"])          # phantom release / overwrite an older one
+@pytest.mark.parametrize("step", ["label", "narrate", "layout", "export"])
+def test_steps_after_cluster_refuse_another_release(two_releases, tmp_path, release, step):
+    from atlas.state import ReleaseMismatch
+
+    cfg = _workspace(two_releases, tmp_path, release)
+    before_out, before_state = _digest(tmp_path / "out"), _digest(tmp_path / "state")
+    with pytest.raises(ReleaseMismatch, match=f"work_dir was clustered for 2026Q2 but pipeline.release is {release}"):
+        run(cfg, [step])
+    assert _digest(tmp_path / "out") == before_out and _digest(tmp_path / "state") == before_state
+    assert not (tmp_path / "out" / "data" / "2027Q1").exists() and not (tmp_path / "state" / "releases" / "2027Q1").exists()
+
+
+def test_cli_run_names_the_mismatch_and_exits_2(two_releases, tmp_path):
+    from typer.testing import CliRunner
+
+    from atlas.cli import app
+
+    cfg = _workspace(two_releases, tmp_path, "2027Q1")
+    cfg_file = tmp_path / "c.yaml"
+    cfg_file.write_text("pipeline:\n" + "".join(f"  {k}: '{Path(cfg['pipeline'][k]).as_posix()}'\n"
+                                                 for k in ("work_dir", "state_dir", "output_dir"))
+                        + "  release: 2027Q1\n", encoding="utf-8")
+    res = CliRunner().invoke(app, ["run", "-c", str(cfg_file), "-s", "export"])
+    assert res.exit_code == 2 and "work_dir was clustered for 2026Q2 but pipeline.release is 2027Q1" in res.output
+    assert not (tmp_path / "out" / "data" / "2027Q1").exists()
+
+
+def test_null_release_continued_next_quarter_publishes_the_clustered_release(two_releases, tmp_path, monkeypatch):
+    import atlas.state as state
+    from atlas.publish import publish
+    from atlas.validate import validate_release
+
+    cfg = _workspace(two_releases, tmp_path, None)
+    monkeypatch.setattr(state, "today", lambda: date(2027, 1, 5))       # days later, in the next quarter
+    run(cfg, ["label", "narrate", "export"])
+    data = tmp_path / "out" / "data"
+    assert sorted(p.name for p in data.iterdir() if p.is_dir()) == ["2026Q1", "2026Q2"]
+    man = json.loads((data / "2026Q2" / "manifest.json").read_text(encoding="utf-8"))
+    assert man["release"] == "2026Q2" and man["previous_release"] == "2026Q1"
+    assert json.loads((data / "latest.json").read_text(encoding="utf-8"))["release"] == "2026Q2"
+    assert validate_release(data / "2026Q2", None, cfg["validation"]).exit_code in (0, 1)
+    r = publish(cfg, site=tmp_path / "site", allow_warnings=True)          # null → the work_dir's release
+    assert r["release"] == "2026Q2" and (tmp_path / "site" / "data" / "2026Q2" / "manifest.json").exists()
+    assert (tmp_path / "state" / "releases" / "index.json").read_text(encoding="utf-8") == '["2026Q1", "2026Q2"]'
+
+
+def test_cli_validate_defaults_to_the_work_dir_release(two_releases, tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    import atlas.state as state
+    from atlas.cli import app
+
+    cfg = _workspace(two_releases, tmp_path, None)
+    monkeypatch.setattr(state, "today", lambda: date(2027, 1, 5))
+    cfg_file = tmp_path / "c.yaml"
+    cfg_file.write_text("pipeline:\n" + "".join(f"  {k}: '{Path(cfg['pipeline'][k]).as_posix()}'\n"
+                                                 for k in ("work_dir", "state_dir", "output_dir")), encoding="utf-8")
+    res = CliRunner().invoke(app, ["validate", "-c", str(cfg_file)])
+    assert res.exit_code in (0, 1) and "2026Q2" in res.output and "2027Q1" not in res.output
+
+
+def test_two_exports_of_the_same_release_are_byte_identical(two_releases, tmp_path):
+    cfg = _workspace(two_releases, tmp_path, "2026Q2")
+    run(cfg, ["export"])
+    first = _digest(tmp_path / "out")
+    run(cfg, ["export"])
+    assert _digest(tmp_path / "out") == first
+    snap = json.loads((tmp_path / "work" / "04_topics_meta.json").read_text(encoding="utf-8"))["snapshot_at"]
+    man = json.loads((tmp_path / "out" / "data" / "2026Q2" / "manifest.json").read_text(encoding="utf-8"))
+    assert datetime.fromisoformat(man["generated_at"]) == datetime.fromisoformat(snap)   # the recorded snapshot
+
+
+def test_publishing_an_older_release_keeps_the_site_latest(two_releases, tmp_path, capsys):
+    from atlas.publish import publish
+
+    root, cfg = two_releases
+    site = tmp_path / "site"
+    for rel in ("2026Q1", "2026Q2", "2026Q1"):                        # re-publish an older quarter last
+        publish({**cfg, "pipeline": {**cfg["pipeline"], "release": rel}}, site=site)
+    assert json.loads((site / "data" / "latest.json").read_text(encoding="utf-8"))["release"] == "2026Q2"
+    assert "latest.json still points at 2026Q2" in capsys.readouterr().out
+    publish({**cfg, "pipeline": {**cfg["pipeline"], "release": "2026Q1"}}, site=site, set_latest=True)
+    assert json.loads((site / "data" / "latest.json").read_text(encoding="utf-8"))["release"] == "2026Q1"

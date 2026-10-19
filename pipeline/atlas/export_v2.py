@@ -15,7 +15,7 @@ import hashlib
 import json
 import math
 import shutil
-from datetime import UTC, datetime
+from datetime import UTC
 from pathlib import Path
 
 import numpy as np
@@ -28,7 +28,7 @@ from atlas.label import representative_indices
 from atlas.lineage import topic_code
 from atlas.orgs import org_display_names
 from atlas.schema import contract as C
-from atlas.state import current_release, previous_release, release_dir
+from atlas.state import is_newest, known_releases, previous_release, release_dir, snapshot_at, work_release
 from atlas.taxonomy import FALLBACK_GROUP_BASE, load_topic_groups
 
 N_COLOR_TOKENS = 12
@@ -105,8 +105,9 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     """{published relative path: model} for one release (nothing is written)."""
     work = Path(cfg["pipeline"]["work_dir"])
     ecfg = cfg["export"]
-    release, prev = current_release(cfg), previous_release(cfg)
-    now = datetime.now(UTC).isoformat()
+    release = work_release(cfg)                    # the release work_dir was clustered for (ReleaseMismatch otherwise)
+    prev = previous_release(cfg, release)
+    now = snapshot_at(cfg).astimezone(UTC).isoformat()   # recorded snapshot: re-exports are byte-identical
     docs, emb = load_aligned(work)
     info = read_table(work / "04_topic_info.parquet")
     labels = fine_labels(read_table(work / "05_labels.parquet")).set_index("topic_id")
@@ -347,7 +348,7 @@ def _dump(model: C._Model) -> bytes:
 
 def write_release(cfg: dict) -> Path:
     files = build_release(cfg)
-    release = current_release(cfg)
+    release = work_release(cfg)
     root = Path(cfg["pipeline"]["output_dir"]) / "data"
     out = root / release
     if out.exists():
@@ -363,7 +364,11 @@ def write_release(cfg: dict) -> Path:
         entries.append(C.FileEntry(path=rel, bytes=len(data), sha256=hashlib.sha256(data).hexdigest()))
     manifest = files["manifest.json"].model_copy(update={"files": entries})
     (out / "manifest.json").write_bytes(_dump(C.Manifest.model_validate(manifest.model_dump())))
-    latest = C.Latest(release=release, path=f"{release}/manifest.json", generated_at=manifest.generated_at)
-    (root / "latest.json").write_bytes(_dump(latest))
+    others = [p.name for p in root.iterdir() if (p / "manifest.json").exists() and p.name != release]
+    if is_newest(release, others, known_releases(cfg)):            # re-exporting an older quarter never moves latest.json back
+        latest = C.Latest(release=release, path=f"{release}/manifest.json", generated_at=manifest.generated_at)
+        (root / "latest.json").write_bytes(_dump(latest))
+    else:
+        print(f"[export] a newer release than {release} is in {root} — latest.json left unchanged")
     print(f"[export] contract v2 → {out} ({len(entries)} files + manifest)")
     return out

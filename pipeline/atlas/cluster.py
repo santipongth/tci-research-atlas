@@ -8,7 +8,8 @@
 
 Stable ids (atlas/lineage.py): topics.mode auto|fit|assign — assign keeps last release's
 topics, fit re-clusters and matches clusters to last release's ids; state per release in
-state_dir/releases/<release>/topics/. Extra outputs: 04_lineage, 04_topics_meta.json.
+state_dir/releases/<release>/topics/. Extra outputs: 04_lineage, 04_topics_meta.json (release + snapshot_at:
+every later step writes this release only — atlas.state.work_release — and uses this snapshot).
 """
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ from atlas.lineage import (
     save_topic_state,
     update_registry,
 )
-from atlas.state import current_release, known_releases, previous_release
+from atlas.state import current_release, known_releases, now, previous_release
 
 
 def _sample(n: int, k: int, seed: int) -> np.ndarray:
@@ -214,7 +215,8 @@ def stable_labels(cfg: dict, article_ids: pd.Series, emb: np.ndarray, prev: dict
 
 def cluster(cfg: dict) -> np.ndarray:
     work = Path(cfg["pipeline"]["work_dir"])
-    release, prev_release = current_release(cfg), previous_release(cfg)
+    release = current_release(cfg)               # the one place a release is chosen; later steps use the record
+    prev_release = previous_release(cfg, release)
     rels = known_releases(cfg)
     if release in rels and rels[rels.index(release) + 1:]:
         raise ValueError(f"cannot cluster release {release}: newer releases exist: "
@@ -259,6 +261,7 @@ def cluster(cfg: dict) -> np.ndarray:
     kept = kept_fraction(set() if prev is None else _active_ids(prev["registry"]), set(ids))
     (work / "04_topics_meta.json").write_text(json.dumps({
         "release": release, "previous_release": prev_release, "mode": model["mode"],
+        "snapshot_at": now().isoformat(),        # as_of_year, nowcast month cap and generated_at of this release
         "kept_fraction": round(kept, 4), "n_topics": len(ids),
         "events": {e: int((events["event"] == e).sum()) for e in EVENTS},
     }), encoding="utf-8")

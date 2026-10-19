@@ -24,6 +24,7 @@ from atlas.io_utils import read_table, write_table
 from atlas.lineage import topic_code
 from atlas.llm_runner import LlmItem, LlmJob, run_job
 from atlas.prompts import load_prompt, prompt_version, render_prompt
+from atlas.state import work_release
 from atlas.thai import thai_ratio
 
 PROMPT_NAME = "topic_label.th"
@@ -128,6 +129,7 @@ def load_overrides(path: str | Path | None) -> pd.DataFrame:
 def label(cfg: dict, llm=None) -> pd.DataFrame:
     """llm: an object with .model_id and .chat(messages) (tests); None → the configured endpoint, if needed."""
     work = Path(cfg["pipeline"]["work_dir"])
+    work_release(cfg)                    # refuse before any LLM call when pipeline.release names another release
     info = read_table(work / "04_topic_info.parquet")
     provider = cfg["labeling"]["provider"]
     rows, stats = [], {"from_cache": 0, "generated": 0, "repaired": 0, "fallback": 0, "cost_usd": 0.0, "model": ""}

@@ -5,7 +5,7 @@ Years after last_complete_year (v3 rule, unchanged) are kept for the Forecast v2
 06_partial_year (topic counts) and 06_months (articles per publication month, dates that agree with the
 article year). They are computed after the cutoff and never feed back into it.
 Outputs: 06_series, 06_topic_journal_year, 06_topic_org_year, 06_journal_first_year, 06_months,
-06_partial_year, 06_meta.json
+06_partial_year, 06_meta.json (as_of_year and snapshot_at come from the snapshot cluster recorded in work_dir)
 """
 from __future__ import annotations
 
@@ -16,15 +16,17 @@ from pathlib import Path
 import pandas as pd
 
 from atlas.io_utils import read_table, write_table
+from atlas.state import snapshot_at
 
 
-def as_of_year(ecfg: dict) -> int:
-    """The year the run describes (config `as_of_year`, default today's calendar year)."""
+def as_of_year(ecfg: dict, snapshot: date | None = None) -> int:
+    """The year the run describes (config `as_of_year`; default the snapshot's calendar year — the snapshot the
+    cluster step recorded, so a run continued days later describes the same year — else today's)."""
     v = ecfg.get("as_of_year")
-    return int(v) if v is not None else date.today().year
+    return int(v) if v is not None else (snapshot or date.today()).year
 
 
-def last_complete_year(totals: pd.Series, ecfg: dict) -> int:
+def last_complete_year(totals: pd.Series, ecfg: dict, snapshot: date | None = None) -> int:
     """Last year whose corpus total can be trusted as complete (EMERGING_SPEC §2, v3).
 
     1. `min_year_complete` set → it wins.
@@ -38,7 +40,7 @@ def last_complete_year(totals: pd.Series, ecfg: dict) -> int:
     if ecfg.get("min_year_complete") is not None:
         return int(ecfg["min_year_complete"])
     totals = totals.sort_index()
-    as_of = as_of_year(ecfg)
+    as_of = as_of_year(ecfg, snapshot)
     first = int(totals.index.min())
     cand = min(int(totals.index.max()), as_of - 1)
     if cand < first:
@@ -89,7 +91,8 @@ def build_series(cfg: dict) -> pd.DataFrame:
               .rename(columns={"journal_name": "journal"}))
 
     all_totals = d.groupby("year").size()
-    cutoff = last_complete_year(all_totals, cfg["emerging"])    # definition v3, unchanged
+    snap = snapshot_at(cfg)                                      # recorded by cluster (now() without a record)
+    cutoff = last_complete_year(all_totals, cfg["emerging"], snap.date())    # definition v3, unchanged
     how = {"method": "configured" if cfg["emerging"].get("min_year_complete") is not None else "median"}
     trimmed = [int(y) for y in all_totals.index if y > cutoff]  # forward-dated / incomplete years: kept in the
     later = d[(d["year"] > cutoff) & (d["fine_topic"] >= 0)]     # corpus, excluded from trends, used for nowcast
@@ -125,7 +128,8 @@ def build_series(cfg: dict) -> pd.DataFrame:
     (work / "06_meta.json").write_text(json.dumps({
         "last_complete_year": int(cutoff),
         "n_articles": int(n_articles),                              # whole corpus = overview kpis.articles
-        "as_of_year": as_of_year(cfg["emerging"]),
+        "as_of_year": as_of_year(cfg["emerging"], snap.date()),
+        "snapshot_at": snap.isoformat(),
         "trimmed_years": trimmed,
         "years": [int(y) for y in totals.index],
         "totals": {str(int(y)): int(c) for y, c in totals.items()},

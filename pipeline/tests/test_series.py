@@ -112,3 +112,19 @@ def test_publication_months_and_partial_year(make_cfg, tmp_path):
     assert meta["partial_totals"] == {"2024": 2} and meta["completeness"] == {"method": "median"}
     assert read_table(work / "06_partial_year.parquet").to_dict("records") == [{"topic_id": 0, "year": 2024, "count": 2}]
     assert read_table(work / "06_months.parquet")["count"].sum() == 52
+
+
+def test_as_of_year_comes_from_the_snapshot_recorded_at_cluster_time(make_cfg, tmp_path):
+    """A run continued days later (here: in the next year) keeps the snapshot the cluster step recorded."""
+    cfg = make_cfg(tmp_path)                                  # emerging.as_of_year: null → the snapshot's year
+    work = tmp_path / "work"
+    rows = [{"article_id": f"{y}-{i}", "year": y, "journal_name": "jA"} for y in range(2018, 2026) for i in range(10)]
+    write_table(pd.DataFrame(rows), work / "02_docs.parquet")
+    write_table(pd.DataFrame({"article_id": [r["article_id"] for r in rows], "fine_topic": 0}),
+                work / "04_fine_topics.parquet")
+    (work / "04_topics_meta.json").write_text(json.dumps({"release": "2025Q2",
+                                                          "snapshot_at": "2025-05-02T09:00:00+07:00"}), encoding="utf-8")
+    build_series(cfg)
+    meta = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
+    assert meta["as_of_year"] == 2025 and meta["last_complete_year"] == 2024 and meta["trimmed_years"] == [2025]
+    assert meta["snapshot_at"] == "2025-05-02T09:00:00+07:00"

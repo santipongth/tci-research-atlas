@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from atlas.io_utils import read_table
+from atlas.state import snapshot_at, work_release
 from atlas.taxonomy import load_topic_groups
 
 SCHEMA_VERSION = "1.1"
@@ -82,8 +83,10 @@ def _is_true(v) -> bool:
 
 def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFrame, edges: pd.DataFrame,
                 em: pd.DataFrame, fc: pd.DataFrame, meta: dict, n_articles: int, include_forecast: bool,
-                definition_version: int, group_names: dict[int, tuple[str, str]] | None = None) -> dict:
-    """group_names: {group id: (th, en)} (OpenAlex field names); unnamed groups take their largest topic's label."""
+                definition_version: int, group_names: dict[int, tuple[str, str]] | None = None,
+                generated_at: str | None = None) -> dict:
+    """group_names: {group id: (th, en)} (OpenAlex field names); unnamed groups take their largest topic's label.
+    generated_at: the snapshot time recorded by cluster (export passes it; default now)."""
     labels = fine_labels(labels).set_index("topic_id")
     em = em.set_index("topic_id")
     fcm = fc.set_index("topic_id") if len(fc) else pd.DataFrame()
@@ -154,7 +157,7 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
     assigned = int(info["size"].sum())
     atlas = {
         "meta": {
-            "generated_at": datetime.now(UTC).isoformat(),
+            "generated_at": generated_at or datetime.now(UTC).isoformat(),
             "pipeline_version": _git_hash(),
             "schema_version": SCHEMA_VERSION,
             "definition_version": int(definition_version),
@@ -178,6 +181,7 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
 def export(cfg: dict) -> dict:
     work, outdir = Path(cfg["pipeline"]["work_dir"]), Path(cfg["pipeline"]["output_dir"])
     state = Path(cfg["pipeline"]["state_dir"])
+    work_release(cfg)                              # never export work_dir under another release (ReleaseMismatch)
     for name in ("04_centroids.npy", "04_centroid_ids.json"):
         if not (work / name).exists():
             raise FileNotFoundError(f"export needs {work / name} (written by the cluster step); nothing was exported")
@@ -199,7 +203,8 @@ def export(cfg: dict) -> dict:
     atlas = build_atlas(info, labels, read_table(work / "09_layout.parquet"), read_table(work / "09_edges.parquet"),
                         em, fc, meta, n_articles=len(read_table(work / "02_docs.parquet")),
                         include_forecast=bool(cfg["export"]["include_forecast_in_json"]),
-                        definition_version=int(cfg["emerging"]["definition_version"]), group_names=group_names)
+                        definition_version=int(cfg["emerging"]["definition_version"]), group_names=group_names,
+                        generated_at=snapshot_at(cfg).astimezone(UTC).isoformat())
     (outdir / "atlas_data.json").write_text(json.dumps(atlas, ensure_ascii=False, indent=1, allow_nan=False),
                                             encoding="utf-8")
     if "csv" in cfg["export"]["formats"]:

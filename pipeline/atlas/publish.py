@@ -4,7 +4,9 @@ Validates first (refuses on errors, and on warnings unless allow_warnings). Then
 (the web build output — any static host, opened from a sub-path):
   <site>/data/<release>/…        the contract v2 files, copied (a re-publish replaces that folder)
   <site>/data/latest.json        {release, path: "<release>/manifest.json", …} — the web reads it at run
-                                 time relative to its BASE_URL; publishing a quarter = copying data, no rebuild
+                                 time relative to its BASE_URL; publishing a quarter = copying data, no rebuild.
+                                 Moved only when the published release is the newest on the site (re-publishing
+                                 an older quarter keeps it, with a warning; set_latest / --set-latest forces)
   <site>/atlas-offline.html      the single-file edition: the web build's offline-template.html with the
                                  release injected into <script type="application/json" id="atlas-data">
                                  by plain string replacement (Python only — no Node on the operator's machine)
@@ -25,7 +27,7 @@ import tarfile
 from pathlib import Path
 
 from atlas.schema.contract import Latest
-from atlas.state import _checked, current_release
+from atlas.state import _checked, default_release, is_newest, known_releases
 from atlas.validate import render_report, validate_release
 
 OFFLINE_TEMPLATE, OFFLINE_HTML = "offline-template.html", "atlas-offline.html"
@@ -96,33 +98,49 @@ def inject_offline(template_html: str, bundle: dict) -> str:
     return out
 
 
-def publish_site(release_dir: Path, site: Path) -> dict:
+def _site_latest(site: Path) -> str | None:
+    try:
+        return str(json.loads((site / "data" / "latest.json").read_text(encoding="utf-8"))["release"])
+    except (FileNotFoundError, ValueError, KeyError, TypeError):
+        return None
+
+
+def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_latest: bool = False) -> dict:
     release = release_dir.name
     dst = site / "data" / release
+    current = _site_latest(site)
+    others = [p.name for p in (site / "data").glob("*") if (p / "manifest.json").exists() and p.name != release]
+    others += [current] if current and current != release else []
+    move = set_latest or current is None or is_newest(release, others, known_releases(cfg) if cfg else ())
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(release_dir, dst)
     man = json.loads((release_dir / "manifest.json").read_text(encoding="utf-8"))
     latest = Latest(release=release, path=f"{release}/manifest.json", generated_at=man["generated_at"])
     latest_json = latest.model_dump(mode="json")
-    (site / "data" / "latest.json").write_text(json.dumps(latest_json, ensure_ascii=False), encoding="utf-8")
     offline = None
     template = site / OFFLINE_TEMPLATE
-    if template.exists():
+    if not move:                                   # latest.json and the offline edition stay on the newest release
+        print(f"[publish] WARNING: {release} is not the newest release on the site — latest.json still points at "
+              f"{current} (atlas-offline.html unchanged); pass --set-latest to make {release} the latest")
+    elif template.exists():
+        (site / "data" / "latest.json").write_text(json.dumps(latest_json, ensure_ascii=False), encoding="utf-8")
         html = inject_offline(template.read_text(encoding="utf-8"), offline_bundle(release_dir, latest_json))
         offline = site / OFFLINE_HTML
         offline.write_text(html, encoding="utf-8", newline="")     # same bytes on Windows and Linux
     else:
+        (site / "data" / "latest.json").write_text(json.dumps(latest_json, ensure_ascii=False), encoding="utf-8")
         print(f"[publish] WARNING: {template} not found — build the web first (npm run build); "
               "the single-file offline edition was skipped")
-    return {"site_data": str(dst), "latest": str(site / "data" / "latest.json"),
+    return {"site_data": str(dst), "latest": str(site / "data" / "latest.json"), "latest_moved": move,
             "offline_html": str(offline) if offline else None}
 
 
 def publish(cfg: dict, release: str | None = None, allow_warnings: bool = False, site: str | Path | None = None,
-            tarball: bool = False) -> dict:
+            tarball: bool = False, set_latest: bool = False) -> dict:
+    """release None → pipeline.release, else the release work_dir was clustered for, else today's quarter."""
     try:
-        release = _checked(release) if release else current_release(cfg)
+        release = _checked(release) if release else default_release(cfg)
     except ValueError as e:
         raise PublishRefused(str(e)) from e
     rel_dir = Path(cfg["pipeline"]["output_dir"]) / "data" / release
@@ -132,7 +150,7 @@ def publish(cfg: dict, release: str | None = None, allow_warnings: bool = False,
         raise PublishRefused(f"validation exit code {rep.exit_code} — fix the release (or pass --allow-warnings)")
     result: dict = {"release": release, "validation": rep.exit_code}
     if site is not None:
-        result.update(publish_site(rel_dir, Path(site)))
+        result.update(publish_site(rel_dir, Path(site), cfg, set_latest))
     if tarball:
         out = Path(cfg["pipeline"]["output_dir"]) / "releases"
         tar_path, sha_path = package_release(rel_dir, out)

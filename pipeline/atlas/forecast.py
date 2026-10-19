@@ -27,7 +27,7 @@ min_calibration scores → normal quantiles (1.2816 / 1.9600).
 Nowcast: only for the running calendar year Y = last_complete_year + 1 = emerging.as_of_year (a year the
 backfill guard trimmed gets none). full-year estimate = ytd / f(m), f(m) = share of a year's articles
 published by month m in the last profile_years complete years; m = nowcast.as_of, else the latest month
-of Y (≤ the snapshot month) holding ≥ nowcast.min_month_share of Y's dated articles.
+of Y (≤ the month of the snapshot cluster recorded, 06_meta.snapshot_at) holding ≥ nowcast.min_month_share of Y's dated articles.
 Outputs: work/08_forecasts, work/08_forecast_meta.json
 """
 from __future__ import annotations
@@ -36,7 +36,7 @@ import json
 import math
 import warnings
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 from statistics import NormalDist
 
@@ -45,6 +45,7 @@ import pandas as pd
 
 from atlas.config import ForecastCfg
 from atlas.io_utils import read_table, write_table
+from atlas.state import snapshot_at
 from atlas.topics_time import as_of_year
 
 FORECAST_COLUMNS = ["topic_id", "model", "backtest_mae", "backtest_mape", "mase", "skill_vs_naive", "show",
@@ -406,7 +407,8 @@ def forecast(cfg: dict) -> pd.DataFrame:
     elif nc["enabled"] and months_path.exists() and partial_path.exists():
         months, partial = read_table(months_path), read_table(partial_path)
         in_year = months[months["year"] == year]
-        today = date.today()
+        snap = (datetime.fromisoformat(meta6["snapshot_at"]) if meta6.get("snapshot_at")
+                else snapshot_at(cfg)).date()           # recorded at cluster/series time — never today's date
         as_of = 0
         if nc["as_of"] and int(nc["as_of"][:4]) == year:
             as_of = int(nc["as_of"][5:7])
@@ -414,7 +416,7 @@ def forecast(cfg: dict) -> pd.DataFrame:
             print(f"[forecast] WARNING: forecast.nowcast.as_of={nc['as_of']} is not in the partial year {year} "
                   "- ignored, the month is taken from the data")
         if not as_of:
-            as_of = nowcast_month(in_year, float(nc["min_month_share"]), today.month if running == today.year else 12)
+            as_of = nowcast_month(in_year, float(nc["min_month_share"]), snap.month if running == snap.year else 12)
         prof_years = list(range(last - int(nc["profile_years"]) + 1, last + 1))
         frac = month_fraction(months, prof_years, as_of) if as_of else 0.0
         if as_of >= int(nc["min_months"]) and frac > 0:

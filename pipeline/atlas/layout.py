@@ -28,7 +28,7 @@ import pandas as pd
 
 from atlas.checkpoints import load_aligned
 from atlas.io_utils import read_table, write_table
-from atlas.state import previous_release, release_dir
+from atlas.state import previous_release, release_dir, work_release
 from atlas.taxonomy import load_topic_groups
 
 
@@ -125,6 +125,7 @@ def galaxy_coords(member_emb: np.ndarray, centroid: np.ndarray, cx: float, cy: f
 
 def layout(cfg: dict) -> pd.DataFrame:
     work = Path(cfg["pipeline"]["work_dir"])
+    release = work_release(cfg)                     # the release work_dir was clustered for (ReleaseMismatch otherwise)
     lcfg = cfg["layout"]
     seed = int(cfg["pipeline"]["seed"])
     C = np.load(work / "04_centroids.npy")
@@ -132,7 +133,7 @@ def layout(cfg: dict) -> pd.DataFrame:
     info = read_table(work / "04_topic_info.parquet").set_index("topic_id")
     group_of = load_topic_groups(work).set_index("topic_id")["group_id"].to_dict()
 
-    prev_rel = previous_release(cfg)
+    prev_rel = previous_release(cfg, release)
     prev_xy: dict[int, tuple[float, float]] = {}
     if prev_rel and (release_dir(cfg, prev_rel) / "layout.parquet").exists():
         p = read_table(release_dir(cfg, prev_rel) / "layout.parquet")
@@ -187,7 +188,7 @@ def layout(cfg: dict) -> pd.DataFrame:
     write_table(pd.DataFrame(edges, columns=["s", "t", "w"]), work / "09_edges.parquet")
     write_table(out, work / "09_layout.parquet")
     write_table(fine_df[["id", "x", "y"]].rename(columns={"id": "topic_id"}),
-                release_dir(cfg, create=True) / "layout.parquet")
+                release_dir(cfg, release, create=True) / "layout.parquet")
     moved = ""
     if prev_xy:
         cont = [i for i, t in enumerate(ids) if t in prev_xy]
