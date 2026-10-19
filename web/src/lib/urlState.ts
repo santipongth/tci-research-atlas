@@ -150,3 +150,4 @@ export const journalsCodec = makeCodec<JournalsUrlState>({
   dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
 })
 export const journalCodec = makeCodec<{ drift: View }>({ drift: oneOf('drift', VIEWS, 'chart') })
+export const methodsCodec = makeCodec<{ trend: View; mono: 'all' | 'only' }>({ trend: oneOf('trend', VIEWS, 'chart'), mono: oneOf('mono', ['all', 'only'] as const, 'all') })

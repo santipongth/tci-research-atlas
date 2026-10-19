@@ -19,6 +19,7 @@ const ROUTES = [
   { name: 'brief', path: '/brief' },
   { name: 'journals', path: '/journals' },
   { name: 'journal', path: '/journals/so02.example0' },
+  { name: 'methods', path: '/methods' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -163,11 +164,18 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.goto(`${EXAMPLE}#/journals/so02.nowhere`)
     await expect(page.locator('h1')).toContainText('so02.nowhere')
   },
+  methods: async (page) => {
+    await expect(page.locator('svg.ml path.ml-line')).toHaveCount(4)
+    await expect(page.locator('#lexicon li')).toHaveCount(16)
+    await page.getByLabel('แสดงเฉพาะหัวข้อที่วิธีกระจุก').check()
+    await expect(page).toHaveURL(/mono=only/)
+    await expect(page.locator('#topics tbody tr')).toHaveCount(2)
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []

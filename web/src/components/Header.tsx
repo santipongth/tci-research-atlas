@@ -11,6 +11,7 @@ const NAV: readonly { to: string; key: StrKey }[] = [
   { to: '/atlas', key: 'nav.atlas' },
   { to: '/emerging', key: 'nav.emerging' },
   { to: '/journals', key: 'nav.journals' },
+  { to: '/methods', key: 'nav.methods' },
   { to: '/compare', key: 'nav.compare' },
   { to: '/data', key: 'nav.data' },
   { to: '/about', key: 'nav.about' },
