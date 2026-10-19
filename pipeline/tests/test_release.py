@@ -96,3 +96,79 @@ def test_no_published_group_has_an_empty_name_even_on_a_stale_taxonomy(two_relea
                                               for c in coarse}
     assert all(g.th.strip() and g.en.strip() for g in groups)
     assert {t.group for t in files["topics.json"].topics} <= {g.id for g in groups}
+
+
+def test_validate_clean_release_and_diff_against_previous(two_releases):
+    from atlas.validate import validate_release
+
+    root, cfg = two_releases
+    rep = validate_release(root / "out" / "data" / "2026Q2", None, cfg["validation"])
+    assert rep.exit_code == 0, rep.errors + rep.warnings
+    assert rep.previous_dir is not None and rep.stats["kept_ids"] == 1.0 and rep.stats["topics"] >= 1
+
+
+def test_tampered_or_extra_files_are_reported(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    (data / "2026Q2" / "edges.json").write_text('{"edges": []}', encoding="utf-8")
+    (data / "2026Q2" / "notes.json").write_text("{}", encoding="utf-8")
+    rep = validate_release(data / "2026Q2", None, cfg["validation"])
+    assert rep.exit_code == 2
+    assert any("edges.json: size/sha256" in e for e in rep.errors)
+    assert any("notes.json: on disk but not in the manifest" in w for w in rep.warnings)
+
+
+def test_diff_flags_lost_ids_and_a_shrinking_corpus(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    prev = data / "2026Q1"
+    t = json.loads((prev / "topics.json").read_text(encoding="utf-8"))
+    t["topics"] += [{**t["topics"][0], "id": f"T9{i:05d}"} for i in range(3)]      # ids that vanished
+    (prev / "topics.json").write_text(json.dumps(t), encoding="utf-8")
+    ov = json.loads((prev / "overview.json").read_text(encoding="utf-8"))
+    ov["kpis"]["articles"] = 100
+    (prev / "overview.json").write_text(json.dumps(ov), encoding="utf-8")
+    rep = validate_release(data / "2026Q2", prev, cfg["validation"])
+    assert rep.exit_code == 2
+    assert any("remain" in w for w in rep.warnings) and any("corpus shrank" in e for e in rep.errors)
+
+
+def test_missing_previous_release_only_warns(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    root, cfg = two_releases
+    rep = validate_release(root / "out" / "data" / "2026Q2", tmp_path / "no-such-release", cfg["validation"])
+    assert rep.exit_code == 1 and any("diff skipped" in w for w in rep.warnings)
+
+
+def test_cli_validate_exit_codes(two_releases, tmp_path):
+    from typer.testing import CliRunner
+
+    from atlas.cli import app
+
+    root, _ = two_releases
+    cfg_file = tmp_path / "c.yaml"
+    cfg_file.write_text(f"pipeline:\n  output_dir: '{(root / 'out').as_posix()}'\n  release: 2026Q2\n",
+                        encoding="utf-8")
+    res = CliRunner().invoke(app, ["validate", "--config", str(cfg_file)])
+    assert res.exit_code == 0 and "atlas validate: OK" in res.stdout
+    res = CliRunner().invoke(app, ["validate", "--dir", str(tmp_path / "empty")])
+    assert res.exit_code == 2 and "manifest.json is missing" in res.stdout
+
+
+def test_llm_fallbacks_are_reported(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    path = data / "2026Q2" / "manifest.json"
+    m = json.loads(path.read_text(encoding="utf-8"))
+    m["labels"] = {"provider": "llm", "llm": 2, "keywords": 1, "overrides": 0}
+    m["llm"] = [{"task": "narrative", "model": "m", "items": 4, "from_cache": 0, "generated": 3, "repaired": 0,
+                 "fallback": 1, "cost_usd": 0.01}]
+    path.write_text(json.dumps(m), encoding="utf-8")              # the manifest does not hash itself
+    rep = validate_release(data / "2026Q2", None, cfg["validation"])
+    assert rep.exit_code == 1
+    assert any("fell back to keywords" in w for w in rep.warnings)
+    assert any("narrative: 1 of 4" in w for w in rep.warnings)

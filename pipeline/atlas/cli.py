@@ -533,3 +533,25 @@ def review_import_cmd(
     r = import_review(load_config(config), file)
     typer.echo(f"{r['applied']} corrections from {r['reviewed']} reviewed topics → {r['path']} "
                f"({r['overrides_total']} overrides in total; they apply from the next label step)")
+
+
+@app.command("validate")
+def validate_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+    release: str = typer.Option(None, help="release to check (default: pipeline.release / current quarter)"),
+    release_dir: Path = typer.Option(None, "--dir", help="check this folder instead of output/data/<release>"),
+    previous: Path = typer.Option(None, help="previous release folder (default: manifest.previous_release)"),
+) -> None:
+    """Validate a data-contract v2 release (schema + integrity + diff vs the previous release).
+
+    Exit code 0 = clean, 1 = warnings, 2 = errors.
+    """
+    from atlas.config import load_config
+    from atlas.state import current_release
+    from atlas.validate import render_report, validate_release
+
+    cfg = load_config(config)
+    root = release_dir or Path(cfg["pipeline"]["output_dir"]) / "data" / (release or current_release(cfg))
+    rep = validate_release(root, previous, cfg["validation"])
+    typer.echo(render_report(rep))
+    raise typer.Exit(rep.exit_code)
