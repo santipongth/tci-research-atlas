@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures')
 const GENERATED_AT = '2026-10-01T00:00:00+00:00'
-const SCHEMA = '2.1.0'
+const SCHEMA = '2.2.0'
 const RELEASE = '2026Q4'
 const PREVIOUS = '2026Q3'
 const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
@@ -500,6 +500,201 @@ function buildEditors(files, previousOverview) {
   return ['journals', 'journal_detail', 'methods', 'diff', 'match']
 }
 
+// ---- P3 executives' modules (contract 2.2): institutions, regions, SDG + BCG, global benchmark, gaps — synthetic, NOT real data
+// Institution ids follow the pipeline's rules: alias ids, ror-<id>, o<10 hex>. Topic details link ORGS[0..3] to the first four.
+const INSTS = [
+  // id, name_th, name_en, type, province, country, source, articles in the window, share with foreign partners
+  ['mu-a', 'มหาวิทยาลัยตัวอย่าง ก', 'Example University A', 'university', 'TH-10', 'TH', 'alias', 1840, 0.09],
+  ['mu-b', 'มหาวิทยาลัยตัวอย่าง ข', 'Example University B', 'university', 'TH-50', 'TH', 'alias', 1210, 0.12],
+  ['rbu-x', 'มหาวิทยาลัยราชภัฏตัวอย่าง', 'Example Rajabhat University', 'rajabhat', 'TH-57', 'TH', 'alias', 640, 0.01],
+  ['ror-0example1', 'สถาบันวิจัยตัวอย่าง', 'Example Research Institute', 'research', 'TH-13', 'TH', 'ror', 420, 0.21],
+  ['rmu-y', 'มหาวิทยาลัยเทคโนโลยีราชมงคลตัวอย่าง', 'Example Rajamangala University of Technology', 'rajamangala', 'TH-30', 'TH', 'alias', 380, 0.02],
+  ['o1a2b3c4d5e', 'โรงพยาบาลตัวอย่าง', '', 'hospital', 'TH-40', 'TH', 'name', 150, 0],
+  ['o9f8e7d6c5b', '', 'Example Institute of Technology', 'university', null, null, 'name', 95, 0.04],
+  ['o0123456789', '', 'University of Example', 'university', null, 'JP', 'name', 12, 1],
+]
+const INST_OF_ORG = ['mu-a', 'mu-b', 'rbu-x', 'ror-0example1']
+const INST_TOPICS = {
+  'mu-a': ['T000101', 'T000102', 'T000106', 'T000701', 'T000702'], 'mu-b': ['T000201', 'T000202', 'T000301', 'T000302'],
+  'rbu-x': ['T000201', 'T000203', 'T000601', 'T000806'], 'ror-0example1': ['T000401', 'T000406', 'T000501'],
+  'rmu-y': ['T000501', 'T000502', 'T000505'], 'o1a2b3c4d5e': ['T000101', 'T000801', 'T000802', 'T000806'],
+  'o9f8e7d6c5b': ['T000703', 'T000704'], 'o0123456789': ['T000701'],
+}
+const EDGES = [['mu-a', 'mu-b', 214], ['mu-a', 'ror-0example1', 121], ['mu-b', 'rbu-x', 64], ['mu-a', 'o1a2b3c4d5e', 48], ['rbu-x', 'rmu-y', 22], ['mu-b', 'o0123456789', 9]]
+const COUNTRY = { JP: ['ญี่ปุ่น', 'Japan'], CN: ['จีน', 'China'], US: ['สหรัฐอเมริกา', 'United States'], LA: ['ลาว', 'Laos'], GB: ['สหราชอาณาจักร', 'United Kingdom'] }
+const NATIONAL = [['JP', 210], ['CN', 160], ['US', 120], ['LA', 64], ['GB', 51]]
+const INST_COUNTRIES = { 'mu-a': [['JP', 80], ['US', 41]], 'mu-b': [['JP', 60], ['LA', 20]], 'ror-0example1': [['CN', 40]] }
+const SUGGEST = {
+  'mu-a': [{ id: 'rmu-y', similarity: 0.41, topics: ['T000106'] }],
+  'rbu-x': [{ id: 'o1a2b3c4d5e', similarity: 0.36, topics: ['T000806'] }],
+  'ror-0example1': [{ id: 'rmu-y', similarity: 0.58, topics: ['T000501'] }],
+}
+const PROVINCE_NAMES = {
+  'TH-10': ['กรุงเทพมหานคร', 'Bangkok'], 'TH-13': ['ปทุมธานี', 'Pathum Thani'], 'TH-20': ['ชลบุรี', 'Chon Buri'],
+  'TH-30': ['นครราชสีมา', 'Nakhon Ratchasima'], 'TH-34': ['อุบลราชธานี', 'Ubon Ratchathani'], 'TH-40': ['ขอนแก่น', 'Khon Kaen'],
+  'TH-44': ['มหาสารคาม', 'Maha Sarakham'], 'TH-50': ['เชียงใหม่', 'Chiang Mai'], 'TH-57': ['เชียงราย', 'Chiang Rai'],
+  'TH-65': ['พิษณุโลก', 'Phitsanulok'], 'TH-83': ['ภูเก็ต', 'Phuket'], 'TH-90': ['สงขลา', 'Songkhla'],
+}
+// code, articles (window), recent, population (null = not in the population table)
+const PROVINCES = [
+  ['TH-10', 5210, 3290, 5500000], ['TH-50', 2140, 1360, 1800000], ['TH-40', 1530, 990, 1790000], ['TH-90', 1380, 860, 1430000],
+  ['TH-13', 1220, 800, 1200000], ['TH-65', 960, 600, 860000], ['TH-30', 870, 540, 2630000], ['TH-57', 720, 450, 1300000],
+  ['TH-20', 650, 430, null], ['TH-44', 610, 380, 960000], ['TH-34', 480, 300, 1870000], ['TH-83', 210, 140, null],
+]
+const regionOf = (code) => {
+  const n = Number(code.slice(3))
+  return n === 10 ? 'bangkok' : n <= 27 || (n >= 70 && n <= 77) ? 'central' : n <= 49 ? 'northeast' : n <= 67 ? 'north' : 'south'
+}
+const SDG_NAMES = [
+  ['ขจัดความยากจน', 'No poverty'], ['ขจัดความหิวโหย', 'Zero hunger'], ['สุขภาพและความเป็นอยู่ที่ดี', 'Good health and well-being'],
+  ['การศึกษาที่มีคุณภาพ', 'Quality education'], ['ความเท่าเทียมทางเพศ', 'Gender equality'], ['น้ำสะอาดและการสุขาภิบาล', 'Clean water and sanitation'],
+  ['พลังงานสะอาดที่เข้าถึงได้', 'Affordable and clean energy'], ['งานที่มีคุณค่าและการเติบโตทางเศรษฐกิจ', 'Decent work and economic growth'],
+  ['อุตสาหกรรม นวัตกรรม และโครงสร้างพื้นฐาน', 'Industry, innovation and infrastructure'], ['ลดความเหลื่อมล้ำ', 'Reduced inequalities'],
+  ['เมืองและชุมชนที่ยั่งยืน', 'Sustainable cities and communities'], ['การผลิตและการบริโภคที่ยั่งยืน', 'Responsible consumption and production'],
+  ['การรับมือการเปลี่ยนแปลงสภาพภูมิอากาศ', 'Climate action'], ['ทรัพยากรทางทะเล', 'Life below water'], ['ระบบนิเวศบนบก', 'Life on land'],
+  ['สันติภาพ ความยุติธรรม และสถาบันที่เข้มแข็ง', 'Peace, justice and strong institutions'], ['ความร่วมมือเพื่อการพัฒนาที่ยั่งยืน', 'Partnerships for the goals'],
+]
+const SDG_TOPICS = {
+  2: ['T000401', 'T000403'], 3: ['T000101', 'T000102', 'T000103', 'T000801', 'T000802', 'T000805'], 4: ['T000201', 'T000202', 'T000203', 'T000803'],
+  6: ['T000504'], 7: ['T000501'], 8: ['T000301', 'T000302', 'T000303'], 9: ['T000502', 'T000506', 'T000702', 'T000703'], 13: ['T000504'],
+  14: ['T000406', 'T000403'], 15: ['T000404'],
+}
+const BCG = [['bcg-bio', 'เศรษฐกิจชีวภาพ', 'Bio-economy', ['T000104', 'T000401']], ['bcg-circular', 'เศรษฐกิจหมุนเวียน', 'Circular economy', ['T000406']], ['bcg-green', 'เศรษฐกิจสีเขียว', 'Green economy', ['T000501', 'T000502', 'T000306']]]
+// id, name, group, world recent, world baseline, Thailand recent, Thailand baseline, Atlas topics
+const SUBFIELDS = [
+  ['1702', 'Artificial Intelligence', 'F17', 182000, 210000, 1450, 1300, ['T000701']],
+  ['1710', 'Information Systems', 'F17', 96000, 160000, 2100, 2600, ['T000705']],
+  ['3304', 'Education', 'F33', 140000, 230000, 6900, 9800, ['T000201', 'T000202', 'T000203']],
+  ['2739', 'Public Health, Environmental and Occupational Health', 'F27', 260000, 470000, 7400, 11000, ['T000101', 'T000103']],
+  ['1406', 'Marketing', 'F14', 52000, 84000, 1900, 2500, ['T000301']],
+  ['1102', 'Agronomy and Crop Science', 'F11', 61000, 110000, 2600, 4100, ['T000401']],
+  ['2208', 'Electrical and Electronic Engineering', 'F22', 150000, 240000, 2300, 3300, ['T000501', 'T000502']],
+  ['2310', 'Pollution', 'F23', 74000, 80000, 420, 300, []],
+  ['2105', 'Renewable Energy, Sustainability and the Environment', 'F21', 98000, 104000, 900, 700, []],
+  ['1212', 'Religious studies', 'F12', 9000, 16000, 600, 900, ['T000601']],
+  ['2902', 'Advanced and Specialized Nursing', 'F29', 21000, 39000, 1600, 2300, ['T000801']],
+]
+
+function buildExecutives(files) {
+  const topics = files['topics.json'].topics
+  const byId = new Map(topics.map((t) => [t.id, t]))
+  const sumOf = (ids, f) => sum(ids.map((id) => f(byId.get(id))))
+  const named = (code, articles) => ({ code, name_th: COUNTRY[code][0], name_en: COUNTRY[code][1], articles })
+  for (const [path, d] of Object.entries(files)) {
+    if (!path.startsWith('topics/')) continue
+    d.institutions = d.institutions.map((c) => {
+      const k = ORGS.indexOf(c.key)
+      return k >= 0 ? { ...c, id: INST_OF_ORG[k] } : c
+    })
+  }
+  for (const t of topics) t.sdg = Object.entries(SDG_TOPICS).filter(([, ids]) => ids.includes(t.id)).map(([n]) => Number(n))
+
+  // institutions.json + institutions/<id>.json
+  const partnersOf = (id) => EDGES.filter(([a, b]) => a === id || b === id).map(([a, b, n]) => ({ id: a === id ? b : a, articles: n })).sort((x, y) => y.articles - x.articles)
+  const summaries = INSTS.map(([id, th, en, type, province, country, source, articles, intl]) => ({
+    id, name_th: th, name_en: en, type, province, country, source, ror: source === 'ror' ? '0example1' : '',
+    articles, articles_total: Math.round(articles * 2.1), articles_recent: Math.round(articles * 0.62), intl_share: intl,
+    partners: partnersOf(id).length, topics: INST_TOPICS[id].length, group: byId.get(INST_TOPICS[id][0]).group,
+  }))
+  files['institutions.json'] = {
+    schema_version: SCHEMA, window: { start: 2020, end: 2024 }, recent: { start: 2022, end: 2024 }, min_articles: 5, network_min_articles: 3,
+    articles_with_org: 16900, pct_international: 0.068, pct_multi_institution: 0.314, sources: { alias: 4, ror: 1, name: 3 },
+    institutions: summaries, edges: EDGES.map(([a, b, articles]) => ({ a, b, articles })), countries: NATIONAL.map(([c, n]) => named(c, n)),
+    province_names: [...new Set(summaries.map((s) => s.province).filter(Boolean))].sort().map((code) => ({ code, name_th: PROVINCE_NAMES[code][0], name_en: PROVINCE_NAMES[code][1] })),
+  }
+  for (const s of summaries) {
+    const tl = INST_TOPICS[s.id]
+    const w = tl.map((_, i) => 1 / (i + 1.5))
+    const ws = sum(w) / 0.8
+    files[`institutions/${s.id}.json`] = {
+      schema_version: SCHEMA, id: s.id,
+      years: YEARS.map((year, i) => ({ year, articles: Math.round((s.articles_total / 10) * (0.7 + 0.06 * i)) })),
+      topics: tl.map((topic, i) => ({ topic, count: Math.round((s.articles * w[i]) / ws), share: r4(w[i] / ws) })),
+      partners: partnersOf(s.id), countries: (INST_COUNTRIES[s.id] ?? []).map(([c, n]) => named(c, n)), suggested: SUGGEST[s.id] ?? [],
+    }
+  }
+
+  // regions.json — an article with authors in two provinces counts in both, so shares add up to more than 1
+  const located = 14200
+  files['regions.json'] = {
+    schema_version: SCHEMA, window: { start: 2020, end: 2024 }, articles_with_org: 16900, articles_located: located, coverage: r4(located / 16900), population_year: 2024,
+    provinces: PROVINCES.map(([code, articles, recent, pop]) => ({
+      code, name_th: PROVINCE_NAMES[code][0], name_en: PROVINCE_NAMES[code][1], region: regionOf(code), articles, articles_recent: recent,
+      share: r4(articles / located), institutions: summaries.filter((s) => s.province === code).length,
+      per_100k: pop ? Number(((100000 * articles) / pop).toFixed(2)) : null, top: summaries.filter((s) => s.province === code).map((s) => s.id).slice(0, 3),
+    })),
+    regions: ['bangkok', 'central', 'northeast', 'north', 'south'].map((key) => {
+      const a = sum(PROVINCES.filter(([c]) => regionOf(c) === key).map(([, n]) => n))
+      return { key, articles: a, share: r4(a / located) }
+    }),
+  }
+
+  // sdg.json — SDGs and BCG; goals without topics are the gaps the page lists
+  const goal = (id, framework, number, th, en, ids) => {
+    const sR = sumOf(ids, (t) => t.metrics.share_recent)
+    const sB = sumOf(ids, (t) => t.metrics.share_baseline)
+    return { id, framework, number, th, en, topics: ids, articles_recent: sumOf(ids, (t) => t.metrics.count_recent), share_recent: r6(sR), share_ratio: sB > 0 ? r4(sR / sB) : null }
+  }
+  files['sdg.json'] = {
+    schema_version: SCHEMA, method: 'lexical', version: '1-fixture',
+    frameworks: [{ key: 'sdg', th: 'เป้าหมายการพัฒนาที่ยั่งยืน (SDGs)', en: 'Sustainable Development Goals' }, { key: 'bcg', th: 'โมเดลเศรษฐกิจ BCG', en: 'BCG economy model' }],
+    goals: [
+      ...SDG_NAMES.map(([th, en], i) => goal(`sdg-${String(i + 1).padStart(2, '0')}`, 'sdg', i + 1, th, en, SDG_TOPICS[i + 1] ?? [])),
+      ...BCG.map(([id, th, en, ids], i) => goal(id, 'bcg', i + 1, th, en, ids)),
+    ],
+  }
+
+  // global.json — share-based world growth and activity index, computed as the pipeline does
+  const WR = sum(SUBFIELDS.map((s) => s[3]))
+  const WB = sum(SUBFIELDS.map((s) => s[4]))
+  const CR = sum(SUBFIELDS.map((s) => s[5]))
+  const bench = SUBFIELDS.map(([id, en, group, wr, wb, cr, cb, tl]) => {
+    const ratio = wr / WR / (wb / WB)
+    const ai = cr / CR / (wr / WR)
+    return {
+      id, en, group, world_recent: wr, world_baseline: wb, country_recent: cr, country_baseline: cb, tci_recent: sumOf(tl, (t) => t.metrics.count_recent),
+      world_ratio: r4(ratio), activity_index: r4(ai), country_share: r6(cr / wr), opportunity: wr >= 1000 && ratio >= 1.2 && ai <= 0.5, topics: tl,
+    }
+  })
+  files['global.json'] = {
+    schema_version: SCHEMA, source: 'openalex@fixture', country: 'TH', recent: { start: 2022, end: 2024 }, baseline: { start: 2017, end: 2021 },
+    min_world_works: 1000, min_world_ratio: 1.2, max_activity_index: 0.5, subfields: bench,
+  }
+
+  // gaps.json
+  files['gaps.json'] = {
+    schema_version: SCHEMA, recent: { start: 2022, end: 2024 }, statuses: ['EMERGING', 'WATCH'], max_institutions: 5, bridge_min_similarity: 0.6, bridge_max_jaccard: 0.1,
+    min_articles: 30, max_top_share: 0.5, max_hhi: 0.25,
+    few_institutions: [{ topic: 'T000406', institutions: 3 }, { topic: 'T000806', institutions: 2 }],
+    bridges: [{ a: 'T000201', b: 'T000701', similarity: 0.82, shared: 1, jaccard: 0.05 }, { a: 'T000106', b: 'T000701', similarity: 0.77, shared: 0, jaccard: 0 }],
+    world: bench.filter((b) => b.opportunity).map((b) => ({ subfield: b.id, en: b.en, world_ratio: b.world_ratio, activity_index: b.activity_index, topics: b.topics })),
+    concentration: [
+      { scope: 'topic', id: 'T000806', kind: 'institution', articles: 41, hhi: 0.58, top_share: 0.71, top: 'rbu-x', top_name: 'มหาวิทยาลัยราชภัฏตัวอย่าง', concentrated: true },
+      { scope: 'topic', id: 'T000305', kind: 'journal', articles: 64, hhi: 0.62, top_share: 0.78, top: 'so02.example1', top_name: JOURNALS[1], concentrated: true },
+      { scope: 'group', id: 'F12', kind: 'journal', articles: 812, hhi: 0.21, top_share: 0.38, top: 'so02.example4', top_name: JOURNALS[4], concentrated: false },
+      { scope: 'topic', id: 'T000101', kind: 'institution', articles: 300, hhi: 0.08, top_share: 0.22, top: 'mu-a', top_name: 'มหาวิทยาลัยตัวอย่าง ก', concentrated: false },
+    ],
+  }
+
+  // KPI additions (percent, like pct_abstract_en) and the policy sentences
+  const ov = files['overview.json']
+  ov.kpis = { ...ov.kpis, pct_international: 6.8, pct_multi_institution: 31.4, provinces: PROVINCES.length }
+  ov.executive = {
+    bullets_th: [
+      'จังหวัดที่มีบทความมากที่สุด: กรุงเทพมหานคร (5,210), เชียงใหม่ (2,140), ขอนแก่น (1,530), สงขลา (1,380), ปทุมธานี (1,220) จากบทความที่ระบุจังหวัดได้ 14,200 เรื่อง (ข้อมูลตัวอย่าง)',
+      'บทความ 6.8% มีผู้แต่งร่วมจากต่างประเทศ ประเทศคู่ความร่วมมือหลัก: ญี่ปุ่น, จีน, สหรัฐอเมริกา',
+      'หัวข้อวิจัยครอบคลุม 10 จาก 17 เป้าหมาย SDG ยังไม่พบหัวข้อใน SDG 1 ขจัดความยากจน, SDG 5 ความเท่าเทียมทางเพศ, SDG 10 ลดความเหลื่อมล้ำ',
+    ],
+    bullets_en: [
+      'Provinces with the most articles: Bangkok (5,210), Chiang Mai (2,140), Khon Kaen (1,530), Songkhla (1,380), Pathum Thani (1,220), of 14,200 articles with a known province (sample data)',
+      '6.8% of articles have a foreign co-author; main partner countries: Japan, China, United States',
+      'Research topics cover 10 of 17 SDGs; none yet for SDG 1 No poverty, SDG 5 Gender equality, SDG 10 Reduced inequalities',
+    ],
+    source: 'template',
+  }
+  return ['institutions', 'institution_detail', 'regions', 'sdg', 'global', 'gaps']
+}
+
 function manifest(release, previous, modules, entries, extra = {}) {
   return {
     schema_version: SCHEMA, release, generated_at: GENERATED_AT, pipeline_version: 'fixture', config_hash: '0000000000000000',
@@ -532,9 +727,10 @@ rmSync(join(ROOT, 'empty'), { recursive: true, force: true })
 
 const ex = buildExample()
 const editorModules = buildEditors(ex.files, ex.previousOverview)
+const execModules = buildExecutives(ex.files)
 writeRelease(example, PREVIOUS, { 'overview.json': ex.previousOverview }, (entries) => manifest(PREVIOUS, '2026Q2', ['overview'], entries))
 writeRelease(example, RELEASE, ex.files, (entries) =>
-  manifest(RELEASE, PREVIOUS, ['overview', 'taxonomy', 'topics', 'topic_detail', 'series', 'edges', 'keywords', ...editorModules], entries, {
+  manifest(RELEASE, PREVIOUS, ['overview', 'taxonomy', 'topics', 'topic_detail', 'series', 'edges', 'keywords', ...editorModules, ...execModules], entries, {
     n_orgs_unverified: ex.nOrgsUnverified, ingest_errors: 2, labels: { provider: 'off', llm: 0, keywords: ex.nTopics, overrides: 0 },
   }))
 writeLatest(example, RELEASE)
@@ -550,7 +746,7 @@ writeRelease(empty, RELEASE, {
   'topics.json': { schema_version: SCHEMA, topics: [] },
   'series.json': { schema_version: SCHEMA, years: [], corpus_total: [], topics: {} },
   'edges.json': { schema_version: SCHEMA, edges: [] },
-}, (entries) => manifest(RELEASE, null, ['overview', 'taxonomy', 'topics', 'topic_detail', 'series', 'edges'], entries, { trimmed_years: [] }))
+}, (entries) => manifest(RELEASE, null, ['overview', 'taxonomy', 'topics', 'topic_detail', 'series', 'edges'], entries, { trimmed_years: [], skipped_modules: { global: 'OpenAlex unavailable: ATLAS_OFFLINE=1 — network access disabled' } }))
 writeLatest(empty, RELEASE)
 
 console.log(`[fixtures] example ${RELEASE} (${ex.nTopics} topics, previous ${PREVIOUS}) and empty ${RELEASE} → ${ROOT}`)

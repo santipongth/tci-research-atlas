@@ -95,10 +95,13 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
 }
 
 /** Optional modules of contract 2.1 and the file each page reads first. */
-export const MODULE_FILES = { journals: 'journals.json', methods: 'methods.json', diff: 'diff.json', match: 'match.json' } as const
+export const MODULE_FILES = {
+  journals: 'journals.json', methods: 'methods.json', diff: 'diff.json', match: 'match.json',
+  institutions: 'institutions.json', regions: 'regions.json', sdg: 'sdg.json', global: 'global.json', gaps: 'gaps.json',
+} as const
 export type ModuleName = keyof typeof MODULE_FILES
 
-export function hasModule(release: AtlasRelease, module: ModuleName | 'journal_detail'): boolean {
+export function hasModule(release: AtlasRelease, module: ModuleName | 'journal_detail' | 'institution_detail'): boolean {
   return (release.manifest.modules ?? []).includes(module)
 }
 

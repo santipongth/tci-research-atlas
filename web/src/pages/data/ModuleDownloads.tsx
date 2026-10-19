@@ -13,6 +13,11 @@ const INFO: Record<ModuleName, StrKey> = {
   methods: 'data.file.methods',
   diff: 'data.file.diff',
   match: 'data.file.match',
+  institutions: 'data.file.institutions',
+  regions: 'data.file.regions',
+  sdg: 'data.file.sdg',
+  global: 'data.file.global',
+  gaps: 'data.file.gaps',
 }
 
 /** Files of the optional modules: direct links on the web; on the offline file, rebuilt from the embedded data. */

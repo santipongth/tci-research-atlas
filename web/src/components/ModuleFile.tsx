@@ -19,13 +19,17 @@ export function ModuleFile<T>({ release, module, path, title, children }: {
 }) {
   const { t } = useI18n()
   const present = hasModule(release, module)
+  const skipped = release.manifest.skipped_modules?.[module] ?? null
   const file = useReleaseFile<T>(present ? path : null)
   if (present && file.status === 'ready') return <>{children(file.data)}</>
   return (
     <div className="container">
       <PageHeader title={title} />
       {!present ? (
-        <EmptyState title={t('mod.absent')}><p>{t('mod.absentBody')}</p></EmptyState>
+        <EmptyState title={t('mod.absent')}>
+          <p>{t('mod.absentBody')}</p>
+          {skipped ? <p>{t('mod.skipped')} <span lang="en">{skipped}</span></p> : null}
+        </EmptyState>
       ) : file.status === 'loading' ? (
         <p className="loading" role="status">{t('loading')}</p>
       ) : file.status === 'missing' ? (

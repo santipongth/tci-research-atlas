@@ -3,7 +3,7 @@ import { defineStrings } from './define'
 /** Optional modules of a release (contract 2.1) — shared by the editors' pages and /data. */
 export const modules = defineStrings({
   'mod.absent': { th: 'รอบข้อมูลนี้ไม่มีส่วนนี้', en: 'This release does not include this part' },
-  'mod.absentBody': { th: 'ส่วนนี้เพิ่มในรุ่นสำหรับบรรณาธิการ (P2) รอบข้อมูลที่สร้างก่อนหน้านั้นหรือที่ปิดโมดูลนี้จะไม่มีข้อมูลให้แสดง', en: 'This part arrived with the editors’ release (P2). Releases built before it, or with the module switched off, have nothing to show here.' },
+  'mod.absentBody': { th: 'ส่วนนี้เพิ่มในรุ่นหลังของ Atlas รอบข้อมูลที่สร้างก่อนหน้านั้น หรือที่ปิดโมดูลนี้ จะไม่มีข้อมูลให้แสดง', en: 'This part was added in a later version of the Atlas. Releases built before it, or with the module switched off, have nothing to show here.' },
   'mod.offline': { th: 'ฉบับออฟไลน์ไม่มีส่วนนี้', en: 'Not in the offline edition' },
   'mod.offlineBody': { th: 'ต้องใช้เว็บไซต์ออนไลน์ ไฟล์ HTML เดี่ยวไม่ได้ใส่ข้อมูลส่วนนี้เพื่อให้ไฟล์เล็ก', en: 'This needs the online site: the single HTML file leaves this data out to stay small.' },
   'mod.missingFile': { th: 'ไม่พบไฟล์ข้อมูลของส่วนนี้บนเว็บไซต์', en: 'The data file for this part is not on the site' },

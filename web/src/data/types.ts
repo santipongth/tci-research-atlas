@@ -2,11 +2,11 @@
  *  Nested types are derived by indexed access: json-schema-to-typescript names interfaces after titles, and a field
  *  titled "Topic" (EmergingKeyword.topic) pushes the Topic model to `Topic1` — container names are stable, nested ones are not. */
 import type {
-  DiffFile, EdgesFile, JournalDetail, JournalsFile, KeywordsFile, Latest, MatchIndex, MethodsFile, Overview, TaxonomyFile, TopicDetail, TopicsFile,
+  DiffFile, EdgesFile, GapsFile, GlobalFile, InstitutionDetail, InstitutionsFile, JournalDetail, JournalsFile, KeywordsFile, Latest, MatchIndex, MethodsFile, Overview, RegionsFile, SdgFile, TaxonomyFile, TopicDetail, TopicsFile,
 } from './contract'
 
 export type {
-  DiffFile, EdgesFile, JournalDetail, JournalsFile, KeywordsFile, Latest, Manifest, MatchIndex, MethodsFile, Overview, SeriesFile, TaxonomyFile, TopicDetail, TopicsFile,
+  DiffFile, EdgesFile, GapsFile, GlobalFile, InstitutionDetail, InstitutionsFile, JournalDetail, JournalsFile, KeywordsFile, Latest, Manifest, MatchIndex, MethodsFile, Overview, RegionsFile, SdgFile, SeriesFile, TaxonomyFile, TopicDetail, TopicsFile,
 } from './contract'
 
 export type Topic = TopicsFile['topics'][number]
@@ -42,6 +42,24 @@ export type StatusChange = DiffFile['status_changes'][number]
 export type Mover = DiffFile['movers'][number]
 export type MatchTopic = MatchIndex['topics'][number]
 export type MatchJournal = NonNullable<MatchIndex['journals']>[number]
+
+/* P3 executives' modules (contract 2.2) — optional files listed in manifest.modules */
+export type InstitutionSummary = InstitutionsFile['institutions'][number]
+export type CollabEdge = NonNullable<InstitutionsFile['edges']>[number]
+export type CountryCount = NonNullable<InstitutionsFile['countries']>[number]
+export type ProvinceName = NonNullable<InstitutionsFile['province_names']>[number]
+export type Partner = NonNullable<InstitutionDetail['partners']>[number]
+export type Suggestion = NonNullable<InstitutionDetail['suggested']>[number]
+export type ProvinceStat = RegionsFile['provinces'][number]
+export type RegionStat = RegionsFile['regions'][number]
+export type GoalStat = SdgFile['goals'][number]
+export type FrameworkInfo = SdgFile['frameworks'][number]
+export type SubfieldBench = GlobalFile['subfields'][number]
+export type FewInstitutions = GapsFile['few_institutions'][number]
+export type Bridge = GapsFile['bridges'][number]
+export type WorldGap = GapsFile['world'][number]
+export type Concentration = GapsFile['concentration'][number]
+export type ExecutiveSummary = NonNullable<Overview['executive']>
 
 /** What `atlas publish` embeds in the offline HTML: the newest release only. */
 export interface Bundle {

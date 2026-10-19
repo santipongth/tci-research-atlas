@@ -63,6 +63,11 @@
   --series-2: #eb6834;
   --series-3: #1baf7a;
   --series-4: #eda100;
+  --seq-1: #e4edf6;
+  --seq-2: #b9d0e8;
+  --seq-3: #7ea8d4;
+  --seq-4: #3f74b5;
+  --seq-5: #123f7c;
   --font: "Sarabun", "Noto Sans Thai", "Leelawadee UI", system-ui, sans-serif;
 }
 
@@ -129,6 +134,11 @@
     --series-2: #d95926;
     --series-3: #199e70;
     --series-4: #c98500;
+    --seq-1: #1b2a3a;
+    --seq-2: #24466d;
+    --seq-3: #2f67a3;
+    --seq-4: #4f8fd6;
+    --seq-5: #a6caf3;
   }
 }
 
@@ -194,4 +204,9 @@
   --series-2: #d95926;
   --series-3: #199e70;
   --series-4: #c98500;
+  --seq-1: #1b2a3a;
+  --seq-2: #24466d;
+  --seq-3: #2f67a3;
+  --seq-4: #4f8fd6;
+  --seq-5: #a6caf3;
 }

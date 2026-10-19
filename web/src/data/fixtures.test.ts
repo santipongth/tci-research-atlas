@@ -13,10 +13,11 @@ const MODEL: Record<string, string> = {
   'latest.json': 'Latest', 'manifest.json': 'Manifest', 'overview.json': 'Overview', 'taxonomy.json': 'TaxonomyFile', 'topics.json': 'TopicsFile',
   'series.json': 'SeriesFile', 'edges.json': 'EdgesFile', 'keywords.json': 'KeywordsFile',
   'journals.json': 'JournalsFile', 'methods.json': 'MethodsFile', 'diff.json': 'DiffFile', 'match.json': 'MatchIndex',
+  'institutions.json': 'InstitutionsFile', 'regions.json': 'RegionsFile', 'sdg.json': 'SdgFile', 'global.json': 'GlobalFile', 'gaps.json': 'GapsFile',
 }
 
 function validate(path: string, value: unknown): string[] {
-  const name = path.startsWith('topics/') ? 'TopicDetail' : path.startsWith('journals/') ? 'JournalDetail' : MODEL[path]
+  const name = path.startsWith('topics/') ? 'TopicDetail' : path.startsWith('journals/') ? 'JournalDetail' : path.startsWith('institutions/') ? 'InstitutionDetail' : MODEL[path]
   if (!name) return [`no contract model for ${path}`]
   let fn = compiled.get(name)
   if (!fn) {

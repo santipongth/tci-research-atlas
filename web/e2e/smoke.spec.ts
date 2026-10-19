@@ -33,7 +33,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   overview: async (page) => {
     await expect(page.locator('.headline mark').first()).toBeVisible()
     await expect(page.getByRole('link', { name: /โมเดลภาษาขนาดใหญ่/ }).first()).toBeVisible()
-    await expect(page.locator('.kpi')).toHaveCount(6)
+    await expect(page.locator('.kpi')).toHaveCount(8)
     await expect(page.locator('.kpi .d').first()).toContainText('2026Q3')
     await expect(page.locator('.fr-row').first()).toBeVisible()
     // a topic new since the baseline is marked as such; the axis reaches its +129% upper bound instead of clipping it
@@ -125,7 +125,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#downloads a[download]').first()).toHaveAttribute('href', /data\/2026Q4\/manifest\.json$/)
     await expect(page.locator('#quality')).toContainText('2025')
     await expect(page.locator('#dictionary table')).toBeVisible()
-    await expect(page.locator('#modules .dl-list li')).toHaveCount(4)
+    await expect(page.locator('#modules .dl-list li')).toHaveCount(9)
     const download = page.waitForEvent('download')
     await page.locator('#csv').getByRole('button', { name: 'ดาวน์โหลด CSV' }).first().click()
     expect((await download).suggestedFilename()).toBe('atlas-2026Q4-topics.csv')
@@ -138,7 +138,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   brief: async (page) => {
     await expect(page.locator('[data-brief-ready="true"]')).toBeVisible()
     await expect(page.locator('.brief .headline mark').first()).toBeVisible()
-    await expect(page.locator('.brief-t').first().locator('tbody tr')).toHaveCount(5)
+    await expect(page.locator('.brief-t').first().locator('tbody tr')).toHaveCount(7)
   },
   journals: async (page) => {
     const rows = page.locator('#journals tbody tr')
@@ -326,4 +326,23 @@ test('the offline file works from file:// without a single network request', asy
   await expect(page.locator('h1')).toHaveText('วารสารวิชาการตัวอย่าง ก')
   expect(remote).toEqual([])
   expect(errors).toEqual([])
+})
+
+test('the grouped navigation opens with the keyboard, closes with Escape and marks the current group', async ({ page }) => {
+  await page.goto(`${EXAMPLE}#/overview`)
+  const exec = page.getByRole('button', { name: 'สำหรับผู้บริหาร' })
+  await expect(exec).toHaveAttribute('aria-expanded', 'false')
+  await exec.focus()
+  await page.keyboard.press('Enter')
+  await expect(exec).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.locator('#nav-exec-menu a')).toHaveCount(6)
+  await page.keyboard.press('Escape')
+  await expect(exec).toHaveAttribute('aria-expanded', 'false')
+  await expect(exec).toBeFocused()
+  const editors = page.getByRole('button', { name: 'สำหรับบรรณาธิการ' })
+  await editors.click()
+  await page.locator('#nav-editors-menu').getByRole('link', { name: 'วารสาร' }).click()
+  await expect(page).toHaveURL(/#\/journals$/)
+  await expect(page.getByRole('button', { name: 'สำหรับบรรณาธิการ' })).toHaveClass(/is-active/)
+  await expect(page.locator('#nav-editors-menu')).toBeHidden()
 })
