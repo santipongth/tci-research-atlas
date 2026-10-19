@@ -85,15 +85,33 @@ def topic_votes(labels: np.ndarray, emb: np.ndarray, ids: list[int], C: np.ndarr
 
 
 def load_topic_groups(work: str | Path) -> pd.DataFrame:
-    """topic_id, group_id (int), group_en, group_th — from 10_taxonomy, else the P0 coarse groups."""
+    """topic_id, group_id (int), group_en, group_th for every topic of 04_topic_info.
+
+    From 10_taxonomy when the taxonomy step ran, else the P0 coarse groups. A 10_taxonomy that does not match
+    04_topic_info (re-clustered without re-running taxonomy) is used only for the topics it knows; every other
+    topic keeps its coarse group, with a WARNING. Export and layout both read this function, so they always
+    agree and no topic disappears from the map.
+    """
     work = Path(work)
+    info = read_table(work / "04_topic_info.parquet")
+    coarse = pd.DataFrame({"topic_id": info["topic_id"], "group_id": info["coarse_topic"].astype(int),
+                           "group_en": "", "group_th": ""})
     try:
         t = read_table(work / "10_taxonomy.parquet")
-        return t[["topic_id", "group_id", "group_en", "group_th"]].astype({"group_id": int})
     except FileNotFoundError:
-        info = read_table(work / "04_topic_info.parquet")
-        return pd.DataFrame({"topic_id": info["topic_id"], "group_id": info["coarse_topic"].astype(int),
-                             "group_en": "", "group_th": ""})
+        return coarse
+    t = t[["topic_id", "group_id", "group_en", "group_th"]].astype({"group_id": int})
+    known, wanted = set(t["topic_id"].astype(int)), set(info["topic_id"].astype(int))
+    if known == wanted:
+        return t
+    print(f"[taxonomy] WARNING: 10_taxonomy does not match 04_topic_info ({len(wanted - known)} topics without "
+          f"a field, {len(known - wanted)} unknown topic ids) - those topics keep their coarse group. Re-run: "
+          "atlas run -c <config.yaml> -s taxonomy -s layout -s export")
+    out = coarse[["topic_id"]].merge(t, on="topic_id", how="left")
+    miss = out["group_id"].isna().to_numpy()
+    out.loc[miss, "group_id"] = coarse.loc[miss, "group_id"].to_numpy()
+    out[["group_en", "group_th"]] = out[["group_en", "group_th"]].fillna("").astype(str)
+    return out.astype({"group_id": int})
 
 
 def _fallback(info: pd.DataFrame, reason: str) -> tuple[pd.DataFrame, dict]:

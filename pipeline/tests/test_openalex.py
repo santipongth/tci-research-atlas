@@ -178,3 +178,37 @@ def test_offline_flag_blocks_the_network_for_uncached_requests(make_cfg, tmp_pat
     monkeypatch.setenv("ATLAS_OFFLINE", "1")
     with pytest.raises(OpenAlexUnavailable, match="ATLAS_OFFLINE"):
         f("/fields", {"per_page": 100})
+
+
+def test_429_on_every_attempt_without_a_remaining_header_reads_as_the_daily_budget(make_cfg, tmp_path,
+                                                                                   monkeypatch):
+    from atlas.openalex import OpenAlexBudgetExhausted
+
+    f, _ = _fetcher(make_cfg, tmp_path, monkeypatch, FakeTransport([(429, {})] * 3))
+    with pytest.raises(OpenAlexBudgetExhausted, match="probably the daily budget") as exc:
+        f("/fields", {"per_page": 100})
+    assert "tomorrow" in str(exc.value) and "OPENALEX_API_KEY" in str(exc.value)
+    f, _ = _fetcher(make_cfg, tmp_path / "b", monkeypatch,
+                    FakeTransport([(429, {"X-RateLimit-Remaining": "7"})] * 3))   # per-second limit: stays generic
+    with pytest.raises(OpenAlexUnavailable, match="429") as exc:
+        f("/fields", {"per_page": 100})
+    assert not isinstance(exc.value, OpenAlexBudgetExhausted)
+
+
+def test_corrupt_cache_files_are_cache_misses_and_get_rewritten(make_cfg, tmp_path, monkeypatch):
+    t = FakeTransport()
+    f, cache = _fetcher(make_cfg, tmp_path, monkeypatch, t)
+    good = f("/fields", {"per_page": 100})
+    (cp,) = list((cache / "requests").iterdir())
+    cp.write_text('{"results": [', encoding="utf-8")                        # half-written
+    f2, _ = _fetcher(make_cfg, tmp_path, monkeypatch, t)
+    assert f2("/fields", {"per_page": 100}) == good and len(t.calls) == 2 and f2.n_network == 1
+    assert json.loads(cp.read_text(encoding="utf-8")) == good                # rewritten
+
+    cfg = make_cfg(tmp_path)
+    load_reference(cfg, RecordedFetch())
+    (meta,) = (tmp_path / "state" / "openalex").glob("reference_*.json")
+    meta.write_text("{", encoding="utf-8")                                   # half-written reference meta
+    df, m = load_reference(cfg, RecordedFetch())
+    assert m["origin"] == "api" and len(df) == 5
+    assert json.loads(meta.read_text(encoding="utf-8"))["n"] == 5

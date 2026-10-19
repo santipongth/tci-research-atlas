@@ -68,6 +68,14 @@ class OpenAlexBudgetExhausted(OpenAlexUnavailable):
     """Daily budget used up (HTTP 429 with X-RateLimit-Remaining <= 0): resume tomorrow or set the API key."""
 
 
+class _RateLimited(TimeoutError):
+    """HTTP 429 that is not (known to be) the daily budget: retried with backoff."""
+
+    def __init__(self, message: str, header_missing: bool):
+        super().__init__(message)
+        self.header_missing = header_missing
+
+
 def _urlopen_transport(url: str, headers: dict, timeout: float) -> tuple[int, dict, bytes]:
     req = urllib.request.Request(url, headers=headers)
     try:
@@ -91,7 +99,8 @@ class HttpFetcher:
                  clock=time.monotonic):
         self.base = ocfg["base_url"].rstrip("/")
         self.mailto = ocfg.get("mailto") or ""
-        self._key = os.environ.get(ocfg["api_key_env"], "").strip()
+        self.key_env = str(ocfg["api_key_env"])
+        self._key = os.environ.get(self.key_env, "").strip()
         self.keyed = bool(self._key)
         rps = ocfg["requests_per_second_keyed" if self.keyed else "requests_per_second_keyless"]
         self.interval = 1.0 / float(rps)
@@ -114,8 +123,13 @@ class HttpFetcher:
         url = f"{self.base}{path}?{urllib.parse.urlencode(params, safe=':,|*')}"     # no credentials: the cache key
         cp = self._cache_path(url)
         if cp is not None and cp.exists():
-            self.n_cached += 1
-            return json.loads(cp.read_text(encoding="utf-8"))
+            try:
+                cached = json.loads(cp.read_text(encoding="utf-8"))
+            except (ValueError, OSError):              # half-written / corrupt: a cache miss, rewritten below
+                print(f"[openalex] cache file {cp.name} is unreadable - fetching it again")
+            else:
+                self.n_cached += 1
+                return cached
         if os.environ.get("ATLAS_OFFLINE") == "1":
             raise OpenAlexUnavailable("ATLAS_OFFLINE=1 — network access disabled")
         send_url = url + (f"&mailto={urllib.parse.quote(self.mailto, safe='')}" if self.mailto else "")
@@ -136,12 +150,20 @@ class HttpFetcher:
                             "OpenAlex daily budget used up (HTTP 429). Cached responses are kept: run the same "
                             "command again tomorrow (the budget resets at midnight UTC), or set the "
                             "OPENALEX_API_KEY environment variable (free key: $1/day) and re-run to continue.")
-                    raise TimeoutError("HTTP 429 (rate limit per second)")
+                    raise _RateLimited("HTTP 429 (rate limit per second)", header_missing=remaining is None)
                 if status >= 400:
                     raise urllib.error.URLError(f"HTTP {status}")
                 data = json.loads(body.decode("utf-8"))
             except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
                 if attempt == self.max_retries - 1:
+                    if isinstance(e, _RateLimited) and e.header_missing:
+                        hint = ("" if self.keyed else f", or set the {self.key_env} environment variable "
+                                "(free key: $1/day) and re-run to continue")
+                        raise OpenAlexBudgetExhausted(
+                            f"OpenAlex answered HTTP 429 on all {self.max_retries} attempts without an "
+                            "X-RateLimit-Remaining header - probably the daily budget is used up. Cached responses "
+                            "are kept: run the same command again tomorrow (the budget resets at midnight UTC)"
+                            f"{hint}.") from None
                     raise OpenAlexUnavailable(f"OpenAlex request failed: {e}") from None
                 self._sleep(delay)
                 delay *= 2
@@ -207,8 +229,11 @@ def load_reference(cfg: dict, fetch: Fetch | None = None) -> tuple[pd.DataFrame,
         f"_p{pages}" if pages > 1 else "")
     meta_path = cache_dir / f"{stem}.json"
     if meta_path.exists():
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        return read_table(cache_dir / f"{stem}.parquet"), {**meta, "origin": "cache"}
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            return read_table(cache_dir / f"{stem}.parquet"), {**meta, "origin": "cache"}
+        except (ValueError, OSError):                  # half-written / corrupt: rebuilt (from the request cache)
+            print(f"[openalex] cached reference {meta_path.name} is unreadable - building it again")
     try:
         df = fetch_reference(fetcher, ocfg["country_code"], int(ocfg["per_subfield"]), int(ocfg["seed"]), pages)
     finally:

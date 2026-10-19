@@ -117,3 +117,43 @@ def test_v11_export_uses_field_names_for_groups():
                         {"last_complete_year": 2024}, 40, True, 3,
                         group_names={33: ("สังคมศาสตร์", "Social Sciences")})
     assert atlas["groups"][0]["th"] == "สังคมศาสตร์" and atlas["groups"][0]["id"] == "g33"
+
+
+def test_stale_taxonomy_never_drops_topics_and_export_matches_layout(make_cfg, tmp_path, capsys):
+    """10_taxonomy from before a re-cluster knows topics {1, 2}; 04_topic_info has {1, 2, 3}."""
+    from atlas.export import export
+    from atlas.forecast import FORECAST_COLUMNS
+    from atlas.layout import layout
+
+    cfg = make_cfg(tmp_path)
+    cfg["pipeline"]["release"] = "2026Q1"
+    cfg["layout"]["galaxy"] = False
+    work = tmp_path / "work"
+    write_table(pd.DataFrame({"topic_id": [1, 2, 3], "size": [30, 20, 10], "coarse_topic": [0, 0, 5],
+                              "top_terms": "", "top_keywords": "", "coherence": 0.5}), work / "04_topic_info.parquet")
+    write_table(pd.DataFrame({"topic_id": [1, 2], "group_id": [17, 33], "group_en": ["Computer Science", "Social Sciences"],
+                              "group_th": [FIELD_TH["17"], FIELD_TH["33"]]}), work / "10_taxonomy.parquet")
+    np.save(work / "04_centroids.npy", np.eye(3, 8, dtype=np.float32))
+    (work / "04_centroid_ids.json").write_text("[1, 2, 3]", encoding="utf-8")
+    assert load_topic_groups(work).set_index("topic_id")["group_id"].to_dict() == {1: 17, 2: 33, 3: 5}
+    assert "WARNING" in capsys.readouterr().out
+
+    layout(cfg)
+    lay = read_table(work / "09_layout.parquet")
+    assert lay[lay["kind"] == "topic"].set_index("id")["parent"].to_dict() == {1: 17, 2: 33, 3: 5}
+    write_table(pd.DataFrame({"article_id": range(60)}), work / "02_docs.parquet")
+    write_table(pd.DataFrame({"level": "fine", "topic_id": [1, 2, 3], "name_th": ["a", "b", "c"],
+                              "name_en": ["A", "B", "C"], "description": "", "keywords": "", "cache_key": "x"}),
+                work / "05_labels.parquet")
+    write_table(pd.DataFrame({"topic_id": [1, 2, 3], "status": "STABLE", "emerging_score": 10.0, "cagr_recent": 0.0,
+                              "burst_years": "", "share_growth": 0.0, "share_growth_lo": -0.1, "share_growth_hi": 0.1,
+                              "n_journals_R": 3, "n_orgs_R": 3, "journal_driven": False, "orgs_unverified": False}),
+                work / "07_emerging.parquet")
+    write_table(pd.DataFrame(columns=FORECAST_COLUMNS), work / "08_forecasts.parquet")
+    (work / "06_meta.json").write_text(json.dumps({"last_complete_year": 2024, "as_of_year": 2026,
+                                                   "trimmed_years": []}), encoding="utf-8")
+    export(cfg)
+    atlas = json.loads((tmp_path / "out" / "atlas_data.json").read_text(encoding="utf-8"))
+    groups = {n["nodeId"]: n["group"] for n in atlas["nodes"] if n["kind"] == "topic"}
+    assert groups == {"t1": "g17", "t2": "g33", "t3": "g5"}                 # same group ids as the layout
+    assert atlas["meta"]["total_topics"] == 3 and {g["id"] for g in atlas["groups"]} == {"g17", "g33", "g5"}

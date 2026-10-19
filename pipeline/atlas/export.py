@@ -189,7 +189,8 @@ def export(cfg: dict) -> dict:
     outdir.mkdir(parents=True, exist_ok=True)
     groups = load_topic_groups(work)                 # OpenAlex fields when the taxonomy step ran
     info = (read_table(work / "04_topic_info.parquet").drop(columns="coarse_topic")
-            .merge(groups[["topic_id", "group_id"]].rename(columns={"group_id": "coarse_topic"}), on="topic_id"))
+            .merge(groups[["topic_id", "group_id"]].rename(columns={"group_id": "coarse_topic"}), on="topic_id",
+                   how="left"))                    # load_topic_groups covers every topic: none is dropped
     group_names = {int(r.group_id): (str(r.group_th), str(r.group_en))
                    for r in groups.drop_duplicates("group_id").itertuples()}
     labels = read_table(work / "05_labels.parquet")
