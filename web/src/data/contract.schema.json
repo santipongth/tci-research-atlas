@@ -2,6 +2,244 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "definitions": {
+    "Brief": {
+      "additionalProperties": false,
+      "properties": {
+        "bullets_en": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Bullets En",
+          "type": "array"
+        },
+        "bullets_th": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Bullets Th",
+          "type": "array"
+        },
+        "headline_en": {
+          "title": "Headline En",
+          "type": "string"
+        },
+        "headline_th": {
+          "title": "Headline Th",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "llm",
+            "template"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "headline_th",
+        "headline_en",
+        "source"
+      ],
+      "title": "Brief",
+      "type": "object"
+    },
+    "CountItem": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "count"
+      ],
+      "title": "CountItem",
+      "type": "object"
+    },
+    "DataQuality": {
+      "additionalProperties": false,
+      "properties": {
+        "completeness_method": {
+          "title": "Completeness Method",
+          "type": "string"
+        },
+        "text_quality": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Text Quality",
+          "type": "object"
+        },
+        "unassigned_articles": {
+          "title": "Unassigned Articles",
+          "type": "integer"
+        },
+        "year_missing": {
+          "title": "Year Missing",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "year_missing",
+        "unassigned_articles",
+        "completeness_method"
+      ],
+      "title": "DataQuality",
+      "type": "object"
+    },
+    "Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "s": {
+          "pattern": "^T\\d{6}$",
+          "title": "S",
+          "type": "string"
+        },
+        "t": {
+          "pattern": "^T\\d{6}$",
+          "title": "T",
+          "type": "string"
+        },
+        "w": {
+          "title": "W",
+          "type": "number"
+        }
+      },
+      "required": [
+        "s",
+        "t",
+        "w"
+      ],
+      "title": "Edge",
+      "type": "object"
+    },
+    "EdgesFile": {
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "items": {
+            "$ref": "#/definitions/Edge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "edges"
+      ],
+      "title": "EdgesFile",
+      "type": "object"
+    },
+    "EmergingKeyword": {
+      "additionalProperties": false,
+      "properties": {
+        "count_recent": {
+          "title": "Count Recent",
+          "type": "integer"
+        },
+        "emerging": {
+          "title": "Emerging",
+          "type": "boolean"
+        },
+        "growth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Growth"
+        },
+        "growth_lo": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Growth Lo"
+        },
+        "journal_driven": {
+          "title": "Journal Driven",
+          "type": "boolean"
+        },
+        "n_active_years": {
+          "title": "N Active Years",
+          "type": "integer"
+        },
+        "n_journals_R": {
+          "title": "N Journals R",
+          "type": "integer"
+        },
+        "n_orgs_R": {
+          "title": "N Orgs R",
+          "type": "integer"
+        },
+        "no_baseline": {
+          "default": false,
+          "title": "No Baseline",
+          "type": "boolean"
+        },
+        "share_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null when no_baseline",
+          "title": "Share Ratio"
+        },
+        "term": {
+          "title": "Term",
+          "type": "string"
+        },
+        "topic": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic"
+        }
+      },
+      "required": [
+        "term",
+        "count_recent",
+        "share_ratio",
+        "growth",
+        "growth_lo",
+        "n_active_years",
+        "n_orgs_R",
+        "n_journals_R",
+        "journal_driven",
+        "emerging"
+      ],
+      "title": "EmergingKeyword",
+      "type": "object"
+    },
     "FileEntry": {
       "additionalProperties": false,
       "properties": {
@@ -26,9 +264,275 @@
       "title": "FileEntry",
       "type": "object"
     },
+    "GroupInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "pattern": "^cat-\\d{2}$",
+          "title": "Color",
+          "type": "string"
+        },
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[FG]\\d{2,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "n_topics": {
+          "title": "N Topics",
+          "type": "integer"
+        },
+        "r": {
+          "title": "R",
+          "type": "number"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "th": {
+          "minLength": 1,
+          "title": "Th",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "th",
+        "en",
+        "color",
+        "size",
+        "n_topics",
+        "x",
+        "y",
+        "r"
+      ],
+      "title": "GroupInfo",
+      "type": "object"
+    },
+    "KeywordsFile": {
+      "additionalProperties": false,
+      "properties": {
+        "keywords": {
+          "items": {
+            "$ref": "#/definitions/EmergingKeyword"
+          },
+          "title": "Keywords",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "keywords"
+      ],
+      "title": "KeywordsFile",
+      "type": "object"
+    },
+    "Kpis": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "assigned_articles": {
+          "title": "Assigned Articles",
+          "type": "integer"
+        },
+        "groups": {
+          "title": "Groups",
+          "type": "integer"
+        },
+        "institutions": {
+          "title": "Institutions",
+          "type": "integer"
+        },
+        "journals": {
+          "title": "Journals",
+          "type": "integer"
+        },
+        "pct_abstract_en": {
+          "title": "Pct Abstract En",
+          "type": "number"
+        },
+        "pct_doi": {
+          "title": "Pct Doi",
+          "type": "number"
+        },
+        "pct_keywords": {
+          "title": "Pct Keywords",
+          "type": "number"
+        },
+        "topics": {
+          "title": "Topics",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "articles",
+        "assigned_articles",
+        "topics",
+        "groups",
+        "journals",
+        "institutions",
+        "pct_abstract_en",
+        "pct_doi",
+        "pct_keywords"
+      ],
+      "title": "Kpis",
+      "type": "object"
+    },
+    "LabelStats": {
+      "additionalProperties": false,
+      "properties": {
+        "keywords": {
+          "description": "topics named from author keywords (provider off or LLM fallback)",
+          "title": "Keywords",
+          "type": "integer"
+        },
+        "llm": {
+          "description": "topics named by the LLM (incl. cached names)",
+          "title": "Llm",
+          "type": "integer"
+        },
+        "overrides": {
+          "description": "topics whose name an editor corrected (labeling.overrides_path)",
+          "title": "Overrides",
+          "type": "integer"
+        },
+        "provider": {
+          "enum": [
+            "llm",
+            "off"
+          ],
+          "title": "Provider",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "llm",
+        "keywords",
+        "overrides"
+      ],
+      "title": "LabelStats",
+      "type": "object"
+    },
+    "Latest": {
+      "additionalProperties": false,
+      "properties": {
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "release": {
+          "title": "Release",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "release",
+        "path",
+        "generated_at"
+      ],
+      "title": "Latest",
+      "type": "object"
+    },
+    "LlmTaskStats": {
+      "additionalProperties": false,
+      "properties": {
+        "cost_usd": {
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "fallback": {
+          "title": "Fallback",
+          "type": "integer"
+        },
+        "from_cache": {
+          "title": "From Cache",
+          "type": "integer"
+        },
+        "generated": {
+          "title": "Generated",
+          "type": "integer"
+        },
+        "items": {
+          "title": "Items",
+          "type": "integer"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "repaired": {
+          "title": "Repaired",
+          "type": "integer"
+        },
+        "task": {
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task",
+        "model",
+        "items",
+        "from_cache",
+        "generated",
+        "repaired",
+        "fallback",
+        "cost_usd"
+      ],
+      "title": "LlmTaskStats",
+      "type": "object"
+    },
     "Manifest": {
       "additionalProperties": false,
       "properties": {
+        "as_of_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As Of Year"
+        },
+        "ci_level": {
+          "default": 0.9,
+          "description": "level of every *_lo/*_hi interval in this release",
+          "title": "Ci Level",
+          "type": "number"
+        },
         "config_hash": {
           "title": "Config Hash",
           "type": "string"
@@ -42,6 +546,11 @@
           "title": "Embedding Model",
           "type": "string"
         },
+        "embedding_provider": {
+          "default": "",
+          "title": "Embedding Provider",
+          "type": "string"
+        },
         "files": {
           "items": {
             "$ref": "#/definitions/FileEntry"
@@ -53,12 +562,40 @@
           "title": "Generated At",
           "type": "string"
         },
+        "ingest_errors": {
+          "default": 0,
+          "title": "Ingest Errors",
+          "type": "integer"
+        },
+        "labels": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LabelStats"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "llm": {
+          "items": {
+            "$ref": "#/definitions/LlmTaskStats"
+          },
+          "title": "Llm",
+          "type": "array"
+        },
         "modules": {
           "items": {
             "type": "string"
           },
           "title": "Modules",
           "type": "array"
+        },
+        "n_orgs_unverified": {
+          "default": 0,
+          "title": "N Orgs Unverified",
+          "type": "integer"
         },
         "pipeline_version": {
           "title": "Pipeline Version",
@@ -97,6 +634,14 @@
           ],
           "default": null,
           "title": "Taxonomy Version"
+        },
+        "trimmed_years": {
+          "description": "years after last_complete_year",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Trimmed Years",
+          "type": "array"
         }
       },
       "required": [
@@ -109,9 +654,380 @@
       "title": "Manifest",
       "type": "object"
     },
+    "Narrative": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "llm",
+            "template"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "th": {
+          "title": "Th",
+          "type": "string"
+        }
+      },
+      "required": [
+        "th",
+        "en",
+        "source"
+      ],
+      "title": "Narrative",
+      "type": "object"
+    },
+    "Overview": {
+      "additionalProperties": false,
+      "properties": {
+        "brief": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Brief"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "corpus_by_year": {
+          "items": {
+            "$ref": "#/definitions/YearCount"
+          },
+          "title": "Corpus By Year",
+          "type": "array"
+        },
+        "corpus_forecast": {
+          "items": {
+            "$ref": "#/definitions/YearCount"
+          },
+          "title": "Corpus Forecast",
+          "type": "array"
+        },
+        "data_quality": {
+          "$ref": "#/definitions/DataQuality"
+        },
+        "definition_version": {
+          "default": 3,
+          "title": "Definition Version",
+          "type": "integer"
+        },
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "kpis": {
+          "$ref": "#/definitions/Kpis"
+        },
+        "last_complete_year": {
+          "title": "Last Complete Year",
+          "type": "integer"
+        },
+        "lineage_events": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Lineage Events",
+          "type": "object"
+        },
+        "nowcast": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TopicNowcast"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "previous_release": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Release"
+        },
+        "release": {
+          "title": "Release",
+          "type": "string"
+        },
+        "retired_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Retired Topics",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Status Counts",
+          "type": "object"
+        }
+      },
+      "required": [
+        "release",
+        "generated_at",
+        "last_complete_year",
+        "kpis",
+        "status_counts",
+        "corpus_by_year",
+        "data_quality"
+      ],
+      "title": "Overview",
+      "type": "object"
+    },
+    "RepresentativeArticle": {
+      "additionalProperties": false,
+      "properties": {
+        "article_id": {
+          "title": "Article Id",
+          "type": "string"
+        },
+        "doi": {
+          "default": "",
+          "title": "Doi",
+          "type": "string"
+        },
+        "gx": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gx"
+        },
+        "gy": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gy"
+        },
+        "journal": {
+          "default": "",
+          "title": "Journal",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "title_en": {
+          "default": "",
+          "title": "Title En",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "title": "Url",
+          "type": "string"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year"
+        }
+      },
+      "required": [
+        "article_id",
+        "title"
+      ],
+      "title": "RepresentativeArticle",
+      "type": "object"
+    },
+    "SeriesFile": {
+      "additionalProperties": false,
+      "properties": {
+        "corpus_total": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Corpus Total",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "topics": {
+          "additionalProperties": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "title": "Topics",
+          "type": "object"
+        },
+        "years": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Years",
+          "type": "array"
+        }
+      },
+      "required": [
+        "years",
+        "corpus_total",
+        "topics"
+      ],
+      "title": "SeriesFile",
+      "type": "object"
+    },
+    "SubfieldInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "group": {
+          "pattern": "^[FG]\\d{2,}$",
+          "title": "Group",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "n_topics": {
+          "title": "N Topics",
+          "type": "integer"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "en",
+        "group",
+        "n_topics",
+        "size"
+      ],
+      "title": "SubfieldInfo",
+      "type": "object"
+    },
+    "TaxonomyFile": {
+      "additionalProperties": false,
+      "properties": {
+        "groups": {
+          "items": {
+            "$ref": "#/definitions/GroupInfo"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "holdout_accuracy_field": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Holdout Accuracy Field"
+        },
+        "holdout_accuracy_subfield": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Holdout Accuracy Subfield"
+        },
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "openalex",
+            "agglomerative"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "subfields": {
+          "items": {
+            "$ref": "#/definitions/SubfieldInfo"
+          },
+          "title": "Subfields",
+          "type": "array"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "source",
+        "groups"
+      ],
+      "title": "TaxonomyFile",
+      "type": "object"
+    },
     "Topic": {
       "additionalProperties": false,
       "properties": {
+        "cross_field": {
+          "default": false,
+          "title": "Cross Field",
+          "type": "boolean"
+        },
         "description": {
           "default": "",
           "title": "Description",
@@ -148,11 +1064,32 @@
           "title": "Keywords",
           "type": "array"
         },
+        "label_source": {
+          "default": "keywords",
+          "enum": [
+            "llm",
+            "keywords",
+            "override"
+          ],
+          "title": "Label Source",
+          "type": "string"
+        },
         "lineage": {
           "$ref": "#/definitions/TopicLineage"
         },
         "metrics": {
           "$ref": "#/definitions/TopicMetrics"
+        },
+        "nowcast": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TopicNowcast"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "r": {
           "title": "R",
@@ -185,6 +1122,35 @@
           "title": "Status",
           "type": "string"
         },
+        "subfield": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subfield"
+        },
+        "subfield_en": {
+          "default": "",
+          "title": "Subfield En",
+          "type": "string"
+        },
+        "taxonomy_vote": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Taxonomy Vote"
+        },
         "th": {
           "title": "Th",
           "type": "string"
@@ -212,6 +1178,73 @@
         "metrics"
       ],
       "title": "Topic",
+      "type": "object"
+    },
+    "TopicDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "items": {
+            "$ref": "#/definitions/RepresentativeArticle"
+          },
+          "title": "Articles",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^T\\d{6}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "institutions": {
+          "items": {
+            "$ref": "#/definitions/CountItem"
+          },
+          "title": "Institutions",
+          "type": "array"
+        },
+        "journals": {
+          "items": {
+            "$ref": "#/definitions/CountItem"
+          },
+          "title": "Journals",
+          "type": "array"
+        },
+        "keywords": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        },
+        "narrative": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Narrative"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "neighbors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Neighbors",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "articles"
+      ],
+      "title": "TopicDetail",
       "type": "object"
     },
     "TopicForecast": {
@@ -377,6 +1410,22 @@
           "title": "Journal Hhi",
           "type": "number"
         },
+        "low_data_reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "few_articles",
+                "not_estimable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low Data Reason"
+        },
         "n_journals_R": {
           "title": "N Journals R",
           "type": "integer"
@@ -388,6 +1437,12 @@
         "new_journal_share": {
           "title": "New Journal Share",
           "type": "number"
+        },
+        "no_baseline": {
+          "default": false,
+          "description": "no articles in the baseline window — show 'new — no baseline'",
+          "title": "No Baseline",
+          "type": "boolean"
         },
         "novelty": {
           "title": "Novelty",
@@ -436,8 +1491,16 @@
           "title": "Share Growth Lo"
         },
         "share_ratio": {
-          "title": "Share Ratio",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null when no_baseline",
+          "title": "Share Ratio"
         },
         "share_recent": {
           "title": "Share Recent",
@@ -464,6 +1527,37 @@
       "title": "TopicMetrics",
       "type": "object"
     },
+    "TopicNowcast": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of_month": {
+          "maximum": 12,
+          "minimum": 1,
+          "title": "As Of Month",
+          "type": "integer"
+        },
+        "mean": {
+          "title": "Mean",
+          "type": "number"
+        },
+        "year": {
+          "title": "Year",
+          "type": "integer"
+        },
+        "ytd": {
+          "title": "Ytd",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "year",
+        "as_of_month",
+        "ytd",
+        "mean"
+      ],
+      "title": "TopicNowcast",
+      "type": "object"
+    },
     "TopicsFile": {
       "additionalProperties": false,
       "properties": {
@@ -485,11 +1579,51 @@
       ],
       "title": "TopicsFile",
       "type": "object"
+    },
+    "YearCount": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "number"
+        },
+        "year": {
+          "title": "Year",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "year",
+        "articles"
+      ],
+      "title": "YearCount",
+      "type": "object"
     }
   },
   "properties": {
+    "edges": {
+      "$ref": "#/definitions/EdgesFile"
+    },
+    "keywords": {
+      "$ref": "#/definitions/KeywordsFile"
+    },
+    "latest": {
+      "$ref": "#/definitions/Latest"
+    },
     "manifest": {
       "$ref": "#/definitions/Manifest"
+    },
+    "overview": {
+      "$ref": "#/definitions/Overview"
+    },
+    "series": {
+      "$ref": "#/definitions/SeriesFile"
+    },
+    "taxonomy": {
+      "$ref": "#/definitions/TaxonomyFile"
+    },
+    "topic_detail": {
+      "$ref": "#/definitions/TopicDetail"
     },
     "topics": {
       "$ref": "#/definitions/TopicsFile"
