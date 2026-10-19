@@ -113,8 +113,12 @@ def test_a_row_with_the_wrong_number_of_fields_names_the_row(tmp_path):
 def test_an_empty_column_in_the_header_is_an_unknown_column_not_a_shifted_index(tmp_path):
     ok = tmp_path / "ok.csv"
     ok.write_text("journal_key,name_th,\na,ก,\nb,ข,\n", encoding="utf-8")        # Excel-style trailing commas
-    with pytest.raises(RegistryError, match="unknown columns"):
+    with pytest.raises(RegistryError, match=r"unknown columns.*remove the trailing comma in the header"):
         load_registry(ok)
+    short = tmp_path / "short_rows.csv"
+    short.write_text("journal_key,name_th,\na,ก\n", encoding="utf-8")
+    with pytest.raises(RegistryError, match="remove the trailing comma in the header"):
+        load_registry(short)
 
 
 def test_an_unreadable_file_is_a_registry_error_with_a_hint(tmp_path):

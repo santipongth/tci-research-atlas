@@ -16,7 +16,26 @@ from atlas.methods import (
     summarise_topics,
 )
 
-MAI_EK = "\N{THAI CHARACTER MAI EK}"
+
+@pytest.mark.parametrize("text, found", [
+    ("The alloy was characterised by SEM and XRD", []),                  # scanning electron microscopy
+    ("We fitted the model by SEM with AMOS 24", ["sem"]),
+    ("Analysis used SmartPLS", ["sem"]),
+    ("CFA was run for the scale", []),
+    ("Confirmatory factor analysis (CFA) of the scale", ["sem"]),
+    ("Measured by means of a ruler; what it means for farmers", []),
+    ("Pay rose by 12 percentage points, ร้อยละ 12 ของครัวเรือน", []),
+    ("The mean score was 3.4 (mean = 3.4, SD 0.5)", ["descriptive_stats"]),
+    ("ค่าเฉลี่ยและส่วนเบี่ยงเบนมาตรฐาน", ["descriptive_stats"]),
+    ("การเรียนรู้เชิงลึกของผู้เรียนในห้องเรียน", []),                       # deep learning in pedagogy
+    ("การเรียนรู้เชิงลึกด้วยโครงข่ายประสาทเทียม", ["ml"]),
+    ("การเรียนรู้เชิงลึกด้วยโมเดลทำนาย", ["ml"]),
+    ("Research and development expenditure and economic growth", []),
+    ("Research and development of an innovative product prototype", ["rnd"]),
+    ("การวิจัยและพัฒนาหลักสูตร", ["rnd"]),
+])
+def test_lexicon_is_precise(text, found):
+    assert detect_methods(text) == found
 
 
 def test_thai_and_english_methods_are_found_even_without_tone_marks():
@@ -41,6 +60,16 @@ def test_thai_and_english_methods_are_found_even_without_tone_marks():
     ("the sample in 2019 was large", None),                   # a year is not a sample size
     ("กลุ่มตัวอย่างในปี 2562", None),                         # no unit → not read
     ("no numbers here", None),
+    ("กลุ่มตัวอย่างจากโรงเรียน 5 แห่ง จำนวน 400 คน", 400),     # a place count is not the sample
+    ("กลุ่มตัวอย่าง 12 ชุด จำนวน 300 ราย", 300),
+    ("participants aged 18 to 25; 400 participants", 400),
+    ("the sample was followed for 12 months across 400 households", 400),   # unit-bearing beats first-in-text
+    ("participants aged 18 were recruited", None),
+    ("sample size 24 months", None),
+    ("n = 2.5", None),
+    ("นักเรียนจำนวน 400 คน", 400),
+    ("ตัวอย่าง 400 คน", 400),
+    ("ประชากรจำนวน 10,000 คน", None),                              # a population, not a sample
 ])
 def test_sample_size(text, n):
     assert sample_size(text) == n
@@ -131,11 +160,13 @@ def _notes_work(tmp_path):
     work = tmp_path / "w"
     work.mkdir()
     cfg["methods"]["min_articles"] = 2
-    docs = pd.DataFrame({"article_id": ["a", "b", "c"], "year": pd.array([2023, 2024, 2024], dtype="Int64"),
-                         "title": ["เรื่อง ก", "เรื่อง ข", "เรื่อง ค"], "title_th": ["", "", ""], "title_en": ["", "", ""],
-                         "abstract_th": ["ใช้แบบสอบถาม", "ใช้แบบสอบถาม", "แบบสอบถาม"], "abstract_en": ["", "", ""]})
+    docs = pd.DataFrame({"article_id": ["a", "b", "c", "old"], "year": pd.array([2023, 2024, 2024, 2005], dtype="Int64"),
+                         "title": ["เรื่อง ก", "เรื่อง ข", "เรื่อง ค", "เรื่อง โบราณ"], "title_th": [""] * 4,
+                         "title_en": [""] * 4, "abstract_th": ["ใช้แบบสอบถาม", "ใช้แบบสอบถาม", "แบบสอบถาม", "x"],
+                         "abstract_en": [""] * 4})
     write_table(docs, work / "02_docs.parquet")
-    write_table(pd.DataFrame({"article_id": ["a", "b", "c"], "fine_topic": [4, 4, 4]}), work / "04_fine_topics.parquet")
+    write_table(pd.DataFrame({"article_id": ["a", "b", "c", "old"], "fine_topic": [4, 4, 4, 4]}),
+                work / "04_fine_topics.parquet")
     write_table(pd.DataFrame({"level": ["fine"], "topic_id": [4], "name_th": ["การสำรวจความพึงพอใจ"],
                               "name_en": ["Satisfaction surveys"], "description": [""], "keywords": [""],
                               "cache_key": [""], "label_source": ["keywords"]}), work / "05_labels.parquet")
@@ -160,4 +191,20 @@ def test_notes_are_off_by_default_and_grounded_when_on(tmp_path):
     notes = read_table(work / "12_methods_notes.parquet")
     assert notes.loc[0, "source"] == "template" and "99" not in notes.loc[0, "th"]
     assert "บทความเรื่อง" not in noter.prompts[0] and "เรื่อง ก" in noter.prompts[0]   # titles only, never abstracts
+    assert "เรื่อง โบราณ" not in noter.prompts[0]                      # titles come from the window the facts describe
     assert "methods" in JOBS
+
+
+def test_meta_is_written_before_the_llm_notes_so_a_failed_run_keeps_it(tmp_path, monkeypatch):
+    import atlas.methods as m
+
+    cfg, work = _notes_work(tmp_path)
+
+    def boom(cfg, llm=None):
+        raise RuntimeError("endpoint down")
+
+    monkeypatch.setattr(m, "method_notes", boom)
+    with pytest.raises(RuntimeError):
+        methods(cfg, llm=FakeNoter())
+    meta = json.loads((work / "12_methods_meta.json").read_text(encoding="utf-8"))
+    assert meta["lexicon_version"] == LEXICON_VERSION and "llm" not in meta

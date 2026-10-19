@@ -81,8 +81,10 @@ def _check_field_counts(path: str | Path, hint: str) -> None:
                 return                                      # empty file: read_csv names it below
             for n, row in enumerate(rows, start=2):         # row 1 is the header, as in a spreadsheet
                 if row and len(row) != len(header):
+                    trailing = (" — the header ends with a comma: remove the trailing comma in the header"
+                                if not header[-1].strip() else "")
                     raise RegistryError(f"{path} row {n}: {len(row)} fields but the header has {len(header)} — check "
-                                        f"for a missing or extra comma or an unclosed quote")
+                                        f"for a missing or extra comma or an unclosed quote{trailing}")
     except UnicodeDecodeError as e:
         raise RegistryError(f"{path}: not readable as UTF-8 ({e.reason} at byte {e.start}) — {hint}") from e
     except csv.Error as e:
@@ -111,7 +113,9 @@ def load_registry(path: str | Path | None) -> tuple[pd.DataFrame, list[str]]:
         raise RegistryError(f"{path}: the header needs a journal_key column (columns: {REGISTRY_COLUMNS})")
     unknown = sorted(set(raw.columns) - set(REGISTRY_COLUMNS))
     if unknown:
-        raise RegistryError(f"{path}: unknown columns {unknown} (allowed: {REGISTRY_COLUMNS})")
+        blank = any(c == "" or c.startswith("Unnamed:") for c in unknown)
+        raise RegistryError(f"{path}: unknown columns {unknown} (allowed: {REGISTRY_COLUMNS})"
+                            + (" — remove the trailing comma in the header" if blank else ""))
     df = raw.reindex(columns=REGISTRY_COLUMNS, fill_value="")
     for c in REGISTRY_COLUMNS:
         df[c] = df[c].map(clean_text)

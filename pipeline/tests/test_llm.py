@@ -404,3 +404,20 @@ def test_status_names_the_command_that_was_running(monkeypatch, make_cfg, tmp_pa
     text = "\n".join(lr.status_extra({"stop_reason": "budget", "resume": seen["resume"]}))
     assert f"run `uv run atlas {resume} -c config.yaml` again to continue" in text
     assert "run `uv run atlas llm` again" in "\n".join(lr.status_extra({"stop_reason": "budget"}))   # older progress.json
+
+
+@pytest.mark.parametrize("provider, expected", [("off", ["label", "narrate"]), ("llm", ["label", "methods", "narrate"])])
+def test_atlas_llm_skips_the_methods_step_and_estimate_unless_notes_are_on(tmp_path, monkeypatch, provider, expected):
+    from typer.testing import CliRunner
+
+    import atlas.cli as cli
+
+    p = tmp_path / "c.yaml"
+    p.write_text(f"pipeline:\n  state_dir: {(tmp_path / 'state').as_posix()}\n"
+                 f"  work_dir: {(tmp_path / 'work').as_posix()}\nmethods:\n  provider: {provider}\n", encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(cli, "_run_guarded", lambda cfg, steps, *a, **k: seen.setdefault("steps", steps) and 0)
+    assert CliRunner().invoke(cli.app, ["llm", "-c", str(p)]).exit_code == 0
+    assert seen["steps"] == expected
+    dry = CliRunner().invoke(cli.app, ["llm", "-c", str(p), "--dry-run"])
+    assert dry.exit_code == 0 and ("methods" in dry.output) == (provider == "llm")

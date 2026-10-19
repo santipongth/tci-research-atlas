@@ -458,8 +458,9 @@ def llm_cmd(
         return
     if background:
         raise typer.Exit(_llm_background(cfg, config))
-    code = _run_guarded(cfg, [s for s in ("label", "methods", "narrate") if s in STEPS], config, tag="llm",
-                        resume="llm")
+    steps = [s for s in ("label", "methods", "narrate")
+             if s in STEPS and (s != "methods" or cfg["methods"]["provider"] == "llm")]    # notes are opt-in
+    code = _run_guarded(cfg, steps, config, tag="llm", resume="llm")
     if code == 0:
         typer.echo(f"[llm] done — publish with: uv run atlas run -c {_cfg_arg(config)} --step export")
     raise typer.Exit(code)

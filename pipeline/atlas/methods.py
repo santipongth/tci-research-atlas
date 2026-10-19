@@ -38,6 +38,10 @@ class Method:
     patterns: tuple[str, ...]          # lower-case regex parts; Thai written with marks, folded at compile time
 
 
+_RND_TERMS = r"(?:product|innovation|prototype|curriculum|นวัตกรรม|ผลิตภัณฑ์|ต้นแบบ|หลักสูตร)"
+_SEM_TOOLS = r"(?:amos|lisrel|smartpls)"
+_ML_TERMS = r"(?:โครงข่ายประสาท|neural|model|โมเดล|อัลกอริทึม)"
+
 METHODS: tuple[Method, ...] = (
     Method("survey", "แบบสอบถาม/การสำรวจ", "Questionnaire / survey",
            (r"แบบสอบถาม", r"การสำรวจ", r"questionnaire", r"\bsurveys?\b")),
@@ -48,7 +52,9 @@ METHODS: tuple[Method, ...] = (
             r"\bexperimental (?:design|study|research|group)", r"randomi[sz]ed controlled", r"\brct\b")),
     Method("qualitative", "การวิจัยเชิงคุณภาพ", "Qualitative research", (r"เชิงคุณภาพ", r"\bqualitative\b")),
     Method("mixed", "การวิจัยแบบผสานวิธี", "Mixed methods", (r"ผสานวิธี", r"วิธีวิจัยแบบผสม", r"mixed[- ]methods?")),
-    Method("rnd", "การวิจัยและพัฒนา", "Research and development", (r"การวิจัยและพัฒนา", r"research and development")),
+    Method("rnd", "การวิจัยและพัฒนา", "Research and development",
+           (r"การวิจัยและพัฒนา",       # "research and development" alone is also economics (R&D spending)
+            rf"research and development(?=[\s\S]*{_RND_TERMS})", rf"{_RND_TERMS}[\s\S]*research and development")),
     Method("action", "การวิจัยเชิงปฏิบัติการ", "Action research",
            (r"วิจัยเชิงปฏิบัติการ", r"action research", r"\bpar\b")),
     Method("case_study", "กรณีศึกษา", "Case study", (r"กรณีศึกษา", r"case stud(?:y|ies)")),
@@ -59,17 +65,21 @@ METHODS: tuple[Method, ...] = (
            (r"ทบทวนวรรณกรรมอย่างเป็นระบบ", r"การทบทวนอย่างเป็นระบบ", r"อภิมาน", r"systematic review",
             r"meta[- ]analys", r"scoping review")),
     Method("descriptive_stats", "สถิติเชิงพรรณนา", "Descriptive statistics",
-           (r"ค่าเฉลี่ย", r"ร้อยละ", r"ส่วนเบี่ยงเบนมาตรฐาน", r"สถิติเชิงพรรณนา", r"descriptive statistic",
-            r"\bpercentages?\b", r"standard deviation", r"\bmeans?\b")),
+           (r"ค่าเฉลี่ย", r"ส่วนเบี่ยงเบนมาตรฐาน", r"สถิติเชิงพรรณนา", r"descriptive statistic",
+            r"standard deviation",       # bare "mean(s)" / "percentage" / ร้อยละ are not method signals
+            r"\bmean (?:score|value|age)s?\b", r"\bmean\s*[=±]", r"\(mean\b")),
     Method("inferential", "สถิติเชิงอนุมาน", "Inferential statistics",
            (r"\bt[- ]?test", r"\banova\b", r"ความแปรปรวน", r"chi[- ]square", r"ไคสแควร์", r"สหสัมพันธ์",
             r"\bcorrelation", r"ถดถอย", r"\bregression")),
     Method("sem", "สมการโครงสร้าง/องค์ประกอบ", "SEM / factor analysis",
-           (r"สมการโครงสร้าง", r"structural equation", r"\bsem\b", r"องค์ประกอบเชิงยืนยัน", r"confirmatory factor",
-            r"\bcfa\b", r"pls[- ]sem")),
+           (r"สมการโครงสร้าง", r"structural equation", r"องค์ประกอบเชิงยืนยัน", r"confirmatory factor",
+            r"pls[- ]sem", r"\b(?:lisrel|smartpls)\b",
+            # the bare acronyms SEM / CFA (scanning electron microscopy, ...) count only beside a SEM program
+            rf"\b(?:sem|cfa)\b[\s\S]*\b{_SEM_TOOLS}\b", rf"\b{_SEM_TOOLS}\b[\s\S]*\b(?:sem|cfa)\b")),
     Method("ml", "การเรียนรู้ของเครื่อง", "Machine learning",
-           (r"การเรียนรู้ของเครื่อง", r"การเรียนรู้เชิงลึก", r"โครงข่ายประสาท", r"machine learning",
-            r"deep learning", r"neural networks?")),
+           (r"การเรียนรู้ของเครื่อง", r"โครงข่ายประสาท", r"machine learning", r"deep learning", r"neural networks?",
+            # "deep learning" in pedagogy is not ML: the Thai phrase counts only beside a model / algorithm term
+            rf"การเรียนรู้เชิงลึก[\s\S]*{_ML_TERMS}", rf"{_ML_TERMS}[\s\S]*การเรียนรู้เชิงลึก")),
     Method("lab", "การทดลองในห้องปฏิบัติการ", "Laboratory study", (r"ห้องปฏิบัติการ", r"in vitro", r"\blaborator")),
 )
 METHOD_KEYS: tuple[str, ...] = tuple(m.key for m in METHODS)
@@ -77,15 +87,22 @@ LEXICON_VERSION = hashlib.sha1(json.dumps([[m.key, list(m.patterns)] for m in ME
                                           ensure_ascii=False).encode("utf-8")).hexdigest()[:8]
 _RX = {m.key: re.compile("|".join(f"(?:{fold_thai(p)})" for p in m.patterns)) for m in METHODS}
 
-_NUM = r"(\d{1,3}(?:,\d{3})+|\d+)"
+_NUM = r"(?<![\d.,])(?P<num>\d{1,3}(?:,\d{3})+|\d+)(?!\d|[.,]\d)"        # "2.5" and "12,34" are not counts
+_PERSON_UNITS = r"\s*(?:คน|ราย|ครัวเรือน|ตัวอย่าง)"                    # never แห่ง / โรงเรียน / ชุด (places, sets)
+_SUBJECTS = ("นักเรียน|นักศึกษา|ผู้เรียน|ครู|อาจารย์|พยาบาล|ผู้ป่วย|เกษตรกร|ประชาชน|ผู้บริหาร|บุคลากร|พนักงาน|ลูกค้า|"
+             "นักท่องเที่ยว|ผู้บริโภค|ตัวอย่าง")
+# A number followed by a duration, an age or a percentage is not a head count.
+_NOT_A_COUNT = re.compile(fold_thai(r"\s*(?:years?|yrs?|months?|weeks?|days?|hours?|aged?\b|ปี|เดือน|สัปดาห์|วัน|"
+                                    r"ชั่วโมง|%|percent)"))
+_AGE_WORD = re.compile(fold_thai(r"\bage[ds]?\b|อายุ"))
 _SAMPLE_PATTERNS: tuple[tuple[re.Pattern, bool], ...] = (     # (pattern, has a unit → no year check)
-    (re.compile(fold_thai(r"(?:กลุ่มตัวอย่าง|ผู้ตอบแบบสอบถาม|ผู้ให้ข้อมูลสำคัญ|ผู้ให้ข้อมูล|ผู้เข้าร่วม(?:การ)?วิจัย)"
-                          r"[^0-9]{0,40}?") + _NUM + fold_thai(r"\s*(?:คน|ราย|ครัวเรือน|ตัวอย่าง|แห่ง|โรงเรียน|ชุด)")),
-     True),
-    (re.compile(r"\bn\s*=\s*" + _NUM + r"\b"), True),
+    (re.compile(fold_thai(r"(?:กลุ่มตัวอย่าง|ผู้ตอบแบบสอบถาม|ผู้ให้ข้อมูลสำคัญ|ผู้ให้ข้อมูล|ผู้เข้าร่วม(?:การ)?วิจัย)")
+                + r"(?P<gap>.{0,60}?)" + _NUM + fold_thai(_PERSON_UNITS), re.S), True),
+    (re.compile(fold_thai(rf"(?:{_SUBJECTS})\s*(?:จำนวน\s*)?") + _NUM + fold_thai(r"\s*(?:คน|ราย|ครัวเรือน)")), True),
+    (re.compile(r"\bn\s*=\s*" + _NUM), True),
     (re.compile(_NUM + r"\s+(?:respondents|participants|informants|students|teachers|nurses|patients|farmers|"
                        r"households|employees|subjects|samples|consumers|tourists)\b"), True),
-    (re.compile(r"\b(?:sample(?: size)?|respondents|participants)\b[^0-9.;]{0,30}?" + _NUM + r"\b"), False),
+    (re.compile(r"\b(?:sample(?: size)?|respondents|participants)\b(?P<gap>[^0-9.;]{0,30}?)" + _NUM), False),
 )
 TEXT_COLUMNS = ("title_th", "title_en", "keywords_th", "keywords_en", "abstract_th", "abstract_en")
 ARTICLE_COLUMNS = ["article_id", "year", "topic_id", "methods", "sample_size"]
@@ -101,18 +118,25 @@ def detect_methods(text: str | None) -> list[str]:
 
 
 def sample_size(text: str | None, max_size: int = 1_000_000) -> int | None:
-    """The first plausible sample size in the text: '...กลุ่มตัวอย่าง จำนวน 400 คน', 'n = 400', '400 respondents',
-    'a sample of 400'. A number without a unit that looks like a year (1900–2100, 2400–2600 BE) is skipped."""
+    """A plausible sample size: '...กลุ่มตัวอย่าง ... จำนวน 400 คน', 'นักเรียนจำนวน 400 คน', 'n = 400',
+    '400 respondents', 'a sample of 400'. A figure with a person unit (คน / ราย / ครัวเรือน / respondents ...) beats
+    a unit-less one wherever it stands; within a tier the first mention wins. A number followed by a duration or an
+    age (years, months, ปี, เดือน, aged ...) is skipped, and so is a unit-less number that looks like a year
+    (1900–2100, 2400–2600 BE) or follows an age word."""
     t = fold(text)
-    cands = []
+    with_unit, bare = [], []
     for rx, has_unit in _SAMPLE_PATTERNS:
         for m in rx.finditer(t):
-            n = int(m.group(1).replace(",", ""))
+            n = int(m.group("num").replace(",", ""))
+            if _NOT_A_COUNT.match(t, m.end("num")) or not 2 <= n <= max_size:
+                continue
             if not has_unit and (1900 <= n <= 2100 or 2400 <= n <= 2600):
                 continue
-            if 2 <= n <= max_size:
-                cands.append((m.start(), n))
-    return min(cands)[1] if cands else None
+            if "gap" in rx.groupindex and _AGE_WORD.search(m.group("gap")):
+                continue
+            (with_unit if has_unit else bare).append((m.start(), n))
+    found = with_unit or bare
+    return min(found)[1] if found else None
 
 
 def article_methods(docs: pd.DataFrame, max_sample: int) -> pd.DataFrame:
@@ -215,11 +239,13 @@ def methods(cfg: dict, llm=None) -> pd.DataFrame:
             "with_methods": int(n_with), "counts": counts,
             "monoculture_share": monoculture_share(win["methods"], mcfg["monoculture_methods"]),
             "by_year": by_year(am, [int(y) for y in meta6.get("years", [])])}
+    meta_path = work / "12_methods_meta.json"
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")      # before any LLM call can stop us
     notes, stats = method_notes(cfg, llm)
     if notes is not None:
         write_table(notes, work / "12_methods_notes.parquet")
         meta["llm"] = stats
-    (work / "12_methods_meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+        meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     cov = n_with / len(win) if len(win) else 0.0
     print(f"[methods] lexicon {LEXICON_VERSION}: methods named in {cov:.0%} of {len(win):,} articles {start}–{end}; "
           f"{len(topics)} topics summarised ({int(topics['monoculture'].sum()) if len(topics) else 0} monoculture)")
@@ -297,7 +323,8 @@ def methods_job(cfg: dict) -> LlmJob:
         th = str(labels.loc[tid, "name_th"]) if tid in labels.index else topic_code(tid)
         en = str(labels.loc[tid, "name_en"]) if tid in labels.index else topic_code(tid)
         facts = method_facts(row, th, en, window, mcfg["monoculture_methods"])
-        ids = am.loc[am["topic_id"] == tid, "article_id"].sort_values().head(int(cfg["narrative"]["n_titles"]))
+        in_topic = (am["topic_id"] == tid) & in_window(am["year"], *window)         # the articles the facts describe
+        ids = am.loc[in_topic, "article_id"].sort_values().head(int(cfg["narrative"]["n_titles"]))
         titles = "\n".join(f"- {titles_of.get(a, '')}" for a in ids)
         others = [n for n in names if n not in (th, en)]
         items.append(LlmItem(topic_code(tid), render_prompt(template, facts=facts, titles=titles),

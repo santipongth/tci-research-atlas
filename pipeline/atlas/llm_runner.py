@@ -375,7 +375,9 @@ def build_job(cfg: dict, task: str) -> LlmJob:
 
 def dry_run_all(cfg: dict, tasks: list[str] | None = None) -> list[dict]:
     rows = []
-    for task in tasks or list(JOBS):
+    # methods notes are opt-in: without methods.provider: llm the task is not part of the default estimate
+    default = [t for t in JOBS if t != "methods" or cfg["methods"]["provider"] == "llm"]
+    for task in tasks or default:
         try:
             rows.append(LlmRunner(cfg, build_job(cfg, task)).dry_run())
         except FileNotFoundError as e:

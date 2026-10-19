@@ -32,6 +32,7 @@ def test_summary_has_identity_counts_and_rates(work):
     assert 0 < j1["completeness"] <= 100 and j1["methods_coverage"] == 1
     j3 = s.loc["so04:J3"]
     assert j3["low_data"] and pd.isna(j3["completeness"]) and pd.isna(j3["inhouse_share"])
+    assert j3["owner_name"] == "" and pd.isna(j3["owner_source"]) and not j3["owner_matched"]   # no inferred owner
 
 
 def test_topics_peers_drift_and_special_issue(work):
@@ -91,3 +92,12 @@ def test_inferred_owner_name_keeps_its_tone_marks(tmp_path):
     journals(cfg)
     s = read_table(w / "13_journals.parquet").set_index("journal_key")
     assert s.loc["so02:J1", "owner_name"] == "มหาวิทยาลัยแม่โจ้"
+
+
+def test_a_rerun_deletes_the_previous_tables_first(work):
+    cfg, w = work
+    assert list(w.glob("13_*"))
+    (w / "06_meta.json").unlink()
+    with pytest.raises(FileNotFoundError):
+        journals(cfg)
+    assert not list(w.glob("13_*"))

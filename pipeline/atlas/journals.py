@@ -85,6 +85,8 @@ def journal_methods(ma: pd.DataFrame | None, arts_w: pd.DataFrame, eligible: set
 def journals(cfg: dict) -> pd.DataFrame:
     work = Path(cfg["pipeline"]["work_dir"])
     jcfg = cfg["journals"]
+    for stale in work.glob("13_*"):                  # a re-run that stops half-way must not leave the old release's tables
+        stale.unlink()
     meta6 = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
     win = windows(cfg, int(meta6["last_complete_year"]))
     W, R, B = win["W"], win["R"], win["B"]
@@ -168,6 +170,8 @@ def journals(cfg: dict) -> pd.DataFrame:
         })
     summary = pd.DataFrame(rows, columns=SUMMARY_COLUMNS)
     summary.loc[summary["low_data"], RATE_COLUMNS] = np.nan        # too few articles: no rate is published
+    inferred = summary["low_data"] & (summary["owner_source"] == "inferred")      # a guess from a handful of articles
+    summary.loc[inferred, ["owner_name", "owner_source", "owner_matched"]] = ["", None, False]
     summary["tci_tier"] = summary["tci_tier"].astype("Int64")
     summary["first_year"] = summary["first_year"].astype("Int64")
     summary["last_year"] = summary["last_year"].astype("Int64")
