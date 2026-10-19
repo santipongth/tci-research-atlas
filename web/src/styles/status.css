@@ -1,0 +1,25 @@
+/* Status glyphs and tags — shape + colour + label, never colour alone (DESIGN.md). */
+@layer components {
+  .st-icon { flex: none; overflow: visible; display: inline-block; vertical-align: -0.12em; }
+  .st-mark, .mk { stroke: var(--bg); stroke-width: 1.4; paint-order: stroke; }
+  .chip .st-mark { stroke: none; }
+  .st-EMERGING .st-mark, .mk-EMERGING { fill: var(--st-EMERGING); }
+  .st-WATCH .st-mark, .mk-WATCH { fill: var(--st-WATCH); }
+  .st-HOT .st-mark, .mk-HOT { fill: var(--st-HOT); }
+  .st-DECLINING .st-mark, .mk-DECLINING { fill: var(--st-DECLINING); }
+  .st-STABLE .st-mark, .mk-STABLE { fill: var(--st-STABLE); }
+  .st-LOW_DATA .st-mark, .mk-LOW_DATA { fill: var(--bg); stroke: var(--st-LOW_DATA); stroke-width: 1.6; stroke-dasharray: 2.2 1.6; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 1px 6px; font-weight: 700; font-size: 0.875rem; line-height: 1.5; white-space: nowrap; }
+  .chip-sm { font-size: 0.8125rem; padding: 1px 6px 0 5px; }
+  .chip-EMERGING { background: var(--tag-EMERGING-bg); color: var(--tag-EMERGING-ink); }
+  .chip-WATCH { background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
+  .chip-HOT { background: var(--tag-HOT-bg); color: var(--tag-HOT-ink); }
+  .chip-DECLINING { background: var(--tag-DECLINING-bg); color: var(--tag-DECLINING-ink); }
+  .chip-STABLE { background: var(--tag-STABLE-bg); color: var(--tag-STABLE-ink); }
+  .chip-LOW_DATA { background: var(--tag-LOW_DATA-bg); color: var(--tag-LOW_DATA-ink); box-shadow: inset 0 0 0 1px var(--border); }
+
+  @media (forced-colors: active) {
+    .mk, .st-mark { forced-color-adjust: none; }
+  }
+}
