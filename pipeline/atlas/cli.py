@@ -501,3 +501,35 @@ def llm_stop_cmd(
         typer.echo(f"[llm-stop] stop requested ({flag}); no LLM job is running now — a pipeline that is still at an "
                    f"earlier step stops when its LLM step starts")
     typer.echo(f"  status: uv run atlas status -c {_cfg_arg(config)}")
+
+
+review_app = typer.Typer(help="Editors' spot check of topic names (export a CSV, import the corrections).",
+                         no_args_is_help=True)
+app.add_typer(review_app, name="review")
+
+
+@review_app.command("export")
+def review_export_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+    out: Path = typer.Option(None, help="CSV path (default: output/review/<release>_label_review.csv)"),
+    n: int = typer.Option(None, help="number of topics (default: review.sample_size)"),
+) -> None:
+    """Write the review CSV: keyword-fallback names and possible duplicates first, then a seeded sample."""
+    from atlas.config import load_config
+    from atlas.review import export_review
+
+    typer.echo(f"wrote {export_review(load_config(config), out, n)}")
+
+
+@review_app.command("import")
+def review_import_cmd(
+    file: Path = typer.Argument(..., help="the filled-in review CSV"),
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+) -> None:
+    """Copy corrected names (name_th_fixed / name_en_fixed) into labeling.overrides_path."""
+    from atlas.config import load_config
+    from atlas.review import import_review
+
+    r = import_review(load_config(config), file)
+    typer.echo(f"{r['applied']} corrections from {r['reviewed']} reviewed topics → {r['path']} "
+               f"({r['overrides_total']} overrides in total; they apply from the next label step)")

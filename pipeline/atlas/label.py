@@ -166,4 +166,8 @@ def label(cfg: dict, llm=None) -> pd.DataFrame:
     (work / "05_labels_meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     print(f"[label] {len(out)} topics: {meta['generated']} new, {meta['from_cache']} cached, "
           f"{meta['fallback']} keyword fallback, {applied} editor overrides")
+    if cfg["labeling"]["merge"]["enabled"]:
+        from atlas.review import suggest_merges  # local import: atlas.review imports this module
+
+        suggest_merges(cfg)
     return out

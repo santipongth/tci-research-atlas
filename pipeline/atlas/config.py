@@ -133,9 +133,16 @@ class ClusteringCfg(_Strict):
     ctfidf_max_docs_per_topic: int = 400
 
 
+class MergeCfg(_Strict):
+    enabled: bool = True
+    min_similarity: float = Field(0.85, gt=0.0, le=1.0)
+    max_pairs: int = Field(30, ge=0)
+
+
 class LabelingCfg(_Strict):
     provider: Literal["llm", "off"] = "off"
     overrides_path: str | None = None     # editors' CSV keyed by T000123; the example config sets ./registry/…
+    merge: MergeCfg = Field(default_factory=MergeCfg)
     n_repr_docs: int = 8
     mmr_lambda: float = Field(0.7, ge=0.0, le=1.0)
 
@@ -364,6 +371,11 @@ class LlmCfg(_Strict):
         return self
 
 
+class ReviewCfg(_Strict):
+    sample_size: int = Field(50, ge=1)
+    n_titles: int = Field(5, ge=1)
+
+
 class AtlasConfig(_Strict):
     pipeline: PipelineCfg = Field(default_factory=PipelineCfg)
     input: InputCfg = Field(default_factory=InputCfg)
@@ -371,6 +383,7 @@ class AtlasConfig(_Strict):
     clustering: ClusteringCfg = Field(default_factory=ClusteringCfg)
     labeling: LabelingCfg = Field(default_factory=LabelingCfg)
     llm: LlmCfg = Field(default_factory=LlmCfg)
+    review: ReviewCfg = Field(default_factory=ReviewCfg)
     topics: TopicsCfg = Field(default_factory=TopicsCfg)
     taxonomy: TaxonomyCfg = Field(default_factory=TaxonomyCfg)
     emerging: EmergingCfg = Field(default_factory=EmergingCfg)

@@ -106,6 +106,15 @@ labeling:
   overrides_path: ./registry/label_overrides.csv   # ชื่อที่บรรณาธิการแก้ (topic_id แบบ T000123) — ชนะชื่อจาก LLM ทุกรอบ; ไม่มีไฟล์ = ไม่มีการแก้
   n_repr_docs: 8              # บทความตัวแทน (ใกล้ centroid + กระจายด้วย MMR)
   mmr_lambda: 0.7
+  merge:                      # คู่หัวข้อที่อาจซ้ำ → ข้อเสนอให้บรรณาธิการ (ไม่รวมอัตโนมัติ)
+    enabled: true
+    min_similarity: 0.85      # centroid cosine ≥ ค่านี้ = ผู้สมัคร
+    max_pairs: 30             # ส่งให้ LLM ตัดสินไม่เกินกี่คู่ (คู่ที่ใกล้ที่สุดก่อน; ใช้ llm.tasks.merge)
+
+# ---------- คนตรวจ: atlas review export → CSV ให้บรรณาธิการสุ่มตรวจชื่อหัวข้อ ----------
+review:
+  sample_size: 50             # หัวข้อต่อรอบ (ชื่อจาก fallback + คู่ที่อาจซ้ำมาก่อน แล้วสุ่มที่เหลือแบบทำซ้ำได้)
+  n_titles: 5                 # ตัวอย่างชื่อบทความต่อหัวข้อในไฟล์ตรวจ
 
 # ---------- LLM (ทุกงานผ่าน API แบบ OpenAI-compatible: POST {base_url}/chat/completions) ----------
 llm:
