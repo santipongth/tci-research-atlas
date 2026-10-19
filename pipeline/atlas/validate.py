@@ -8,7 +8,10 @@
               editors' modules (2.1): unique journal ids with one journals/<id>.json each, peers / topic
               journal links / match journals name known journals, every topic id in journals, methods,
               diff (incl. restructured / merged_into) and match is a topic of this release (retired ones
-              are not); files above
+              are not); executives' modules (2.2): unique institution ids with one institutions/<id>.json each,
+              edges / partners / suggestions / province tops / topic institution links / concentration tops
+              name published institutions, every topic id in sdg, global and gaps is a topic of this release,
+              gaps' fields are taxonomy groups; files above
               validation.max_file_bytes → warning (static hosts cap single files)
 4. diff       against the previous release folder (manifest.previous_release next to this one, or
               --previous): topic count change, share of last release's ids kept, status changes of
@@ -166,6 +169,54 @@ def _check_editors(models: dict, rep: Report) -> None:
             rep.errors.append(f"match.json: journals not in journals.json: {bad[:5]}")
 
 
+def _check_executives(models: dict, rep: Report) -> None:
+    """Cross-file references of the P3 modules (institutions, regions, sdg, global, gaps)."""
+    topics = models.get("topics.json")
+    if topics is None:
+        return
+    known = {t.id for t in topics.topics}
+    groups = {g.id for g in models["taxonomy.json"].groups} if "taxonomy.json" in models else None
+    inf = models.get("institutions.json")
+    iids: set[str] | None = None
+    if inf is not None:
+        ids = [i.id for i in inf.institutions]
+        iids = set(ids)
+        if len(iids) != len(ids):
+            rep.errors.append("institutions.json: duplicate institution ids")
+        missing = [i for i in ids if f"institutions/{i}.json" not in models]
+        if missing:
+            rep.errors.append(f"{len(missing)} institutions have no valid institutions/<id>.json (e.g. {missing[0]})")
+        if bad := _unknown((x for e in inf.edges for x in (e.a, e.b)), iids):
+            rep.errors.append(f"institutions.json: edges name unknown institutions: {bad[:5]}")
+    for path, m in models.items():
+        if path.startswith("institutions/"):
+            if bad := _unknown([t.topic for t in m.topics] + [t for s in m.suggested for t in s.topics], known):
+                rep.errors.append(f"{path}: topics not in topics.json: {bad[:5]}")
+            if iids is not None and (bad := _unknown([p.id for p in m.partners] + [s.id for s in m.suggested], iids)):
+                rep.errors.append(f"{path}: institutions not in institutions.json: {bad[:5]}")
+        elif path.startswith("topics/") and iids is not None:
+            if bad := _unknown((i.id for i in m.institutions if i.id), iids):
+                rep.errors.append(f"{path}: institution links not in institutions.json: {bad[:5]}")
+    if (rf := models.get("regions.json")) is not None and iids is not None:
+        if bad := _unknown((i for p in rf.provinces for i in p.top), iids):
+            rep.errors.append(f"regions.json: institutions not in institutions.json: {bad[:5]}")
+    if (sf := models.get("sdg.json")) is not None and (bad := _unknown((t for g in sf.goals for t in g.topics), known)):
+        rep.errors.append(f"sdg.json: topics not in topics.json: {bad[:5]}")
+    if (gf := models.get("global.json")) is not None and (
+            bad := _unknown((t for s in gf.subfields for t in s.topics), known)):
+        rep.errors.append(f"global.json: topics not in topics.json: {bad[:5]}")
+    if (gp := models.get("gaps.json")) is not None:
+        refs = ([f.topic for f in gp.few_institutions] + [x for b in gp.bridges for x in (b.a, b.b)]
+                + [t for w in gp.world for t in w.topics] + [c.id for c in gp.concentration if c.scope == "topic"])
+        if bad := _unknown(refs, known):
+            rep.errors.append(f"gaps.json: topics not in topics.json: {bad[:5]}")
+        if groups is not None and (bad := _unknown((c.id for c in gp.concentration if c.scope == "group"), groups)):
+            rep.errors.append(f"gaps.json: fields not in taxonomy.json: {bad[:5]}")
+        if iids is not None and (bad := _unknown((c.top for c in gp.concentration
+                                                  if c.kind == "institution" and c.top), iids)):
+            rep.errors.append(f"gaps.json: institutions not in institutions.json: {bad[:5]}")
+
+
 def _diff(models: dict, prev_root: Path, vcfg: dict, rep: Report) -> None:
     try:
         raw_topics = _load(prev_root / "topics.json")["topics"]
@@ -222,6 +273,7 @@ def validate_release(release_dir: str | Path, previous_dir: str | Path | None, v
     models = _check_files(root, rep, int(vcfg.get("max_file_bytes", 50_000_000)))
     _check_coherence(models, rep)
     _check_editors(models, rep)
+    _check_executives(models, rep)
     manifest = models.get("manifest.json")
     _check_llm(manifest, rep)
     if manifest is not None and manifest.release != root.name:

@@ -2,6 +2,42 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "definitions": {
+    "Bridge": {
+      "additionalProperties": false,
+      "properties": {
+        "a": {
+          "pattern": "^T\\d{6}$",
+          "title": "A",
+          "type": "string"
+        },
+        "b": {
+          "pattern": "^T\\d{6}$",
+          "title": "B",
+          "type": "string"
+        },
+        "jaccard": {
+          "title": "Jaccard",
+          "type": "number"
+        },
+        "shared": {
+          "title": "Shared",
+          "type": "integer"
+        },
+        "similarity": {
+          "title": "Similarity",
+          "type": "number"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "similarity",
+        "shared",
+        "jaccard"
+      ],
+      "title": "Bridge",
+      "type": "object"
+    },
     "Brief": {
       "additionalProperties": false,
       "properties": {
@@ -44,6 +80,32 @@
       "title": "Brief",
       "type": "object"
     },
+    "CollabEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "a": {
+          "pattern": "^[a-z0-9][a-z0-9-]{1,48}$",
+          "title": "A",
+          "type": "string"
+        },
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "b": {
+          "pattern": "^[a-z0-9][a-z0-9-]{1,48}$",
+          "title": "B",
+          "type": "string"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "articles"
+      ],
+      "title": "CollabEdge",
+      "type": "object"
+    },
     "CompletenessItem": {
       "additionalProperties": false,
       "properties": {
@@ -84,6 +146,69 @@
       "title": "CompletenessItem",
       "type": "object"
     },
+    "Concentration": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "concentrated": {
+          "title": "Concentrated",
+          "type": "boolean"
+        },
+        "hhi": {
+          "title": "Hhi",
+          "type": "number"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "institution",
+            "journal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "topic",
+            "group"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "top": {
+          "default": "",
+          "description": "institution or journal id; empty when it has no page",
+          "title": "Top",
+          "type": "string"
+        },
+        "top_name": {
+          "default": "",
+          "title": "Top Name",
+          "type": "string"
+        },
+        "top_share": {
+          "title": "Top Share",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "kind",
+        "articles",
+        "hhi",
+        "top_share",
+        "concentrated"
+      ],
+      "title": "Concentration",
+      "type": "object"
+    },
     "CountItem": {
       "additionalProperties": false,
       "properties": {
@@ -101,7 +226,7 @@
             }
           ],
           "default": null,
-          "description": "journal id (journals/<id>.json) when the item is a journal of a release with the journals module",
+          "description": "journal id (journals/<id>.json) or institution id (institutions/<id>.json) when the release has that module",
           "title": "Id"
         },
         "key": {
@@ -114,6 +239,36 @@
         "count"
       ],
       "title": "CountItem",
+      "type": "object"
+    },
+    "CountryCount": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "code": {
+          "pattern": "^[A-Z]{2}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "name_en": {
+          "title": "Name En",
+          "type": "string"
+        },
+        "name_th": {
+          "title": "Name Th",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "name_th",
+        "name_en",
+        "articles"
+      ],
+      "title": "CountryCount",
       "type": "object"
     },
     "DataQuality": {
@@ -213,7 +368,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -308,7 +463,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -417,6 +572,54 @@
       "title": "EmergingKeyword",
       "type": "object"
     },
+    "ExecutiveSummary": {
+      "additionalProperties": false,
+      "description": "Template sentences built at export from the executives' modules — every number comes from those files.",
+      "properties": {
+        "bullets_en": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Bullets En",
+          "type": "array"
+        },
+        "bullets_th": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Bullets Th",
+          "type": "array"
+        },
+        "source": {
+          "const": "template",
+          "default": "template",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "title": "ExecutiveSummary",
+      "type": "object"
+    },
+    "FewInstitutions": {
+      "additionalProperties": false,
+      "properties": {
+        "institutions": {
+          "title": "Institutions",
+          "type": "integer"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "institutions"
+      ],
+      "title": "FewInstitutions",
+      "type": "object"
+    },
     "FileEntry": {
       "additionalProperties": false,
       "properties": {
@@ -439,6 +642,245 @@
         "sha256"
       ],
       "title": "FileEntry",
+      "type": "object"
+    },
+    "FrameworkInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "th": {
+          "title": "Th",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "th",
+        "en"
+      ],
+      "title": "FrameworkInfo",
+      "type": "object"
+    },
+    "GapsFile": {
+      "additionalProperties": false,
+      "properties": {
+        "bridge_max_jaccard": {
+          "title": "Bridge Max Jaccard",
+          "type": "number"
+        },
+        "bridge_min_similarity": {
+          "title": "Bridge Min Similarity",
+          "type": "number"
+        },
+        "bridges": {
+          "items": {
+            "$ref": "#/definitions/Bridge"
+          },
+          "title": "Bridges",
+          "type": "array"
+        },
+        "concentration": {
+          "items": {
+            "$ref": "#/definitions/Concentration"
+          },
+          "title": "Concentration",
+          "type": "array"
+        },
+        "few_institutions": {
+          "items": {
+            "$ref": "#/definitions/FewInstitutions"
+          },
+          "title": "Few Institutions",
+          "type": "array"
+        },
+        "max_hhi": {
+          "title": "Max Hhi",
+          "type": "number"
+        },
+        "max_institutions": {
+          "title": "Max Institutions",
+          "type": "integer"
+        },
+        "max_top_share": {
+          "title": "Max Top Share",
+          "type": "number"
+        },
+        "min_articles": {
+          "title": "Min Articles",
+          "type": "integer"
+        },
+        "recent": {
+          "$ref": "#/definitions/YearWindow"
+        },
+        "schema_version": {
+          "default": "2.2.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "statuses": {
+          "items": {
+            "enum": [
+              "EMERGING",
+              "WATCH",
+              "HOT",
+              "DECLINING",
+              "STABLE",
+              "LOW_DATA"
+            ],
+            "type": "string"
+          },
+          "title": "Statuses",
+          "type": "array"
+        },
+        "world": {
+          "items": {
+            "$ref": "#/definitions/WorldGap"
+          },
+          "title": "World",
+          "type": "array"
+        }
+      },
+      "required": [
+        "recent",
+        "statuses",
+        "max_institutions",
+        "bridge_min_similarity",
+        "bridge_max_jaccard",
+        "min_articles",
+        "max_top_share",
+        "max_hhi",
+        "few_institutions",
+        "bridges",
+        "world",
+        "concentration"
+      ],
+      "title": "GapsFile",
+      "type": "object"
+    },
+    "GlobalFile": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "$ref": "#/definitions/YearWindow"
+        },
+        "country": {
+          "pattern": "^[A-Z]{2}$",
+          "title": "Country",
+          "type": "string"
+        },
+        "max_activity_index": {
+          "title": "Max Activity Index",
+          "type": "number"
+        },
+        "min_world_ratio": {
+          "title": "Min World Ratio",
+          "type": "number"
+        },
+        "min_world_works": {
+          "title": "Min World Works",
+          "type": "integer"
+        },
+        "recent": {
+          "$ref": "#/definitions/YearWindow"
+        },
+        "schema_version": {
+          "default": "2.2.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "subfields": {
+          "items": {
+            "$ref": "#/definitions/SubfieldBench"
+          },
+          "title": "Subfields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "country",
+        "recent",
+        "baseline",
+        "min_world_works",
+        "min_world_ratio",
+        "max_activity_index",
+        "subfields"
+      ],
+      "title": "GlobalFile",
+      "type": "object"
+    },
+    "GoalStat": {
+      "additionalProperties": false,
+      "properties": {
+        "articles_recent": {
+          "default": 0,
+          "title": "Articles Recent",
+          "type": "integer"
+        },
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "framework": {
+          "title": "Framework",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "number": {
+          "title": "Number",
+          "type": "integer"
+        },
+        "share_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Ratio"
+        },
+        "share_recent": {
+          "default": 0.0,
+          "title": "Share Recent",
+          "type": "number"
+        },
+        "th": {
+          "title": "Th",
+          "type": "string"
+        },
+        "topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "framework",
+        "number",
+        "th",
+        "en"
+      ],
+      "title": "GoalStat",
       "type": "object"
     },
     "GroupInfo": {
@@ -499,6 +941,296 @@
       "title": "GroupInfo",
       "type": "object"
     },
+    "InstitutionDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "countries": {
+          "items": {
+            "$ref": "#/definitions/CountryCount"
+          },
+          "title": "Countries",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9-]{1,48}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "partners": {
+          "items": {
+            "$ref": "#/definitions/Partner"
+          },
+          "title": "Partners",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.2.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "suggested": {
+          "items": {
+            "$ref": "#/definitions/Suggestion"
+          },
+          "title": "Suggested",
+          "type": "array"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/definitions/TopicShare"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "years": {
+          "items": {
+            "$ref": "#/definitions/JournalYear"
+          },
+          "title": "Years",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "InstitutionDetail",
+      "type": "object"
+    },
+    "InstitutionSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "description": "window articles with ≥ 1 author from the institution",
+          "title": "Articles",
+          "type": "integer"
+        },
+        "articles_recent": {
+          "default": 0,
+          "title": "Articles Recent",
+          "type": "integer"
+        },
+        "articles_total": {
+          "title": "Articles Total",
+          "type": "integer"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO 3166-1 alpha-2; null = not named",
+          "title": "Country"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "map group holding most of its window articles",
+          "title": "Group"
+        },
+        "id": {
+          "description": "institutions/<id>.json — the alias inst_id, ror-<ROR id> or o<10 hex of sha1(org key)>; stable across releases",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,48}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "intl_share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "share of its window articles that pair Thai and foreign institutions",
+          "title": "Intl Share"
+        },
+        "name_en": {
+          "default": "",
+          "title": "Name En",
+          "type": "string"
+        },
+        "name_th": {
+          "default": "",
+          "title": "Name Th",
+          "type": "string"
+        },
+        "partners": {
+          "default": 0,
+          "title": "Partners",
+          "type": "integer"
+        },
+        "province": {
+          "anyOf": [
+            {
+              "pattern": "^TH-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Province"
+        },
+        "ror": {
+          "default": "",
+          "title": "Ror",
+          "type": "string"
+        },
+        "source": {
+          "description": "curated alias table, ROR, or the name as written",
+          "enum": [
+            "alias",
+            "ror",
+            "name"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "topics": {
+          "default": 0,
+          "title": "Topics",
+          "type": "integer"
+        },
+        "type": {
+          "default": "other",
+          "enum": [
+            "university",
+            "rajabhat",
+            "rajamangala",
+            "hospital",
+            "government",
+            "research",
+            "company",
+            "other"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "articles",
+        "articles_total"
+      ],
+      "title": "InstitutionSummary",
+      "type": "object"
+    },
+    "InstitutionsFile": {
+      "additionalProperties": false,
+      "properties": {
+        "articles_with_org": {
+          "description": "window articles with ≥ 1 recognised institution",
+          "title": "Articles With Org",
+          "type": "integer"
+        },
+        "countries": {
+          "items": {
+            "$ref": "#/definitions/CountryCount"
+          },
+          "title": "Countries",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/definitions/CollabEdge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "institutions": {
+          "items": {
+            "$ref": "#/definitions/InstitutionSummary"
+          },
+          "title": "Institutions",
+          "type": "array"
+        },
+        "min_articles": {
+          "title": "Min Articles",
+          "type": "integer"
+        },
+        "network_min_articles": {
+          "title": "Network Min Articles",
+          "type": "integer"
+        },
+        "pct_international": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pct International"
+        },
+        "pct_multi_institution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pct Multi Institution"
+        },
+        "province_names": {
+          "items": {
+            "$ref": "#/definitions/ProvinceName"
+          },
+          "title": "Province Names",
+          "type": "array"
+        },
+        "recent": {
+          "$ref": "#/definitions/YearWindow"
+        },
+        "schema_version": {
+          "default": "2.2.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sources": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "published institutions by identification",
+          "title": "Sources",
+          "type": "object"
+        },
+        "window": {
+          "$ref": "#/definitions/YearWindow"
+        }
+      },
+      "required": [
+        "window",
+        "recent",
+        "min_articles",
+        "network_min_articles",
+        "articles_with_org",
+        "institutions"
+      ],
+      "title": "InstitutionsFile",
+      "type": "object"
+    },
     "JournalDetail": {
       "additionalProperties": false,
       "properties": {
@@ -557,7 +1289,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -935,7 +1667,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -997,7 +1729,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -1063,9 +1795,48 @@
           "title": "Pct Doi",
           "type": "number"
         },
+        "pct_international": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "% of window articles pairing Thai and foreign institutions (P3)",
+          "title": "Pct International"
+        },
         "pct_keywords": {
           "title": "Pct Keywords",
           "type": "number"
+        },
+        "pct_multi_institution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "% of window articles by ≥ 2 institutions (P3)",
+          "title": "Pct Multi Institution"
+        },
+        "provinces": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "provinces with ≥ 1 article in the window (P3)",
+          "title": "Provinces"
         },
         "topics": {
           "title": "Topics",
@@ -1144,7 +1915,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -1328,9 +2099,17 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
+        },
+        "skipped_modules": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "optional modules left out of this release for a reason: module → reason",
+          "title": "Skipped Modules",
+          "type": "object"
         },
         "taxonomy_version": {
           "anyOf": [
@@ -1418,7 +2197,7 @@
           "type": "number"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1647,7 +2426,7 @@
           "title": "Monoculture Share"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1803,6 +2582,17 @@
           "title": "Definition Version",
           "type": "integer"
         },
+        "executive": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExecutiveSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "generated_at": {
           "title": "Generated At",
           "type": "string"
@@ -1856,7 +2646,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1880,6 +2670,26 @@
       "title": "Overview",
       "type": "object"
     },
+    "Partner": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9-]{1,48}$",
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "articles"
+      ],
+      "title": "Partner",
+      "type": "object"
+    },
     "Peer": {
       "additionalProperties": false,
       "properties": {
@@ -1898,6 +2708,221 @@
         "similarity"
       ],
       "title": "Peer",
+      "type": "object"
+    },
+    "ProvinceName": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^TH-\\d{2}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "name_en": {
+          "title": "Name En",
+          "type": "string"
+        },
+        "name_th": {
+          "title": "Name Th",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "name_th",
+        "name_en"
+      ],
+      "title": "ProvinceName",
+      "type": "object"
+    },
+    "ProvinceStat": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "articles_recent": {
+          "default": 0,
+          "title": "Articles Recent",
+          "type": "integer"
+        },
+        "code": {
+          "pattern": "^TH-\\d{2}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "institutions": {
+          "default": 0,
+          "title": "Institutions",
+          "type": "integer"
+        },
+        "name_en": {
+          "title": "Name En",
+          "type": "string"
+        },
+        "name_th": {
+          "title": "Name Th",
+          "type": "string"
+        },
+        "per_100k": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Per 100K"
+        },
+        "region": {
+          "enum": [
+            "bangkok",
+            "central",
+            "northeast",
+            "north",
+            "south"
+          ],
+          "title": "Region",
+          "type": "string"
+        },
+        "share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share"
+        },
+        "top": {
+          "description": "ids of its largest published institutions",
+          "items": {
+            "type": "string"
+          },
+          "title": "Top",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "name_th",
+        "name_en",
+        "region",
+        "articles"
+      ],
+      "title": "ProvinceStat",
+      "type": "object"
+    },
+    "RegionStat": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "title": "Articles",
+          "type": "integer"
+        },
+        "key": {
+          "enum": [
+            "bangkok",
+            "central",
+            "northeast",
+            "north",
+            "south"
+          ],
+          "title": "Key",
+          "type": "string"
+        },
+        "share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share"
+        }
+      },
+      "required": [
+        "key",
+        "articles"
+      ],
+      "title": "RegionStat",
+      "type": "object"
+    },
+    "RegionsFile": {
+      "additionalProperties": false,
+      "properties": {
+        "articles_located": {
+          "title": "Articles Located",
+          "type": "integer"
+        },
+        "articles_with_org": {
+          "title": "Articles With Org",
+          "type": "integer"
+        },
+        "coverage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage"
+        },
+        "population_year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Population Year"
+        },
+        "provinces": {
+          "items": {
+            "$ref": "#/definitions/ProvinceStat"
+          },
+          "title": "Provinces",
+          "type": "array"
+        },
+        "regions": {
+          "items": {
+            "$ref": "#/definitions/RegionStat"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.2.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "window": {
+          "$ref": "#/definitions/YearWindow"
+        }
+      },
+      "required": [
+        "window",
+        "articles_with_org",
+        "articles_located",
+        "provinces",
+        "regions"
+      ],
+      "title": "RegionsFile",
       "type": "object"
     },
     "RepresentativeArticle": {
@@ -2046,6 +3071,50 @@
       "title": "RetiredTopic",
       "type": "object"
     },
+    "SdgFile": {
+      "additionalProperties": false,
+      "properties": {
+        "frameworks": {
+          "items": {
+            "$ref": "#/definitions/FrameworkInfo"
+          },
+          "title": "Frameworks",
+          "type": "array"
+        },
+        "goals": {
+          "items": {
+            "$ref": "#/definitions/GoalStat"
+          },
+          "title": "Goals",
+          "type": "array"
+        },
+        "method": {
+          "enum": [
+            "embedding",
+            "lexical"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "2.2.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "method",
+        "version",
+        "frameworks",
+        "goals"
+      ],
+      "title": "SdgFile",
+      "type": "object"
+    },
     "SeriesFile": {
       "additionalProperties": false,
       "properties": {
@@ -2057,7 +3126,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2158,6 +3227,104 @@
       "title": "StatusChange",
       "type": "object"
     },
+    "SubfieldBench": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_index": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activity Index"
+        },
+        "country_baseline": {
+          "title": "Country Baseline",
+          "type": "integer"
+        },
+        "country_recent": {
+          "title": "Country Recent",
+          "type": "integer"
+        },
+        "country_share": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Country Share"
+        },
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "group": {
+          "pattern": "^[FG]\\d{2,}$",
+          "title": "Group",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "opportunity": {
+          "default": false,
+          "title": "Opportunity",
+          "type": "boolean"
+        },
+        "tci_recent": {
+          "default": 0,
+          "title": "Tci Recent",
+          "type": "integer"
+        },
+        "topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "world_baseline": {
+          "title": "World Baseline",
+          "type": "integer"
+        },
+        "world_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "World Ratio"
+        },
+        "world_recent": {
+          "title": "World Recent",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "en",
+        "group",
+        "world_recent",
+        "world_baseline",
+        "country_recent",
+        "country_baseline"
+      ],
+      "title": "SubfieldBench",
+      "type": "object"
+    },
     "SubfieldInfo": {
       "additionalProperties": false,
       "properties": {
@@ -2191,6 +3358,33 @@
         "size"
       ],
       "title": "SubfieldInfo",
+      "type": "object"
+    },
+    "Suggestion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9-]{1,48}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "similarity": {
+          "title": "Similarity",
+          "type": "number"
+        },
+        "topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "similarity"
+      ],
+      "title": "Suggestion",
       "type": "object"
     },
     "TaxonomyFile": {
@@ -2228,7 +3422,7 @@
           "title": "Holdout Accuracy Subfield"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2483,7 +3677,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -2967,7 +4161,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "2.1.0",
+          "default": "2.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2983,6 +4177,56 @@
         "topics"
       ],
       "title": "TopicsFile",
+      "type": "object"
+    },
+    "WorldGap": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_index": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activity Index"
+        },
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "subfield": {
+          "title": "Subfield",
+          "type": "string"
+        },
+        "topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "world_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "World Ratio"
+        }
+      },
+      "required": [
+        "subfield",
+        "en"
+      ],
+      "title": "WorldGap",
       "type": "object"
     },
     "YearCount": {
@@ -3031,6 +4275,18 @@
     "edges": {
       "$ref": "#/definitions/EdgesFile"
     },
+    "gaps": {
+      "$ref": "#/definitions/GapsFile"
+    },
+    "global": {
+      "$ref": "#/definitions/GlobalFile"
+    },
+    "institution_detail": {
+      "$ref": "#/definitions/InstitutionDetail"
+    },
+    "institutions": {
+      "$ref": "#/definitions/InstitutionsFile"
+    },
     "journal_detail": {
       "$ref": "#/definitions/JournalDetail"
     },
@@ -3054,6 +4310,12 @@
     },
     "overview": {
       "$ref": "#/definitions/Overview"
+    },
+    "regions": {
+      "$ref": "#/definitions/RegionsFile"
+    },
+    "sdg": {
+      "$ref": "#/definitions/SdgFile"
     },
     "series": {
       "$ref": "#/definitions/SeriesFile"

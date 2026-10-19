@@ -22,6 +22,8 @@ const KPIS: readonly { key: keyof Kpis; label: StrKey; unit: 'count' | 'pct' }[]
   { key: 'journals', label: 'kpi.journals', unit: 'count' },
   { key: 'institutions', label: 'kpi.institutions', unit: 'count' },
   { key: 'pct_abstract_en', label: 'kpi.abstractEn', unit: 'pct' },
+  { key: 'pct_international', label: 'kpi.international', unit: 'pct' },
+  { key: 'provinces', label: 'kpi.provinces', unit: 'count' },
 ]
 const TOP = 5
 
@@ -80,13 +82,17 @@ function Brief({ release }: { release: AtlasRelease }) {
             </tr>
           </thead>
           <tbody>
-            {KPIS.map((k) => (
-              <tr key={k.key}>
-                <th scope="row">{t(k.label)}</th>
-                <td className="num">{k.unit === 'pct' ? `${fmtNum(ov.kpis[k.key], 1)}%` : fmtInt(ov.kpis[k.key])}</td>
-                {prev ? <td className="num">{kpiDelta(ov.kpis[k.key], prev.kpis[k.key], k.unit, lang) ?? ''}</td> : null}
-              </tr>
-            ))}
+            {KPIS.filter((k) => typeof ov.kpis[k.key] === 'number').map((k) => {
+              const value = ov.kpis[k.key] as number
+              const before = prev ? prev.kpis[k.key] : null
+              return (
+                <tr key={k.key}>
+                  <th scope="row">{t(k.label)}</th>
+                  <td className="num">{k.unit === 'pct' ? `${fmtNum(value, 1)}%` : fmtInt(value)}</td>
+                  {prev ? <td className="num">{typeof before === 'number' ? (kpiDelta(value, before, k.unit, lang) ?? '') : ''}</td> : null}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </section>

@@ -15,7 +15,8 @@ from atlas.schema.contract import (
 def test_every_published_file_has_a_model_and_a_schema_entry():
     props = contract_json_schema()["properties"]
     assert set(props) == {"manifest", "overview", "taxonomy", "topics", "topic_detail", "series", "edges",
-                          "keywords", "latest", "journals", "journal_detail", "methods", "diff", "match"}
+                          "keywords", "latest", "journals", "journal_detail", "methods", "diff", "match",
+                          "institutions", "institution_detail", "regions", "sdg", "global", "gaps"}
     assert model_for("topics/T000001.json") is TopicDetail and model_for("overview.json") is FILE_MODELS["overview.json"]
     assert model_for("unknown.json") is None
 

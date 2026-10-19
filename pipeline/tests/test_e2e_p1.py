@@ -98,6 +98,8 @@ def test_p1_two_quarters_on_the_synthetic_corpus(tmp_path):
     rep = validate_release(tmp_path / "out" / "data" / "2026Q2", None, cfg2["validation"])
     assert not rep.errors, rep.errors
     assert rep.stats["kept_ids"] >= 0.9 and rep.previous_dir is not None
+    man = json.loads((tmp_path / "out" / "data" / "2026Q2" / "manifest.json").read_text(encoding="utf-8"))
+    assert {"institutions", "regions", "sdg", "gaps"} <= set(man["modules"]) and man["skipped_modules"].get("global")
     site = tmp_path / "site"
     site.mkdir()
     (site / "offline-template.html").write_text('<script type="application/json" id="atlas-data"></script>',

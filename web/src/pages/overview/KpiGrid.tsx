@@ -11,9 +11,14 @@ const KPIS: readonly { key: keyof Kpis; label: StrKey; unit: 'count' | 'pct' }[]
   { key: 'journals', label: 'kpi.journals', unit: 'count' },
   { key: 'institutions', label: 'kpi.institutions', unit: 'count' },
   { key: 'pct_abstract_en', label: 'kpi.abstractEn', unit: 'pct' },
+  { key: 'pct_international', label: 'kpi.international', unit: 'pct' },
+  { key: 'provinces', label: 'kpi.provinces', unit: 'count' },
 ]
 
-/** E1: KPI tiles; Δ only when the previous release's overview is on the site. */
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+/** E1: KPI tiles — a KPI the release does not carry (e.g. P3 KPIs of an older release) is left out; Δ only when the
+ *  previous release's overview carries it too. */
 export function KpiGrid({ release }: { release: AtlasRelease }) {
   const { t, lang } = useI18n()
   const now = release.overview.kpis
@@ -21,8 +26,9 @@ export function KpiGrid({ release }: { release: AtlasRelease }) {
   return (
     <dl className="kpis">
       {KPIS.map((k) => {
-        const value = now[k.key]
-        const before = prev ? prev.kpis[k.key] : null
+        const value = num(now[k.key])
+        if (value === null) return null
+        const before = prev ? num(prev.kpis[k.key]) : null
         const delta = kpiDelta(value, before, k.unit, lang)
         // the arrow follows the change as printed: no arrow beside "±0.0"
         const dir = kpiDir(value, before, k.unit)

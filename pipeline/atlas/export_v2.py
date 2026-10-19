@@ -25,6 +25,17 @@ from atlas.checkpoints import load_aligned
 from atlas.diff import load_snapshot, make_snapshot, quarter_diff, write_snapshot
 from atlas.export import _git_hash, fine_labels
 from atlas.export_editors import journal_files, match_file, methods_file
+from atlas.export_exec import (
+    executive_summary,
+    gaps_file,
+    global_file,
+    institution_files,
+    regions_file,
+    sdg_file,
+    skipped_modules,
+    topic_institutions,
+    topic_sdg_numbers,
+)
 from atlas.io_utils import read_table
 from atlas.label import representative_indices
 from atlas.lineage import topic_code
@@ -184,6 +195,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     brief = _read_json(work / "11_brief.json")
 
     # ---- topics.json
+    sdg_of = topic_sdg_numbers(work)                # P3: SDG numbers per topic (empty without the sdg step)
     topics = []
     for t in ids:
         e, g = em.loc[t] if t in em.index else None, groups.loc[t]
@@ -218,7 +230,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
             subfield_en=str(tx["subfield_en"]) if tx is not None else "",
             cross_field=bool(tx["cross_field"]) if tx is not None else False,
             taxonomy_vote=_f(tx["vote_share"]) if tx is not None else None,
-            nowcast=nowcast))
+            sdg=sdg_of.get(t, []), nowcast=nowcast))
     files: dict[str, C._Model] = {"topics.json": C.TopicsFile(topics=topics)}
 
     # ---- editors' journal module (P2, optional) — before the topic details, which link journals by id
@@ -226,6 +238,16 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     editor_files, jid, jname = journal_files(cfg, work, code, topic_group)
     files.update(editor_files)
     jkey_of = pd.Series(journal_keys(docs).to_numpy(), index=docs["article_id"].to_numpy())
+
+    # ---- executives' modules (P3, optional) — before the topic details, which link institutions by id
+    exec_files, iid, inst_kpis = institution_files(cfg, work, code, topic_group)
+    files.update(exec_files)
+    gcode = lambda gid: group_code(gid, source)  # noqa: E731
+    for name, model in (("regions.json", regions_file(cfg, work, iid)), ("sdg.json", sdg_file(cfg, work, code)),
+                        ("global.json", global_file(cfg, work, code, gcode)),
+                        ("gaps.json", gaps_file(cfg, work, code, iid, jid, jname, gcode))):
+        if model is not None:
+            files[name] = model
 
     # ---- topics/<id>.json
     titles = docs.set_index("article_id")
@@ -237,6 +259,9 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
           .groupby("topic_id").head(int(ecfg["max_topic_orgs"])))
     institutions = {int(t): [C.CountItem(key=org_names.get(k, k), count=int(n)) for k, n in zip(g["org_key"], g["count"])]
                     for t, g in oc.groupby("topic_id")}
+    canonical = topic_institutions(work, docs["article_id"].to_numpy(), labels_arr, iid, int(ecfg["max_topic_orgs"]))
+    if canonical is not None:                        # P3: canonical institutions (variants merged), linked when published
+        institutions = canonical
     for t in ids:
         members = np.where(labels_arr == t)[0]
         idx = representative_indices(emb[members], cents[t], int(ecfg["repr_articles"]),
@@ -326,10 +351,13 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     files["overview.json"] = C.Overview(
         release=release, previous_release=prev, generated_at=now, last_complete_year=int(meta6["last_complete_year"]),
         definition_version=int(cfg["emerging"]["definition_version"]),
-        brief=C.Brief(**brief["brief"]) if brief.get("brief") else None,
+        brief=C.Brief(**brief["brief"]) if brief.get("brief") else None, executive=executive_summary(files),
         kpis=C.Kpis(articles=len(docs), assigned_articles=int((labels_arr >= 0).sum()), topics=len(ids),
                     groups=len(group_rows), journals=int(docs["journal_name"].nunique()),
-                    institutions=int(orgs["org_key"].nunique()),
+                    institutions=int(inst_kpis.get("institutions", orgs["org_key"].nunique())),
+                    pct_international=inst_kpis.get("pct_international"),
+                    pct_multi_institution=inst_kpis.get("pct_multi_institution"),
+                    provinces=inst_kpis.get("provinces"),
                     pct_abstract_en=round(100 * float(nonempty["abstract_en"].mean()), 1) if "abstract_en" in nonempty else 0.0,
                     pct_doi=round(100 * float(nonempty["doi"].mean()), 1) if "doi" in nonempty else 0.0,
                     pct_keywords=round(100 * float(kw_any.mean()), 1) if len(docs) else 0.0),
@@ -349,6 +377,9 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     modules = ["overview", "taxonomy", "topics", "topic_detail", "series", "edges"] + (["keywords"] if kw is not None else [])
     if editor_files:
         modules += ["journals", "journal_detail"]
+    modules += [m for m in ("institutions", "regions", "sdg", "global", "gaps") if f"{m}.json" in files]
+    if "institutions.json" in files:
+        modules.append("institution_detail")
     if (mf := methods_file(cfg, work, code)) is not None:
         files["methods.json"] = mf
         modules.append("methods")
@@ -367,7 +398,8 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
         taxonomy_version=taxmeta.get("version"), modules=modules, previous_release=prev,
         n_orgs_unverified=int(em["orgs_unverified"].astype(bool).sum()) if "orgs_unverified" in em else 0,
         ingest_errors=len(errs) if errs is not None else None,          # unknown is never published as 0
-        labels=_label_stats(cfg, labels), llm=_llm_stats(cfg, work, brief, release))
+        labels=_label_stats(cfg, labels), llm=_llm_stats(cfg, work, brief, release),
+        skipped_modules=skipped_modules(cfg, work))
     return files
 
 

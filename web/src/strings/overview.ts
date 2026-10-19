@@ -20,6 +20,8 @@ export const overview = defineStrings({
   'kpi.journals': { th: 'วารสาร', en: 'Journals' },
   'kpi.institutions': { th: 'สถาบัน', en: 'Institutions' },
   'kpi.abstractEn': { th: 'มีบทคัดย่อภาษาอังกฤษ', en: 'With an English abstract' },
+  'kpi.international': { th: 'มีผู้แต่งร่วมจากต่างประเทศ', en: 'With foreign co-authors' },
+  'kpi.provinces': { th: 'จังหวัดที่มีผลงาน', en: 'Provinces with output' },
   'ov.findings.h': { th: 'สิ่งที่ผู้บริหารควรรู้รอบนี้', en: 'What executives should know this release' },
   'ov.status.h': { th: 'สถานะของหัวข้อวิจัย', en: 'Status of research topics' },
   'ov.status.intro': { th: 'ทุกหัวข้อได้รับสถานะ 1 ใน 6 แบบตามนิยามฉบับที่ {v} แผนภูมิแสดงอัตราโตของสัดส่วนบทความพร้อมช่วงเชื่อมั่น {level}% เทียบเกณฑ์ {bar} ต่อปี', en: 'Every topic gets one of six statuses under definition version {v}. The chart shows growth in share of articles with its {level}% confidence interval against the {bar}-a-year bar.' },

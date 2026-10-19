@@ -503,7 +503,7 @@ def test_editor_modules_are_published_and_valid(two_releases):
     root, _ = two_releases
     rel = root / "out" / "data" / "2026Q2"
     man = Manifest.model_validate_json((rel / "manifest.json").read_text(encoding="utf-8"))
-    assert man.schema_version == "2.1.0"
+    assert man.schema_version == "2.2.0"
     assert {"journals", "journal_detail", "methods", "match", "diff"} <= set(man.modules)
     paths = {f.path for f in man.files}
     assert {"journals.json", "journals/so02.BECJournal.json", "methods.json", "match.json", "diff.json"} <= paths
@@ -592,3 +592,22 @@ def test_validate_checks_the_merge_links_of_the_diff(two_releases, tmp_path):
                                 "restructured": [{"topic": "T999992", "event": "merge", "parents": []}]})
     rep = validate_release(rel, None, cfg["validation"])
     assert any("diff.json: topics not in topics.json: ['T999991', 'T999992']" in e for e in rep.errors)
+
+
+# ---------------------------------------------------------------- P3: executives' modules (contract 2.2)
+def test_executive_modules_are_published_valid_and_name_no_person(two_releases):
+    from atlas.validate import validate_release
+
+    root, cfg = two_releases
+    rel = root / "out" / "data" / "2026Q2"
+    man = Manifest.model_validate_json((rel / "manifest.json").read_text(encoding="utf-8"))
+    assert {"institutions", "institution_detail", "regions", "sdg", "gaps"} <= set(man.modules)
+    assert "global" not in man.modules and man.skipped_modules.get("global")       # offline, no OpenAlex map
+    assert validate_release(rel, None, cfg["validation"]).errors == []
+    people = {n for n in read_table(root / "work" / "01_authors.parquet")["name"].fillna("").astype(str) if len(n) >= 6}
+    blob = "".join(p.read_text(encoding="utf-8") for p in rel.rglob("*.json"))
+    assert people and not any(n in blob for n in people)                         # no person, anywhere
+    inst = json.loads((rel / "institutions.json").read_text(encoding="utf-8"))
+    assert all(i["articles"] >= cfg["institutions"]["min_articles"] for i in inst["institutions"])
+    sdg = json.loads((rel / "sdg.json").read_text(encoding="utf-8"))
+    assert sdg["method"] == "lexical" and len([g for g in sdg["goals"] if g["framework"] == "sdg"]) == 17

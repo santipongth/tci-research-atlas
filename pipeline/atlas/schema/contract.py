@@ -3,7 +3,8 @@
 Pydantic models are the source of truth → JSON Schema (`atlas schema`) → TypeScript
 (`npm run gen:types` in web/). CI fails when either generated file drifts.
 Files: manifest.json, overview.json, taxonomy.json, topics.json, topics/<id>.json, series.json,
-edges.json, keywords.json; P2 (2.1): journals.json, journals/<id>.json, methods.json, diff.json, match.json —
+edges.json, keywords.json; P2 (2.1): journals.json, journals/<id>.json, methods.json, diff.json, match.json; P3 (2.2):
+institutions.json, institutions/<id>.json, regions.json, sdg.json, global.json, gaps.json —
 optional modules listed in manifest.modules. output/data/latest.json points at the newest release.
 Strict JSON: NaN/Infinity are validation errors. Colours are design-token keys (cat-01…), never hex.
 Uncertainty bounds keep level-agnostic names (share_growth_lo/_hi); the level is manifest.ci_level.
@@ -16,7 +17,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "2.1.0"                  # 2.1: editors' modules (journals, methods, diff, match)
+SCHEMA_VERSION = "2.2.0"                  # 2.1: editors' modules; 2.2: executives' modules (institutions … gaps)
 Status = Literal["EMERGING", "WATCH", "HOT", "DECLINING", "STABLE", "LOW_DATA"]
 TOPIC_ID = r"^T\d{6}$"
 GROUP_ID = r"^[FG]\d{2,}$"                # F = OpenAlex field id, G = agglomerative fallback group
@@ -75,6 +76,8 @@ class Manifest(_Model):
                                                         "recorded (work_dir from before per-file error recording)")
     labels: LabelStats | None = None
     llm: list[LlmTaskStats] = Field(default_factory=list)
+    skipped_modules: dict[str, str] = Field(default_factory=dict, description="optional modules left out of this "
+                                                                             "release for a reason: module → reason")
 
 
 class TopicMetrics(_Model):
@@ -201,6 +204,10 @@ class Kpis(_Model):
     pct_abstract_en: float
     pct_doi: float
     pct_keywords: float
+    pct_international: float | None = Field(None, description="% of window articles pairing Thai and foreign "
+                                                              "institutions (P3)")
+    pct_multi_institution: float | None = Field(None, description="% of window articles by ≥ 2 institutions (P3)")
+    provinces: int | None = Field(None, description="provinces with ≥ 1 article in the window (P3)")
 
 
 class DataQuality(_Model):
@@ -216,6 +223,13 @@ class Brief(_Model):
     bullets_th: list[str] = Field(default_factory=list)
     bullets_en: list[str] = Field(default_factory=list)
     source: Literal["llm", "template"]
+
+
+class ExecutiveSummary(_Model):
+    """Template sentences built at export from the executives' modules — every number comes from those files."""
+    bullets_th: list[str] = Field(default_factory=list)
+    bullets_en: list[str] = Field(default_factory=list)
+    source: Literal["template"] = "template"
 
 
 class Overview(_Model):
@@ -234,6 +248,7 @@ class Overview(_Model):
     retired_topics: list[str] = Field(default_factory=list)
     data_quality: DataQuality
     brief: Brief | None = None
+    executive: ExecutiveSummary | None = None
 
 
 class SeriesFile(_Model):
@@ -276,8 +291,8 @@ class RepresentativeArticle(_Model):
 class CountItem(_Model):
     key: str
     count: int
-    id: str | None = Field(None, description="journal id (journals/<id>.json) when the item is a journal of a "
-                                             "release with the journals module")
+    id: str | None = Field(None, description="journal id (journals/<id>.json) or institution id "
+                                             "(institutions/<id>.json) when the release has that module")
 
 
 class Narrative(_Model):
@@ -597,6 +612,227 @@ class MatchIndex(_Model):
         return self
 
 
+# ---------------------------------------------------------------------- P3 executives' modules (schema 2.2)
+INST_ID = r"^[a-z0-9][a-z0-9-]{1,48}$"
+PROVINCE_CODE = r"^TH-\d{2}$"
+COUNTRY_CODE = r"^[A-Z]{2}$"
+InstType = Literal["university", "rajabhat", "rajamangala", "hospital", "government", "research", "company", "other"]
+RegionKey = Literal["bangkok", "central", "northeast", "north", "south"]
+
+
+class InstitutionSummary(_Model):
+    id: str = Field(pattern=INST_ID, description="institutions/<id>.json — the alias inst_id, ror-<ROR id> or "
+                                                 "o<10 hex of sha1(org key)>; stable across releases")
+    name_th: str = ""
+    name_en: str = ""
+    type: InstType = "other"
+    province: str | None = Field(None, pattern=PROVINCE_CODE)
+    country: str | None = Field(None, pattern=COUNTRY_CODE, description="ISO 3166-1 alpha-2; null = not named")
+    source: Literal["alias", "ror", "name"] = Field(description="curated alias table, ROR, or the name as written")
+    ror: str = ""
+    articles: int = Field(description="window articles with ≥ 1 author from the institution")
+    articles_total: int
+    articles_recent: int = 0
+    intl_share: float | None = Field(None, description="share of its window articles that pair Thai and foreign "
+                                                       "institutions")
+    partners: int = 0
+    topics: int = 0
+    group: str | None = Field(None, description="map group holding most of its window articles")
+
+
+class CollabEdge(_Model):
+    a: str = Field(pattern=INST_ID)
+    b: str = Field(pattern=INST_ID)
+    articles: int
+
+
+class CountryCount(_Model):
+    code: str = Field(pattern=COUNTRY_CODE)
+    name_th: str
+    name_en: str
+    articles: int
+
+
+class ProvinceName(_Model):
+    code: str = Field(pattern=PROVINCE_CODE)
+    name_th: str
+    name_en: str
+
+
+class InstitutionsFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    window: YearWindow
+    recent: YearWindow
+    min_articles: int
+    network_min_articles: int
+    articles_with_org: int = Field(description="window articles with ≥ 1 recognised institution")
+    pct_international: float | None = None
+    pct_multi_institution: float | None = None
+    sources: dict[str, int] = Field(default_factory=dict, description="published institutions by identification")
+    institutions: list[InstitutionSummary]
+    edges: list[CollabEdge] = Field(default_factory=list)
+    countries: list[CountryCount] = Field(default_factory=list)
+    province_names: list[ProvinceName] = Field(default_factory=list)
+
+
+class Partner(_Model):
+    id: str = Field(pattern=INST_ID)
+    articles: int
+
+
+class Suggestion(_Model):
+    id: str = Field(pattern=INST_ID)
+    similarity: float
+    topics: list[str] = Field(default_factory=list)
+
+
+class InstitutionDetail(_Model):
+    schema_version: str = SCHEMA_VERSION
+    id: str = Field(pattern=INST_ID)
+    years: list[JournalYear] = Field(default_factory=list)
+    topics: list[TopicShare] = Field(default_factory=list)
+    partners: list[Partner] = Field(default_factory=list)
+    countries: list[CountryCount] = Field(default_factory=list)
+    suggested: list[Suggestion] = Field(default_factory=list)
+
+
+class ProvinceStat(_Model):
+    code: str = Field(pattern=PROVINCE_CODE)
+    name_th: str
+    name_en: str
+    region: RegionKey
+    articles: int
+    articles_recent: int = 0
+    share: float | None = None
+    institutions: int = 0
+    per_100k: float | None = None
+    top: list[str] = Field(default_factory=list, description="ids of its largest published institutions")
+
+
+class RegionStat(_Model):
+    key: RegionKey
+    articles: int
+    share: float | None = None
+
+
+class RegionsFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    window: YearWindow
+    articles_with_org: int
+    articles_located: int
+    coverage: float | None = None
+    population_year: int | None = None
+    provinces: list[ProvinceStat]
+    regions: list[RegionStat]
+
+
+class FrameworkInfo(_Model):
+    key: str
+    th: str
+    en: str
+
+
+class GoalStat(_Model):
+    id: str
+    framework: str
+    number: int
+    th: str
+    en: str
+    topics: list[str] = Field(default_factory=list)
+    articles_recent: int = 0
+    share_recent: float = 0.0
+    share_ratio: float | None = None
+
+
+class SdgFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    method: Literal["embedding", "lexical"]
+    version: str
+    frameworks: list[FrameworkInfo]
+    goals: list[GoalStat]
+
+
+class SubfieldBench(_Model):
+    id: str
+    en: str
+    group: str = Field(pattern=GROUP_ID)
+    world_recent: int
+    world_baseline: int
+    country_recent: int
+    country_baseline: int
+    tci_recent: int = 0
+    world_ratio: float | None = None
+    activity_index: float | None = None
+    country_share: float | None = None
+    opportunity: bool = False
+    topics: list[str] = Field(default_factory=list)
+
+
+class GlobalFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    source: str
+    country: str = Field(pattern=COUNTRY_CODE)
+    recent: YearWindow
+    baseline: YearWindow
+    min_world_works: int
+    min_world_ratio: float
+    max_activity_index: float
+    subfields: list[SubfieldBench]
+
+
+class FewInstitutions(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    institutions: int
+
+
+class Bridge(_Model):
+    a: str = Field(pattern=TOPIC_ID)
+    b: str = Field(pattern=TOPIC_ID)
+    similarity: float
+    shared: int
+    jaccard: float
+
+
+class WorldGap(_Model):
+    subfield: str
+    en: str
+    world_ratio: float | None = None
+    activity_index: float | None = None
+    topics: list[str] = Field(default_factory=list)
+
+
+class Concentration(_Model):
+    scope: Literal["topic", "group"]
+    id: str
+    kind: Literal["institution", "journal"]
+    articles: int
+    hhi: float
+    top_share: float
+    top: str = Field("", description="institution or journal id; empty when it has no page")
+    top_name: str = ""
+    concentrated: bool
+
+
+class GapsFile(_Model):
+    schema_version: str = SCHEMA_VERSION
+    recent: YearWindow
+    statuses: list[Status]
+    max_institutions: int
+    bridge_min_similarity: float
+    bridge_max_jaccard: float
+    min_articles: int
+    max_top_share: float
+    max_hhi: float
+    few_institutions: list[FewInstitutions]
+    bridges: list[Bridge]
+    world: list[WorldGap]
+    concentration: list[Concentration]
+
+
+P3_FILE_MODELS: dict[str, type[_Model]] = {"institutions.json": InstitutionsFile, "regions.json": RegionsFile,
+                                           "sdg.json": SdgFile, "global.json": GlobalFile, "gaps.json": GapsFile}
+
+
 P2_FILE_MODELS: dict[str, type[_Model]] = {"journals.json": JournalsFile, "methods.json": MethodsFile,
                                            "diff.json": DiffFile, "match.json": MatchIndex}
 
@@ -606,6 +842,7 @@ FILE_MODELS: dict[str, type[_Model]] = {
     "manifest.json": Manifest, "overview.json": Overview, "taxonomy.json": TaxonomyFile,
     "topics.json": TopicsFile, "series.json": SeriesFile, "edges.json": EdgesFile, "keywords.json": KeywordsFile,
     **P2_FILE_MODELS,
+    **P3_FILE_MODELS,
 }
 
 
@@ -614,6 +851,8 @@ def model_for(path: str) -> type[_Model] | None:
         return TopicDetail
     if path.startswith("journals/") and path.endswith(".json"):
         return JournalDetail
+    if path.startswith("institutions/") and path.endswith(".json"):
+        return InstitutionDetail
     return FILE_MODELS.get(path)
 
 
@@ -623,7 +862,9 @@ def contract_json_schema() -> dict:
     files = {"manifest": Manifest, "overview": Overview, "taxonomy": TaxonomyFile, "topics": TopicsFile,
              "topic_detail": TopicDetail, "series": SeriesFile, "edges": EdgesFile, "keywords": KeywordsFile,
              "latest": Latest, "journals": JournalsFile, "journal_detail": JournalDetail, "methods": MethodsFile,
-             "diff": DiffFile, "match": MatchIndex}
+             "diff": DiffFile, "match": MatchIndex, "institutions": InstitutionsFile,
+             "institution_detail": InstitutionDetail, "regions": RegionsFile, "sdg": SdgFile, "global": GlobalFile,
+             "gaps": GapsFile}
     _, top = models_json_schema([(m, "validation") for m in files.values()], ref_template="#/definitions/{model}")
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",
