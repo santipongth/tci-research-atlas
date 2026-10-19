@@ -555,3 +555,36 @@ def validate_cmd(
     rep = validate_release(root, previous, cfg["validation"])
     typer.echo(render_report(rep))
     raise typer.Exit(rep.exit_code)
+
+
+@app.command("publish")
+def publish_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+    release: str = typer.Option(None, help="release to publish (default: pipeline.release / current quarter)"),
+    site: Path = typer.Option(None, "--site", help="the static web folder: writes data/<release>/, "
+                              "data/latest.json and atlas-offline.html"),
+    tarball: bool = typer.Option(False, "--tarball", help="also package a reproducible tar.gz + notes "
+                                 "for a GitHub Release (printed command, never uploaded)"),
+    allow_warnings: bool = typer.Option(False, "--allow-warnings", help="publish even when validation warns"),
+) -> None:
+    """Validate a release, then put it on the static site and/or package it. Never uploads anything.
+
+    Exit code 0 = published, 2 = refused (validation) or nothing to do.
+    """
+    from atlas.config import load_config
+    from atlas.publish import PublishRefused, publish
+
+    if site is None and not tarball:
+        typer.echo("nothing to do: pass --site <web folder> and/or --tarball", err=True)
+        raise typer.Exit(2)
+    try:
+        r = publish(load_config(config), release, allow_warnings, site, tarball)
+    except PublishRefused as e:
+        typer.echo(f"refused: {e}", err=True)
+        raise typer.Exit(2) from e
+    if site is not None:
+        typer.echo(f"site data: {r['site_data']}\nlatest:    {r['latest']}\n"
+                   f"offline:   {r['offline_html'] or 'skipped (no offline-template.html in the site folder)'}")
+    if tarball:
+        typer.echo(f"tarball: {r['tarball']}\nsha256:  {r['sha256']}\nnotes:   {r['notes']}")
+        typer.echo(f"upload it yourself (needs the owner's go-ahead):\n  {r['gh_command']}")

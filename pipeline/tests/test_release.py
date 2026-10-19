@@ -172,3 +172,102 @@ def test_llm_fallbacks_are_reported(two_releases, tmp_path):
     assert rep.exit_code == 1
     assert any("fell back to keywords" in w for w in rep.warnings)
     assert any("narrative: 1 of 4" in w for w in rep.warnings)
+
+
+TEMPLATE = ('<!doctype html><html><head><title>Atlas</title></head><body><div id="root"></div>'
+            '<script type="application/json" id="atlas-data">null</script><script src="assets/app.js"></script>'
+            '</body></html>')
+
+
+def test_publish_to_the_site_writes_data_latest_and_the_offline_html(two_releases, tmp_path):
+    import re
+
+    from atlas.publish import publish
+
+    root, cfg = two_releases
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "offline-template.html").write_text(TEMPLATE, encoding="utf-8")
+    for rel in ("2026Q1", "2026Q2"):                                   # two quarters, published in order
+        r = publish({**cfg, "pipeline": {**cfg["pipeline"], "release": rel}}, site=site)
+    latest = json.loads((site / "data" / "latest.json").read_text(encoding="utf-8"))
+    assert latest["release"] == "2026Q2" and (site / "data" / latest["path"]).exists()
+    assert (site / "data" / "2026Q1" / "manifest.json").exists()      # older quarters stay for comparison
+    html = (site / "atlas-offline.html").read_text(encoding="utf-8")
+    bundle = json.loads(re.search(r'id="atlas-data">(.*?)</script>', html, re.S).group(1))
+    assert bundle["latest"]["release"] == "2026Q2" and "topics.json" in bundle["files"]
+    assert any(k.startswith("topics/T") for k in bundle["files"]) and '<script src="assets/app.js">' in html
+    assert r["offline_html"].endswith("atlas-offline.html") and "tarball" not in r
+
+
+def test_offline_injection_escapes_script_ends_and_needs_the_data_tag():
+    from atlas.publish import inject_offline
+
+    html = inject_offline(TEMPLATE, {"x": "</script><b>"})
+    assert html.count("</script>") == 2 and "<\\/script><b>" in html
+    with pytest.raises(ValueError, match="atlas-data"):
+        inject_offline("<html></html>", {})
+
+
+def test_site_without_a_template_still_gets_the_data(two_releases, tmp_path, capsys):
+    from atlas.publish import publish
+
+    root, cfg = two_releases
+    r = publish({**cfg, "pipeline": {**cfg["pipeline"], "release": "2026Q2"}}, site=tmp_path / "bare")
+    assert r["offline_html"] is None and (tmp_path / "bare" / "data" / "latest.json").exists()
+    assert "offline-template.html not found" in capsys.readouterr().out
+
+
+def test_package_is_reproducible_and_broken_releases_are_refused(two_releases, tmp_path):
+    import tarfile
+
+    from atlas.publish import PublishRefused, package_release, publish
+
+    root, cfg = two_releases
+    rel = root / "out" / "data" / "2026Q2"
+    a = package_release(rel, tmp_path / "a")
+    b = package_release(rel, tmp_path / "b")
+    assert a[1].read_text().split()[0] == b[1].read_text().split()[0]
+    with tarfile.open(a[0]) as tar:
+        names = tar.getnames()
+    assert "2026Q2/manifest.json" in names and all(n.startswith("2026Q2/") for n in names)
+    data, cfg2 = _copy(two_releases, tmp_path)
+    (data / "2026Q2" / "topics.json").write_text("{}", encoding="utf-8")
+    cfg2 = {**cfg2, "pipeline": {**cfg2["pipeline"], "output_dir": str(tmp_path), "release": "2026Q2"}}
+    with pytest.raises(PublishRefused):
+        publish(cfg2, site=tmp_path / "site")
+    assert not (tmp_path / "site").exists()                         # nothing reaches the site when refused
+
+
+def test_cli_publish_needs_a_target_and_never_runs_gh(two_releases, tmp_path, monkeypatch):
+    import subprocess
+
+    from typer.testing import CliRunner
+
+    from atlas.cli import app
+
+    def no_subprocess(*a, **k):
+        raise AssertionError("publish must not start processes")
+
+    monkeypatch.setattr(subprocess, "run", no_subprocess)
+    monkeypatch.setattr(subprocess, "Popen", no_subprocess)
+    root, _ = two_releases
+    cfg_file = tmp_path / "c.yaml"
+    cfg_file.write_text(f"pipeline:\n  output_dir: '{(root / 'out').as_posix()}'\n  release: 2026Q2\n",
+                        encoding="utf-8")
+    assert CliRunner().invoke(app, ["publish", "--config", str(cfg_file)]).exit_code == 2
+    res = CliRunner().invoke(app, ["publish", "--config", str(cfg_file), "--tarball", "--site", str(tmp_path / "s")])
+    assert res.exit_code == 0 and "gh release create data-2026Q2" in res.stdout and "latest.json" in res.stdout
+    notes = (root / "out" / "releases" / "atlas-data-2026Q2.notes.md").read_text(encoding="utf-8")
+    assert notes.startswith("# TCI Research Atlas — data 2026Q2") and "LOW_DATA" in notes
+
+
+def test_offline_payload_cannot_enter_the_escaped_script_state():
+    import re
+
+    from atlas.publish import inject_offline
+
+    html = inject_offline(TEMPLATE, {"title": "a <!--<script> b </script> c"})
+    slot = re.search(r'id="atlas-data">(.*?)</script>', html, re.S).group(1)
+    assert "<!--" not in slot and "</" not in slot
+    assert json.loads(slot) == {"title": "a <!--<script> b </script> c"}
