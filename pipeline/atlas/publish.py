@@ -10,7 +10,10 @@ Validates first (refuses on errors, and on warnings unless allow_warnings). Then
   <site>/atlas-offline.html      the single-file edition: the web build's offline-template.html with the
                                  release injected into <script type="application/json" id="atlas-data">
                                  by plain string replacement (Python only — no Node on the operator's machine)
-Older releases already in <site>/data/ stay (the web can compare quarters).
+Older releases already in <site>/data/ stay (the web can compare quarters), and the earlier releases this one
+builds on (manifest.previous_release, then its previous_release, …) that the site lacks are restored from
+output/data/ — e.g. after `npm run build` emptied dist/data. A release folder already on the site is never
+replaced by that restore; a previous release found nowhere is reported (the web then shows no change vs it).
 With tarball=True also output/releases/atlas-data-<release>.tar.gz (deterministic: sorted members,
 mtime 0, uid/gid 0, no gzip timestamp) + .sha256 + .notes.md, and the `gh release create` command is
 printed for a human — never run.
@@ -105,6 +108,42 @@ def _site_latest(site: Path) -> str | None:
         return None
 
 
+def _previous_of(folder: Path) -> str | None:
+    try:
+        return json.loads((folder / "manifest.json").read_text(encoding="utf-8")).get("previous_release")
+    except (FileNotFoundError, ValueError, AttributeError):
+        return None
+
+
+def restore_previous(release_dir: Path, site: Path) -> list[str]:
+    """Copy the chain of earlier releases (previous_release of previous_release …) that <site>/data lacks from the
+    local output/data. Never replaces a folder already on the site; warns when a previous release is nowhere."""
+    local, data, restored = release_dir.parent, site / "data", []
+    seen, prev = {release_dir.name}, _previous_of(release_dir)
+    while prev and prev not in seen:
+        seen.add(prev)
+        try:
+            _checked(prev)                         # a manifest is data: never follow "../x"
+        except ValueError:
+            print(f"[publish] WARNING: previous_release {prev!r} is not a release name — not restored")
+            break
+        on_site, src = data / prev, local / prev
+        if on_site.exists():                       # whatever is there stays (published earlier, maybe edited)
+            folder = on_site
+        elif (src / "manifest.json").exists():
+            shutil.copytree(src, on_site)
+            restored.append(prev)
+            folder = on_site
+        else:
+            print(f"[publish] WARNING: previous release {prev} is not in {local} nor on the site — the web cannot "
+                  f"show changes against it")
+            break
+        prev = _previous_of(folder)
+    if restored:
+        print(f"[publish] restored earlier release(s) {', '.join(restored)} from {local} (the web compares quarters)")
+    return restored
+
+
 def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_latest: bool = False) -> dict:
     release = release_dir.name
     dst = site / "data" / release
@@ -115,6 +154,7 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(release_dir, dst)
+    restored = restore_previous(release_dir, site)
     man = json.loads((release_dir / "manifest.json").read_text(encoding="utf-8"))
     latest = Latest(release=release, path=f"{release}/manifest.json", generated_at=man["generated_at"])
     latest_json = latest.model_dump(mode="json")
@@ -133,6 +173,7 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
         print(f"[publish] WARNING: {template} not found — build the web first (npm run build); "
               "the single-file offline edition was skipped")
     return {"site_data": str(dst), "latest": str(site / "data" / "latest.json"), "latest_moved": move,
+            "restored": restored,
             "offline_html": str(offline) if offline else None}
 
 

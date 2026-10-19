@@ -7,7 +7,8 @@
 # ทำอะไรบ้าง:
 #   1. npm ci (ถ้ายังไม่มี node_modules) + npm run build  → web/dist/ และ web/dist/offline-template.html
 #   2. uv run atlas publish --site web/dist                → web/dist/data/<release>/, data/latest.json, atlas-offline.html
-#      (publish ตรวจ release ก่อน — ถ้ามี error จะไม่วางอะไรเลย)
+#      (publish ตรวจ release ก่อน — ถ้ามี error จะไม่วางอะไรเลย; npm run build ล้าง dist/data ทิ้ง แต่ publish
+#       คัดลอกรอบก่อนหน้าตามสาย previous_release จาก pipeline/output/data/ กลับมาให้เอง เว็บจึงยังเทียบ Δ ได้)
 #   3. รายงานผล — จากนั้นอัปโหลด web/dist/ ขึ้น static host (รอบถัดไปคัดลอกแค่ data/ ก็พอ)
 set -euo pipefail
 

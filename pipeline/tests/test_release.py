@@ -472,3 +472,27 @@ def test_group_colours_follow_the_group_id_not_its_size_rank(two_releases):
     assert group_colors(["F23", "F30", "F14"]) == {"F23": "cat-11", "F30": "cat-12", "F14": "cat-02"}
     assert group_colors(["F30", "F14"]) == {"F30": "cat-11", "F14": "cat-02"}            # no collision: as preferred
     assert len(set(group_colors([f"F{f}" for f in range(11, 23)]).values())) == 12
+
+
+def test_publish_restores_earlier_releases_the_site_lacks(two_releases, tmp_path, capsys):
+    from atlas.publish import publish
+
+    root, cfg = two_releases
+    site = tmp_path / "site"
+    (site / "data").mkdir(parents=True)                               # `npm run build` emptied dist/data
+    r = publish({**cfg, "pipeline": {**cfg["pipeline"], "release": "2026Q2"}}, site=site)
+    assert r["restored"] == ["2026Q1"] and (site / "data" / "2026Q1" / "manifest.json").exists()
+    assert _digest(site / "data" / "2026Q1") == _digest(root / "out" / "data" / "2026Q1")
+    assert json.loads((site / "data" / "latest.json").read_text(encoding="utf-8"))["release"] == "2026Q2"
+    # a release folder already on the site is never replaced by the restore
+    (site / "data" / "2026Q1" / "topics.json").write_text('{"edited": true}', encoding="utf-8")
+    r = publish({**cfg, "pipeline": {**cfg["pipeline"], "release": "2026Q2"}}, site=site)
+    assert r["restored"] == [] and (site / "data" / "2026Q1" / "topics.json").read_text(encoding="utf-8") == '{"edited": true}'
+    # the previous release is nowhere (not in output/data, not on the site): a warning, the publish goes on
+    data, cfg2 = _copy(two_releases, tmp_path)
+    shutil.rmtree(data / "2026Q1")
+    capsys.readouterr()
+    r = publish({**cfg2, "pipeline": {**cfg2["pipeline"], "output_dir": str(tmp_path), "release": "2026Q2"}},
+                site=tmp_path / "site2", allow_warnings=True)
+    assert r["restored"] == [] and "previous release 2026Q1 is not in" in capsys.readouterr().out
+    assert (tmp_path / "site2" / "data" / "2026Q2" / "manifest.json").exists()
