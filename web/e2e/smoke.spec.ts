@@ -31,6 +31,17 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.getByRole('table').first()).toBeVisible()
     await expect(page).toHaveURL(/st=table/)
   },
+  emerging: async (page) => {
+    await expect(page.getByRole('tab', { name: /กำลังเกิดใหม่/ })).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('tab', { name: /จับตา/ }).click()
+    await expect(page).toHaveURL(/status=WATCH/)
+    await expect(page.locator('#em-status-panel .inset')).toBeVisible()
+    await page.locator('#em-status-panel').getByRole('button', { name: 'วารสาร' }).first().click()
+    await expect(page.locator('#em-status-panel th[aria-sort="descending"]')).toContainText('วารสาร')
+    await expect(page).toHaveURL(/sort=journals/)
+    await expect(page.locator('#em-status-panel').getByRole('button', { name: 'ดาวน์โหลด CSV' })).toBeVisible()
+    await expect(page.locator('#keywords')).toContainText('chatgpt')
+  },
   // checks:end
 }
 
