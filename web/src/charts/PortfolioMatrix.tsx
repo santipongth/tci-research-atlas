@@ -59,7 +59,8 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
   if (W === 0 || topics.length === 0) return <div ref={ref} className="pf-host" />
   const narrow = W < 560
   const H = Math.round(Math.max(340, Math.min(560, W * (narrow ? 1.1 : 0.62))))
-  const M = { t: 20, r: narrow ? 12 : 24, b: narrow ? 72 : 54, l: narrow ? 60 : 74 }
+  // the large-threshold label sits above the frame (no marker can be there); on a phone the quadrant names and axis titles move out of the plot
+  const M = { t: 36, r: narrow ? 12 : 24, b: narrow ? 36 : 54, l: narrow ? 52 : 74 }
   const shares = topics.map((tp) => tp.metrics.share_recent)
   const x0 = Math.min(...shares, threshold) * 0.8
   const x1 = Math.max(...shares, threshold) * 1.25
@@ -70,7 +71,7 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
   const py = (g: number | null | undefined) => y(clamp(g ?? 0, Y[0], Y[1]))
   const beyond = (g: number | null | undefined) => g !== null && g !== undefined && (g > Y[1] || g < Y[0])
   const xs = x(threshold)
-  const splitAnchor = xs + 220 > W - M.r ? 'end' : 'start'
+  const splitAnchor = xs + 200 > W - M.r ? 'end' : 'start'
   const order = [...topics].sort((a, b) => Number(isSignal(a.status)) - Number(isSignal(b.status)))
   const quads: { q: Quadrant; x: number; y: number; anchor: 'start' | 'end' }[] = [
     { q: 'stars', x: W - M.r - 8, y: M.t + 34, anchor: 'end' },
@@ -78,7 +79,7 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
     { q: 'mature', x: W - M.r - 8, y: H - M.b - 44, anchor: 'end' },
     { q: 'declining', x: M.l + 8, y: H - M.b - 44, anchor: 'start' },
   ]
-  const quadBoxes: Box[] = quads.map((qd) => {
+  const quadBoxes: Box[] = (narrow ? [] : quads).map((qd) => {
     const w = Math.max(textWidth(labels.quadrants[qd.q], 15, 700), textWidth(t('topicsN', { n: counts[qd.q] }), 12.5, 400))
     return { x: qd.anchor === 'end' ? qd.x - w : qd.x, y: qd.y - 15, w, h: 15 + 19.5 + 4 }
   })
@@ -127,10 +128,14 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
             </g>
           ))}
           <line x1={xs} x2={xs} y1={M.t} y2={H - M.b} className="pf-split" />
-          <text x={splitAnchor === 'start' ? xs + 6 : xs - 6} y={H - M.b - 8} textAnchor={splitAnchor} className="pf-split-label">{labels.split}</text>
-          <text x={(M.l + W - M.r) / 2} y={H - (narrow ? 34 : 12)} textAnchor="middle" className="pf-axis-title">{labels.x}</text>
-          <text x={14} y={(M.t + H - M.b) / 2} textAnchor="middle" transform={`rotate(-90 14 ${(M.t + H - M.b) / 2})`} className="pf-axis-title">{labels.y}</text>
-          {quads.map((qd) => (
+          <text x={splitAnchor === 'start' ? xs + 6 : xs - 6} y={M.t - 10} textAnchor={splitAnchor} className="pf-split-label">{labels.split}</text>
+          {narrow ? null : (
+            <>
+              <text x={(M.l + W - M.r) / 2} y={H - 12} textAnchor="middle" className="pf-axis-title">{labels.x}</text>
+              <text x={14} y={(M.t + H - M.b) / 2} textAnchor="middle" transform={`rotate(-90 14 ${(M.t + H - M.b) / 2})`} className="pf-axis-title">{labels.y}</text>
+            </>
+          )}
+          {(narrow ? [] : quads).map((qd) => (
             <text key={qd.q} x={qd.x} y={qd.y} textAnchor={qd.anchor} className="pf-qname">
               {labels.quadrants[qd.q]}
               <tspan x={qd.x} dy="1.3em" className="pf-qcount">{t('topicsN', { n: counts[qd.q] })}</tspan>
@@ -179,6 +184,22 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
           })}
         </g>
       </svg>
+      {narrow ? (
+        <div className="pf-legend">
+          <p className="pf-axes">
+            <span>↑ {labels.y}</span>
+            <span>→ {labels.x}</span>
+          </p>
+          <ul className="pf-quads">
+            {(['rising', 'stars', 'declining', 'mature'] as const).map((q) => (
+              <li key={q}>
+                <b>{labels.quadrants[q]}</b>
+                <span>{t('topicsN', { n: counts[q] })}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }

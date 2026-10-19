@@ -79,6 +79,12 @@
   .pf-gl { stroke: var(--border-2); stroke-width: 1; }
   .pf-axis0 { stroke: var(--ink); stroke-width: 1; }
   .pf-split { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; }
+  .pf-legend { margin-top: 10px; }
+  .pf-axes { display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: 0.8125rem; font-weight: 600; line-height: 1.5; margin: 0 0 8px; }
+  .pf-quads { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .pf-quads li { display: flex; flex-direction: column; border-top: 1px solid var(--border-2); padding-top: 4px; line-height: 1.5; }
+  .pf-quads b { font-size: 0.9375rem; }
+  .pf-quads span { font-size: 0.8125rem; color: var(--ink-2); }
   .pf-split-label { font-size: 12.5px; fill: var(--ink-2); }
   .pf-tick { font-size: 13px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
   .pf-axis-title { font-size: 13.5px; fill: var(--ink); font-weight: 600; }
