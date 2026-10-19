@@ -25,6 +25,8 @@ const ROUTES = [
   { name: 'institutions', path: '/institutions' },
   { name: 'institution', path: '/institutions/mu-a' },
   { name: 'regions', path: '/regions' },
+  { name: 'sdg', path: '/sdg' },
+  { name: 'global', path: '/global' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -232,11 +234,24 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#map tbody tr')).toHaveCount(12)
     await expect(page.locator('#by-region tbody tr')).toHaveCount(5)
   },
+  sdg: async (page) => {
+    await expect(page.getByRole('tab', { name: /SDGs/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.locator('#goals tbody tr')).toHaveCount(17)
+    await expect(page.locator('#goals')).toContainText('ยังไม่พบหัวข้อ')
+    await page.getByRole('tab', { name: 'โมเดลเศรษฐกิจ BCG' }).click()
+    await expect(page).toHaveURL(/fw=bcg/)
+    await expect(page.locator('#goals tbody tr')).toHaveCount(3)
+  },
+  global: async (page) => {
+    await expect(page.locator('#opportunities tbody tr')).toHaveCount(3)
+    await expect(page.locator('#opportunities')).toContainText('Artificial Intelligence')
+    await expect(page.locator('#all tbody tr')).toHaveCount(11)
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
@@ -380,4 +395,10 @@ test('the grouped navigation opens with the keyboard, closes with Escape and mar
   await expect(page).toHaveURL(/#\/journals$/)
   await expect(page.getByRole('button', { name: 'สำหรับบรรณาธิการ' })).toHaveClass(/is-active/)
   await expect(page.locator('#nav-editors-menu')).toBeHidden()
+})
+
+test('a module the pipeline skipped says why', async ({ page }) => {
+  await page.goto(`${EMPTY}#/global`)
+  await expect(page.locator('h1')).toHaveText('ไทยเทียบโลก')
+  await expect(page.locator('.empty-state')).toContainText('ATLAS_OFFLINE')
 })

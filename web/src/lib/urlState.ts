@@ -171,3 +171,4 @@ export const regionsCodec = makeCodec<{ m: (typeof REGION_METRICS)[number]; view
   m: oneOf('m', REGION_METRICS, 'articles'),
   view: oneOf('view', VIEWS, 'chart'),
 })
+export const sdgCodec = makeCodec<{ fw: string }>({ fw: text('fw', 24) })
