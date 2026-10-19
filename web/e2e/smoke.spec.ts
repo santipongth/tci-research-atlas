@@ -1,5 +1,9 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { bundleOf } from '../test/fixtureData'
 
 const EXAMPLE = 'http://127.0.0.1:4173/'
 const EMPTY = 'http://127.0.0.1:4174/'
@@ -99,6 +103,25 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.getByRole('button', { name: 'เอาออก: AI เพื่อการศึกษา' }).click()
     await expect(page.locator('.cmp-chip')).toHaveCount(2)
   },
+  data: async (page) => {
+    await expect(page.locator('#downloads .dl-list li')).toHaveCount(7)
+    await expect(page.locator('#downloads a[download]').first()).toHaveAttribute('href', /data\/2026Q4\/manifest\.json$/)
+    await expect(page.locator('#quality')).toContainText('2025')
+    await expect(page.locator('#dictionary table')).toBeVisible()
+    const download = page.waitForEvent('download')
+    await page.locator('#csv').getByRole('button', { name: 'ดาวน์โหลด CSV' }).first().click()
+    expect((await download).suggestedFilename()).toBe('atlas-2026Q4-topics.csv')
+  },
+  about: async (page) => {
+    await expect(page.locator('.defs > div')).toHaveCount(6)
+    await expect(page.locator('#changelog li')).toHaveCount(2)
+    await expect(page.locator('#definition')).toContainText('+10%')
+  },
+  brief: async (page) => {
+    await expect(page.locator('[data-brief-ready="true"]')).toBeVisible()
+    await expect(page.locator('.brief .headline mark').first()).toBeVisible()
+    await expect(page.locator('.brief-t').first().locator('tbody tr')).toHaveCount(5)
+  },
   // checks:end
 }
 
@@ -188,4 +211,28 @@ test('a chart tooltip is linked to its marker and Escape dismisses it', async ({
   await expect(node).toHaveAttribute('aria-describedby', /atlas-tooltip/)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('tooltip')).toHaveCount(0)
+})
+
+test('the offline file works from file:// without a single network request', async ({ page }, info) => {
+  const template = readFileSync('dist/offline-template.html', 'utf8')
+  const slot = '<script type="application/json" id="atlas-data">null</script>'
+  expect(template.split(slot)).toHaveLength(2)
+  const payload = JSON.stringify(bundleOf('example')).replaceAll('</', '<\\/')
+  const file = info.outputPath('atlas-offline.html')
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${payload}</script>`))
+  const remote: string[] = []
+  page.on('request', (r) => {
+    if (!/^(file|data|blob):/.test(r.url())) remote.push(r.url())
+  })
+  const errors = collectErrors(page)
+  const url = pathToFileURL(file).href
+  await page.goto(`${url}#/overview`)
+  await expect(page.locator('.headline mark').first()).toBeVisible()
+  await page.goto(`${url}#/topics/T000201`)
+  await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
+  await page.goto(`${url}#/atlas`)
+  await expect(page.locator('canvas.terrain')).toBeVisible()
+  expect(remote).toEqual([])
+  expect(errors).toEqual([])
 })

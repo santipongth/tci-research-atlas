@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
+import { viteSingleFile } from 'vite-plugin-singlefile'
 
 /** `npm run dev` serves /data/* from fixtures (or ATLAS_DATA_DIR) — the built site never contains data. */
 function atlasDevData(dir: string): Plugin {
@@ -27,8 +28,13 @@ function atlasDevData(dir: string): Plugin {
 }
 
 // base './' — the site works from any sub-path (GitHub Pages) and data is fetched relative to it.
-export default defineConfig({
-  base: './',
-  plugins: [react(), tailwindcss(), atlasDevData(process.env.ATLAS_DATA_DIR ?? 'fixtures/example/data')],
-  server: { port: 3000 },
+// `vite build --mode offline` makes the single-file edition (dist-offline/index.html → dist/offline-template.html).
+export default defineConfig(({ mode }) => {
+  const offline = mode === 'offline'
+  return {
+    base: './',
+    plugins: [react(), tailwindcss(), atlasDevData(process.env.ATLAS_DATA_DIR ?? 'fixtures/example/data'), ...(offline ? [viteSingleFile({ removeViteModuleLoader: true })] : [])],
+    build: { outDir: offline ? 'dist-offline' : 'dist', emptyOutDir: true },
+    server: { port: 3000 },
+  }
 })
