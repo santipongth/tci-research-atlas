@@ -246,7 +246,7 @@ keywords:
   min_docs_recent: 7          # อย่างน้อย 7 บทความในช่วง R
   max_doc_share: 0.15         # คำที่อยู่ใน > 15% ของบทความ = คำทั่วไป ตัดทิ้ง
   novelty_min_ratio: 2.0      # ใหม่: share ใน R ≥ 2 เท่าของช่วง B
-  min_active_years: 3         # ต่อเนื่อง: ปรากฏ ≥ 3 ปีในช่วง W
+  min_active_years: 3         # ปรากฏอย่างน้อย 3 ปีในช่วง W (นับจำนวนปีที่มีบทความ — ไม่จำเป็นต้องติดกัน)
   min_orgs: 3                 # ≥ 3 สถาบันในช่วง R
   min_journals: 3             # ≥ 3 วารสารในช่วง R (ไม่ผ่าน = journal_driven)
   max_new_journal_share: 0.5  # บทความจากวารสารที่เพิ่งเข้าระบบใน R ต้อง < 50%

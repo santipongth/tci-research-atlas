@@ -75,6 +75,15 @@ def test_clustering_bakeoff_and_report():
     assert md.startswith("# Bake-off report") and "| hdbscan |" in md and "Best stable clustering" in md
 
 
+def test_best_embedding_line_ranks_by_the_mean_of_the_available_scores_and_is_advisory():
+    emb = pd.DataFrame({"candidate": ["fast-journal", "balanced"], "journal_knn_acc": [0.95, 0.85],
+                        "subfield_knn_acc": [0.40, 0.80], "truth_purity": [0.30, 0.90]})
+    md = render_report(emb, None, {})
+    assert "**balanced**" in md and "advisory" in md                  # not the journal-accuracy winner alone
+    no_ref = emb.assign(subfield_knn_acc=float("nan"), truth_purity=float("nan"))
+    assert "**fast-journal**" in render_report(no_ref, None, {})       # only journal accuracy available
+
+
 def test_run_bakeoff_from_a_work_dir(make_cfg, tmp_path):
     cfg = make_cfg(tmp_path)
     cfg["bakeoff"].update(sample=120, seeds=[1, 2], algorithms=["hdbscan"])

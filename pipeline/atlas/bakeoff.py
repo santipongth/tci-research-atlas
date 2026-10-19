@@ -182,9 +182,14 @@ def _table(df: pd.DataFrame) -> list[str]:
 def render_report(emb_df: pd.DataFrame | None, clu_df: pd.DataFrame | None, meta: dict) -> str:
     lines = ["# Bake-off report", "", *[f"- {k}: {v}" for k, v in meta.items()], "",
              "## Embedding models", "", *_table(emb_df), "", "## Clustering", "", *_table(clu_df), ""]
-    if emb_df is not None and "journal_knn_acc" in emb_df and emb_df["journal_knn_acc"].notna().any():
-        best = emb_df.sort_values("journal_knn_acc", ascending=False).iloc[0]
-        lines.append(f"Best embedding by journal kNN accuracy: **{best['candidate']}** ({best['journal_knn_acc']})")
+    score_cols = [c for c in ("journal_knn_acc", "subfield_knn_acc", "truth_purity")
+                  if emb_df is not None and c in emb_df and emb_df[c].notna().any()]
+    if score_cols:                                 # mean of the scores this run has (subfield/purity when present)
+        ranked = emb_df.assign(_mean=emb_df[score_cols].mean(axis=1, skipna=True)).sort_values(
+            "_mean", ascending=False, kind="stable")
+        best = ranked.iloc[0]
+        lines.append(f"Best embedding by the mean of {', '.join(score_cols)}: **{best['candidate']}** "
+                     f"({best['_mean']:.4f}) — advisory: check the per-column numbers before switching models")
     if clu_df is not None and "ari_stability" in clu_df and clu_df["ari_stability"].notna().any():
         ok = clu_df[clu_df["ari_stability"] >= 0.8]
         key = "purity" if ok["purity"].notna().any() else "npmi"
