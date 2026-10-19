@@ -15,12 +15,14 @@ import time
 from atlas import config as cfg_mod
 from atlas.console import use_utf8_stdio
 
-STEPS = ["ingest", "preprocess", "embed", "cluster", "label", "series", "emerging", "forecast", "layout", "export"]
+STEPS = ["ingest", "preprocess", "embed", "cluster", "taxonomy", "label", "series", "emerging", "forecast", "layout",
+         "export"]
 _FUNCS = {
     "ingest": ("atlas.ingest", "ingest"),
     "preprocess": ("atlas.preprocess", "preprocess"),
     "embed": ("atlas.embed", "embed"),
     "cluster": ("atlas.cluster", "cluster"),
+    "taxonomy": ("atlas.taxonomy", "taxonomy"),
     "label": ("atlas.label", "label"),
     "series": ("atlas.topics_time", "build_series"),
     "emerging": ("atlas.emerging", "emerging"),

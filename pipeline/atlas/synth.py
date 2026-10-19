@@ -217,3 +217,52 @@ def generate(out_dir: str | Path, n: int = 20_000, seed: int = 7) -> pd.DataFram
     df = pd.DataFrame(truth)
     df.to_csv(out / "_truth.csv", index=False, encoding="utf-8")
     return df
+
+
+
+
+# OpenAlex subfield (= Scopus ASJC code) and field of each planted topic — for the synthetic reference set
+SUBFIELDS = {
+    "genai_edu": ("1702", "Artificial Intelligence", "17", "Computer Science"),
+    "buddhist_media": ("1212", "Religious studies", "12", "Arts and Humanities"),
+    "elderly_care": ("2717", "Geriatrics and Gerontology", "27", "Medicine"),
+    "print_media": ("3315", "Communication", "33", "Social Sciences"),
+    "tourism": ("1409", "Tourism, Leisure and Hospitality Management", "14", "Business, Management and Accounting"),
+    "rice_farming": ("1102", "Agronomy and Crop Science", "11", "Agricultural and Biological Sciences"),
+    "sme_ecommerce": ("1406", "Marketing", "14", "Business, Management and Accounting"),
+    "nursing_edu": ("2902", "Advanced and Specialized Nursing", "29", "Nursing"),
+    "diabetes": ("2712", "Endocrinology, Diabetes and Metabolism", "27", "Medicine"),
+    "local_gov": ("3321", "Public Administration", "33", "Social Sciences"),
+    "math_learning": ("3304", "Education", "33", "Social Sciences"),
+    "water_quality": ("2312", "Water Science and Technology", "23", "Environmental Science"),
+    "herbal_medicine": ("3003", "Pharmaceutical Science", "30", "Pharmacology, Toxicology and Pharmaceutics"),
+    "hrm": ("1407", "Organizational Behavior and Human Resource Management", "14",
+            "Business, Management and Accounting"),
+    "thai_literature": ("1208", "Literature and Literary Theory", "12", "Arts and Humanities"),
+    "energy": ("2105", "Renewable Energy, Sustainability and the Environment", "21", "Energy"),
+}
+
+
+def reference_works(n_per_topic: int = 40, seed: int = 11) -> list[dict]:
+    """OpenAlex-shaped work objects (English title + inverted-index abstract) for every planted topic."""
+    rng = np.random.default_rng(seed)
+    works = []
+    for key, _role, _th, en in TOPICS:
+        sid, sname, fid, fname = SUBFIELDS[key]
+        for j in range(n_per_topic):
+            a, b = rng.choice(en, 2, replace=False)
+            pen = rng.permutation(en)
+            text = " ".join(_sentence_en(rng, pen[i], pen[i + 1]) for i in (0, 2, 4))
+            inv: dict[str, list[int]] = {}
+            for pos, word in enumerate(text.split()):
+                inv.setdefault(word, []).append(pos)
+            works.append({
+                "id": f"https://openalex.org/W9{sid}{j:04d}", "title": f"{str(a).capitalize()} and {b} in Thailand",
+                "publication_year": int(rng.integers(2015, 2025)),
+                "primary_topic": {"id": "https://openalex.org/T0", "display_name": sname,
+                                  "subfield": {"id": f"https://openalex.org/subfields/{sid}", "display_name": sname},
+                                  "field": {"id": f"https://openalex.org/fields/{fid}", "display_name": fname},
+                                  "domain": {"id": "https://openalex.org/domains/0", "display_name": "synthetic"}},
+                "abstract_inverted_index": inv,
+            })
+    return works

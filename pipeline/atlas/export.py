@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from atlas.io_utils import read_table
+from atlas.taxonomy import load_topic_groups
 
 SCHEMA_VERSION = "1.1"
 _NO_ORGS_FLAG_TH = (
@@ -81,7 +82,8 @@ def _is_true(v) -> bool:
 
 def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFrame, edges: pd.DataFrame,
                 em: pd.DataFrame, fc: pd.DataFrame, meta: dict, n_articles: int, include_forecast: bool,
-                definition_version: int) -> dict:
+                definition_version: int, group_names: dict[int, tuple[str, str]] | None = None) -> dict:
+    """group_names: {group id: (th, en)} (OpenAlex field names); unnamed groups take their largest topic's label."""
     labels = fine_labels(labels).set_index("topic_id")
     em = em.set_index("topic_id")
     fcm = fc.set_index("topic_id") if len(fc) else pd.DataFrame()
@@ -93,9 +95,10 @@ def build_atlas(info: pd.DataFrame, labels: pd.DataFrame, layout_df: pd.DataFram
     groups = []
     for cid in coarse_ids:
         big = int(info[info["coarse_topic"] == cid].sort_values("size", ascending=False)["topic_id"].iloc[0])
+        th, en = (group_names or {}).get(cid, ("", ""))
         groups.append({"id": f"g{cid}",
-                       "th": labels["name_th"].get(big, f"{_GROUP_TH}{cid}"),
-                       "en": labels["name_en"].get(big, f"Group {cid}"),
+                       "th": th or labels["name_th"].get(big, f"{_GROUP_TH}{cid}"),
+                       "en": en or labels["name_en"].get(big, f"Group {cid}"),
                        "color": color_of[cid], "articles": int(sizes[cid])})
     groups.sort(key=lambda g: -g["articles"])
     for i, g in enumerate(groups):
@@ -184,14 +187,18 @@ def export(cfg: dict) -> dict:
             f"07_emerging {_NO_ORGS_FLAG_TH} orgs_unverified (definition v3) - "
             "re-run: atlas run -c <config.yaml> -s emerging -s forecast -s export")
     outdir.mkdir(parents=True, exist_ok=True)
-    info = read_table(work / "04_topic_info.parquet")
+    groups = load_topic_groups(work)                 # OpenAlex fields when the taxonomy step ran
+    info = (read_table(work / "04_topic_info.parquet").drop(columns="coarse_topic")
+            .merge(groups[["topic_id", "group_id"]].rename(columns={"group_id": "coarse_topic"}), on="topic_id"))
+    group_names = {int(r.group_id): (str(r.group_th), str(r.group_en))
+                   for r in groups.drop_duplicates("group_id").itertuples()}
     labels = read_table(work / "05_labels.parquet")
     fc = read_table(work / "08_forecasts.parquet")
     meta = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
     atlas = build_atlas(info, labels, read_table(work / "09_layout.parquet"), read_table(work / "09_edges.parquet"),
                         em, fc, meta, n_articles=len(read_table(work / "02_docs.parquet")),
                         include_forecast=bool(cfg["export"]["include_forecast_in_json"]),
-                        definition_version=int(cfg["emerging"]["definition_version"]))
+                        definition_version=int(cfg["emerging"]["definition_version"]), group_names=group_names)
     (outdir / "atlas_data.json").write_text(json.dumps(atlas, ensure_ascii=False, indent=1, allow_nan=False),
                                             encoding="utf-8")
     if "csv" in cfg["export"]["formats"]:

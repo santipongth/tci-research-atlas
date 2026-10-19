@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from .io_utils import read_table, write_table
+from .taxonomy import load_topic_groups
 
 
 def layout(cfg: dict) -> pd.DataFrame:
@@ -25,6 +26,7 @@ def layout(cfg: dict) -> pd.DataFrame:
     centroids = np.load(work / "04_centroids.npy")
     ids = json.loads((work / "04_centroid_ids.json").read_text(encoding="utf-8"))
     info = read_table(work / "04_topic_info.parquet").set_index("topic_id")
+    group_of = load_topic_groups(work).set_index("topic_id")["group_id"].to_dict()
 
     # --- 2D positions ---
     if len(ids) >= 4:
@@ -60,7 +62,7 @@ def layout(cfg: dict) -> pd.DataFrame:
             "kind": "topic", "id": int(tid),
             "x": round(float(pos[i, 0]), 1), "y": round(float(pos[i, 1]), 1),
             "r": round(float(r[i]), 1),
-            "parent": int(info.loc[tid, "coarse_topic"]),
+            "parent": int(group_of.get(tid, info.loc[tid, "coarse_topic"])),
         })
     fine_df = pd.DataFrame(rows)
 
