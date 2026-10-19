@@ -346,6 +346,33 @@ class JournalsCfg(_Strict):
         return v
 
 
+class MethodsCfg(_Strict):
+    """Research-method lexicon (TH/EN) + sample size, aggregated per topic, journal and year (P2)."""
+    enabled: bool = True
+    window_years: int = Field(5, ge=1)
+    min_articles: int = Field(30, ge=1)   # topics with fewer window articles are not published in methods.json
+    max_sample_size: int = Field(1_000_000, ge=2)
+    monoculture_methods: list[str] = Field(default_factory=lambda: ["survey", "descriptive_stats"])
+    monoculture_min_share: float = Field(0.6, gt=0.0, le=1.0)
+    provider: Literal["llm", "off"] = "off"
+    note_top_n: int = Field(50, ge=0)
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def _provider_alias(cls, v):
+        return "off" if v is False else v          # YAML reads a bare `off` as boolean false
+
+    @field_validator("monoculture_methods")
+    @classmethod
+    def _known_methods(cls, v: list[str]) -> list[str]:
+        from atlas.methods import METHOD_KEYS  # imported here: atlas.config stays free of analysis imports
+
+        unknown = sorted(set(v) - set(METHOD_KEYS))
+        if unknown or not v:
+            raise ValueError(f"monoculture_methods must name methods from {list(METHOD_KEYS)} (unknown: {unknown})")
+        return v
+
+
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
@@ -464,6 +491,7 @@ class AtlasConfig(_Strict):
     emerging: EmergingCfg = Field(default_factory=EmergingCfg)
     keywords: KeywordsCfg = Field(default_factory=KeywordsCfg)
     journals: JournalsCfg = Field(default_factory=JournalsCfg)
+    methods: MethodsCfg = Field(default_factory=MethodsCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)
