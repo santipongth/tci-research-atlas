@@ -40,3 +40,17 @@ def test_leiden_small_communities_become_unassigned():
     X, _ = _blobs(k=3, n_per=30)
     labels = leiden_labels(X, {**CCFG["leiden"], "k": 8, "min_cluster_size": 1000}, seed=0)
     assert (labels == -1).all()
+
+
+@pytest.mark.skipif(not has_igraph(), reason="optional extra: uv sync --extra leiden")
+def test_leiden_leaves_the_callers_random_state_alone():
+    import random
+
+    from atlas.graph_cluster import leiden_labels
+
+    X, _ = _blobs(k=3, n_per=30)
+    random.seed(123)
+    expected = [random.random() for _ in range(3)]
+    random.seed(123)
+    leiden_labels(X, {**CCFG["leiden"], "k": 8, "min_cluster_size": 5}, seed=7)
+    assert [random.random() for _ in range(3)] == expected

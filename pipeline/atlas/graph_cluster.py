@@ -51,9 +51,13 @@ def leiden_labels(emb: np.ndarray, lcfg: dict, seed: int) -> np.ndarray:
         return np.zeros(len(emb), dtype=int)
     edges, weights = knn_edges(emb, int(lcfg["k"]))
     g = ig.Graph(n=len(emb), edges=edges.tolist(), directed=False)
+    state = random.getstate()                  # igraph draws from the global RNG: seed it, then give it back
     random.seed(seed)
-    part = g.community_leiden(objective_function="modularity", weights=weights.tolist(),
-                              resolution=float(lcfg["resolution"]), n_iterations=int(lcfg["n_iterations"]))
+    try:
+        part = g.community_leiden(objective_function="modularity", weights=weights.tolist(),
+                                  resolution=float(lcfg["resolution"]), n_iterations=int(lcfg["n_iterations"]))
+    finally:
+        random.setstate(state)
     labels = np.asarray(part.membership, dtype=int)
     sizes = np.bincount(labels)
     labels[sizes[labels] < int(lcfg["min_cluster_size"])] = -1

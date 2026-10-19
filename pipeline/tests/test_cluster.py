@@ -132,3 +132,44 @@ def test_pca_fit_sample_is_configurable():
     ccfg["fine"].update(umap_n_components=2)
     X, _ = blobs(n_per=60)                 # 300 × 32 > pca_dims → PCA fitted on a 100-row sample, then UMAP
     assert reduce_embeddings(X, ccfg, seed=0).shape == (300, 2)
+
+
+# ---- review follow-ups: stable ids must never be reused
+def _register(cfg, *releases):
+    from atlas.state import release_dir
+
+    for r in releases:
+        release_dir(cfg, r, create=True)
+
+
+def test_previous_release_without_topic_state_is_an_error(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    cfg["pipeline"]["release"] = "2026Q4"
+    _register(cfg, "2026Q3")                                       # indexed, but no topics/model.json
+    with pytest.raises(ValueError, match="2026Q3"):
+        cluster(cfg)
+    assert not (tmp_path / "work" / "04_fine_topics.parquet").exists()
+
+
+def test_rerunning_an_older_release_is_refused(make_cfg, tmp_path):
+    cfg = make_cfg(tmp_path)
+    cfg["pipeline"]["release"] = "2026Q4"
+    _register(cfg, "2026Q4", "2027Q1")
+    with pytest.raises(ValueError, match="newer releases exist: 2027Q1"):
+        cluster(cfg)
+
+
+def test_all_noise_with_leiden_names_the_leiden_threshold(monkeypatch):
+    import atlas.graph_cluster as G
+    from atlas.cluster import fit_labels
+    from atlas.config import load_config
+
+    monkeypatch.setattr(G, "leiden_labels", lambda emb, lcfg, seed: np.full(len(emb), -1))
+    ccfg = load_config(None)["clustering"]
+    ccfg["algorithm"] = "leiden"
+    ccfg["leiden"]["min_cluster_size"] = 5
+    ccfg["fine"]["hdbscan_min_cluster_size"] = 1000                # irrelevant for leiden
+    X, _ = blobs(n_per=4)                                          # 20 docs >= 2 x 5
+    with pytest.raises(ValueError, match="leiden.min_cluster_size") as e:
+        fit_labels(X, ccfg, 0)
+    assert "HDBSCAN" not in str(e.value)

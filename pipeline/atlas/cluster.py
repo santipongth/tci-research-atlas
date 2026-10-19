@@ -32,7 +32,7 @@ from atlas.lineage import (
     save_topic_state,
     update_registry,
 )
-from atlas.state import current_release, previous_release
+from atlas.state import current_release, known_releases, previous_release
 
 
 def _sample(n: int, k: int, seed: int) -> np.ndarray:
@@ -139,8 +139,14 @@ def fit_labels(emb: np.ndarray, ccfg: dict, seed: int) -> tuple[np.ndarray, int]
     labels = merge_similar(raw, emb, float(ccfg["merge_similarity"]))
     labels = assign_outliers(labels, emb, float(ccfg["outlier_min_similarity"]))
     if (labels < 0).all():
-        mcs = int(ccfg["fine"]["hdbscan_min_cluster_size"])
+        leiden = ccfg["algorithm"] == "leiden"
+        mcs = int(ccfg["leiden"]["min_cluster_size"] if leiden else ccfg["fine"]["hdbscan_min_cluster_size"])
         if len(labels) >= 2 * mcs:
+            if leiden:
+                raise ValueError(
+                    f"Leiden found no communities in {len(labels):,} documents (everything is noise). Lower "
+                    f"clustering.leiden.min_cluster_size (now {mcs}) or raise clustering.leiden.resolution, or "
+                    f"check the embeddings (embedding.provider, 03_meta.json) before publishing anything")
             raise ValueError(
                 f"HDBSCAN found no clusters in {len(labels):,} documents (everything is noise). Lower "
                 f"clustering.fine.hdbscan_min_cluster_size (now {mcs}) / hdbscan_min_samples, or check the "
@@ -208,10 +214,19 @@ def stable_labels(cfg: dict, article_ids: pd.Series, emb: np.ndarray, prev: dict
 
 def cluster(cfg: dict) -> np.ndarray:
     work = Path(cfg["pipeline"]["work_dir"])
+    release, prev_release = current_release(cfg), previous_release(cfg)
+    rels = known_releases(cfg)
+    if release in rels and rels[rels.index(release) + 1:]:
+        raise ValueError(f"cannot cluster release {release}: newer releases exist: "
+                         f"{', '.join(rels[rels.index(release) + 1:])}; re-run them after this one or delete them "
+                         f"(topic ids would collide with theirs)")
+    prev = load_topic_state(cfg, prev_release)
+    if prev_release and prev is None:
+        raise ValueError(f"previous release {prev_release} is in the state index but has no topic state "
+                         f"(topics/model.json); a fresh fit would restart ids at T000001 and reuse old ids. "
+                         f"Restore state/releases/{prev_release} or remove it from state/releases/index.json")
     df, emb = load_aligned(work)
     ccfg, seed = cfg["clustering"], int(cfg["pipeline"]["seed"])
-    release, prev_release = current_release(cfg), previous_release(cfg)
-    prev = load_topic_state(cfg, prev_release)
 
     labels, events, model, msg = stable_labels(cfg, df["article_id"], emb, prev, _embedding_model_id(work))
     ids, C = centroids(labels, emb)
