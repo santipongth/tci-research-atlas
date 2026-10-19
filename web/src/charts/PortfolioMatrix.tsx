@@ -98,6 +98,18 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
     [...markBoxes, ...quadBoxes],
     { x: M.l, y: M.t, w: W - M.l - M.r, h: H - M.t - M.b },
   )
+  const frame = { x: M.l, y: M.t, w: W - M.l - M.r, h: H - M.t - M.b }
+  // topics beyond the growth axis sit on its edge; their "↑ +N%" value is placed like any label and skipped when no spot is clear
+  const edgeLabels = placeLabels(
+    topics
+      .filter((tp) => beyond(tp.metrics.share_growth))
+      .map((tp) => {
+        const text = `${(tp.metrics.share_growth ?? 0) > Y[1] ? '↑' : '↓'} ${fmtSignedPct(tp.metrics.share_growth, 0)}`
+        return { id: tp.id, text, width: textWidth(text, 12, 600), height: 12, x: x(tp.metrics.share_recent), y: py(tp.metrics.share_growth), radius: MARK_R.signal }
+      }),
+    [...markBoxes, ...quadBoxes, ...directLabels.map((d) => d.box)],
+    frame,
+  )
   return (
     <div ref={ref} className="pf-host">
       <svg className="pf" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={labels.name}>
@@ -127,16 +139,9 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
           {directLabels.map((d) => (
             <text key={d.id} x={d.x} y={d.y} textAnchor={d.anchor} className="pf-ltext">{d.text}</text>
           ))}
-          {topics
-            .filter((tp) => beyond(tp.metrics.share_growth))
-            .map((tp) => {
-              const top = (tp.metrics.share_growth ?? 0) > Y[1]
-              return (
-                <text key={tp.id} x={x(tp.metrics.share_recent)} y={py(tp.metrics.share_growth) + (top ? -12 : 20)} textAnchor="middle" className="pf-edge">
-                  {top ? '↑' : '↓'} {fmtSignedPct(tp.metrics.share_growth, 0)}
-                </text>
-              )
-            })}
+          {edgeLabels.map((d) => (
+            <text key={d.id} x={d.x} y={d.y} textAnchor={d.anchor} className="pf-edge">{d.text}</text>
+          ))}
         </g>
         <g>
           {order.map((tp) => {

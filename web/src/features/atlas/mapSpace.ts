@@ -119,7 +119,7 @@ export function groupCentroids(points: readonly MapPoint[]): Map<number, { x: nu
 /**
  * Field names centred on their group, biggest groups first; a name that would collide with another field name or leave
  * the frame is dropped. A name over status markers (`obstacles`) steps one line up or down, or a third of its width
- * sideways, to a clear spot; if none is clear it stays on the centre (markers draw above it) — never dropped for a marker.
+ * sideways, to a clear spot; if none is clear it is skipped (the gazetteer and the legend still name every field).
  */
 export function placeCentered(cands: readonly { id: string; text: string; width: number; height: number; x: number; y: number }[], frame: Box, obstacles: readonly Box[] = []): PlacedLabel[] {
   const placed: PlacedLabel[] = []
@@ -129,7 +129,7 @@ export function placeCentered(cands: readonly { id: string; text: string; width:
     const usable = (b: Box) => b.x >= frame.x && b.y >= frame.y && b.x + b.w <= frame.x + frame.w && b.y + b.h <= frame.y + frame.h && !placed.some((p) => overlaps(p.box, b, 8))
     const shifts: [number, number][] = [[0, 0], [0, -line], [0, line], [-c.width / 3, 0], [c.width / 3, 0]]
     const clear = shifts.find((s) => usable(at(s)) && !obstacles.some((o) => overlaps(o, at(s), 2)))
-    const shift = clear ?? (usable(at([0, 0])) ? ([0, 0] as [number, number]) : undefined)
+    const shift = clear
     if (shift) placed.push({ id: c.id, text: c.text, x: c.x + shift[0], y: c.y + shift[1], anchor: 'middle', box: at(shift) })
   }
   return placed

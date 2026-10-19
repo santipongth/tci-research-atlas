@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // Print the executive brief (#/brief) to A4 PDFs in Thai and English with Playwright's Chromium.
 //   npm run build && npm run brief:pdf -- [--site dist] [--data fixtures/example/data] [--out dist]
-// Without --data the site's own data/ folder is used (after `uv run atlas publish --site dist`).
+// Without --data the site's own data/ folder is used (after `uv run atlas publish --site dist`);
+// for a local try-out with the synthetic release: npm run brief:pdf -- --data fixtures/example/data
 // The page uses the site's self-hosted Sarabun, so the Thai fonts are embedded in the PDF.
 /* global document */
 import { chromium } from '@playwright/test'
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { startServer } from './serve.mjs'
 
@@ -13,6 +14,16 @@ const args = {}
 for (let i = 2; i < process.argv.length; i += 2) args[process.argv[i].replace(/^--/, '')] = process.argv[i + 1]
 const site = args.site ?? 'dist'
 const out = args.out ?? site
+// fail fast with a clear message instead of a 20 s selector timeout when there is no release to print
+const latest = join(args.data ?? join(site, 'data'), 'latest.json')
+if (!existsSync(join(site, 'index.html'))) {
+  console.error(`[brief] ${site}/index.html not found — run npm run build first`)
+  process.exit(1)
+}
+if (!existsSync(latest)) {
+  console.error(`[brief] no data: ${latest} does not exist. Publish a release into the site (uv run atlas publish --site ${site}) or use the sample: npm run brief:pdf -- --data fixtures/example/data`)
+  process.exit(1)
+}
 mkdirSync(out, { recursive: true })
 const server = await startServer({ site, data: args.data ?? null, port: Number(args.port ?? 4180) })
 const { port } = server.address()

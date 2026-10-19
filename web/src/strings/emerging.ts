@@ -9,7 +9,7 @@ export const emerging = defineStrings({
   'em.none': { th: 'รอบนี้ไม่มีหัวข้อสถานะ “{status}”', en: 'No topics have the status “{status}” in this release' },
   'em.dagger': { th: '† ยังตรวจความกว้างของสถาบันไม่ได้ เพราะข้อมูลสังกัดผู้แต่งไม่ครบ', en: '† Institution breadth not verified: author affiliations are incomplete' },
   'em.kw.h': { th: 'คำสำคัญเกิดใหม่', en: 'Emerging keywords' },
-  'em.kw.intro': { th: 'คำที่แทบไม่พบในช่วง {b} ปรากฏต่อเนื่องอย่างน้อย {y} ปี และผู้แต่งจากอย่างน้อย {o} สถาบันใช้ วัดจากคำสำคัญที่ผู้แต่งให้มา จึงไม่ขึ้นกับการจัดกลุ่มหัวข้อ', en: 'Words that were rare in {b}, have appeared for at least {y} years and are used by authors from at least {o} institutions. They are measured on author keywords, so they do not depend on topic clustering.' },
+  'em.kw.intro': { th: 'คำที่แทบไม่พบในช่วง {b} ปรากฏต่อเนื่องอย่างน้อย {ky} ปี และผู้แต่งจากอย่างน้อย {o} สถาบันใช้ วัดจากคำสำคัญที่ผู้แต่งให้มา จึงไม่ขึ้นกับการจัดกลุ่มหัวข้อ', en: 'Words that were rare in {b}, have appeared for at least {ky} years and are used by authors from at least {o} institutions. They are measured on author keywords, so they do not depend on topic clustering.' },
   'em.kw.table': { th: 'คำสำคัญเกิดใหม่ {n} คำ', en: '{n} emerging keywords' },
   'em.kw.excluded': { th: 'ไม่นับ {n} คำที่โตจากวารสารเดียว', en: '{n} keywords that grew from a single journal are not listed' },
   'col.term': { th: 'คำสำคัญ', en: 'Keyword' },
@@ -21,5 +21,5 @@ export const emerging = defineStrings({
   'rule.HOT': { th: 'หัวข้อใหญ่ (สัดส่วนอยู่ใน {top} บนสุด) ที่ยังโตต่อเนื่อง: ขอบล่างของช่วงเชื่อมั่น {level}% มากกว่า 0', en: 'A large topic (top {top} by share) that is still growing: the lower end of its {level}% CI is above zero.' },
   'rule.DECLINING': { th: 'สัดส่วนลดลงอย่างมีนัย: ขอบบนของช่วงเชื่อมั่น {level}% ต่ำกว่า 0 และเหลือไม่เกิน {dratio} เท่าของช่วงฐาน', en: 'A share falling with confidence: the upper end of its {level}% CI is below zero and the share is at most {dratio}× the baseline.' },
   'rule.STABLE': { th: 'ไม่เข้าเกณฑ์ใดข้างต้น', en: 'Meets none of the rules above.' },
-  'rule.LOW_DATA': { th: 'มีบทความน้อยกว่า {n} เรื่องใน {y} ปีล่าสุด หรือข้อมูลรายปีไม่พอจะประมาณอัตราโต จึงยังไม่จัดสถานะ', en: 'Fewer than {n} articles in the last {y} years, or too few yearly data points to estimate growth, so no status is assigned.' },
+  'rule.LOW_DATA': { th: 'มีบทความน้อยกว่า {n} เรื่องใน {ry} ปีล่าสุด หรือข้อมูลรายปีไม่พอจะประมาณอัตราโต จึงยังไม่จัดสถานะ', en: 'Fewer than {n} articles in the last {ry} years, or too few yearly data points to estimate growth, so no status is assigned.' },
 })

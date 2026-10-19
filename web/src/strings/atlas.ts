@@ -5,7 +5,7 @@ export const atlas = defineStrings({
   'map.lede': { th: 'หัวข้อวิจัย {n} หัวข้อวางเป็นภูมิประเทศ หัวข้อที่อยู่ใกล้กันมีเนื้อหาคล้ายกัน สีพื้นคือสาขา และเส้นชั้นบอกว่าบทความหนาแน่นตรงไหน', en: '{n} research topics drawn as terrain. Nearby topics have similar content; the tint is the field and the contour lines show where articles are dense.' },
   'map.fig': { th: 'ภูมิทัศน์หัวข้อวิจัย รอบข้อมูล {release}', en: 'Landscape of research topics, release {release}' },
   'map.aria': { th: 'แผนที่หัวข้อวิจัย', en: 'Map of research topics' },
-  'map.desc': { th: 'ใช้ปุ่มลูกศรเพื่อเลื่อนแผนที่ ปุ่ม + และ − เพื่อซูม และ 0 เพื่อกลับมุมมองเริ่มต้น หัวข้อที่มีสถานะเด่นเลือกได้ด้วยแป้น Tab และ Enter ทุกหัวข้ออยู่ในดัชนีหัวข้อด้านล่าง', en: 'Use the arrow keys to pan, + and − to zoom and 0 to reset. Topics with a signal status can be reached with Tab and chosen with Enter. Every topic is listed in the gazetteer below.' },
+  'map.desc': { th: 'ใช้ปุ่มลูกศรเพื่อเลื่อนแผนที่ ปุ่ม + และ − เพื่อซูม และ 0 เพื่อกลับมุมมองเริ่มต้น หัวข้อที่มีสถานะเด่นเลือกได้ด้วยแป้น Tab และ Enter ดัชนีหัวข้อด้านล่างแสดงหัวข้อที่มีสถานะเด่นทั้งหมด ส่วนหัวข้ออื่นค้นหาได้จากช่องค้นหา', en: 'Use the arrow keys to pan, + and − to zoom and 0 to reset. Topics with a signal status can be reached with Tab and chosen with Enter. The gazetteer below lists every topic with a signal status; find the others with search.' },
   'map.hint': { th: 'ลากเพื่อเลื่อน · กด Ctrl ค้างแล้วหมุนล้อเมาส์เพื่อซูม', en: 'Drag to pan · hold Ctrl and scroll to zoom' },
   'map.zoomIn': { th: 'ขยาย', en: 'Zoom in' },
   'map.zoomOut': { th: 'ย่อ', en: 'Zoom out' },

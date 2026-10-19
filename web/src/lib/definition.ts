@@ -72,7 +72,8 @@ export function ruleVars(level: number): Record<string, string | number> {
     j: DEFINITION.minJournals,
     o: DEFINITION.minOrgs,
     n: DEFINITION.minArticlesRecent,
-    y: DEFINITION.recentYears,
+    ry: DEFINITION.recentYears, // rule.LOW_DATA: the recent window
+    ky: DEFINITION.keywordMinActiveYears, // em.kw.intro: years a keyword must stay active
     top: fmtPct(1 - DEFINITION.largeQuantile, 0),
   }
 }

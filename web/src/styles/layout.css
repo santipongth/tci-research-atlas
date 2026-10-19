@@ -21,7 +21,7 @@
   .langsw button[aria-pressed="true"] { background: var(--brand-ink); color: var(--brand); }
   .themebtn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 2px solid var(--brand-ink); background: transparent; color: var(--brand-ink); font-weight: 600; font-size: 0.9375rem; }
   .themebtn svg { width: 16px; height: 16px; display: block; }
-  .themebtn[aria-pressed="true"] { background: var(--brand-ink); color: var(--brand); }
+  .themebtn[data-dark="true"] { background: var(--brand-ink); color: var(--brand); }
 
   .nav { border-bottom: 1px solid var(--border-2); }
   .nav-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 24px; flex-wrap: wrap; padding-block: 6px; }

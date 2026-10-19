@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react'
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { textWidth } from '../../lib/measure'
 import { glyphPath, isSignal, type StatusId } from '../../lib/status'
 import { useTheme } from '../../lib/theme'
@@ -102,10 +102,13 @@ export function TerrainMap({ ref, points, groups, terrain, hidden, layers, selec
   const [hover, setHover] = useState<{ id: string | null; group: number | null }>({ id: null, group: null })
   const theme = useTheme()
   const tip = useTooltip()
-  useFontsVersion() // label boxes are measured in Sarabun: measure again once it has loaded
+  const fontsVersion = useFontsVersion() // label boxes are measured in Sarabun: measure again once it has loaded
   const W = size.width
   const H = size.height
-  const view = W > 0 && H > 0 ? combineView(fitScreen(W, H), user, W, H) : null
+  const view = useMemo(() => (W > 0 && H > 0 ? combineView(fitScreen(W, H), user, W, H) : null), [W, H, user])
+  const frame = useRef(0) // pending requestAnimationFrame of a pointer-driven pan
+  const panTo = useRef<{ dx: number; dy: number } | null>(null)
+  useEffect(() => () => cancelAnimationFrame(frame.current), [])
 
   // Redraw the canvas after every render (pan, zoom, hover, layers, theme all change the picture).
   useEffect(() => {
@@ -201,39 +204,52 @@ export function TerrainMap({ ref, points, groups, terrain, hidden, layers, selec
   )
 
   // Only markers on the visible sheet are drawn and focusable (focus never scrolls the clipped sheet); Tab follows the grid.
-  const markers = view
-    ? points
-        .filter((p) => !hidden.has(p.status) && (isSignal(p.status) || p.id === selected))
-        .map((p) => ({ p, sx: p.x * view.k + view.tx, sy: p.y * view.k + view.ty, r: Math.max(5.5, Math.min(18, p.r * view.k * 0.9)) }))
-        .filter((m) => m.sx >= 0 && m.sx <= W && m.sy >= 0 && m.sy <= H)
-        .sort((a, b) => Math.floor(a.p.y / ROW_H) - Math.floor(b.p.y / ROW_H) || a.p.x - b.p.x)
-    : []
+  // Markers and field names depend on the view, the filters and the font; names also on hover and selection — memoised so a
+  // redraw caused by anything else (tooltip, drag frames between renders) does not redo the collision search.
   const small = W < 600
   const fieldSize = small ? 13 : 16
-  const fieldLabels = view
-    ? placeCentered(
-        groups
-          .map((g, gi) => ({ g, gi }))
-          .sort((a, b) => b.g.n - a.g.n)
-          .map(({ g, gi }) => ({ id: String(gi), text: g.name, width: textWidth(g.name, fieldSize, 700), height: fieldSize, x: g.cx * view.k + view.tx, y: g.cy * view.k + view.ty })),
-        { x: 20, y: 18, w: W - 26, h: H - 22 },
-        markers.map((m) => ({ x: m.sx - m.r, y: m.sy - m.r, w: 2 * m.r, h: 2 * m.r })),
-      )
-    : []
-  const force = new Set([selected, hover.id].filter((v): v is string => v !== null))
-  const ranked = [...markers].sort((a, b) => PRIORITY[a.p.status] - PRIORITY[b.p.status] || b.p.share - a.p.share)
-  const named = [...ranked.filter((m) => force.has(m.p.id)), ...ranked.filter((m, i) => !force.has(m.p.id) && layers.has('names') && i < (small ? 4 : 25))]
-  const nameLabels = view
-    ? placeLabels(
-        named.map((m) => {
-          const text = names.get(m.p.id) ?? m.p.id
-          return { id: m.p.id, text, width: textWidth(text, 13, 600), height: 13, x: m.sx, y: m.sy, radius: m.r }
-        }),
-        [...markers.map((m) => ({ id: m.p.id, x: m.sx - m.r, y: m.sy - m.r, w: 2 * m.r, h: 2 * m.r })), ...fieldLabels.map((f) => f.box)],
-        { x: 18, y: 18, w: W - 22, h: H - 22 },
-        force,
-      )
-    : []
+  const markers = useMemo(
+    () =>
+      view
+        ? points
+            .filter((p) => !hidden.has(p.status) && (isSignal(p.status) || p.id === selected))
+            .map((p) => ({ p, sx: p.x * view.k + view.tx, sy: p.y * view.k + view.ty, r: Math.max(5.5, Math.min(18, p.r * view.k * 0.9)) }))
+            .filter((m) => m.sx >= 0 && m.sx <= W && m.sy >= 0 && m.sy <= H)
+            .sort((a, b) => Math.floor(a.p.y / ROW_H) - Math.floor(b.p.y / ROW_H) || a.p.x - b.p.x)
+        : [],
+    [view, points, hidden, selected, W, H],
+  )
+  const fieldLabels = useMemo(
+    () =>
+      view
+        ? placeCentered(
+            groups
+              .map((g, gi) => ({ g, gi }))
+              .sort((a, b) => b.g.n - a.g.n)
+              .map(({ g, gi }) => ({ id: String(gi), text: g.name, width: textWidth(g.name, fieldSize, 700), height: fieldSize, x: g.cx * view.k + view.tx, y: g.cy * view.k + view.ty })),
+            { x: 20, y: 18, w: W - 26, h: H - 22 },
+            markers.map((m) => ({ x: m.sx - m.r, y: m.sy - m.r, w: 2 * m.r, h: 2 * m.r })),
+          )
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fontsVersion re-measures text once Sarabun has loaded
+    [view, groups, markers, fieldSize, W, H, fontsVersion],
+  )
+  const nameLabels = useMemo(() => {
+    if (!view) return []
+    const force = new Set([selected, hover.id].filter((v): v is string => v !== null))
+    const ranked = [...markers].sort((a, b) => PRIORITY[a.p.status] - PRIORITY[b.p.status] || b.p.share - a.p.share)
+    const named = [...ranked.filter((m) => force.has(m.p.id)), ...ranked.filter((m, i) => !force.has(m.p.id) && layers.has('names') && i < (small ? 4 : 25))]
+    return placeLabels(
+      named.map((m) => {
+        const text = names.get(m.p.id) ?? m.p.id
+        return { id: m.p.id, text, width: textWidth(text, 13, 600), height: 13, x: m.sx, y: m.sy, radius: m.r }
+      }),
+      [...markers.map((m) => ({ id: m.p.id, x: m.sx - m.r, y: m.sy - m.r, w: 2 * m.r, h: 2 * m.r })), ...fieldLabels.map((f) => f.box)],
+      { x: 18, y: 18, w: W - 22, h: H - 22 },
+      force,
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fontsVersion re-measures text once Sarabun has loaded
+  }, [view, markers, fieldLabels, names, layers, selected, hover.id, small, W, H, fontsVersion])
   const zoom = (factor: number) => setUser((u) => zoomAt(u, factor, W / 2, H / 2, W, H))
   const enter = (p: MapPoint) => setHover({ id: p.id, group: p.groupIndex >= 0 ? p.groupIndex : null })
   const leave = () => setHover({ id: null, group: null })
@@ -264,7 +280,15 @@ export function TerrainMap({ ref, points, groups, terrain, hidden, layers, selec
           const my = e.clientY - d.y
           if (Math.abs(mx) + Math.abs(my) < 3) return
           tip.hide()
-          setUser((u) => ({ ...u, dx: d.dx + mx, dy: d.dy + my }))
+          // at most one redraw per frame, however fast the pointer reports
+          panTo.current = { dx: d.dx + mx, dy: d.dy + my }
+          if (!frame.current) {
+            frame.current = requestAnimationFrame(() => {
+              frame.current = 0
+              const to = panTo.current
+              if (to) setUser((u) => ({ ...u, dx: to.dx, dy: to.dy }))
+            })
+          }
         }}
         onPointerUp={() => {
           drag.current = null

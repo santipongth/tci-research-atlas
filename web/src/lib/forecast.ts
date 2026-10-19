@@ -10,6 +10,7 @@ export type ForecastView = 'show' | 'lowData' | 'noSkill' | 'none'
  */
 export function forecastView(status: StatusId, fc: TopicForecast | null | undefined): ForecastView {
   if (status === 'LOW_DATA') return 'lowData'
-  if (!fc || fc.years.length === 0) return 'none'
-  return fc.show ? 'show' : 'noSkill'
+  if (!fc) return 'none'
+  if (fc.show === false) return 'noSkill'
+  return fc.years.length === 0 ? 'none' : 'show'
 }

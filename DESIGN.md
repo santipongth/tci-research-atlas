@@ -194,6 +194,7 @@ EMERGING #13a08a / dark #2da78c · WATCH #c47a0c / #c37511 · HOT #a3124f / #ad3
 
 ### Map
 Map sheet #f6f7f4 / dark #111618; contour brown #9a6a35 / #c48d4f; grid rgba(11,12,14,.09) / rgba(226,233,229,.07); unnamed-topic dots rgba(11,12,14,.42) / rgba(226,233,229,.38). Field tints `cat-01…cat-12` (light → dark): #e8b5a6→#5b3229, #dbc99d→#4d4329, #c3d59c→#39492a, #e8d095→#544423, #a8d1a4→#284732, #b1c4da→#293c52, #d4bad6→#46314c, #9ccfca→#1f4746, #bfd8e8→#213f50, #e3bfcd→#4e2e3a, #cfd3a6→#3f4425, #d9cbb8→#463d31.
+Fallback groups (`G…`, in a release that also has OpenAlex fields) take the neutral `--dot` tint (#c7cbce / #3b4247) instead of a `cat-*` colour, so they never read as a real field.
 
 ### Series (compare only)
 series-1…4 = #2a78d6, #eb6834, #1baf7a, #eda100 (dark #3987e5, #d95926, #199e70, #c98500) — the dataviz reference order, validated as adjacent pairs; always with a dash pattern and a direct label.
@@ -273,7 +274,7 @@ The release's brief headline in Headline type, figures and topic names under the
 One row per topic: name (+ field) | whisker on a shared axis | value. The whisker is the interval at `manifest.ci_level`, capped (arrow when clipped), with the status glyph at the estimate; a dashed vertical line marks the +10 %/yr EMERGING bar and a solid line marks zero. Grouped by status with each group's rule in one sentence.
 
 ### Terrain map (signature, /atlas only)
-Canvas terrain on the map sheet: field tints by density, contour brown lines (every third line heavier), faint 10 × 6 grid with A–J / 1–6 references on the frame edges, unnamed topics as dots. EMERGING/WATCH/HOT/DECLINING topics are focusable SVG glyphs with grid references; labels have a sheet-colour halo and never collide. Layer toggles (statuses, contours, tints, names), zoom buttons (+, −, reset), drag to pan, Ctrl + wheel to zoom; nothing requires dragging. The gazetteer repeats every topic in text.
+Canvas terrain on the map sheet: field tints by density, contour brown lines (every third line heavier), faint 10 × 6 grid with A–J / 1–6 references on the frame edges, unnamed topics as dots. EMERGING/WATCH/HOT/DECLINING topics are focusable SVG glyphs with grid references; labels have a sheet-colour halo and never collide. Layer toggles (statuses, contours, tints, names), zoom buttons (+, −, reset), drag to pan, Ctrl + wheel to zoom; nothing requires dragging. The gazetteer repeats every signal-status topic in text; other topics are found with search.
 
 ## Do's and Don'ts
 

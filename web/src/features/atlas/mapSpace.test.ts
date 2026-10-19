@@ -54,7 +54,7 @@ describe('map space', () => {
     expect(fields.map((p) => p.id)).toEqual(['x'])
   })
 
-  it('moves a field name off the status markers under it, but never drops it for a marker', () => {
+  it('moves a field name off the status markers under it, and skips it when no spot is clear of a marker', () => {
     const frame = { x: 0, y: 0, w: 400, h: 300 }
     const name = { id: 'x', text: 'X', width: 80, height: 16, x: 100, y: 100 }
     const marker = { x: 94, y: 92, w: 12, h: 12 }
@@ -62,7 +62,7 @@ describe('map space', () => {
     expect(moved.y).not.toBe(100)
     expect(overlaps(moved.box, marker, 2)).toBe(false)
     const everywhere = [{ x: 0, y: 0, w: 400, h: 300 }]
-    expect(placeCentered([name], frame, everywhere)).toMatchObject([{ id: 'x', x: 100, y: 100 }])
+    expect(placeCentered([name], frame, everywhere)).toEqual([])
   })
 
   it('tints OpenAlex fields by their token and puts stale-taxonomy fallback groups on neutral terrain', () => {

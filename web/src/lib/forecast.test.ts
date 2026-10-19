@@ -8,6 +8,7 @@ describe('forecastView', () => {
   it('shows a forecast only when the release shows one for a classified topic', () => {
     expect(forecastView('EMERGING', fc(true))).toBe('show')
     expect(forecastView('STABLE', fc(true, []))).toBe('none')
+    expect(forecastView('STABLE', fc(false, []))).toBe('noSkill')
   })
 
   it('never draws a forecast band for LOW_DATA, even if the data carries one', () => {

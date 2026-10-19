@@ -26,7 +26,7 @@ export function ratioText(t: T, m: TopicMetrics): string {
 }
 
 export function lowDataText(t: T, m: TopicMetrics): string | null {
-  if (m.low_data_reason === 'few_articles') return t('lowData.few_articles', { n: DEFINITION.minArticlesRecent, y: DEFINITION.recentYears })
+  if (m.low_data_reason === 'few_articles') return t('lowData.few_articles', { n: DEFINITION.minArticlesRecent, ry: DEFINITION.recentYears })
   if (m.low_data_reason === 'not_estimable') return t('lowData.not_estimable')
   return null
 }

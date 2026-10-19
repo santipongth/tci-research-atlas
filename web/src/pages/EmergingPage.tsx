@@ -144,7 +144,7 @@ function Keywords({ release }: { release: AtlasRelease }) {
     },
   ]
   return (
-    <Section id="keywords" title={t('em.kw.h')} intro={t('em.kw.intro', { b: fmtWindow(w.B), o: DEFINITION.minOrgs, y: DEFINITION.keywordMinActiveYears })}>
+    <Section id="keywords" title={t('em.kw.h')} intro={t('em.kw.intro', { b: fmtWindow(w.B), o: DEFINITION.minOrgs, ky: DEFINITION.keywordMinActiveYears })}>
       <DataTable
         caption={t('table.n', { n: 2, title: t('em.kw.table', { n: fmtInt(rows.length) }) })}
         rows={rows}
