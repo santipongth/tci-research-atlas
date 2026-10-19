@@ -59,7 +59,8 @@ uv run atlas publish  -c config.yaml --site ../web/dist      # วาง data/<r
 - หน้า `/overview` ต้องแสดงชื่อรอบใหม่ ข้อความ "ข้อมูลถึงปี YYYY" ตรงกับ `last_complete_year` และตัวเลข Δ เทียบรอบก่อน (ถ้าโฟลเดอร์รอบก่อนยังอยู่บน site; ถ้าไม่อยู่จะมีบรรทัด "ไม่พบข้อมูลรอบก่อนหน้า")
 - เปิด `/emerging` → แท็บ EMERGING ต้องมีรายการ คลิก 1 หัวข้อ → หน้าหัวข้อต้องมีชิปสถานะ (สัญลักษณ์ + สี + ข้อความ) และกราฟแนวโน้มพร้อมตาราง
 - สลับภาษา TH/EN และเปิดโหมดมืดดูคร่าว ๆ; ถ้าเป็นข้อมูลสังเคราะห์ ต้องเห็นป้าย "ข้อมูลตัวอย่าง" ทุกหน้า
-- เผยแพร่: push ขึ้น GitHub แล้ว workflow `.github/workflows/pages.yml` build เว็บและ deploy ขึ้น GitHub Pages (หรือ deploy โฟลเดอร์ `web/dist` ที่ได้จาก `atlas publish --site` ตามช่องทางของหน่วยงาน) — ผู้ดูแลเป็นคน push/deploy
+- เผยแพร่ข้อมูลจริง: `uv run atlas publish --site web/dist` แล้ว deploy โฟลเดอร์ `web/dist` ขึ้น host ของหน่วยงาน (static host ใดก็ได้) — การ push ขึ้น GitHub **ไม่** deploy อะไรเอง
+- workflow `.github/workflows/pages.yml` ใช้สำหรับ **เว็บสาธิต** เท่านั้น: ผู้ดูแลกดรันเอง (Actions → Pages → Run workflow) ระบบจะ build เว็บพร้อม **ข้อมูลตัวอย่าง (สังเคราะห์)** ที่มีป้าย "ข้อมูลตัวอย่าง" ทุกหน้าและตั้ง noindex — สคริปต์ `stage:demo` ปฏิเสธการเขียนทับโฟลเดอร์ที่มี release จริง
 
 ### ขั้น 5 — เก็บรอบรัน
 
