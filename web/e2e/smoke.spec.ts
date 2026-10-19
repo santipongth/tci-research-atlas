@@ -20,6 +20,7 @@ const ROUTES = [
   { name: 'journals', path: '/journals' },
   { name: 'journal', path: '/journals/so02.example0' },
   { name: 'methods', path: '/methods' },
+  { name: 'changes', path: '/changes' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -171,11 +172,20 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page).toHaveURL(/mono=only/)
     await expect(page.locator('#topics tbody tr')).toHaveCount(2)
   },
+  changes: async (page) => {
+    await expect(page.locator('#status tbody tr')).toHaveCount(5)
+    await expect(page.locator('#new li')).toHaveCount(3)
+    await expect(page.locator('#retired')).toContainText('หนังสือพิมพ์รายวัน')
+    await expect(page.locator('#retired')).toContainText('รวมเข้ากับ')                 // merged_into is never a plain disappearance
+    await expect(page.locator('#restructured li')).toHaveCount(2)
+    await expect(page.locator('#movers table')).toBeVisible()
+    await expect(page.locator('#journals')).toContainText('example5')
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []

@@ -1,9 +1,10 @@
+import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
 import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
-import type { AtlasRelease } from '../data/release'
+import { hasModule, type AtlasRelease } from '../data/release'
 import { DEFINITION, largeShareThreshold, quadrantOf } from '../lib/definition'
 import { ciPct, fmtDate, fmtInt, fmtSignedPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
@@ -63,6 +64,9 @@ function Overview({ release }: { release: AtlasRelease }) {
         <div className="main-col">
           <Section id="kpi" title={t('ov.kpi.h')} intro={kpiIntro}>
             <KpiGrid release={release} />
+            {hasModule(release, 'diff') && ov.previous_release ? (
+              <p className="mt-2"><Link to="/changes">{t('ov.changes', { prev: ov.previous_release })}</Link></p>
+            ) : null}
           </Section>
           {bullets.length ? (
             <Section id="findings" title={t('ov.findings.h')}>

@@ -460,7 +460,14 @@ function buildEditors(files, previousOverview) {
     schema_version: SCHEMA, release: RELEASE, previous_release: PREVIOUS, previous_source: 'state',
     kpis: KPI.map((key) => ({ key, previous: previousOverview.kpis[key], current: ov.kpis[key] })),
     new_topics: [{ topic: 'T000701', event: 'new', parents: [] }, { topic: 'T000106', event: 'split', parents: ['T000105'] }, { topic: 'T000706', event: 'merge', parents: ['T000703', 'T000704'] }],
-    retired: [{ topic: 'T000999', th: 'หนังสือพิมพ์รายวัน', en: 'Daily newspapers' }],
+    retired: [
+      { topic: 'T000999', th: 'หนังสือพิมพ์รายวัน', en: 'Daily newspapers', merged_into: null },
+      { topic: 'T000998', th: 'การศึกษาทางไกลยุคแรก', en: 'Early distance learning', merged_into: 'T000201' },
+    ],
+    restructured: [
+      { topic: 'T000201', event: 'merge', parents: ['T000998'] },
+      { topic: 'T000105', event: 'split', parents: ['T000106'] },
+    ],
     status_changes: Object.entries(prevStatus).map(([topic, previous]) => ({ topic, previous, current: byId.get(topic).status }))
       .sort((a, b) => STATUS_ORDER.indexOf(a.current) - STATUS_ORDER.indexOf(b.current) || a.topic.localeCompare(b.topic)),
     movers: [...topics].filter((t) => t.status !== 'LOW_DATA').sort((a, b) => b.metrics.share_recent - a.metrics.share_recent).slice(0, 6)
