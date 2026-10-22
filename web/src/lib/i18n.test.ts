@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { PARTS, STR } from '../strings'
+import { galaxy } from '../strings/galaxy'
 import { search } from '../strings/search'
 import { translate } from './i18n'
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
 /** Strings files of lazy pages: not in STR (entry budget), read with useStrings. */
-const LAZY = { search } as const
+const LAZY = { search, galaxy } as const
 const ALL = { ...STR, ...Object.fromEntries(Object.entries(LAZY).flatMap(([file, d]) => Object.entries(d).map(([k, e]) => [`${file}:${k}`, e]))) }
 
 describe('i18n strings', () => {

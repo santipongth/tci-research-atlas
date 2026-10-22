@@ -192,3 +192,16 @@ export const searchCodec = makeCodec<SearchUrlState>({
   journal: text('journal', 300),
 })
 export const gapsCodec = makeCodec<{ all: 'no' | 'yes' }>({ all: oneOf('all', ['no', 'yes'] as const, 'no') })
+export interface GalaxyUrlState {
+  from: number | null
+  to: number | null
+  /** taxonomy group id (F… OpenAlex field, G… fallback group); '' = every field */
+  g: string
+  view: View
+}
+export const galaxyCodec = makeCodec<GalaxyUrlState>({
+  from: optionalYear('from'),
+  to: optionalYear('to'),
+  g: text('g', 24),
+  view: oneOf('view', VIEWS, 'chart'),
+})

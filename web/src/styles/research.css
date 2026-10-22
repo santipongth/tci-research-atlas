@@ -1,4 +1,4 @@
-/* P4 researchers' pages: /search. Tokens only (DESIGN.md). */
+/* P4 researchers' pages: /search, /galaxy. Tokens only (DESIGN.md). */
 @layer components {
   .srch-form { display: grid; gap: 8px; margin-top: 24px; max-width: 46rem; }
   .srch-form label { font-weight: 700; }
@@ -35,4 +35,58 @@
   .srch-meta .topic-link { font-weight: 600; }
   .srch-cited { margin-left: 0; color: var(--ink); }
   .srch-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 18px; }
+
+  /* /galaxy — white sheet, thin rule, dots carry the colour; names and the card carry the meaning */
+  .gx-filters { margin-top: 28px; }
+  .gx-filters select { font-weight: 400; max-width: 100%; }
+  .gx-count { margin-top: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .gx-sec { margin-top: 28px; }
+  .gx-legend { margin-top: 12px; }
+  .gx-legend-h { font-size: 0.9375rem; font-weight: 600; }
+  .gx-keys { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 0.9375rem; }
+  .gx-keys li { display: inline-flex; align-items: center; gap: 8px; }
+  .gx-keys li.is-dim { color: var(--ink-2); }
+  .gx-keys li.is-dim .gx-swatch { opacity: 0.3; }
+  .gx-key-n { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .gx-swatch { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+
+  .gx-layout { display: grid; gap: 24px; }
+  @media (min-width: 1100px) { .gx-layout { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; } }
+  .gx-frame { position: relative; min-width: 0; }
+  .gx-stage { position: relative; height: clamp(420px, 66vh, 720px); border: 1px solid var(--border); background: var(--bg); overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
+  .gx-stage.is-over { cursor: pointer; }
+  .gx-stage:active { cursor: grabbing; }
+  .gx-stage:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; box-shadow: inset 0 0 0 2px var(--focus-ink); }
+  @media (max-width: 520px) { .gx-stage { height: clamp(260px, 78vw, 400px); } }
+  .gx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .gx-ov { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+  .gx-ov text { font-family: var(--font); }
+  .gx-flabel { font-size: 15px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+  .gx-tlabel { font-size: 13px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3.5px; stroke-linejoin: round; }
+  @media (max-width: 600px) { .gx-flabel { font-size: 13px; } }
+  .gx-ring-out { fill: none; stroke: var(--bg); stroke-width: 4; }
+  .gx-ring-in { fill: none; stroke: var(--ink); stroke-width: 2; }
+  .gx-hover .gx-ring-in { stroke-width: 1.5; }
+  .gx-cross {
+    display: none; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; pointer-events: none;
+    background: linear-gradient(var(--ink), var(--ink)) center / 2px 100% no-repeat, linear-gradient(var(--ink), var(--ink)) center / 100% 2px no-repeat;
+  }
+  .gx-stage:focus-visible .gx-cross { display: block; }
+  .gx-lost { position: absolute; left: 16px; top: 16px; max-width: calc(100% - 32px); padding: 8px 12px; background: var(--surface); border: 1px solid var(--ink); }
+  .gx-zoom { top: 12px; right: 12px; bottom: auto; }
+  @media (max-width: 520px) { .gx-zoom { margin-top: 8px; } }
+
+  .gx-side { min-width: 0; padding-top: 14px; border-top: 2px solid var(--ink); }
+  .gx-side .gx-card-h { font-size: 1.0625rem; }
+  .gx-card-empty { margin-top: 8px; color: var(--ink-2); max-width: 40em; }
+  .gx-card { display: grid; gap: 14px; margin-top: 8px; }
+  .gx-title { font-size: 1.125rem; font-weight: 600; line-height: 1.55; overflow-wrap: anywhere; }
+  .gx-sub { margin-top: -8px; color: var(--ink-2); font-size: 0.9375rem; overflow-wrap: anywhere; }
+  .gx-facts { display: grid; margin: 0; font-size: 0.9375rem; }
+  .gx-facts > div { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 10px; padding-block: 7px; border-bottom: 1px solid var(--border-2); }
+  .gx-facts dt { color: var(--ink-2); font-weight: 600; }
+  .gx-facts dd { margin: 0; overflow-wrap: anywhere; }
+  .gx-facts .topic-link { font-weight: 600; }
+  .gx-field { display: flex; align-items: center; gap: 8px; }
+  .gx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
 }

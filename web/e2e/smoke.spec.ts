@@ -3,6 +3,8 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import type { GalaxyFile } from '../src/data/types'
+import { dequantise, fitView } from '../src/lib/galaxyGl'
 import { bundleOf } from '../test/fixtureData'
 
 const EXAMPLE = 'http://127.0.0.1:4173/'
@@ -29,6 +31,7 @@ const ROUTES = [
   { name: 'global', path: '/global' },
   { name: 'gaps', path: '/gaps' },
   { name: 'search', path: '/search' },
+  { name: 'galaxy', path: '/galaxy' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -278,11 +281,57 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.getByRole('button', { name: /เป็น RIS$/ }).click()
     expect((await download).suggestedFilename()).toBe('atlas-2026Q4-search.ris')
   },
+  galaxy: async (page) => {
+    // headless Chromium normally has WebGL2 (SwiftShader); without it the page explains itself — either is fine
+    const canvas = page.locator('canvas.gx-canvas')
+    await expect(canvas.or(page.getByText('เบราว์เซอร์นี้วาดภาพกาแล็กซีไม่ได้'))).toBeVisible()
+    if (!(await canvas.isVisible())) return
+    await expect(page.locator('.lede')).toContainText('600')
+    await expect(page.locator('.gx-keys li').first()).toBeVisible()
+    // click one article's dot (screen position from galaxy.json and the fitted view) → its card
+    const gx = bundleOf('example').files['galaxy.json'] as GalaxyFile
+    const stage = page.locator('.gx-stage')
+    await stage.scrollIntoViewIfNeeded()
+    const box = await stage.boundingBox()
+    if (!box) throw new Error('no stage box')
+    const W = box.width - 2
+    const H = box.height - 2
+    const v = fitView(gx.bounds, W, H)
+    const docs = Object.entries(bundleOf('example').files).filter(([p]) => p.startsWith('search/docs-')).flatMap(([, f]) => (f as { docs: unknown[][] }).docs)
+    const all = gx.x.map((x, i) => ({ i, x, y: gx.y[i] })).filter((p) => p.x >= 0)
+      .map((p) => ({ i: p.i, sx: dequantise(p.x, gx.bounds.x0, gx.bounds.x1, gx.scale) * v.k + v.tx, sy: dequantise(p.y, gx.bounds.y0, gx.bounds.y1, gx.scale) * v.k + v.ty }))
+    // a dot with a ThaiJO link, clear of the zoom buttons, with no other dot close enough to be picked instead
+    const spot = all.find((p) => docs[p.i]?.[7] && p.sx > 30 && p.sx < W - 90 && p.sy > 30 && p.sy < H - 30 && box.y + p.sy > 10 && box.y + p.sy < 700 && all.every((q) => q.i === p.i || Math.hypot(q.sx - p.sx, q.sy - p.sy) > 14))
+    if (!spot) throw new Error('no isolated galaxy dot in the fixture')
+    await page.mouse.click(box.x + 1 + spot.sx, box.y + 1 + spot.sy)
+    await expect(page.locator('.gx-title')).toBeVisible()
+    await expect(page.locator('.gx-card a.btn')).toHaveAttribute('href', /tci-thaijo\.org/)
+    await expect(page.locator('.gx-card .topic-link')).toBeVisible()
+    await page.getByRole('button', { name: 'ล้างการเลือก' }).click()
+    await expect(page.locator('.gx-card-empty')).toBeVisible()
+    // keyboard: the sheet takes focus, zooms and picks the dot in the middle (or says there is none)
+    await stage.focus()
+    await page.keyboard.press('+')
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.gx-title').or(page.locator('.gx-card-empty'))).toBeVisible()
+    await page.keyboard.press('0')
+    await page.getByLabel('ตั้งแต่ปี').selectOption('2020')
+    await expect(page).toHaveURL(/from=2020/)
+    await page.getByRole('combobox', { name: /สาขาวิชา/ }).selectOption({ index: 1 })
+    await expect(page).toHaveURL(/g=F\d+/)
+    await expect(page.locator('.gx-count')).toContainText('เน้น')
+    await page.getByRole('tab', { name: 'ตาราง' }).click()
+    await expect(page.getByRole('table')).toBeVisible()
+    await expect(page.getByRole('table').locator('.topic-link').first()).toBeVisible()
+    await expect(page).toHaveURL(/view=table/)
+    await page.getByRole('tab', { name: 'แผนภูมิ' }).click()
+    await expect(canvas).toBeVisible()
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps', `/search?q=${encodeURIComponent('ผู้สูงอายุ')}`]
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps', `/search?q=${encodeURIComponent('ผู้สูงอายุ')}`, '/galaxy']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
@@ -448,4 +497,20 @@ test('a module the pipeline skipped says why', async ({ page }) => {
   await page.goto(`${EMPTY}#/global`)
   await expect(page.locator('h1')).toHaveText('ไทยเทียบโลก')
   await expect(page.locator('.empty-state')).toContainText('ATLAS_OFFLINE')
+})
+
+test('the article galaxy explains itself on a release without it and in the offline file', async ({ page }, info) => {
+  await page.goto(`${EMPTY}#/galaxy`)
+  await expect(page.locator('h1')).toHaveText('กาแล็กซีบทความ')
+  await expect(page.locator('.empty-state')).toContainText('รอบข้อมูลนี้ไม่มีส่วนนี้')
+  const template = readFileSync('dist/offline-template.html', 'utf8')
+  const slot = '<script type="application/json" id="atlas-data">null</script>'
+  const bundle = bundleOf('example')
+  delete bundle.files['galaxy.json']   // export.offline_exclude
+  const file = info.outputPath('atlas-offline-nogalaxy.html')
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
+  await page.goto(`${pathToFileURL(file).href}#/galaxy`)
+  await expect(page.locator('h1')).toHaveText('กาแล็กซีบทความ')
+  await expect(page.locator('.empty-state')).toContainText('ฉบับออฟไลน์ไม่มีส่วนนี้')
 })

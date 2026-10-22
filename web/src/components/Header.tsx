@@ -39,6 +39,7 @@ const GROUPS: readonly { id: string; key: StrKey; items: readonly Item[] }[] = [
     key: 'nav.group.research',
     items: [
       { to: '/search', key: 'nav.search' },
+      { to: '/galaxy', key: 'nav.galaxy' },
       { to: '/gaps', key: 'nav.gaps' },
       { to: '/match', key: 'nav.match' },
       { to: '/compare', key: 'nav.compare' },
