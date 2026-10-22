@@ -580,6 +580,13 @@ def test_offline_edition_leaves_out_the_match_index(two_releases, tmp_path):
     files = json.loads(re.search(r'id="atlas-data">(.*?)</script>', html, re.S).group(1))["files"]
     assert "match.json" not in files and "journals.json" in files and "diff.json" in files
     assert (site / "data" / "2026Q2" / "match.json").exists()          # the web edition keeps it
+    old_cfg = {**cfg, "pipeline": {**cfg["pipeline"], "release": "2026Q2"},
+               "export": {**cfg["export"], "offline_exclude": ["match.json"]}}     # a config.yaml from before P4
+    publish(old_cfg, site=site)
+    html = (site / "atlas-offline.html").read_text(encoding="utf-8")
+    files = json.loads(re.search(r'id="atlas-data">(.*?)</script>', html, re.S).group(1))["files"]
+    assert not [f for f in files if f.startswith("search/") or f == "galaxy.json"] and "match.json" not in files
+    assert (site / "data" / "2026Q2" / "search" / "meta.json").exists()
 
 
 def test_validate_checks_the_merge_links_of_the_diff(two_releases, tmp_path):

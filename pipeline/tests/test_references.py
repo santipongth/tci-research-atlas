@@ -144,3 +144,11 @@ def test_references_file_has_no_author_or_abstract_field():
     names = _field_names(C.ReferencesFile)
     assert {"journals", "top_articles", "title"} <= names
     assert not [n for n in names if "author" in n or "abstract" in n or n in ("text", "name")]
+
+
+def test_title_matching_in_chunks_gives_the_same_matches():
+    refs = pd.DataFrame([_ref("a5", f"A. (2016). {EN_TITLE}. J."), _ref("a1", f"C. (2016). {EN_TITLE}. J."),
+                         _ref("a2", "Author. (2015). การศึกษาความพึงพอใจของผู้ใช้บริการห้องสมุด. วารสาร, 2(1)."),
+                         _ref("a5", "x. " + TH_TITLE + ". y")])
+    whole = match_references(_articles(), refs, 15)
+    assert len(whole) == 3 and match_references(_articles(), refs, 15, chunk=1).equals(whole)

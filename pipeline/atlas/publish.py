@@ -40,6 +40,8 @@ from atlas.state import _checked, default_release, is_newest, known_releases
 from atlas.validate import render_report, validate_release
 
 OFFLINE_TEMPLATE, OFFLINE_HTML = "offline-template.html", "atlas-offline.html"
+ALWAYS_OFFLINE_EXCLUDE = ("search", "galaxy.json")   # P4: tens–hundreds of MB at full scale — never inlined, whatever
+                                                    # an older config.yaml lists in export.offline_exclude
 _DATA_TAG = re.compile(r'(<script type="application/json" id="atlas-data">)(.*?)(</script>)', re.S)
 
 
@@ -197,7 +199,7 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
             _mark_feeds(site / "data" / "latest.json")
     elif template.exists():
         (site / "data" / "latest.json").write_text(json.dumps(latest_json, ensure_ascii=False), encoding="utf-8")
-        exclude = tuple(cfg["export"]["offline_exclude"]) if cfg else ()
+        exclude = tuple(dict.fromkeys([*(cfg["export"]["offline_exclude"] if cfg else ()), *ALWAYS_OFFLINE_EXCLUDE]))
         html = inject_offline(template.read_text(encoding="utf-8"),
                               offline_bundle(release_dir, offline_latest, exclude))
         offline = site / OFFLINE_HTML

@@ -66,7 +66,20 @@ def counted_references(refs: pd.DataFrame) -> pd.DataFrame:
     return refs[keep]
 
 
-def match_references(articles: pd.DataFrame, refs: pd.DataFrame, min_title_chars: int) -> pd.DataFrame:
+def _title_hits(rest: pd.DataFrame, keys: pd.DataFrame, min_title_chars: int) -> pd.DataFrame:
+    """(ref, cited_id) for one chunk of references: segments whose normalised key is a unique corpus title."""
+    seg = pd.DataFrame({"ref": rest["ref"].to_numpy(),
+                        "segment": rest["text"].fillna("").astype(str).str.split(SEGMENT_SPLIT, regex=True).to_numpy()})
+    seg = seg.explode("segment").dropna(subset=["segment"])
+    seg = seg[seg["segment"].str.len() >= min_title_chars]          # a key is never longer than its text
+    uniq = pd.Series(seg["segment"].unique())
+    key_of = pd.Series(title_keys(uniq).to_numpy(), index=uniq.to_numpy())
+    seg = seg.assign(key=seg["segment"].map(key_of).fillna("").astype(str))     # no segment left → empty, not float
+    return seg[seg["key"].str.len() >= min_title_chars].merge(keys, on="key")[["ref", "cited_id"]].drop_duplicates()
+
+
+def match_references(articles: pd.DataFrame, refs: pd.DataFrame, min_title_chars: int,
+                     chunk: int = 250_000) -> pd.DataFrame:
     """(citing_id, cited_id, method) — one row per citing article × cited corpus article (DOI first, else title).
 
     `articles`: article_id, doi, title_th, title_en; `refs`: article_id, text (+ self_citation, translated)."""
@@ -89,14 +102,8 @@ def match_references(articles: pd.DataFrame, refs: pd.DataFrame, min_title_chars
     keys = keys[keys["key"].str.len() >= min_title_chars].drop_duplicates()
     keys = keys[~keys["key"].duplicated(keep=False)]
     rest = refs[~refs["ref"].isin(set(by_doi["ref"]))]
-    seg = pd.DataFrame({"ref": rest["ref"].to_numpy(),
-                        "segment": rest["text"].fillna("").astype(str).str.split(SEGMENT_SPLIT, regex=True).to_numpy()})
-    seg = seg.explode("segment").dropna(subset=["segment"])
-    seg = seg[seg["segment"].str.len() >= min_title_chars]          # a key is never longer than its text
-    uniq = pd.Series(seg["segment"].unique())
-    key_of = pd.Series(title_keys(uniq).to_numpy(), index=uniq.to_numpy())
-    seg = seg.assign(key=seg["segment"].map(key_of).fillna("").astype(str))     # no segment left → empty, not float
-    hits = seg[seg["key"].str.len() >= min_title_chars].merge(keys, on="key")[["ref", "cited_id"]].drop_duplicates()
+    parts = [_title_hits(rest.iloc[i:i + chunk], keys, min_title_chars) for i in range(0, len(rest), chunk)]
+    hits = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["ref", "cited_id"])
     hits = hits[hits.groupby("ref")["cited_id"].transform("nunique") == 1]   # two different articles: ambiguous
     by_title = hits.assign(method="title")
 
