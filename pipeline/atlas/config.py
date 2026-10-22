@@ -479,6 +479,17 @@ class SearchCfg(_Strict):
     max_results: int = Field(500, ge=1)                  # results the web lists at most
 
 
+class KwTrendsCfg(_Strict):
+    """R7 author-keyword trends (TH and EN separately, normalised like atlas.keywords) + TH↔EN glossary from
+    keyword lists paired by position (P4)."""
+    enabled: bool = True
+    max_keywords: int = Field(3000, ge=1)                # keywords published (by total count over the series years)
+    min_count: int = Field(5, ge=1)                      # fewer articles over the series years → not published
+    glossary_per_topic: int = Field(15, ge=0)            # TH↔EN pairs listed per topic (topics/<id>.json glossary)
+    glossary_min_pairs: int = Field(2, ge=1)             # a pair seen in fewer articles is not listed
+    glossary_max: int = Field(2000, ge=0)                # pairs in kwtrends.json glossary (whole corpus)
+
+
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
@@ -610,6 +621,7 @@ class AtlasConfig(_Strict):
     benchmark: BenchmarkCfg = Field(default_factory=BenchmarkCfg)
     references: ReferencesCfg = Field(default_factory=ReferencesCfg)
     search: SearchCfg = Field(default_factory=SearchCfg)
+    kwtrends: KwTrendsCfg = Field(default_factory=KwTrendsCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)

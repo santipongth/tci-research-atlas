@@ -36,7 +36,7 @@ from atlas.export_exec import (
     topic_institutions,
     topic_sdg_numbers,
 )
-from atlas.export_research import references_file, search_files, topic_citations
+from atlas.export_research import kwtrends_file, references_file, search_files, topic_citations
 from atlas.io_utils import read_table
 from atlas.label import representative_indices
 from atlas.lineage import topic_code
@@ -260,6 +260,11 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     search_out, search_skipped = search_files(cfg, work, code)     # search/* + galaxy.json, aligned by doc ordinal
     files.update(search_out)
     skipped.update(search_skipped)
+    kw_model, why, glossary_of = kwtrends_file(cfg, work, code)  # glossary_of None = not published (topics: null)
+    if kw_model is not None:
+        files["kwtrends.json"] = kw_model
+    elif why:
+        skipped["kwtrends"] = why
     cited_topic = topic_citations(work)        # None unless internal citation is published
 
     # ---- topics/<id>.json
@@ -302,7 +307,8 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
             institutions=institutions.get(t, []),
             keywords=[k for k in str(lb["keywords"] or "").split("; ") if k] if lb is not None else [],
             neighbors=[code[int(o)] for o in nb["o"] if int(o) in code], narrative=narratives.get(t),
-            cited_in_tci=cited_topic.get(t, (0, 0))[0] if cited_topic is not None else None)
+            cited_in_tci=cited_topic.get(t, (0, 0))[0] if cited_topic is not None else None,
+            glossary=glossary_of.get(t, []) if glossary_of is not None else None)
 
     # ---- taxonomy.json (groups = map hubs)
     gsize = info.assign(g=info["topic_id"].map(groups["group_id"])).groupby("g")["size"].agg(["sum", "count"])
@@ -395,7 +401,8 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     if "institutions.json" in files:
         modules.append("institution_detail")
     modules += [m for m in ("references",) if f"{m}.json" in files]
-    modules += [m for m, f in (("search", "search/meta.json"), ("galaxy", "galaxy.json")) if f in files]
+    modules += [m for m, f in (("search", "search/meta.json"), ("galaxy", "galaxy.json"),
+                               ("kwtrends", "kwtrends.json")) if f in files]
     if (mf := methods_file(cfg, work, code)) is not None:
         files["methods.json"] = mf
         modules.append("methods")

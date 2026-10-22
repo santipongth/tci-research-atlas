@@ -1022,6 +1022,32 @@
       "title": "GlobalFile",
       "type": "object"
     },
+    "GlossaryItem": {
+      "additionalProperties": false,
+      "description": "One TH↔EN author-keyword pair (R7): keyword lists of equal length paired by position (atlas.kwtrends).",
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "n": {
+          "description": "articles whose keyword lists pair them",
+          "title": "N",
+          "type": "integer"
+        },
+        "th": {
+          "title": "Th",
+          "type": "string"
+        }
+      },
+      "required": [
+        "th",
+        "en",
+        "n"
+      ],
+      "title": "GlossaryItem",
+      "type": "object"
+    },
     "GoalStat": {
       "additionalProperties": false,
       "properties": {
@@ -2069,6 +2095,46 @@
       "title": "JournalsFile",
       "type": "object"
     },
+    "KeywordTrend": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "description": "articles per year, aligned with years",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Counts",
+          "type": "array"
+        },
+        "lang": {
+          "description": "the author keyword list it came from",
+          "enum": [
+            "th",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "n": {
+          "description": "articles with the keyword over years",
+          "title": "N",
+          "type": "integer"
+        },
+        "term": {
+          "description": "most frequent written form of the normalised keyword",
+          "title": "Term",
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "lang",
+        "n",
+        "counts"
+      ],
+      "title": "KeywordTrend",
+      "type": "object"
+    },
     "KeywordsFile": {
       "additionalProperties": false,
       "properties": {
@@ -2206,6 +2272,90 @@
         "pct_keywords"
       ],
       "title": "Kpis",
+      "type": "object"
+    },
+    "KwTrendsFile": {
+      "additionalProperties": false,
+      "description": "kwtrends.json — author-keyword trends (R7) over the series years + the corpus TH↔EN glossary.\nShare of a keyword in a year = counts[i] / totals[i] (or / totals_th[i], totals_en[i] for its language).",
+      "properties": {
+        "glossary": {
+          "description": "whole-corpus TH↔EN pairs, by n descending",
+          "items": {
+            "$ref": "#/definitions/GlossaryItem"
+          },
+          "title": "Glossary",
+          "type": "array"
+        },
+        "glossary_min_pairs": {
+          "title": "Glossary Min Pairs",
+          "type": "integer"
+        },
+        "keywords": {
+          "description": "by n descending",
+          "items": {
+            "$ref": "#/definitions/KeywordTrend"
+          },
+          "title": "Keywords",
+          "type": "array"
+        },
+        "max_keywords": {
+          "title": "Max Keywords",
+          "type": "integer"
+        },
+        "min_count": {
+          "title": "Min Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "default": "2.3.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "totals": {
+          "description": "articles per year (= series.json corpus_total)",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Totals",
+          "type": "array"
+        },
+        "totals_en": {
+          "description": "articles per year with ≥ 1 English author keyword",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Totals En",
+          "type": "array"
+        },
+        "totals_th": {
+          "description": "articles per year with ≥ 1 Thai author keyword",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Totals Th",
+          "type": "array"
+        },
+        "years": {
+          "description": "the series years (series.json years; trimmed recent years left out)",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Years",
+          "type": "array"
+        }
+      },
+      "required": [
+        "years",
+        "totals",
+        "totals_th",
+        "totals_en",
+        "min_count",
+        "max_keywords",
+        "glossary_min_pairs",
+        "keywords",
+        "glossary"
+      ],
+      "title": "KwTrendsFile",
       "type": "object"
     },
     "LabelStats": {
@@ -4367,6 +4517,22 @@
           "description": "citations this topic's articles received from other corpus articles (references.json internal); null = not published",
           "title": "Cited In Tci"
         },
+        "glossary": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/definitions/GlossaryItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "top TH↔EN keyword pairs of the topic (kwtrends module); null = not published, [] = none found",
+          "title": "Glossary"
+        },
         "id": {
           "pattern": "^T\\d{6}$",
           "title": "Id",
@@ -5033,6 +5199,9 @@
     },
     "keywords": {
       "$ref": "#/definitions/KeywordsFile"
+    },
+    "kwtrends": {
+      "$ref": "#/definitions/KwTrendsFile"
     },
     "latest": {
       "$ref": "#/definitions/Latest"

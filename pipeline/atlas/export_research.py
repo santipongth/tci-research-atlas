@@ -6,6 +6,8 @@ references.json    D7 reference practice per journal + R12 citations inside the 
 search/meta.json, search/vocab.json, search/idx-<NNN>.json, search/docs-<NNN>.json
                    R2 sharded article search (atlas.search_index) — every index shard is written, even an empty one
 galaxy.json        R8 article points, aligned with the search doc ordinals
+kwtrends.json      R7 author-keyword trends over the series years + corpus TH↔EN glossary (atlas.kwtrends);
+                   the per-topic glossary goes into topics/<id>.json
 Article metadata published here: id, titles, year, journal name, topic, DOI, ThaiJO URL, "cited in TCI" count —
 never an author name or an abstract.
 """
@@ -209,3 +211,35 @@ def search_files(cfg: dict, work: Path, code: dict[int, str]) -> tuple[dict[str,
         x=pts["x"].astype(int).tolist(), y=pts["y"].astype(int).tolist(),
         t=[tindex.get(code.get(int(t), ""), -1) for t in pts["topic_id"]], yr=pts["year"].astype(int).tolist())
     return files, skipped
+
+
+# ---------------------------------------------------------------------- keyword trends + glossary (R7)
+def kwtrends_file(cfg: dict, work: Path, code: dict[int, str]) -> tuple[
+        C.KwTrendsFile | None, str | None, dict[int, list[C.GlossaryItem]] | None]:
+    """(kwtrends.json, None, {topic id: glossary}) — or (None, reason, None) when the step skipped the module, or
+    (None, None, None) when the step did not run. Topics without pairs are absent from the dict (→ [])."""
+    meta = _meta(work / "21_kwtrends_meta.json")
+    if not meta:
+        return None, None, None
+    if not meta.get("published"):
+        return None, str(meta.get("skipped") or "kwtrends module not published"), None
+    kcfg = cfg["kwtrends"]
+    years = [int(y) for y in meta["years"]]
+    kw = read_table(work / "21_kw_years.parquet")
+    keywords = []
+    for _, g in kw.sort_values(["rank", "year"], kind="stable").groupby("rank", sort=True):
+        counts = g.set_index("year")["count"].reindex(years, fill_value=0).astype(int).tolist()
+        keywords.append(C.KeywordTrend(term=str(g["term"].iloc[0]), lang=str(g["lang"].iloc[0]), n=sum(counts),
+                                       counts=counts))
+    gl = read_table(work / "21_glossary.parquet").sort_values(["scope", "topic_id", "rank"], kind="stable")
+
+    def items(rows: pd.DataFrame) -> list[C.GlossaryItem]:
+        return [C.GlossaryItem(th=str(r.th), en=str(r.en), n=int(r.n)) for r in rows.itertuples()]
+
+    per_topic = {int(t): items(g) for t, g in gl[gl["scope"] == "topic"].groupby("topic_id") if int(t) in code}
+    model = C.KwTrendsFile(
+        years=years, totals=[int(v) for v in meta["totals"]], totals_th=[int(v) for v in meta["totals_th"]],
+        totals_en=[int(v) for v in meta["totals_en"]], min_count=int(kcfg["min_count"]),
+        max_keywords=int(kcfg["max_keywords"]), glossary_min_pairs=int(kcfg["glossary_min_pairs"]),
+        keywords=keywords, glossary=items(gl[gl["scope"] == "all"]))
+    return model, None, per_topic

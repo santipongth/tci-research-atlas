@@ -5,7 +5,7 @@ Pydantic models are the source of truth → JSON Schema (`atlas schema`) → Typ
 Files: manifest.json, overview.json, taxonomy.json, topics.json, topics/<id>.json, series.json,
 edges.json, keywords.json; P2 (2.1): journals.json, journals/<id>.json, methods.json, diff.json, match.json; P3 (2.2):
 institutions.json, institutions/<id>.json, regions.json, sdg.json, global.json, gaps.json; P4 (2.3): references.json,
-search/meta.json, search/vocab.json, search/idx-<NNN>.json, search/docs-<NNN>.json, galaxy.json —
+search/meta.json, search/vocab.json, search/idx-<NNN>.json, search/docs-<NNN>.json, galaxy.json, kwtrends.json —
 optional modules listed in manifest.modules. output/data/latest.json points at the newest release.
 Strict JSON: NaN/Infinity are validation errors. Colours are design-token keys (cat-01…), never hex.
 Uncertainty bounds keep level-agnostic names (share_growth_lo/_hi); the level is manifest.ci_level.
@@ -303,6 +303,13 @@ class Narrative(_Model):
     source: Literal["llm", "template"]
 
 
+class GlossaryItem(_Model):
+    """One TH↔EN author-keyword pair (R7): keyword lists of equal length paired by position (atlas.kwtrends)."""
+    th: str
+    en: str
+    n: int = Field(description="articles whose keyword lists pair them")
+
+
 class TopicDetail(_Model):
     schema_version: str = SCHEMA_VERSION
     id: str = Field(pattern=TOPIC_ID)
@@ -314,6 +321,8 @@ class TopicDetail(_Model):
     narrative: Narrative | None = None
     cited_in_tci: int | None = Field(None, description="citations this topic's articles received from other corpus "
                                                        "articles (references.json internal); null = not published")
+    glossary: list[GlossaryItem] | None = Field(None, description="top TH↔EN keyword pairs of the topic (kwtrends "
+                                                                  "module); null = not published, [] = none found")
 
 
 class EmergingKeyword(_Model):
@@ -981,8 +990,40 @@ class GalaxyFile(_Model):
         return self
 
 
+class KeywordTrend(_Model):
+    term: str = Field(description="most frequent written form of the normalised keyword")
+    lang: Literal["th", "en"] = Field(description="the author keyword list it came from")
+    n: int = Field(description="articles with the keyword over years")
+    counts: list[int] = Field(description="articles per year, aligned with years")
+
+
+class KwTrendsFile(_Model):
+    """kwtrends.json — author-keyword trends (R7) over the series years + the corpus TH↔EN glossary.
+    Share of a keyword in a year = counts[i] / totals[i] (or / totals_th[i], totals_en[i] for its language)."""
+    schema_version: str = SCHEMA_VERSION
+    years: list[int] = Field(description="the series years (series.json years; trimmed recent years left out)")
+    totals: list[int] = Field(description="articles per year (= series.json corpus_total)")
+    totals_th: list[int] = Field(description="articles per year with ≥ 1 Thai author keyword")
+    totals_en: list[int] = Field(description="articles per year with ≥ 1 English author keyword")
+    min_count: int
+    max_keywords: int
+    glossary_min_pairs: int
+    keywords: list[KeywordTrend] = Field(description="by n descending")
+    glossary: list[GlossaryItem] = Field(description="whole-corpus TH↔EN pairs, by n descending")
+
+    @model_validator(mode="after")
+    def _aligned(self):
+        n = len(self.years)
+        if not len(self.totals) == len(self.totals_th) == len(self.totals_en) == n:
+            raise ValueError("kwtrends: one total per year")
+        if any(len(k.counts) != n for k in self.keywords):
+            raise ValueError("kwtrends: keyword counts need one value per year")
+        return self
+
+
 P4_FILE_MODELS: dict[str, type[_Model]] = {"references.json": ReferencesFile, "search/meta.json": SearchMeta,
-                                           "search/vocab.json": SearchVocab, "galaxy.json": GalaxyFile}
+                                           "search/vocab.json": SearchVocab, "galaxy.json": GalaxyFile,
+                                           "kwtrends.json": KwTrendsFile}
 SEARCH_INDEX_PATH = re.compile(r"search/idx-\d{3,}\.json")
 SEARCH_DOCS_PATH = re.compile(r"search/docs-\d{3,}\.json")
 
@@ -1042,7 +1083,8 @@ def contract_json_schema() -> dict:
              "diff": DiffFile, "match": MatchIndex, "institutions": InstitutionsFile,
              "institution_detail": InstitutionDetail, "regions": RegionsFile, "sdg": SdgFile, "global": GlobalFile,
              "gaps": GapsFile, "references": ReferencesFile, "search_meta": SearchMeta, "search_vocab": SearchVocab,
-             "search_index": SearchIndexShard, "search_docs": SearchDocShard, "galaxy": GalaxyFile}
+             "search_index": SearchIndexShard, "search_docs": SearchDocShard, "galaxy": GalaxyFile,
+             "kwtrends": KwTrendsFile}
     _, top = models_json_schema([(m, "validation") for m in files.values()], ref_template="#/definitions/{model}")
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",

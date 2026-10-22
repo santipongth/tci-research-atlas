@@ -327,10 +327,60 @@ export type Term = string;
 export type Topic10 = string | null;
 export type Keywords = EmergingKeyword[];
 export type SchemaVersion9 = string;
+export type En3 = string;
+/**
+ * articles whose keyword lists pair them
+ */
+export type N2 = number;
+export type Th1 = string;
+/**
+ * whole-corpus TH↔EN pairs, by n descending
+ */
+export type Glossary = GlossaryItem[];
+export type GlossaryMinPairs = number;
+/**
+ * articles per year, aligned with years
+ */
+export type Counts = number[];
+/**
+ * the author keyword list it came from
+ */
+export type Lang = "th" | "en";
+/**
+ * articles with the keyword over years
+ */
+export type N3 = number;
+/**
+ * most frequent written form of the normalised keyword
+ */
+export type Term1 = string;
+/**
+ * by n descending
+ */
+export type Keywords1 = KeywordTrend[];
+export type MaxKeywords = number;
+export type MinCount = number;
+export type SchemaVersion10 = string;
+/**
+ * articles per year (= series.json corpus_total)
+ */
+export type Totals = number[];
+/**
+ * articles per year with ≥ 1 English author keyword
+ */
+export type TotalsEn = number[];
+/**
+ * articles per year with ≥ 1 Thai author keyword
+ */
+export type TotalsTh = number[];
+/**
+ * the series years (series.json years; trimmed recent years left out)
+ */
+export type Years2 = number[];
 export type GeneratedAt = string;
 export type Path1 = string;
 export type Release1 = string;
-export type SchemaVersion10 = string;
+export type SchemaVersion11 = string;
 export type AsOfYear = number | null;
 /**
  * level of every *_lo/*_hi interval in this release
@@ -352,7 +402,7 @@ export type IngestErrors = number | null;
 /**
  * topics named from author keywords (provider off or LLM fallback)
  */
-export type Keywords1 = number;
+export type Keywords2 = number;
 /**
  * topics named by the LLM (incl. cached names)
  */
@@ -390,7 +440,7 @@ export type PreviousRelease1 = string | null;
  * release tag, e.g. 2026Q4
  */
 export type Release2 = string;
-export type SchemaVersion11 = string;
+export type SchemaVersion12 = string;
 export type TaxonomyVersion = string | null;
 /**
  * years after last_complete_year
@@ -409,33 +459,33 @@ export type Journals1 = MatchJournal[];
 export type MaxTerms = number;
 export type MinQueryChars = number;
 export type MinSimilarity = number;
-export type SchemaVersion12 = string;
+export type SchemaVersion13 = string;
 export type Id10 = string;
 export type Terms = number[];
 export type Weights = number[];
 export type Topics8 = MatchTopic[];
 export type Articles8 = number;
 export type Articles9 = number[];
-export type Years2 = number[];
+export type Years3 = number[];
 export type Corpus = MethodShare[];
 export type LexiconVersion = string;
-export type En3 = string;
+export type En4 = string;
 export type Key3 = string;
-export type Th1 = string;
+export type Th2 = string;
 export type Methods1 = MethodInfo[];
 export type MinArticles3 = number;
 export type MonocultureMethods = string[];
 export type MonocultureMinShare = number;
 export type MonocultureShare = number | null;
-export type SchemaVersion13 = string;
+export type SchemaVersion14 = string;
 export type Articles10 = number;
 export type Coverage = number;
 export type Methods2 = MethodShare[];
 export type Monoculture = boolean;
 export type MonocultureShare1 = number | null;
-export type En4 = string;
+export type En5 = string;
 export type Source2 = "llm" | "template";
-export type Th2 = string;
+export type Th3 = string;
 export type SampleSizeMedian = number | null;
 export type SampleSizeN = number;
 export type SampleSizeQ1 = number | null;
@@ -490,7 +540,7 @@ export type Ytd = number;
 export type PreviousRelease2 = string | null;
 export type Release3 = string;
 export type RetiredTopics = string[];
-export type SchemaVersion14 = string;
+export type SchemaVersion15 = string;
 /**
  * articles in the window
  */
@@ -502,7 +552,7 @@ export type ArticlesWithRefs = number;
 export type Coverage1 = number;
 export type CitedArticles = number;
 export type CitingArticles = number;
-export type N2 = number;
+export type N4 = number;
 /**
  * citing topic
  */
@@ -584,7 +634,7 @@ export type MinCoverage = number;
 export type MinJournalArticles = number;
 export type RecentYears = number;
 export type RefsCounted = number;
-export type SchemaVersion15 = string;
+export type SchemaVersion16 = string;
 export type ArticlesLocated = number;
 export type ArticlesWithOrg1 = number;
 export type Coverage2 = number | null;
@@ -607,32 +657,32 @@ export type Articles16 = number;
 export type Key4 = "bangkok" | "central" | "northeast" | "north" | "south";
 export type Share3 = number | null;
 export type Regions = RegionStat[];
-export type SchemaVersion16 = string;
-export type En5 = string;
+export type SchemaVersion17 = string;
+export type En6 = string;
 export type Key5 = string;
-export type Th3 = string;
+export type Th4 = string;
 export type Frameworks = FrameworkInfo[];
 export type ArticlesRecent4 = number;
-export type En6 = string;
+export type En7 = string;
 export type Framework = string;
 export type Id12 = string;
 export type Number = number;
 export type ShareRatio1 = number | null;
 export type ShareRecent1 = number;
-export type Th4 = string;
+export type Th5 = string;
 export type Topics12 = string[];
 export type Goals = GoalStat[];
 export type Method1 = "embedding" | "lexical";
-export type SchemaVersion17 = string;
+export type SchemaVersion18 = string;
 export type Version = string;
 export type Docs1 = [string, string, string, number, number, string | null, string | null, string | null, number][];
-export type SchemaVersion18 = string;
+export type SchemaVersion19 = string;
 export type Shard = number;
 /**
  * ordinal of the first row
  */
 export type Start1 = number;
-export type SchemaVersion19 = string;
+export type SchemaVersion20 = string;
 export type Shard1 = number;
 export type DocShards = number;
 /**
@@ -672,7 +722,7 @@ export type NPostings = number;
  * tokens in search/vocab.json
  */
 export type NTokens = number;
-export type SchemaVersion20 = string;
+export type SchemaVersion21 = string;
 /**
  * dropped from the index and silently from queries
  */
@@ -681,28 +731,28 @@ export type TokenizerVersion = number;
 /**
  * publication years present, ascending
  */
-export type Years3 = number[];
+export type Years4 = number[];
 export type Df = number[];
-export type SchemaVersion21 = string;
+export type SchemaVersion22 = string;
 export type Tokens = string[];
 export type CorpusTotal = number[];
-export type SchemaVersion22 = string;
-export type Years4 = number[];
+export type SchemaVersion23 = string;
+export type Years5 = number[];
 export type Color = string;
-export type En7 = string;
+export type En8 = string;
 export type Id13 = string;
 export type NTopics = number;
 export type R = number;
 export type Size = number;
-export type Th5 = string;
+export type Th6 = string;
 export type X2 = number;
 export type Y2 = number;
 export type Groups1 = GroupInfo[];
 export type HoldoutAccuracyField = number | null;
 export type HoldoutAccuracySubfield = number | null;
-export type SchemaVersion23 = string;
+export type SchemaVersion24 = string;
 export type Source6 = "openalex" | "agglomerative";
-export type En8 = string;
+export type En9 = string;
 export type Group3 = string;
 export type Id14 = string;
 export type NTopics1 = number;
@@ -723,6 +773,10 @@ export type Articles17 = RepresentativeArticle[];
  * citations this topic's articles received from other corpus articles (references.json internal); null = not published
  */
 export type CitedInTci = number | null;
+/**
+ * top TH↔EN keyword pairs of the topic (kwtrends module); null = not published, [] = none found
+ */
+export type Glossary1 = GlossaryItem[] | null;
 export type Id15 = string;
 export type Count3 = number;
 /**
@@ -732,13 +786,13 @@ export type Id16 = string | null;
 export type Key6 = string;
 export type Institutions4 = CountItem[];
 export type Journals5 = CountItem[];
-export type Keywords2 = string[];
+export type Keywords3 = string[];
 export type Neighbors = string[];
-export type SchemaVersion24 = string;
 export type SchemaVersion25 = string;
+export type SchemaVersion26 = string;
 export type CrossField = boolean;
 export type Description = string;
-export type En9 = string;
+export type En10 = string;
 export type Hi80 = number[];
 export type Hi95 = number[];
 export type Lo80 = number[];
@@ -748,10 +802,10 @@ export type Mean1 = number[];
 export type Model1 = string;
 export type Show = boolean;
 export type SkillVsNaive = number;
-export type Years5 = number[];
+export type Years6 = number[];
 export type Group4 = string;
 export type Id17 = string;
-export type Keywords3 = string[];
+export type Keywords4 = string[];
 export type LabelSource = "llm" | "keywords" | "override" | "reused";
 export type Born = string | null;
 export type Event2 = "new" | "continue" | "split" | "merge";
@@ -790,7 +844,7 @@ export type Status = "EMERGING" | "WATCH" | "HOT" | "DECLINING" | "STABLE" | "LO
 export type Subfield1 = string | null;
 export type SubfieldEn = string;
 export type TaxonomyVote = number | null;
-export type Th6 = string;
+export type Th7 = string;
 export type X3 = number;
 export type Y3 = number;
 export type Topics14 = Topic14[];
@@ -806,6 +860,7 @@ export interface AtlasContract {
   journal_detail?: JournalDetail;
   journals?: JournalsFile;
   keywords?: KeywordsFile;
+  kwtrends?: KwTrendsFile;
   latest?: Latest;
   manifest: Manifest;
   match?: MatchIndex;
@@ -1169,11 +1224,41 @@ export interface EmergingKeyword {
   term: Term;
   topic?: Topic10;
 }
+/**
+ * kwtrends.json — author-keyword trends (R7) over the series years + the corpus TH↔EN glossary.
+ * Share of a keyword in a year = counts[i] / totals[i] (or / totals_th[i], totals_en[i] for its language).
+ */
+export interface KwTrendsFile {
+  glossary: Glossary;
+  glossary_min_pairs: GlossaryMinPairs;
+  keywords: Keywords1;
+  max_keywords: MaxKeywords;
+  min_count: MinCount;
+  schema_version?: SchemaVersion10;
+  totals: Totals;
+  totals_en: TotalsEn;
+  totals_th: TotalsTh;
+  years: Years2;
+}
+/**
+ * One TH↔EN author-keyword pair (R7): keyword lists of equal length paired by position (atlas.kwtrends).
+ */
+export interface GlossaryItem {
+  en: En3;
+  n: N2;
+  th: Th1;
+}
+export interface KeywordTrend {
+  counts: Counts;
+  lang: Lang;
+  n: N3;
+  term: Term1;
+}
 export interface Latest {
   generated_at: GeneratedAt;
   path: Path1;
   release: Release1;
-  schema_version?: SchemaVersion10;
+  schema_version?: SchemaVersion11;
 }
 export interface Manifest {
   as_of_year?: AsOfYear;
@@ -1192,7 +1277,7 @@ export interface Manifest {
   pipeline_version: PipelineVersion;
   previous_release?: PreviousRelease1;
   release: Release2;
-  schema_version?: SchemaVersion11;
+  schema_version?: SchemaVersion12;
   skipped_modules?: SkippedModules;
   taxonomy_version?: TaxonomyVersion;
   trimmed_years?: TrimmedYears;
@@ -1203,7 +1288,7 @@ export interface FileEntry {
   sha256: Sha256;
 }
 export interface LabelStats {
-  keywords: Keywords1;
+  keywords: Keywords2;
   llm: Llm;
   overrides: Overrides;
   provider: Provider;
@@ -1237,7 +1322,7 @@ export interface MatchIndex {
   max_terms: MaxTerms;
   min_query_chars: MinQueryChars;
   min_similarity: MinSimilarity;
-  schema_version?: SchemaVersion12;
+  schema_version?: SchemaVersion13;
   topics: Topics8;
 }
 export interface MatchJournal {
@@ -1260,7 +1345,7 @@ export interface MethodsFile {
   monoculture_methods: MonocultureMethods;
   monoculture_min_share: MonocultureMinShare;
   monoculture_share?: MonocultureShare;
-  schema_version?: SchemaVersion13;
+  schema_version?: SchemaVersion14;
   topics: Topics9;
   window: YearWindow;
   with_methods: WithMethods1;
@@ -1268,15 +1353,15 @@ export interface MethodsFile {
 export interface MethodYears {
   articles: Articles9;
   shares: Shares1;
-  years: Years2;
+  years: Years3;
 }
 export interface Shares1 {
   [k: string]: number[];
 }
 export interface MethodInfo {
-  en: En3;
+  en: En4;
   key: Key3;
-  th: Th1;
+  th: Th2;
 }
 export interface TopicMethods {
   articles: Articles10;
@@ -1293,9 +1378,9 @@ export interface TopicMethods {
   with_methods: WithMethods;
 }
 export interface Narrative {
-  en: En4;
+  en: En5;
   source: Source2;
-  th: Th2;
+  th: Th3;
 }
 export interface Overview {
   brief?: Brief | null;
@@ -1312,7 +1397,7 @@ export interface Overview {
   previous_release?: PreviousRelease2;
   release: Release3;
   retired_topics?: RetiredTopics;
-  schema_version?: SchemaVersion14;
+  schema_version?: SchemaVersion15;
   status_counts: StatusCounts;
 }
 export interface Brief {
@@ -1380,7 +1465,7 @@ export interface ReferencesFile {
   min_journal_articles: MinJournalArticles;
   recent_years: RecentYears;
   refs_counted: RefsCounted;
-  schema_version?: SchemaVersion15;
+  schema_version?: SchemaVersion16;
   window: YearWindow;
 }
 /**
@@ -1398,7 +1483,7 @@ export interface InternalCitations {
   topics: Topics11;
 }
 export interface CitationFlow {
-  n: N2;
+  n: N4;
   source: Source5;
   target: Target;
 }
@@ -1439,7 +1524,7 @@ export interface RegionsFile {
   population_year?: PopulationYear;
   provinces: Provinces1;
   regions: Regions;
-  schema_version?: SchemaVersion16;
+  schema_version?: SchemaVersion17;
   window: YearWindow;
 }
 export interface ProvinceStat {
@@ -1463,23 +1548,23 @@ export interface SdgFile {
   frameworks: Frameworks;
   goals: Goals;
   method: Method1;
-  schema_version?: SchemaVersion17;
+  schema_version?: SchemaVersion18;
   version: Version;
 }
 export interface FrameworkInfo {
-  en: En5;
+  en: En6;
   key: Key5;
-  th: Th3;
+  th: Th4;
 }
 export interface GoalStat {
   articles_recent?: ArticlesRecent4;
-  en: En6;
+  en: En7;
   framework: Framework;
   id: Id12;
   number: Number;
   share_ratio?: ShareRatio1;
   share_recent?: ShareRecent1;
-  th: Th4;
+  th: Th5;
   topics?: Topics12;
 }
 /**
@@ -1487,7 +1572,7 @@ export interface GoalStat {
  */
 export interface SearchDocShard {
   docs: Docs1;
-  schema_version?: SchemaVersion18;
+  schema_version?: SchemaVersion19;
   shard: Shard;
   start: Start1;
 }
@@ -1497,7 +1582,7 @@ export interface SearchDocShard {
  */
 export interface SearchIndexShard {
   postings: Postings;
-  schema_version?: SchemaVersion19;
+  schema_version?: SchemaVersion20;
   shard: Shard1;
 }
 export interface Postings {
@@ -1518,24 +1603,24 @@ export interface SearchMeta {
   n_docs: NDocs;
   n_postings: NPostings;
   n_tokens: NTokens;
-  schema_version?: SchemaVersion20;
+  schema_version?: SchemaVersion21;
   stopwords: Stopwords;
   tokenizer_version: TokenizerVersion;
-  years: Years3;
+  years: Years4;
 }
 /**
  * search/vocab.json — every indexed token (sorted by code point) and its document frequency.
  */
 export interface SearchVocab {
   df: Df;
-  schema_version?: SchemaVersion21;
+  schema_version?: SchemaVersion22;
   tokens: Tokens;
 }
 export interface SeriesFile {
   corpus_total: CorpusTotal;
-  schema_version?: SchemaVersion22;
+  schema_version?: SchemaVersion23;
   topics: Topics13;
-  years: Years4;
+  years: Years5;
 }
 export interface Topics13 {
   [k: string]: number[];
@@ -1544,24 +1629,24 @@ export interface TaxonomyFile {
   groups: Groups1;
   holdout_accuracy_field?: HoldoutAccuracyField;
   holdout_accuracy_subfield?: HoldoutAccuracySubfield;
-  schema_version?: SchemaVersion23;
+  schema_version?: SchemaVersion24;
   source: Source6;
   subfields?: Subfields1;
   version?: Version1;
 }
 export interface GroupInfo {
   color: Color;
-  en: En7;
+  en: En8;
   id: Id13;
   n_topics: NTopics;
   r: R;
   size: Size;
-  th: Th5;
+  th: Th6;
   x: X2;
   y: Y2;
 }
 export interface SubfieldInfo {
-  en: En8;
+  en: En9;
   group: Group3;
   id: Id14;
   n_topics: NTopics1;
@@ -1570,13 +1655,14 @@ export interface SubfieldInfo {
 export interface TopicDetail {
   articles: Articles17;
   cited_in_tci?: CitedInTci;
+  glossary?: Glossary1;
   id: Id15;
   institutions?: Institutions4;
   journals?: Journals5;
-  keywords?: Keywords2;
+  keywords?: Keywords3;
   narrative?: Narrative | null;
   neighbors?: Neighbors;
-  schema_version?: SchemaVersion24;
+  schema_version?: SchemaVersion25;
 }
 export interface RepresentativeArticle {
   article_id: ArticleId1;
@@ -1595,17 +1681,17 @@ export interface CountItem {
   key: Key6;
 }
 export interface TopicsFile {
-  schema_version?: SchemaVersion25;
+  schema_version?: SchemaVersion26;
   topics: Topics14;
 }
 export interface Topic14 {
   cross_field?: CrossField;
   description?: Description;
-  en: En9;
+  en: En10;
   forecast?: TopicForecast | null;
   group: Group4;
   id: Id17;
-  keywords?: Keywords3;
+  keywords?: Keywords4;
   label_source?: LabelSource;
   lineage?: TopicLineage;
   metrics: TopicMetrics;
@@ -1618,7 +1704,7 @@ export interface Topic14 {
   subfield?: Subfield1;
   subfield_en?: SubfieldEn;
   taxonomy_vote?: TaxonomyVote;
-  th: Th6;
+  th: Th7;
   x: X3;
   y: Y3;
 }
@@ -1632,7 +1718,7 @@ export interface TopicForecast {
   model: Model1;
   show: Show;
   skill_vs_naive: SkillVsNaive;
-  years: Years5;
+  years: Years6;
 }
 export interface TopicLineage {
   born?: Born;

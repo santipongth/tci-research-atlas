@@ -17,7 +17,7 @@ from atlas.console import use_utf8_stdio
 
 STEPS = ["ingest", "preprocess", "embed", "cluster", "taxonomy", "label", "series", "emerging", "keywords",
          "forecast", "narrate", "layout", "methods", "journals", "match", "institutions", "sdg", "benchmark", "gaps",
-         "references", "search", "export"]
+         "references", "search", "kwtrends", "export"]
 _FUNCS = {
     "ingest": ("atlas.ingest", "ingest"),
     "preprocess": ("atlas.preprocess", "preprocess"),
@@ -40,6 +40,7 @@ _FUNCS = {
     "gaps": ("atlas.gaps", "gaps"),
     "references": ("atlas.references", "references"),
     "search": ("atlas.search_index", "search"),
+    "kwtrends": ("atlas.kwtrends", "kwtrends"),
     "export": ("atlas.export", "export"),
 }
 

@@ -17,7 +17,7 @@ def test_every_published_file_has_a_model_and_a_schema_entry():
     assert set(props) == {"manifest", "overview", "taxonomy", "topics", "topic_detail", "series", "edges",
                           "keywords", "latest", "journals", "journal_detail", "methods", "diff", "match",
                           "institutions", "institution_detail", "regions", "sdg", "global", "gaps", "references",
-                          "search_meta", "search_vocab", "search_index", "search_docs", "galaxy"}
+                          "search_meta", "search_vocab", "search_index", "search_docs", "galaxy", "kwtrends"}
     assert model_for("topics/T000001.json") is TopicDetail and model_for("overview.json") is FILE_MODELS["overview.json"]
     assert model_for("unknown.json") is None
 
