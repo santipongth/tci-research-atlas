@@ -14,7 +14,7 @@ from atlas.schema.contract import (
 
 
 def test_version_definitions_and_paths():
-    assert SCHEMA_VERSION == "2.2.0"
+    assert tuple(map(int, SCHEMA_VERSION.split("."))) >= (2, 2, 0)          # later minors stay additive
     assert {"institutions", "institution_detail", "regions", "sdg", "global", "gaps"} <= set(
         contract_json_schema()["properties"])
     assert model_for("institutions/nu.json").__name__ == "InstitutionDetail"

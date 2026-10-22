@@ -95,7 +95,7 @@ def match_references(articles: pd.DataFrame, refs: pd.DataFrame, min_title_chars
     seg = seg[seg["segment"].str.len() >= min_title_chars]          # a key is never longer than its text
     uniq = pd.Series(seg["segment"].unique())
     key_of = pd.Series(title_keys(uniq).to_numpy(), index=uniq.to_numpy())
-    seg = seg.assign(key=seg["segment"].map(key_of))
+    seg = seg.assign(key=seg["segment"].map(key_of).fillna("").astype(str))     # no segment left → empty, not float
     hits = seg[seg["key"].str.len() >= min_title_chars].merge(keys, on="key")[["ref", "cited_id"]].drop_duplicates()
     hits = hits[hits.groupby("ref")["cited_id"].transform("nunique") == 1]   # two different articles: ambiguous
     by_title = hits.assign(method="title")

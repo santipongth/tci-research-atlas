@@ -42,4 +42,4 @@ def test_v3_contract_fields():
 def test_committed_schema_is_up_to_date():
     committed = json.loads((REPO / "web" / "src" / "data" / "contract.schema.json").read_text(encoding="utf-8"))
     assert committed == contract_json_schema(), "run: uv run atlas schema && (cd ../web && npm run gen:types)"
-    assert SCHEMA_VERSION == "2.2.0"
+    assert SCHEMA_VERSION == "2.3.0"
