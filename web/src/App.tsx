@@ -25,6 +25,8 @@ const RegionsPage = lazy(() => import('./pages/RegionsPage'))
 const SdgPage = lazy(() => import('./pages/SdgPage'))
 const GlobalPage = lazy(() => import('./pages/GlobalPage'))
 const GapsPage = lazy(() => import('./pages/GapsPage'))
+// The researchers' pages (P4), also on demand.
+const SearchPage = lazy(() => import('./pages/SearchPage'))
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -51,6 +53,7 @@ export default function App() {
         <Route path="sdg" element={<Lazy><SdgPage /></Lazy>} />
         <Route path="global" element={<Lazy><GlobalPage /></Lazy>} />
         <Route path="gaps" element={<Lazy><GapsPage /></Lazy>} />
+        <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="data" element={<DataPage />} />
         <Route path="about" element={<AboutPage />} />

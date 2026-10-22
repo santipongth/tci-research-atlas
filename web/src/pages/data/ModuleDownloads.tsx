@@ -18,6 +18,10 @@ const INFO: Record<ModuleName, StrKey> = {
   sdg: 'data.file.sdg',
   global: 'data.file.global',
   gaps: 'data.file.gaps',
+  references: 'data.file.references',
+  search: 'data.file.search',
+  galaxy: 'data.file.galaxy',
+  kwtrends: 'data.file.kwtrends',
 }
 
 /** Files of the optional modules: direct links on the web; on the offline file, rebuilt from the embedded data. */

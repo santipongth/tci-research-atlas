@@ -1,0 +1,38 @@
+/* P4 researchers' pages: /search. Tokens only (DESIGN.md). */
+@layer components {
+  .srch-form { display: grid; gap: 8px; margin-top: 24px; max-width: 46rem; }
+  .srch-form label { font-weight: 700; }
+  .srch-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+  .srch-row input[type="search"] { flex: 1 1 18rem; min-width: 0; min-height: 52px; padding: 0 14px; border: 2px solid var(--field-border); background: var(--bg); color: var(--ink); font: inherit; font-size: 1.125rem; }
+  .srch-row input[type="search"]::placeholder { color: var(--ink-2); }
+  .srch-row .btn { min-height: 52px; padding-inline: 24px; }
+  .srch-row .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .srch-row .btn-secondary { min-height: 52px; }
+
+  .srch-tip-list { list-style: disc; margin: 12px 0 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 40em; }
+  .srch-try { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-top: 18px; }
+  .srch-try > span { font-weight: 600; }
+  .srch-try a { display: inline-flex; align-items: center; min-height: 32px; }
+
+  .srch-summary { display: grid; gap: 4px; margin-top: 10px; }
+  .srch-count { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .srch-unknown, .srch-partial { margin-top: 6px; padding: 8px 14px; background: var(--surface); box-shadow: inset 1px 0 0 var(--ink); max-width: 46em; }
+  .srch-filters { border: 0; padding: 0; margin-top: 20px; }
+  .srch-filters select { font-weight: 400; max-width: 100%; }
+
+  .srch-x { display: grid; gap: 6px; max-width: 52rem; margin-top: 24px; padding-block: 14px; border-block: 1px solid var(--border-2); }
+  .srch-x-h { font-weight: 700; }
+  .srch-x-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  .srch-order { margin-top: 18px; }
+
+  .srch-list { list-style: none; margin: 8px 0 0; padding: 0; max-width: 52rem; }
+  .srch-hit { display: grid; gap: 2px; padding-block: 16px; border-bottom: 1px solid var(--border-2); }
+  .srch-title { font-size: 1.125rem; font-weight: 600; line-height: 1.55; overflow-wrap: anywhere; }
+  .srch-sub { color: var(--ink-2); font-size: 0.9375rem; overflow-wrap: anywhere; }
+  .srch-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; margin-top: 4px; font-size: 0.9375rem; color: var(--ink-2); }
+  .srch-meta > span { display: inline-flex; align-items: center; min-height: 28px; overflow-wrap: anywhere; }
+  .srch-meta > span + span::before { content: "·"; margin-inline: 10px; color: var(--ink-2); }
+  .srch-meta .topic-link { font-weight: 600; }
+  .srch-cited { margin-left: 0; color: var(--ink); }
+  .srch-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 18px; }
+}

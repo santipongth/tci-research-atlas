@@ -14,10 +14,15 @@ const MODEL: Record<string, string> = {
   'series.json': 'SeriesFile', 'edges.json': 'EdgesFile', 'keywords.json': 'KeywordsFile',
   'journals.json': 'JournalsFile', 'methods.json': 'MethodsFile', 'diff.json': 'DiffFile', 'match.json': 'MatchIndex',
   'institutions.json': 'InstitutionsFile', 'regions.json': 'RegionsFile', 'sdg.json': 'SdgFile', 'global.json': 'GlobalFile', 'gaps.json': 'GapsFile',
+  'references.json': 'ReferencesFile', 'search/meta.json': 'SearchMeta', 'search/vocab.json': 'SearchVocab', 'galaxy.json': 'GalaxyFile', 'kwtrends.json': 'KwTrendsFile',
 }
+const PATTERNS: [RegExp, string][] = [
+  [/^topics\//, 'TopicDetail'], [/^journals\//, 'JournalDetail'], [/^institutions\//, 'InstitutionDetail'],
+  [/^search\/idx-\d{3,}\.json$/, 'SearchIndexShard'], [/^search\/docs-\d{3,}\.json$/, 'SearchDocShard'],
+]
 
 function validate(path: string, value: unknown): string[] {
-  const name = path.startsWith('topics/') ? 'TopicDetail' : path.startsWith('journals/') ? 'JournalDetail' : path.startsWith('institutions/') ? 'InstitutionDetail' : MODEL[path]
+  const name = MODEL[path] ?? PATTERNS.find(([re]) => re.test(path))?.[1]
   if (!name) return [`no contract model for ${path}`]
   let fn = compiled.get(name)
   if (!fn) {

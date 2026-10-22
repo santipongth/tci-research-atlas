@@ -6,14 +6,16 @@
 // cross_field, hidden and shown forecasts, nowcast, lineage new/split/merge, a previous release for Δ, and an empty release.
 // P2 (contract 2.1): journals (registry-named and OJS-path-only, low data, a new journal), journal details, methods,
 // the quarter diff and the match index — the empty release has none of them (pages explain the missing module).
+// P3 (contract 2.2): institutions, regions, SDG/BCG, global benchmark, gaps. P4 (contract 2.3): references, the sharded
+// article search (600 synthetic articles), galaxy points, keyword trends, topic glossaries and cited-in-TCI counts.
 import { createHash } from 'node:crypto'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures')
 const GENERATED_AT = '2026-10-01T00:00:00+00:00'
-const SCHEMA = '2.2.0'
+const SCHEMA = '2.3.0'
 const RELEASE = '2026Q4'
 const PREVIOUS = '2026Q3'
 const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
@@ -695,6 +697,202 @@ function buildExecutives(files) {
   return ['institutions', 'institution_detail', 'regions', 'sdg', 'global', 'gaps']
 }
 
+// ---- P4 researchers' modules (contract 2.3): references, search/*, galaxy, kwtrends, topic glossary + cited_in_tci —
+// synthetic, NOT real data. Search docs are made from word pieces, so their index tokens are known by construction: a Thai
+// piece is one token (the pipeline segments Thai with pythainlp; here the generator is the dictionary), Latin text is cut
+// into word runs. Normalisation, runs, the word filter, the stopwords (read from the pipeline's parity fixture) and
+// FNV-1a sharding are those of web/src/lib/searchTokens.ts = pipeline/atlas/search_index.py.
+const PARITY = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'pipeline', 'tests', 'fixtures', 'search_parity.json'), 'utf8'))
+const STOP = new Set(PARITY.stopwords)
+const INDEX_SHARDS = 8
+const DOCS_PER_SHARD = 200
+const searchNorm = (s) =>
+  [...(s ?? '').normalize('NFC').replace(DECOMPOSED_AM, cp(0x0e33)).toLowerCase()]
+    .map((ch) => {
+      const c = ch.codePointAt(0)
+      return c >= 0x0e50 && c <= 0x0e59 ? String(c - 0x0e50) : ch
+    })
+    .join('')
+const isThaiCp = (c) => (c >= 0x0e01 && c <= 0x0e2e) || (c >= 0x0e30 && c <= 0x0e3a) || (c >= 0x0e40 && c <= 0x0e45) || (c >= 0x0e47 && c <= 0x0e4e)
+const searchRuns = (text) => {
+  const out = []
+  let kind = 0
+  let cur = ''
+  for (const ch of searchNorm(text)) {
+    const c = ch.codePointAt(0)
+    const k = isThaiCp(c) ? 1 : (c < 0x0e00 || c > 0x0e7f) && /^[\p{L}\p{N}]$/u.test(ch) ? 2 : 0
+    if (k !== kind && cur) {
+      out.push(cur)
+      cur = ''
+    }
+    kind = k
+    if (k) cur += ch
+  }
+  if (cur) out.push(cur)
+  return out
+}
+const keepWord = (t) => [...t].length >= 2 && !STOP.has(t) && (!/^\p{Nd}+$/u.test(t) || [...t].length === 4)
+const pieceTokens = (pieces) => pieces.flatMap((p) => searchRuns(p).filter(keepWord))
+const fnv = (s) => {
+  let h = 0x811c9dc5
+  for (const b of Buffer.from(s, 'utf8')) h = Math.imul(h ^ b, 0x01000193) >>> 0
+  return h >>> 0
+}
+const pad3 = (n) => String(n).padStart(3, '0')
+const PLACES = [['เชียงใหม่', 'Chiang Mai'], ['ขอนแก่น', 'Khon Kaen'], ['สงขลา', 'Songkhla'], ['นครราชสีมา', 'Nakhon Ratchasima'], ['ภูเก็ต', 'Phuket']]
+// Thai title patterns as word pieces (K = a Thai keyword of the topic, K2 = the other one, P = a province) and English twins
+const TITLE_TH = [
+  ['ปัจจัย', 'ที่', 'มีผลต่อ', 'K', 'ของ', 'นักศึกษา'],
+  ['การ', 'พัฒนา', 'รูปแบบ', 'K', 'ใน', 'ชุมชน'],
+  ['การ', 'ศึกษา', 'K', 'กับ', 'K2'],
+  ['แนวทาง', 'การ', 'ส่งเสริม', 'K', 'ใน', 'จังหวัด', 'P'],
+  ['ผล', 'ของ', 'K', 'ต่อ', 'คุณภาพชีวิต'],
+  ['การ', 'วิเคราะห์', 'K', 'ใน', 'ประเทศไทย'],
+]
+const TITLE_EN = [
+  (k) => `Factors affecting ${k} among students`,
+  (k) => `Developing a ${k} model in communities`,
+  (k, k2) => `A study of ${k} and ${k2}`,
+  (k, k2, p) => `Guidelines for promoting ${k} in ${p}`,
+  (k) => `Effects of ${k} on quality of life`,
+  (k) => `An analysis of ${k} in Thailand`,
+]
+const OTHER_KW = [['นโยบายสาธารณะ', 'public policy'], ['ภูมิปัญญาท้องถิ่น', 'local wisdom']]
+
+function buildResearchers(files) {
+  const topics = files['topics.json'].topics
+  const series = files['series.json']
+  const journalsSorted = [...JOURNALS].sort()
+  const raw = []
+  let num = 30000
+  const pickYear = (counts) => {
+    let x = rand() * sum(counts)
+    for (let i = 0; i < YEARS.length; i++) if ((x -= counts[i]) < 0) return YEARS[i]
+    return YEARS[YEARS.length - 1]
+  }
+  const make = (topic, th, en, n, counts) => {
+    for (let k = 0; k < n; k++) {
+      const j = Math.floor(rand() * JOURNALS.length)
+      const pattern = (k + raw.length) % TITLE_TH.length
+      const [kth, ken] = [th[k % th.length], en[k % en.length]]
+      const [k2th, k2en] = [th[(k + 1) % th.length], en[(k + 1) % en.length]]
+      const [pth, pen] = PLACES[(k + j) % PLACES.length]
+      const pieces = TITLE_TH[pattern].map((w) => (w === 'K' ? kth : w === 'K2' ? k2th : w === 'P' ? pth : w))
+      const year = pickYear(counts)
+      const id = num++
+      const englishOnly = j === 3 && rand() < 0.5
+      raw.push({
+        article_id: `so02:example${j}:${id}`, j, year, topic,
+        titleTh: englishOnly ? '' : pieces.join(''), thPieces: englishOnly ? [] : pieces,
+        titleEn: TITLE_EN[pattern](ken, k2en, pen), keywordsTh: [kth], keywordsEn: [ken],
+        doi: rand() < 0.7 ? `10.14456/example.${year}.${id}` : null,
+        url: rand() < 0.95 ? `https://so02.tci-thaijo.org/index.php/example${j}/article/view/${id}` : null,
+        cited: rand() < 0.15 ? 1 + Math.floor(rand() * 9) : 0,
+      })
+    }
+  }
+  topics.forEach((t) => make(t.id, t.keywords.slice(0, 2), t.keywords.slice(2, 4), 12, series.topics[t.id]))
+  make(null, OTHER_KW.map((x) => x[0]), OTHER_KW.map((x) => x[1]), 24, series.corpus_total)
+  const docs = [...raw].sort((a, b) => (a.article_id < b.article_id ? -1 : 1)).map((d, ordinal) => ({ ...d, ordinal }))
+
+  // search/*: postings token → ordinals (unique, ascending), delta-encoded, sharded by fnv1a32 % INDEX_SHARDS
+  const postings = new Map()
+  for (const d of docs) {
+    const toks = [...pieceTokens(d.thPieces), ...searchRuns(d.titleEn).filter(keepWord), ...pieceTokens(d.keywordsTh), ...d.keywordsEn.flatMap((k) => searchRuns(k).filter(keepWord))]
+    for (const tok of new Set(toks)) {
+      if ([...tok].length > PARITY.max_token_chars) continue
+      if (!postings.has(tok)) postings.set(tok, [])
+      postings.get(tok).push(d.ordinal)
+    }
+  }
+  const vocab = [...postings.keys()].sort()
+  const shards = Array.from({ length: INDEX_SHARDS }, () => ({}))
+  for (const tok of vocab) {
+    const ords = postings.get(tok)
+    shards[fnv(tok) % INDEX_SHARDS][tok] = ords.map((o, i) => (i === 0 ? o : o - ords[i - 1]))
+  }
+  files['search/vocab.json'] = { schema_version: SCHEMA, tokens: vocab, df: vocab.map((t) => postings.get(t).length) }
+  shards.forEach((postingsS, s) => (files[`search/idx-${pad3(s)}.json`] = { schema_version: SCHEMA, shard: s, postings: postingsS }))
+  const rows = docs.map((d) => [d.article_id, d.titleTh, d.titleEn, d.year, journalsSorted.indexOf(JOURNALS[d.j]), d.topic, d.doi, d.url, d.cited])
+  const nDocShards = Math.ceil(docs.length / DOCS_PER_SHARD)
+  for (let s = 0; s < nDocShards; s++) files[`search/docs-${pad3(s)}.json`] = { schema_version: SCHEMA, shard: s, start: s * DOCS_PER_SHARD, docs: rows.slice(s * DOCS_PER_SHARD, (s + 1) * DOCS_PER_SHARD) }
+  files['search/meta.json'] = {
+    schema_version: SCHEMA, tokenizer_version: PARITY.tokenizer_version, n_docs: docs.length, n_tokens: vocab.length, n_postings: sum(vocab.map((t) => postings.get(t).length)),
+    index_shards: INDEX_SHARDS, docs_per_shard: DOCS_PER_SHARD, doc_shards: nDocShards, max_token_chars: PARITY.max_token_chars, max_results: 500, min_df: 1,
+    fields: ['title_th', 'title_en', 'keywords_th', 'keywords_en'], stopwords: [...STOP].sort(), journals: journalsSorted, years: [...new Set(docs.map((d) => d.year))].sort((a, b) => a - b),
+  }
+
+  // galaxy.json — one point per doc ordinal near its topic on the map; unassigned articles have no coordinate
+  const B = { x0: 0, y0: 0, x1: 1040, y1: 660 }
+  const topicIds = topics.map((t) => t.id).sort()
+  const byId = new Map(topics.map((t) => [t.id, t]))
+  const q = (v, lo, hi) => Math.max(0, Math.min(65535, Math.round(((v - lo) / (hi - lo)) * 65535)))
+  const pts = docs.map((d) => {
+    const t = d.topic ? byId.get(d.topic) : null
+    if (!t) return [-1, -1, -1]
+    const a = rand() * 2 * Math.PI
+    const r = Math.sqrt(rand()) * (t.r + 14)
+    return [q(t.x + Math.cos(a) * r, B.x0, B.x1), q(t.y + Math.sin(a) * r, B.y0, B.y1), topicIds.indexOf(t.id)]
+  })
+  files['galaxy.json'] = { schema_version: SCHEMA, n: docs.length, scale: 65535, bounds: B, topics: topicIds, x: pts.map((p) => p[0]), y: pts.map((p) => p[1]), t: pts.map((p) => p[2]), yr: docs.map((d) => d.year) }
+
+  // kwtrends.json + topic glossaries — keyword counts follow their topic's yearly series
+  const kw = new Map()
+  const gloss = new Map()
+  for (const t of topics) {
+    const cs = series.topics[t.id]
+    t.keywords.forEach((term, i) => {
+      const lang = i < 2 ? 'th' : 'en'
+      const f = 0.3 + 0.1 * ((i + t.id.charCodeAt(6)) % 4)
+      const key = `${lang}:${term.toLowerCase()}`
+      const prev = kw.get(key) ?? { term, lang, counts: YEARS.map(() => 0) }
+      prev.counts = prev.counts.map((c, y) => c + Math.round(cs[y] * f))
+      kw.set(key, prev)
+    })
+    const pairs = [[t.keywords[0], t.keywords[2]], [t.keywords[1], t.keywords[3]]].map(([th, en], i) => ({ th, en, n: Math.max(1, Math.round(sum(cs) * (i ? 0.18 : 0.31))) }))
+    const detail = files[`topics/${t.id}.json`]
+    detail.glossary = t.status === 'LOW_DATA' ? [] : pairs.filter((p) => p.n >= 2)
+    for (const p of pairs) {
+      const key = `${p.th}|${p.en}`
+      gloss.set(key, { th: p.th, en: p.en, n: (gloss.get(key)?.n ?? 0) + p.n })
+    }
+    detail.cited_in_tci = sum(docs.filter((d) => d.topic === t.id).map((d) => d.cited))
+  }
+  const keywords = [...kw.values()].map((k) => ({ ...k, n: sum(k.counts) })).filter((k) => k.n >= 5).sort((a, b) => b.n - a.n || (a.term < b.term ? -1 : 1))
+  files['kwtrends.json'] = {
+    schema_version: SCHEMA, years: YEARS, totals: series.corpus_total, totals_th: series.corpus_total.map((n) => Math.round(n * 0.93)), totals_en: series.corpus_total.map((n) => Math.round(n * 0.88)),
+    min_count: 5, max_keywords: 3000, glossary_min_pairs: 2,
+    keywords: keywords.map(({ term, lang, n, counts }) => ({ term, lang, n, counts })),
+    glossary: [...gloss.values()].filter((g) => g.n >= 2).sort((a, b) => b.n - a.n || (a.th < b.th ? -1 : 1)),
+  }
+
+  // references.json — reference practice per journal (D7) and citations between corpus articles (R12)
+  const cited = docs.filter((d) => d.cited > 0)
+  const received = new Map()
+  for (const d of cited) if (d.topic) received.set(d.topic, (received.get(d.topic) ?? 0) + d.cited)
+  const matches = sum(cited.map((d) => d.cited))
+  const windowN = [240, 180, 150, 310, 12, 24]
+  files['references.json'] = {
+    schema_version: SCHEMA, window: { start: 2020, end: 2024 }, articles: 18234, articles_with_refs: 13127, coverage: r4(13127 / 18234), refs_counted: 291540,
+    min_coverage: 0.5, min_journal_articles: 20, recent_years: 5,
+    journals: [0, 1, 2, 3, 5].map((j, k) => ({
+      journal: JOURNALS[j], id: jId(j), articles: windowN[j], articles_with_refs: Math.round(windowN[j] * [0.92, 0.81, 0.66, 0.97, 0.7][k]),
+      refs_median: [22, 15, 12, 38, 18][k], age_median: [7.5, 9, 11, 5, 8][k], share_recent: [0.41, 0.33, 0.22, 0.58, 0.36][k],
+      share_thai: [0.46, 0.71, 0.82, 0.04, 0.52][k], share_doi: [0.38, 0.17, 0.09, 0.81, 0.24][k],
+    })),
+    internal: {
+      matches, citing_articles: Math.round(matches * 0.8), cited_articles: cited.length, share_doi: 0.64, share_title: 0.36, min_flow: 3,
+      topics: [...received].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([topic, n], i) => ({ topic, received: n, given: Math.max(0, n - 2 + (i % 5)) })),
+      flows: [['T000201', 'T000701', 9], ['T000701', 'T000201', 6], ['T000101', 'T000801', 5], ['T000301', 'T000303', 4], ['T000501', 'T000502', 3]].map(([source, target, n]) => ({ source, target, n })),
+      top_articles: [...cited].sort((a, b) => b.cited - a.cited || a.ordinal - b.ordinal).slice(0, 10).map((d) => ({
+        article_id: d.article_id, title: d.titleTh || d.titleEn, title_en: d.titleTh ? d.titleEn : '', year: d.year, journal: JOURNALS[d.j], url: d.url ?? '', doi: d.doi ?? '', topic: d.topic, count: d.cited,
+      })),
+    },
+    internal_reason: null,
+  }
+  return ['references', 'search', 'galaxy', 'kwtrends']
+}
+
 function manifest(release, previous, modules, entries, extra = {}) {
   return {
     schema_version: SCHEMA, release, generated_at: GENERATED_AT, pipeline_version: 'fixture', config_hash: '0000000000000000',
@@ -716,8 +914,8 @@ function writeRelease(dataDir, release, files, makeManifest) {
   writeFileSync(join(dataDir, release, 'manifest.json'), JSON.stringify(makeManifest(entries)))
 }
 
-function writeLatest(dataDir, release) {
-  writeFileSync(join(dataDir, 'latest.json'), JSON.stringify({ release, path: `${release}/manifest.json`, schema_version: SCHEMA, generated_at: GENERATED_AT }))
+function writeLatest(dataDir, release, extra = {}) {
+  writeFileSync(join(dataDir, 'latest.json'), JSON.stringify({ release, path: `${release}/manifest.json`, schema_version: SCHEMA, generated_at: GENERATED_AT, ...extra }))
 }
 
 const example = join(ROOT, 'example', 'data')
@@ -728,12 +926,13 @@ rmSync(join(ROOT, 'empty'), { recursive: true, force: true })
 const ex = buildExample()
 const editorModules = buildEditors(ex.files, ex.previousOverview)
 const execModules = buildExecutives(ex.files)
+const researchModules = buildResearchers(ex.files)
 writeRelease(example, PREVIOUS, { 'overview.json': ex.previousOverview }, (entries) => manifest(PREVIOUS, '2026Q2', ['overview'], entries))
 writeRelease(example, RELEASE, ex.files, (entries) =>
-  manifest(RELEASE, PREVIOUS, ['overview', 'taxonomy', 'topics', 'topic_detail', 'series', 'edges', 'keywords', ...editorModules, ...execModules], entries, {
+  manifest(RELEASE, PREVIOUS, ['overview', 'taxonomy', 'topics', 'topic_detail', 'series', 'edges', 'keywords', ...editorModules, ...execModules, ...researchModules], entries, {
     n_orgs_unverified: ex.nOrgsUnverified, ingest_errors: 2, labels: { provider: 'off', llm: 0, keywords: ex.nTopics, overrides: 0 },
   }))
-writeLatest(example, RELEASE)
+writeLatest(example, RELEASE, { feeds: false })
 
 writeRelease(empty, RELEASE, {
   'overview.json': {

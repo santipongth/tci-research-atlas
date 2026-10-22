@@ -84,6 +84,11 @@ export function optionalTopic(key: string): Field<string | null> {
   return { key, def: null, parse: (raw) => (raw && TOPIC_ID.test(raw) ? raw : null), write: (v) => v }
 }
 
+/** A 4-digit year, or null. */
+export function optionalYear(key: string): Field<number | null> {
+  return { key, def: null, parse: (raw) => (raw && /^\d{4}$/.test(raw) ? Number(raw) : null), write: (v) => (v === null ? null : String(v)) }
+}
+
 export function text(key: string, maxLength: number): Field<string> {
   return { key, def: '', parse: (raw) => (raw ?? '').slice(0, maxLength), write: (v) => (v ? v.slice(0, maxLength) : null) }
 }
@@ -172,4 +177,18 @@ export const regionsCodec = makeCodec<{ m: (typeof REGION_METRICS)[number]; view
   view: oneOf('view', VIEWS, 'chart'),
 })
 export const sdgCodec = makeCodec<{ fw: string }>({ fw: text('fw', 24) })
+export interface SearchUrlState {
+  q: string
+  from: number | null
+  to: number | null
+  topic: string | null
+  journal: string
+}
+export const searchCodec = makeCodec<SearchUrlState>({
+  q: text('q', 200),
+  from: optionalYear('from'),
+  to: optionalYear('to'),
+  topic: optionalTopic('topic'),
+  journal: text('journal', 300),
+})
 export const gapsCodec = makeCodec<{ all: 'no' | 'yes' }>({ all: oneOf('all', ['no', 'yes'] as const, 'no') })

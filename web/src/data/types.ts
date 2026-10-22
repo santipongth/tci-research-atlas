@@ -2,9 +2,13 @@
  *  Nested types are derived by indexed access: json-schema-to-typescript names interfaces after titles, and a field
  *  titled "Topic" (EmergingKeyword.topic) pushes the Topic model to `Topic1` — container names are stable, nested ones are not. */
 import type {
-  DiffFile, EdgesFile, GapsFile, GlobalFile, InstitutionDetail, InstitutionsFile, JournalDetail, JournalsFile, KeywordsFile, Latest, MatchIndex, MethodsFile, Overview, RegionsFile, SdgFile, TaxonomyFile, TopicDetail, TopicsFile,
+  DiffFile, EdgesFile, GalaxyFile, GapsFile, GlobalFile, InstitutionDetail, InstitutionsFile, JournalDetail, JournalsFile, KeywordsFile, KwTrendsFile, Latest, MatchIndex, MethodsFile, Overview,
+  ReferencesFile, RegionsFile, SdgFile, SearchDocShard, TaxonomyFile, TopicDetail, TopicsFile,
 } from './contract'
 
+export type {
+  GalaxyFile, KwTrendsFile, ReferencesFile, SearchDocShard, SearchIndexShard, SearchMeta, SearchVocab,
+} from './contract'
 export type {
   DiffFile, EdgesFile, GapsFile, GlobalFile, InstitutionDetail, InstitutionsFile, JournalDetail, JournalsFile, KeywordsFile, Latest, Manifest, MatchIndex, MethodsFile, Overview, RegionsFile, SdgFile, SeriesFile, TaxonomyFile, TopicDetail, TopicsFile,
 } from './contract'
@@ -60,6 +64,16 @@ export type Bridge = GapsFile['bridges'][number]
 export type WorldGap = GapsFile['world'][number]
 export type Concentration = GapsFile['concentration'][number]
 export type ExecutiveSummary = NonNullable<Overview['executive']>
+
+/* P4 researchers' modules (contract 2.3) — optional files listed in manifest.modules */
+/** [article_id, title_th, title_en, year, journal_index, topic id | null, doi | null, url | null, cited_in_tci] */
+export type SearchDocRow = SearchDocShard['docs'][number]
+export type GlossaryItem = NonNullable<TopicDetail['glossary']>[number]
+export type JournalRefs = ReferencesFile['journals'][number]
+export type InternalCitations = NonNullable<ReferencesFile['internal']>
+export type CitedArticle = InternalCitations['top_articles'][number]
+export type KeywordTrend = KwTrendsFile['keywords'][number]
+export type GalaxyBounds = GalaxyFile['bounds']
 
 /** What `atlas publish` embeds in the offline HTML: the newest release only. */
 export interface Bundle {

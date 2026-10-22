@@ -1,6 +1,8 @@
 import { useState, type FocusEvent, type KeyboardEvent } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router'
 import { Wordmark } from '../brand/Wordmark'
+import { useRelease } from '../data/atlasContext'
+import { hasModule } from '../data/release'
 import { useI18n } from '../lib/i18n'
 import type { StrKey } from '../strings'
 import { LangSwitch } from './LangSwitch'
@@ -36,6 +38,7 @@ const GROUPS: readonly { id: string; key: StrKey; items: readonly Item[] }[] = [
     id: 'nav-research',
     key: 'nav.group.research',
     items: [
+      { to: '/search', key: 'nav.search' },
       { to: '/gaps', key: 'nav.gaps' },
       { to: '/match', key: 'nav.match' },
       { to: '/compare', key: 'nav.compare' },
@@ -85,7 +88,8 @@ function NavGroup({ id, label, items, pathname }: { id: string; label: string; i
 function SiteSearch() {
   const navigate = useNavigate()
   const { t } = useI18n()
-  return <TopicSearch id="site-search" label={t('search.label')} hideLabel onPick={(id) => navigate(`/topics/${id}`)} />
+  const release = useRelease()
+  return <TopicSearch id="site-search" label={t('search.label')} hideLabel onPick={(id) => navigate(`/topics/${id}`)} articleSearch={release ? hasModule(release, 'search') : false} />
 }
 
 export function Header() {

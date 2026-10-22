@@ -1,4 +1,5 @@
 import { useMemo, useState, type KeyboardEvent } from 'react'
+import { Link } from 'react-router'
 import { useRelease } from '../data/atlasContext'
 import type { Topic } from '../data/types'
 import { useI18n } from '../lib/i18n'
@@ -7,7 +8,7 @@ import { buildSearchIndex, searchTopics } from '../lib/search'
 import { StatusGlyph } from './StatusGlyph'
 
 /** ARIA 1.2 combobox over every topic name and keyword (Thai and English, tone-mark tolerant). */
-export function TopicSearch({ id, label, onPick, hideLabel = false, exclude, placeholder, disabled = false }: {
+export function TopicSearch({ id, label, onPick, hideLabel = false, exclude, placeholder, disabled = false, articleSearch = false }: {
   id: string
   label: string
   onPick: (topicId: string) => void
@@ -15,6 +16,8 @@ export function TopicSearch({ id, label, onPick, hideLabel = false, exclude, pla
   exclude?: readonly string[]
   placeholder?: string
   disabled?: boolean
+  /** no topic matches → offer the whole-corpus article search (/search) for the same words */
+  articleSearch?: boolean
 }) {
   const release = useRelease()
   const { t, name, other, otherLang } = useI18n()
@@ -88,7 +91,19 @@ export function TopicSearch({ id, label, onPick, hideLabel = false, exclude, pla
       <div className="sr-only" role="status" aria-live="polite">
         {hasQuery ? (results.length ? t('search.count', { n: results.length }) : t('search.none', { q: query })) : ''}
       </div>
-      {open && hasQuery && results.length === 0 ? <p className="search-none">{t('search.none', { q: query })}</p> : null}
+      {open && hasQuery && results.length === 0 ? (
+        <p className="search-none">
+          {t('search.none', { q: query })}
+          {articleSearch ? (
+            <>
+              {' · '}
+              <Link to={`/search?q=${encodeURIComponent(query.trim())}`} onMouseDown={(e) => e.preventDefault()} onClick={() => { setQuery(''); setOpen(false) }}>
+                {t('search.articles')}
+              </Link>
+            </>
+          ) : null}
+        </p>
+      ) : null}
     </div>
   )
 }

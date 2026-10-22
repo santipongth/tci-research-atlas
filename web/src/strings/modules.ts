@@ -13,5 +13,11 @@ export const modules = defineStrings({
   'data.file.journals': { th: 'วารสารทั้งหมด: ความครบถ้วนของ metadata สัดส่วนผู้แต่งในสถาบันเจ้าของ ความหลากหลายสถาบัน', en: 'Every journal: metadata completeness, in-house share, institutional diversity' },
   'data.file.methods': { th: 'วิธีวิจัยรายหัวข้อและรายปี', en: 'Research methods by topic and year' },
   'data.file.diff': { th: 'สิ่งที่เปลี่ยนจากรอบก่อน', en: 'What changed since the previous release' },
+  'data.file.references': { th: 'การอ้างอิงรายวารสาร และการอ้างอิงกันเองระหว่างบทความในคลัง', en: 'Reference practice per journal and citations between articles of the collection' },
+  'data.file.search': { th: 'ดัชนีค้นหาบทความ (ชื่อเรื่องและคำสำคัญ ไม่มีบทคัดย่อ ไม่มีชื่อผู้แต่ง) — ไฟล์นี้อธิบายชิ้นดัชนีในโฟลเดอร์ search/', en: 'Article search index (titles and keywords; no abstracts, no author names) — this file describes the shards in search/' },
+  'data.file.galaxy': { th: 'ตำแหน่งบทความบนแผนที่ (หนึ่งจุดต่อบทความ)', en: 'Article positions on the map (one point per article)' },
+  'data.file.kwtrends': { th: 'แนวโน้มคำสำคัญรายปี และอภิธานศัพท์ไทย–อังกฤษ', en: 'Keyword trends by year and the Thai–English glossary' },
+  'nav.search': { th: 'ค้นหาบทความ', en: 'Search articles' },
+  'search.articles': { th: 'ค้นหาบทความทั้งคลัง', en: 'Search all articles' },
   'data.file.match': { th: 'ดัชนีสำหรับเทียบบทคัดย่อ (น้ำหนักชิ้นอักษร ไม่มีข้อความบทความ)', en: 'Index for matching an abstract (character-trigram weights, no article text)' },
 })

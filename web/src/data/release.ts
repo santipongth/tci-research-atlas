@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { DataError, isReleaseName, type DataSource } from './source'
 import type {
-  EdgesFile, EmergingKeyword, GroupInfo, KeywordsFile, Latest, Manifest, Overview, SeriesFile, TaxonomyFile, Topic, TopicDetail, TopicsFile,
+  EdgesFile, EmergingKeyword, GroupInfo, KeywordsFile, Latest, Manifest, Overview, SearchDocShard, SearchIndexShard, SearchVocab, SeriesFile, TaxonomyFile, Topic,
+  TopicDetail, TopicsFile,
 } from './types'
 
 export const SUPPORTED_SCHEMA_MAJOR = 2
@@ -94,10 +95,11 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
   }
 }
 
-/** Optional modules of contract 2.1 and the file each page reads first. */
+/** Optional modules (contract 2.1–2.3) and the file each page reads first. */
 export const MODULE_FILES = {
   journals: 'journals.json', methods: 'methods.json', diff: 'diff.json', match: 'match.json',
   institutions: 'institutions.json', regions: 'regions.json', sdg: 'sdg.json', global: 'global.json', gaps: 'gaps.json',
+  references: 'references.json', search: 'search/meta.json', galaxy: 'galaxy.json', kwtrends: 'kwtrends.json',
 } as const
 export type ModuleName = keyof typeof MODULE_FILES
 
@@ -117,6 +119,29 @@ export function createFileLoader(source: DataSource, release: string): (path: st
       cache.set(path, pending)
     }
     return pending
+  }
+}
+
+const pad3 = (n: number) => String(n).padStart(3, '0')
+export const SEARCH_VOCAB = 'search/vocab.json'
+/** search/idx-<NNN>.json: the postings of the tokens whose fnv1a32 % meta.index_shards is NNN. */
+export const searchIndexPath = (shard: number) => `search/idx-${pad3(shard)}.json`
+/** search/docs-<NNN>.json: the article rows of ordinals NNN · docs_per_shard … (NNN + 1) · docs_per_shard − 1. */
+export const searchDocsPath = (shard: number) => `search/docs-${pad3(shard)}.json`
+
+export interface SearchFiles {
+  vocab(): Promise<SearchVocab | null>
+  index(shard: number): Promise<SearchIndexShard | null>
+  docs(shard: number): Promise<SearchDocShard | null>
+}
+
+/** The sharded search files (contract 2.3) on demand. Each path is fetched once and kept in memory for the release
+ *  (the release file loader caches every request; a failed one may be retried). */
+export function createSearchFiles(file: (path: string) => Promise<unknown>): SearchFiles {
+  return {
+    vocab: () => file(SEARCH_VOCAB) as Promise<SearchVocab | null>,
+    index: (shard) => file(searchIndexPath(shard)) as Promise<SearchIndexShard | null>,
+    docs: (shard) => file(searchDocsPath(shard)) as Promise<SearchDocShard | null>,
   }
 }
 

@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { STR, type StrKey } from '../strings'
 import type { Entry } from '../strings/define'
 
@@ -50,10 +50,14 @@ function subscribe(listener: () => void): () => void {
   }
 }
 
+/** {name} placeholders filled from vars; unknown ones stay visible. */
+export function fillVars(s: string, vars?: Vars): string {
+  return vars ? s.replace(/\{(\w+)\}/g, (m, v: string) => (vars[v] != null ? String(vars[v]) : m)) : s
+}
+
 export function translate(lang: Lang, key: StrKey, vars?: Vars): string {
   const entry: Entry = STR[key]
-  const s = entry[lang]
-  return vars ? s.replace(/\{(\w+)\}/g, (m, v: string) => (vars[v] != null ? String(vars[v]) : m)) : s
+  return fillVars(entry[lang], vars)
 }
 
 export interface I18n {
@@ -80,4 +84,10 @@ export function useI18n(): I18n {
     }),
     [lang],
   )
+}
+
+/** A translator over a page's own strings file (lazy pages keep their strings out of the entry chunk). */
+export function useStrings<K extends string>(dict: Record<K, Entry>): (key: K, vars?: Vars) => string {
+  const { lang } = useI18n()
+  return useCallback((key: K, vars?: Vars) => fillVars(dict[key][lang], vars), [dict, lang])
 }

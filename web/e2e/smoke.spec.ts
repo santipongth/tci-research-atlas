@@ -28,6 +28,7 @@ const ROUTES = [
   { name: 'sdg', path: '/sdg' },
   { name: 'global', path: '/global' },
   { name: 'gaps', path: '/gaps' },
+  { name: 'search', path: '/search' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -132,7 +133,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#downloads a[download]').first()).toHaveAttribute('href', /data\/2026Q4\/manifest\.json$/)
     await expect(page.locator('#quality')).toContainText('2025')
     await expect(page.locator('#dictionary table')).toBeVisible()
-    await expect(page.locator('#modules .dl-list li')).toHaveCount(9)
+    await expect(page.locator('#modules .dl-list li')).toHaveCount(13)
     const download = page.waitForEvent('download')
     await page.locator('#csv').getByRole('button', { name: 'ดาวน์โหลด CSV' }).first().click()
     expect((await download).suggestedFilename()).toBe('atlas-2026Q4-topics.csv')
@@ -261,11 +262,27 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page).toHaveURL(/all=yes/)
     await expect(page.locator('#risk')).toContainText('มหาวิทยาลัยราชภัฏตัวอย่าง')
   },
+  search: async (page) => {
+    await expect(page.locator('#srch-tips-h')).toBeVisible()                      // an empty query shows how to search
+    const box = page.getByLabel('คำค้น', { exact: true })
+    await box.fill('ผู้สูงอายุควอนตัม')
+    await box.press('Enter')
+    await expect(page).toHaveURL(/q=/)
+    await expect(page.locator('.srch-count')).toContainText('พบ')
+    await expect(page.locator('.srch-hit').first()).toBeVisible()
+    await expect(page.locator('.srch-unknown')).toContainText('ไม่พบคำว่า “ควอนตัม”')   // an unknown word is named
+    await expect(page.locator('.srch-hit .topic-link').first()).toContainText('การดูแลผู้สูงอายุในชุมชน')
+    await page.getByLabel('ตั้งแต่ปี').selectOption('2020')
+    await expect(page).toHaveURL(/from=2020/)
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: /เป็น RIS$/ }).click()
+    expect((await download).suggestedFilename()).toBe('atlas-2026Q4-search.ris')
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps', `/search?q=${encodeURIComponent('ผู้สูงอายุ')}`]
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
@@ -409,6 +426,22 @@ test('the grouped navigation opens with the keyboard, closes with Escape and mar
   await expect(page).toHaveURL(/#\/journals$/)
   await expect(page.getByRole('button', { name: 'สำหรับบรรณาธิการ' })).toHaveClass(/is-active/)
   await expect(page.locator('#nav-editors-menu')).toBeHidden()
+})
+
+test('article search explains itself on a release without it and in the offline file', async ({ page }, info) => {
+  await page.goto(`${EMPTY}#/search`)
+  await expect(page.locator('h1')).toHaveText('ค้นหาบทความ')
+  await expect(page.locator('.empty-state')).toContainText('รอบข้อมูลนี้ไม่มีส่วนนี้')
+  const template = readFileSync('dist/offline-template.html', 'utf8')
+  const slot = '<script type="application/json" id="atlas-data">null</script>'
+  const bundle = bundleOf('example')
+  for (const path of Object.keys(bundle.files)) if (path.startsWith('search/')) delete bundle.files[path]   // export.offline_exclude
+  const file = info.outputPath('atlas-offline-nosearch.html')
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
+  await page.goto(`${pathToFileURL(file).href}#/search`)
+  await expect(page.locator('h1')).toHaveText('ค้นหาบทความ')
+  await expect(page.locator('.empty-state')).toContainText('ฉบับออฟไลน์ไม่มีส่วนนี้')
 })
 
 test('a module the pipeline skipped says why', async ({ page }) => {
