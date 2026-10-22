@@ -35,7 +35,11 @@ const addNoindex = (html) => (html.includes(NOINDEX) ? html : html.replace(/<hea
 
 const walk = (dir) => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]))
 const root = join(src, latest.release)
-const files = Object.fromEntries(walk(root).map((p) => [relative(root, p).split(sep).join('/'), JSON.parse(readFileSync(p, 'utf8'))]))
+// same files as a real offline edition leaves out (pipeline export.offline_exclude + publish.ALWAYS_OFFLINE_EXCLUDE)
+const OFFLINE_EXCLUDE = ['match.json', 'search', 'galaxy.json']
+const excluded = (name) => OFFLINE_EXCLUDE.some((x) => name === x || name.startsWith(`${x}/`))
+const files = Object.fromEntries(walk(root).map((p) => relative(root, p).split(sep).join('/')).filter((n) => !excluded(n))
+  .map((n) => [n, JSON.parse(readFileSync(join(root, n), 'utf8'))]))
 const template = join(site, 'offline-template.html')
 if (existsSync(template)) {
   const slot = '<script type="application/json" id="atlas-data">null</script>'
