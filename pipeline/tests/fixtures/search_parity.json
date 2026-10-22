@@ -1,0 +1,522 @@
+{
+ "tokenizer_version": 1,
+ "max_token_chars": 24,
+ "index_shards": 64,
+ "docs_per_shard": 2000,
+ "stopwords": [
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "for",
+  "from",
+  "has",
+  "have",
+  "in",
+  "into",
+  "is",
+  "it",
+  "its",
+  "of",
+  "on",
+  "or",
+  "that",
+  "the",
+  "their",
+  "this",
+  "to",
+  "toward",
+  "towards",
+  "via",
+  "vs",
+  "was",
+  "were",
+  "which",
+  "with",
+  "กับ",
+  "การ",
+  "ของ",
+  "ความ",
+  "จาก",
+  "ซึ่ง",
+  "ด้วย",
+  "ตาม",
+  "ต่อ",
+  "ที่",
+  "นั้น",
+  "นี้",
+  "มี",
+  "ระหว่าง",
+  "ว่า",
+  "สู่",
+  "หรือ",
+  "อย่าง",
+  "เป็น",
+  "เพื่อ",
+  "แก่",
+  "และ",
+  "แห่ง",
+  "โดย",
+  "ใน",
+  "ให้",
+  "ได้"
+ ],
+ "vocab": [
+  "21st",
+  "2563",
+  "adoption",
+  "affecting",
+  "akha",
+  "ama",
+  "appeals",
+  "attitude",
+  "attitudes",
+  "aud",
+  "audience",
+  "automotive",
+  "award",
+  "barriers",
+  "bba",
+  "business",
+  "century",
+  "coffee",
+  "comedy",
+  "commerce",
+  "communication",
+  "competency",
+  "convention",
+  "core",
+  "country",
+  "covid",
+  "cultural",
+  "culture",
+  "daily",
+  "decision",
+  "development",
+  "developmentof",
+  "effectiveness",
+  "employees",
+  "enterprises",
+  "exhibition",
+  "facebook",
+  "fanpage",
+  "freshmen",
+  "functional",
+  "generation",
+  "graduates",
+  "greenpeace",
+  "grounded",
+  "high",
+  "how",
+  "implementation",
+  "incentive",
+  "income",
+  "industries",
+  "industry",
+  "innovative",
+  "jam",
+  "job",
+  "learn",
+  "making",
+  "management",
+  "managerial",
+  "marketing",
+  "marn",
+  "medium",
+  "meeting",
+  "mice",
+  "middle",
+  "mix",
+  "model",
+  "na",
+  "naresuan",
+  "newspapers",
+  "operating",
+  "part",
+  "process",
+  "production",
+  "products",
+  "proficiency",
+  "purchasing",
+  "quality",
+  "reading",
+  "requirement",
+  "resignation",
+  "rethinking",
+  "selection",
+  "show",
+  "skills",
+  "small",
+  "smes",
+  "soci",
+  "social",
+  "standards",
+  "strategies",
+  "strategy",
+  "students",
+  "study",
+  "supervisor",
+  "thai",
+  "thailand",
+  "theory",
+  "tqa",
+  "trap",
+  "university",
+  "value",
+  "กรรมการ",
+  "กระบวนการ",
+  "กรีนพีซ",
+  "กลาง",
+  "กลุ่มคน",
+  "กับดัก",
+  "การตลาด",
+  "การตัดสินใจ",
+  "การตาม",
+  "การท่องเที่ยว",
+  "การนำ",
+  "การผลิต",
+  "การพัฒนา",
+  "การวิจัย",
+  "การศึกษา",
+  "การสื่อสาร",
+  "ขนาด",
+  "ขนาดย่อม",
+  "ความต้องการ",
+  "คอม",
+  "คุณภาพ",
+  "ค่านิยม",
+  "จัด",
+  "จำอวด",
+  "จุด",
+  "จูงใจ",
+  "ชั้นปี",
+  "ชิ้นส่วน",
+  "ซี",
+  "ซื้อ",
+  "ดำเนิน",
+  "ด้านการบริหาร",
+  "ตลก",
+  "ตัว",
+  "ติด",
+  "ทักษะ",
+  "ทาง",
+  "ทางวัฒนธรรม",
+  "นวัตกรรม",
+  "นำ",
+  "นิทรรศการ",
+  "นิสิต",
+  "บุคลากร",
+  "บุ๊ค",
+  "ปฏิบัติหน้าที่",
+  "ประชุม",
+  "ประสม",
+  "ประสิทธิผล",
+  "ประเทศ",
+  "ปานกลาง",
+  "ผลิตภัณฑ์",
+  "พาณิชย์",
+  "พื้นที่",
+  "มหาวิทยาลัยนเรศวร",
+  "มา",
+  "มาตรฐาน",
+  "มีผลต่อ",
+  "ม่าน",
+  "ยานยนต์",
+  "ยุทธศาสตร์",
+  "รางวัล",
+  "รายการ",
+  "รายวัน",
+  "รายได้",
+  "ร้านกาแฟ",
+  "วัฒนธรรม",
+  "วิจัย",
+  "วิสาหกิจ",
+  "ศตวรรษ",
+  "ศักยภาพ",
+  "สมรรถนะ",
+  "สังคม",
+  "สูง",
+  "ส่วน",
+  "หนังสือพิมพ์",
+  "หน้า",
+  "หลัก",
+  "หัวหน้าแผนก",
+  "อนาคต",
+  "อาข่า",
+  "อาม่า",
+  "อิเล็กทรอนิกส์",
+  "อี",
+  "อุตสาห",
+  "อุตสาหกรรม",
+  "อุปสรรค",
+  "อ่าน",
+  "เกณฑ์",
+  "เจนเนอเรชั่น",
+  "เพจ",
+  "เฟส",
+  "เมิร์ซ",
+  "เลือก",
+  "เศรษฐกิจ",
+  "แบบ",
+  "แฟน",
+  "แห่งชาติ",
+  "ใช้",
+  "ใหม่",
+  "ไทย"
+ ],
+ "queries": [
+  {
+   "q": "การอ่านหนังสือพิมพ์รายวัน",
+   "known": [
+    "อ่าน",
+    "หนังสือพิมพ์",
+    "รายวัน"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "ประเทศไทย",
+   "known": [
+    "ประเทศ",
+    "ไทย"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "การตลาดเพื่อสังคม",
+   "known": [
+    "การตลาด",
+    "สังคม"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "อุตสาหกรรมชิ้นส่วนยานยนต์",
+   "known": [
+    "อุตสาหกรรม",
+    "ชิ้นส่วน",
+    "ยานยนต์"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "Marketing Mix",
+   "known": [
+    "marketing",
+    "mix"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "e-commerce adoption",
+   "known": [
+    "commerce",
+    "adoption"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "COVID-19 ในประเทศไทย",
+   "known": [
+    "covid",
+    "ประเทศ",
+    "ไทย"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "ศตวรรษที่ ๒๑",
+   "known": [
+    "ศตวรรษ"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "นวัตกรรม 2563 ๒๕๖๓",
+   "known": [
+    "นวัตกรรม",
+    "2563"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "ปัญญาประดิษฐ์",
+   "known": [],
+   "unknown": [
+    "ปัญญาประดิษฐ์"
+   ]
+  },
+  {
+   "q": "การพัฒนา Competency ของบุคลากร",
+   "known": [
+    "การพัฒนา",
+    "competency",
+    "บุคลากร"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "The Study of Thailand",
+   "known": [
+    "study",
+    "thailand"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "สมรรถนะxyzการผลิต",
+   "known": [
+    "สมรรถนะ",
+    "การผลิต"
+   ],
+   "unknown": [
+    "xyz"
+   ]
+  },
+  {
+   "q": "ร้านกาแฟอาข่า, อาม่า!",
+   "known": [
+    "ร้านกาแฟ",
+    "อาข่า",
+    "อาม่า"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "ความตลก",
+   "known": [
+    "ตลก"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "  ,,, - ",
+   "known": [],
+   "unknown": []
+  },
+  {
+   "q": "จําอวดหน้าม่าน",
+   "known": [
+    "จำอวด",
+    "หน้า",
+    "ม่าน"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "GREENPEACE Thailand greenpeace",
+   "known": [
+    "greenpeace",
+    "thailand"
+   ],
+   "unknown": []
+  },
+  {
+   "q": "การวิจัยเชิงคุณภาพ",
+   "known": [
+    "การวิจัย",
+    "คุณภาพ"
+   ],
+   "unknown": [
+    "เชิง"
+   ]
+  },
+  {
+   "q": "ณ กรุงเทพฯ",
+   "known": [],
+   "unknown": [
+    "กรุงเทพ"
+   ]
+  },
+  {
+   "q": "ปัญญาประดิษฐ์กับการตลาด",
+   "known": [
+    "การตลาด"
+   ],
+   "unknown": [
+    "ปัญญาประดิษฐ์"
+   ]
+  },
+  {
+   "q": "Café culture",
+   "known": [
+    "culture"
+   ],
+   "unknown": [
+    "café"
+   ]
+  }
+ ],
+ "fnv1a32": [
+  {
+   "s": "",
+   "hash": 2166136261,
+   "shard": 5
+  },
+  {
+   "s": "การ",
+   "hash": 902013483,
+   "shard": 43
+  },
+  {
+   "s": "ประเทศ",
+   "hash": 1815329773,
+   "shard": 45
+  },
+  {
+   "s": "marketing",
+   "hash": 3895187823,
+   "shard": 47
+  },
+  {
+   "s": "2019",
+   "hash": 3308014985,
+   "shard": 9
+  },
+  {
+   "s": "covid",
+   "hash": 3772239278,
+   "shard": 46
+  },
+  {
+   "s": "café",
+   "hash": 2821410889,
+   "shard": 9
+  },
+  {
+   "s": "ร้านกาแฟ",
+   "hash": 3631138293,
+   "shard": 53
+  },
+  {
+   "s": "a",
+   "hash": 3826002220,
+   "shard": 44
+  }
+ ],
+ "doc_shards": [
+  {
+   "ordinal": 0,
+   "shard": 0
+  },
+  {
+   "ordinal": 1,
+   "shard": 0
+  },
+  {
+   "ordinal": 1999,
+   "shard": 0
+  },
+  {
+   "ordinal": 2000,
+   "shard": 1
+  },
+  {
+   "ordinal": 123456,
+   "shard": 61
+  }
+ ]
+}

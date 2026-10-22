@@ -766,6 +766,110 @@
       "title": "FrameworkInfo",
       "type": "object"
     },
+    "GalaxyBounds": {
+      "additionalProperties": false,
+      "properties": {
+        "x0": {
+          "title": "X0",
+          "type": "number"
+        },
+        "x1": {
+          "title": "X1",
+          "type": "number"
+        },
+        "y0": {
+          "title": "Y0",
+          "type": "number"
+        },
+        "y1": {
+          "title": "Y1",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x0",
+        "y0",
+        "x1",
+        "y1"
+      ],
+      "title": "GalaxyBounds",
+      "type": "object"
+    },
+    "GalaxyFile": {
+      "additionalProperties": false,
+      "description": "galaxy.json — one point per search doc ordinal (R8), columnar.",
+      "properties": {
+        "bounds": {
+          "$ref": "#/definitions/GalaxyBounds"
+        },
+        "n": {
+          "description": "points = search/meta.json n_docs; index i is doc ordinal i",
+          "title": "N",
+          "type": "integer"
+        },
+        "scale": {
+          "description": "x, y are integers 0 … scale over bounds (the topic map's view box)",
+          "title": "Scale",
+          "type": "integer"
+        },
+        "schema_version": {
+          "default": "2.3.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "t": {
+          "description": "index into topics, −1 = unassigned",
+          "items": {
+            "type": "integer"
+          },
+          "title": "T",
+          "type": "array"
+        },
+        "topics": {
+          "description": "topic ids that t indexes",
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "x": {
+          "description": "−1 = no coordinate (unassigned article)",
+          "items": {
+            "type": "integer"
+          },
+          "title": "X",
+          "type": "array"
+        },
+        "y": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Y",
+          "type": "array"
+        },
+        "yr": {
+          "description": "publication year",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Yr",
+          "type": "array"
+        }
+      },
+      "required": [
+        "n",
+        "scale",
+        "bounds",
+        "topics",
+        "x",
+        "y",
+        "t",
+        "yr"
+      ],
+      "title": "GalaxyFile",
+      "type": "object"
+    },
     "GapsFile": {
       "additionalProperties": false,
       "properties": {
@@ -3449,6 +3553,263 @@
       "title": "SdgFile",
       "type": "object"
     },
+    "SearchDocShard": {
+      "additionalProperties": false,
+      "description": "search/docs-<NNN>.json — the article rows of ordinals start … start + len(docs) − 1.",
+      "properties": {
+        "docs": {
+          "items": {
+            "additionalItems": false,
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "maxItems": 9,
+            "minItems": 9,
+            "type": "array"
+          },
+          "title": "Docs",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.3.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "shard": {
+          "title": "Shard",
+          "type": "integer"
+        },
+        "start": {
+          "description": "ordinal of the first row",
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "shard",
+        "start",
+        "docs"
+      ],
+      "title": "SearchDocShard",
+      "type": "object"
+    },
+    "SearchIndexShard": {
+      "additionalProperties": false,
+      "description": "search/idx-<NNN>.json — token → doc ordinals, sorted, unique and delta-encoded (first value absolute, then\nthe gap to the previous ordinal).",
+      "properties": {
+        "postings": {
+          "additionalProperties": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "title": "Postings",
+          "type": "object"
+        },
+        "schema_version": {
+          "default": "2.3.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "shard": {
+          "title": "Shard",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "shard",
+        "postings"
+      ],
+      "title": "SearchIndexShard",
+      "type": "object"
+    },
+    "SearchMeta": {
+      "additionalProperties": false,
+      "description": "search/meta.json — how to read the sharded article index (R2). Tokenisation: atlas.search_index.",
+      "properties": {
+        "doc_shards": {
+          "title": "Doc Shards",
+          "type": "integer"
+        },
+        "docs_per_shard": {
+          "description": "article <ordinal> is row ordinal % docs_per_shard of search/docs-<ordinal // docs_per_shard>.json",
+          "title": "Docs Per Shard",
+          "type": "integer"
+        },
+        "fields": {
+          "description": "indexed article fields (titles and author keywords — never an abstract)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "index_shards": {
+          "description": "a token's postings are in search/idx-<fnv1a32(token) % index_shards>.json",
+          "title": "Index Shards",
+          "type": "integer"
+        },
+        "journals": {
+          "description": "journal names; doc rows carry an index into this list",
+          "items": {
+            "type": "string"
+          },
+          "title": "Journals",
+          "type": "array"
+        },
+        "max_results": {
+          "description": "results the web lists at most",
+          "title": "Max Results",
+          "type": "integer"
+        },
+        "max_token_chars": {
+          "description": "longest substring tried by the greedy Thai query match",
+          "title": "Max Token Chars",
+          "type": "integer"
+        },
+        "min_df": {
+          "title": "Min Df",
+          "type": "integer"
+        },
+        "n_docs": {
+          "description": "published articles; doc ordinals are 0 … n_docs − 1 in article_id order",
+          "title": "N Docs",
+          "type": "integer"
+        },
+        "n_postings": {
+          "description": "(token, article) pairs over every index shard",
+          "title": "N Postings",
+          "type": "integer"
+        },
+        "n_tokens": {
+          "description": "tokens in search/vocab.json",
+          "title": "N Tokens",
+          "type": "integer"
+        },
+        "schema_version": {
+          "default": "2.3.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "stopwords": {
+          "description": "dropped from the index and silently from queries",
+          "items": {
+            "type": "string"
+          },
+          "title": "Stopwords",
+          "type": "array"
+        },
+        "tokenizer_version": {
+          "title": "Tokenizer Version",
+          "type": "integer"
+        },
+        "years": {
+          "description": "publication years present, ascending",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Years",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tokenizer_version",
+        "n_docs",
+        "n_tokens",
+        "n_postings",
+        "index_shards",
+        "docs_per_shard",
+        "doc_shards",
+        "max_token_chars",
+        "max_results",
+        "min_df",
+        "fields",
+        "stopwords",
+        "journals",
+        "years"
+      ],
+      "title": "SearchMeta",
+      "type": "object"
+    },
+    "SearchVocab": {
+      "additionalProperties": false,
+      "description": "search/vocab.json — every indexed token (sorted by code point) and its document frequency.",
+      "properties": {
+        "df": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Df",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.3.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tokens": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tokens",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tokens",
+        "df"
+      ],
+      "title": "SearchVocab",
+      "type": "object"
+    },
     "SeriesFile": {
       "additionalProperties": false,
       "properties": {
@@ -4649,6 +5010,9 @@
     "edges": {
       "$ref": "#/definitions/EdgesFile"
     },
+    "galaxy": {
+      "$ref": "#/definitions/GalaxyFile"
+    },
     "gaps": {
       "$ref": "#/definitions/GapsFile"
     },
@@ -4693,6 +5057,18 @@
     },
     "sdg": {
       "$ref": "#/definitions/SdgFile"
+    },
+    "search_docs": {
+      "$ref": "#/definitions/SearchDocShard"
+    },
+    "search_index": {
+      "$ref": "#/definitions/SearchIndexShard"
+    },
+    "search_meta": {
+      "$ref": "#/definitions/SearchMeta"
+    },
+    "search_vocab": {
+      "$ref": "#/definitions/SearchVocab"
     },
     "series": {
       "$ref": "#/definitions/SeriesFile"

@@ -408,6 +408,14 @@ references:                   # D7 แนวปฏิบัติการอ้
   min_flow: 3                 # แสดงการอ้างอิงข้ามหัวข้อ (หัวข้อ → หัวข้อ) ที่มี ≥ 3 ครั้ง
   top_articles: 50            # บทความที่ถูกอ้างในคลังมากที่สุด (ชื่อเรื่อง วารสาร ปี ลิงก์ — ไม่มีชื่อผู้แต่ง)
 
+search:                       # R2 ค้นหาบทความทั้งคลัง (ดัชนีแบบสถิตแบ่งไฟล์ จากชื่อเรื่อง + คำสำคัญของผู้แต่ง — ไม่มีบทคัดย่อ ไม่มีชื่อผู้แต่ง) + R8 จุดบทความในกาแล็กซี (P4)
+  enabled: true               # false = ไม่ทำดัชนีค้นหาและกาแล็กซี (หน้า /search และ /galaxy บอกเหตุผล); กาแล็กซีต้องมี layout.galaxy: true ด้วย
+  index_shards: 64            # จำนวนไฟล์ดัชนี search/idx-<NNN>.json — คำไปอยู่ไฟล์ fnv1a32(คำ) % 64 (เบราว์เซอร์โหลดเฉพาะไฟล์ของคำที่ค้น)
+  docs_per_shard: 2000        # บทความต่อไฟล์ search/docs-<NNN>.json (ลำดับบทความเรียงตาม article_id)
+  min_df: 1                   # คำที่พบในบทความน้อยกว่านี้ไม่เข้าดัชนี (1 = ทุกคำ)
+  max_token_chars: 24         # คำยาวสุดที่เข้าดัชนี และความยาวสูงสุดที่ใช้จับคู่คำไทยแบบยาวที่สุดก่อนตอนค้น
+  max_results: 500            # ผลค้นหาที่หน้าเว็บแสดงสูงสุด
+
 export:
   formats: [json, csv]
   include_forecast_in_json: true
@@ -416,7 +424,7 @@ export:
   max_topic_journals: 10
   max_topic_orgs: 10
   max_neighbors: 6
-  offline_exclude: [match.json]   # ไฟล์ที่ไม่ใส่ใน HTML เดี่ยว (atlas-offline.html ≤ ~15MB) — หน้า /match ในไฟล์ offline บอกให้ใช้เว็บออนไลน์
+  offline_exclude: [match.json, search, galaxy.json]   # ไฟล์/โฟลเดอร์ที่ไม่ใส่ใน HTML เดี่ยว (atlas-offline.html ≤ ~15MB) — หน้า /match /search /galaxy ในไฟล์ offline บอกให้ใช้เว็บออนไลน์
 
 # ---------- atlas validate: เทียบกับรอบก่อน ----------
 validation:

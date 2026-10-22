@@ -4,7 +4,8 @@ Pydantic models are the source of truth → JSON Schema (`atlas schema`) → Typ
 (`npm run gen:types` in web/). CI fails when either generated file drifts.
 Files: manifest.json, overview.json, taxonomy.json, topics.json, topics/<id>.json, series.json,
 edges.json, keywords.json; P2 (2.1): journals.json, journals/<id>.json, methods.json, diff.json, match.json; P3 (2.2):
-institutions.json, institutions/<id>.json, regions.json, sdg.json, global.json, gaps.json; P4 (2.3): references.json —
+institutions.json, institutions/<id>.json, regions.json, sdg.json, global.json, gaps.json; P4 (2.3): references.json,
+search/meta.json, search/vocab.json, search/idx-<NNN>.json, search/docs-<NNN>.json, galaxy.json —
 optional modules listed in manifest.modules. output/data/latest.json points at the newest release.
 Strict JSON: NaN/Infinity are validation errors. Colours are design-token keys (cat-01…), never hex.
 Uncertainty bounds keep level-agnostic names (share_growth_lo/_hi); the level is manifest.ci_level.
@@ -12,6 +13,7 @@ Uncertainty bounds keep level-agnostic names (share_growth_lo/_hi); the level is
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -897,7 +899,92 @@ class ReferencesFile(_Model):
     internal_reason: str | None = Field(None, description="why `internal` is null")
 
 
-P4_FILE_MODELS: dict[str, type[_Model]] = {"references.json": ReferencesFile}
+class SearchMeta(_Model):
+    """search/meta.json — how to read the sharded article index (R2). Tokenisation: atlas.search_index."""
+    schema_version: str = SCHEMA_VERSION
+    tokenizer_version: int
+    n_docs: int = Field(description="published articles; doc ordinals are 0 … n_docs − 1 in article_id order")
+    n_tokens: int = Field(description="tokens in search/vocab.json")
+    n_postings: int = Field(description="(token, article) pairs over every index shard")
+    index_shards: int = Field(description="a token's postings are in search/idx-<fnv1a32(token) % index_shards>.json")
+    docs_per_shard: int = Field(description="article <ordinal> is row ordinal % docs_per_shard of "
+                                            "search/docs-<ordinal // docs_per_shard>.json")
+    doc_shards: int
+    max_token_chars: int = Field(description="longest substring tried by the greedy Thai query match")
+    max_results: int = Field(description="results the web lists at most")
+    min_df: int
+    fields: list[str] = Field(description="indexed article fields (titles and author keywords — never an abstract)")
+    stopwords: list[str] = Field(description="dropped from the index and silently from queries")
+    journals: list[str] = Field(description="journal names; doc rows carry an index into this list")
+    years: list[int] = Field(description="publication years present, ascending")
+
+
+class SearchVocab(_Model):
+    """search/vocab.json — every indexed token (sorted by code point) and its document frequency."""
+    schema_version: str = SCHEMA_VERSION
+    tokens: list[str]
+    df: list[int]
+
+    @model_validator(mode="after")
+    def _aligned(self):
+        if len(self.df) != len(self.tokens):
+            raise ValueError("vocab: one df per token")
+        return self
+
+
+class SearchIndexShard(_Model):
+    """search/idx-<NNN>.json — token → doc ordinals, sorted, unique and delta-encoded (first value absolute, then
+    the gap to the previous ordinal)."""
+    schema_version: str = SCHEMA_VERSION
+    shard: int
+    postings: dict[str, list[int]]
+
+
+# [article_id, title_th, title_en, year, journal_index (into search/meta.json journals), topic id | null,
+#  doi | null, ThaiJO url | null, cited_in_tci] — no author, no abstract
+SearchDocRow = tuple[str, str, str, int, int, str | None, str | None, str | None, int]
+
+
+class SearchDocShard(_Model):
+    """search/docs-<NNN>.json — the article rows of ordinals start … start + len(docs) − 1."""
+    schema_version: str = SCHEMA_VERSION
+    shard: int
+    start: int = Field(description="ordinal of the first row")
+    docs: list[SearchDocRow]
+
+
+class GalaxyBounds(_Model):
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
+class GalaxyFile(_Model):
+    """galaxy.json — one point per search doc ordinal (R8), columnar."""
+    schema_version: str = SCHEMA_VERSION
+    n: int = Field(description="points = search/meta.json n_docs; index i is doc ordinal i")
+    scale: int = Field(description="x, y are integers 0 … scale over bounds (the topic map's view box)")
+    bounds: GalaxyBounds
+    topics: list[str] = Field(description="topic ids that t indexes")
+    x: list[int] = Field(description="−1 = no coordinate (unassigned article)")
+    y: list[int]
+    t: list[int] = Field(description="index into topics, −1 = unassigned")
+    yr: list[int] = Field(description="publication year")
+
+    @model_validator(mode="after")
+    def _aligned(self):
+        if not len(self.x) == len(self.y) == len(self.t) == len(self.yr) == self.n:
+            raise ValueError("galaxy: x, y, t and yr need one value per point")
+        if self.t and not (-1 <= min(self.t) and max(self.t) < len(self.topics)):
+            raise ValueError("galaxy: t must index topics (or be −1)")
+        return self
+
+
+P4_FILE_MODELS: dict[str, type[_Model]] = {"references.json": ReferencesFile, "search/meta.json": SearchMeta,
+                                           "search/vocab.json": SearchVocab, "galaxy.json": GalaxyFile}
+SEARCH_INDEX_PATH = re.compile(r"search/idx-\d{3,}\.json")
+SEARCH_DOCS_PATH = re.compile(r"search/docs-\d{3,}\.json")
 
 
 P3_FILE_MODELS: dict[str, type[_Model]] = {"institutions.json": InstitutionsFile, "regions.json": RegionsFile,
@@ -925,7 +1012,25 @@ def model_for(path: str) -> type[_Model] | None:
         return JournalDetail
     if path.startswith("institutions/") and path.endswith(".json"):
         return InstitutionDetail
+    if SEARCH_INDEX_PATH.fullmatch(path):
+        return SearchIndexShard
+    if SEARCH_DOCS_PATH.fullmatch(path):
+        return SearchDocShard
     return FILE_MODELS.get(path)
+
+
+def _draft07(node):
+    """pydantic writes tuples as 2020-12 `prefixItems`; draft-07 (and json-schema-to-typescript) want `items: [...]`
+    with `additionalItems: false`."""
+    if isinstance(node, dict):
+        out = {k: _draft07(v) for k, v in node.items()}
+        if "prefixItems" in out:
+            out["items"] = out.pop("prefixItems")
+            out["additionalItems"] = False
+        return out
+    if isinstance(node, list):
+        return [_draft07(v) for v in node]
+    return node
 
 
 def contract_json_schema() -> dict:
@@ -936,7 +1041,8 @@ def contract_json_schema() -> dict:
              "latest": Latest, "journals": JournalsFile, "journal_detail": JournalDetail, "methods": MethodsFile,
              "diff": DiffFile, "match": MatchIndex, "institutions": InstitutionsFile,
              "institution_detail": InstitutionDetail, "regions": RegionsFile, "sdg": SdgFile, "global": GlobalFile,
-             "gaps": GapsFile, "references": ReferencesFile}
+             "gaps": GapsFile, "references": ReferencesFile, "search_meta": SearchMeta, "search_vocab": SearchVocab,
+             "search_index": SearchIndexShard, "search_docs": SearchDocShard, "galaxy": GalaxyFile}
     _, top = models_json_schema([(m, "validation") for m in files.values()], ref_template="#/definitions/{model}")
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -945,7 +1051,7 @@ def contract_json_schema() -> dict:
         "properties": {k: {"$ref": f"#/definitions/{m.__name__}"} for k, m in files.items()},
         "required": ["manifest", "topics"],
         "additionalProperties": False,
-        "definitions": top["$defs"],
+        "definitions": _draft07(top["$defs"]),
     }
 
 

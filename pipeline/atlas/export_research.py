@@ -3,6 +3,9 @@
 its files out; a module skipped for a reason returns that reason (→ manifest.skipped_modules).
 
 references.json    D7 reference practice per journal + R12 citations inside the corpus (when coverage allows)
+search/meta.json, search/vocab.json, search/idx-<NNN>.json, search/docs-<NNN>.json
+                   R2 sharded article search (atlas.search_index) — every index shard is written, even an empty one
+galaxy.json        R8 article points, aligned with the search doc ordinals
 Article metadata published here: id, titles, year, journal name, topic, DOI, ThaiJO URL, "cited in TCI" count —
 never an author name or an abstract.
 """
@@ -12,11 +15,13 @@ import json
 import math
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from atlas.checkpoints import article_topics
 from atlas.io_utils import read_table
 from atlas.schema import contract as C
+from atlas.search_index import FIELDS, QUANT, STOPWORDS, fnv1a32
 
 
 def _f(v, nd: int = 4) -> float | None:
@@ -130,3 +135,77 @@ def _internal(cfg: dict, work: Path, code: dict[int, str], meta: dict) -> C.Inte
         flows=[C.CitationFlow(source=code[int(f.source)], target=code[int(f.target)], n=int(f.n))
                for f in flows.itertuples() if int(f.source) in code and int(f.target) in code],
         top_articles=top)
+
+
+# ---------------------------------------------------------------------- search (R2) + galaxy (R8)
+def _or_none(values: pd.Series) -> list[str | None]:
+    return [v if v else None for v in values.fillna("").astype(str)]
+
+
+def search_files(cfg: dict, work: Path, code: dict[int, str]) -> tuple[dict[str, C._Model], dict[str, str]]:
+    """({published path: model}, {module: skip reason}) for the search and galaxy modules — both empty when the
+    search step did not run."""
+    meta = _meta(work / "20_search_meta.json")
+    if not meta:
+        return {}, {}
+    files: dict[str, C._Model] = {}
+    skipped: dict[str, str] = {}
+    smeta, gmeta = meta.get("search") or {}, meta.get("galaxy") or {}
+    if not smeta.get("published"):
+        skipped["search"] = str(smeta.get("skipped") or "search module not published")
+        skipped["galaxy"] = str(gmeta.get("skipped") or "galaxy needs the search module")
+        return files, skipped
+    scfg = cfg["search"]
+    n_shards, per = int(scfg["index_shards"]), int(scfg["docs_per_shard"])
+    docs = read_table(work / "20_docs.parquet")
+    postings = read_table(work / "20_postings.parquet")
+    n = len(docs)
+
+    # ---- vocab + index shards: postings are sorted by (token, ordinal) and unique
+    tok = postings["token"].astype(str).to_numpy()
+    ords = postings["ordinal"].to_numpy(dtype=np.int64)
+    first = np.ones(len(tok), dtype=bool)
+    first[1:] = tok[1:] != tok[:-1]
+    delta = ords.copy()
+    delta[1:] = np.where(first[1:], ords[1:], ords[1:] - ords[:-1])
+    starts = np.flatnonzero(first)
+    vocab = tok[starts].tolist()
+    df = np.diff(np.append(starts, len(tok))).tolist()
+    shard_of = [fnv1a32(t) % n_shards for t in vocab]
+    shards: list[dict[str, list[int]]] = [{} for _ in range(n_shards)]
+    for t, s, chunk in zip(vocab, shard_of, np.split(delta, starts[1:]) if len(starts) else []):
+        shards[s][t] = chunk.tolist()
+    files["search/vocab.json"] = C.SearchVocab(tokens=vocab, df=df)
+    for s, postings_s in enumerate(shards):
+        files[f"search/idx-{s:03d}.json"] = C.SearchIndexShard(shard=s, postings=postings_s)
+
+    # ---- doc shards: [article_id, title_th, title_en, year, journal_index, topic|null, doi|null, url|null, cited]
+    cited = cited_counts(work)
+    ids = docs["article_id"].astype(str)
+    rows = list(zip(ids, docs["title_th"].fillna("").astype(str), docs["title_en"].fillna("").astype(str),
+                    docs["year"].astype(int).tolist(), docs["journal_index"].astype(int).tolist(),
+                    [code.get(int(t)) for t in docs["topic_id"]], _or_none(docs["doi"]), _or_none(docs["url"]),
+                    [int(cited.get(a, 0)) for a in ids]))
+    n_doc_shards = -(-n // per)
+    for s in range(n_doc_shards):
+        files[f"search/docs-{s:03d}.json"] = C.SearchDocShard(shard=s, start=s * per, docs=rows[s * per:(s + 1) * per])
+    files["search/meta.json"] = C.SearchMeta(
+        tokenizer_version=int(smeta["tokenizer_version"]), n_docs=n, n_tokens=len(vocab), n_postings=len(tok),
+        index_shards=n_shards, docs_per_shard=per, doc_shards=n_doc_shards, max_token_chars=int(scfg["max_token_chars"]),
+        max_results=int(scfg["max_results"]), min_df=int(scfg["min_df"]), fields=list(FIELDS),
+        stopwords=sorted(STOPWORDS), journals=[str(j) for j in meta.get("journals", [])],
+        years=[int(y) for y in meta.get("years", [])])
+
+    # ---- galaxy.json
+    if not gmeta.get("published"):
+        skipped["galaxy"] = str(gmeta.get("skipped") or "galaxy points not built")
+        return files, skipped
+    pts = read_table(work / "20_galaxy_points.parquet").sort_values("ordinal")
+    topics = sorted(code.values())
+    tindex = {t: i for i, t in enumerate(topics)}
+    x0, y0, x1, y1 = (float(v) for v in gmeta["bounds"])
+    files["galaxy.json"] = C.GalaxyFile(
+        n=len(pts), scale=QUANT, bounds=C.GalaxyBounds(x0=x0, y0=y0, x1=x1, y1=y1), topics=topics,
+        x=pts["x"].astype(int).tolist(), y=pts["y"].astype(int).tolist(),
+        t=[tindex.get(code.get(int(t), ""), -1) for t in pts["topic_id"]], yr=pts["year"].astype(int).tolist())
+    return files, skipped

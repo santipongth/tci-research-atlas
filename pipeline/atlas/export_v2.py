@@ -36,7 +36,7 @@ from atlas.export_exec import (
     topic_institutions,
     topic_sdg_numbers,
 )
-from atlas.export_research import references_file, topic_citations
+from atlas.export_research import references_file, search_files, topic_citations
 from atlas.io_utils import read_table
 from atlas.label import representative_indices
 from atlas.lineage import topic_code
@@ -257,6 +257,9 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
         files["references.json"] = refs_model
     elif why:
         skipped["references"] = why
+    search_out, search_skipped = search_files(cfg, work, code)     # search/* + galaxy.json, aligned by doc ordinal
+    files.update(search_out)
+    skipped.update(search_skipped)
     cited_topic = topic_citations(work)        # None unless internal citation is published
 
     # ---- topics/<id>.json
@@ -392,6 +395,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     if "institutions.json" in files:
         modules.append("institution_detail")
     modules += [m for m in ("references",) if f"{m}.json" in files]
+    modules += [m for m, f in (("search", "search/meta.json"), ("galaxy", "galaxy.json")) if f in files]
     if (mf := methods_file(cfg, work, code)) is not None:
         files["methods.json"] = mf
         modules.append("methods")

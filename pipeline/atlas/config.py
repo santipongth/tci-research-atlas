@@ -468,6 +468,17 @@ class ReferencesCfg(_Strict):
     top_articles: int = Field(50, ge=0)                  # most-cited-in-TCI articles listed
 
 
+class SearchCfg(_Strict):
+    """R2 whole-corpus article search (sharded static index over titles + author keywords) and the R8 galaxy
+    points that share its doc ordinals (P4); the galaxy also needs layout.galaxy."""
+    enabled: bool = True
+    index_shards: int = Field(64, ge=1)                  # token → shard fnv1a32(token) % index_shards
+    docs_per_shard: int = Field(2000, ge=1)              # doc rows per search/docs-<NNN>.json
+    min_df: int = Field(1, ge=1)                         # tokens in fewer articles are left out of the index
+    max_token_chars: int = Field(24, ge=2)               # longest token indexed / matched greedily in a Thai query
+    max_results: int = Field(500, ge=1)                  # results the web lists at most
+
+
 class ExportCfg(_Strict):
     formats: list[Literal["json", "csv"]] = Field(default_factory=lambda: ["json", "csv"])
     include_forecast_in_json: bool = True
@@ -476,7 +487,7 @@ class ExportCfg(_Strict):
     max_topic_journals: int = Field(10, ge=1)
     max_topic_orgs: int = Field(10, ge=1)
     max_neighbors: int = Field(6, ge=0)
-    offline_exclude: list[str] = Field(default_factory=lambda: ["match.json"])
+    offline_exclude: list[str] = Field(default_factory=lambda: ["match.json", "search", "galaxy.json"])
 
 
 class ValidateCfg(_Strict):
@@ -598,6 +609,7 @@ class AtlasConfig(_Strict):
     sdg: SdgCfg = Field(default_factory=SdgCfg)
     benchmark: BenchmarkCfg = Field(default_factory=BenchmarkCfg)
     references: ReferencesCfg = Field(default_factory=ReferencesCfg)
+    search: SearchCfg = Field(default_factory=SearchCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)
