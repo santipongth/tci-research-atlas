@@ -350,6 +350,8 @@ class Latest(_Model):
     path: str
     schema_version: str = SCHEMA_VERSION
     generated_at: str
+    feeds: bool | None = Field(None, description="Atom feeds are on the site: data/feeds/releases.xml and "
+                               "data/feeds/topics/<id>.xml (P4; written only when publish.site_url is set)")
 
 
 # ---------------------------------------------------------------------- P2 editors' modules (schema 2.1)

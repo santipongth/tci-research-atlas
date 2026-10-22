@@ -603,10 +603,22 @@ def publish_cmd(
         raise typer.Exit(2) from e
     if site is not None:
         typer.echo(f"site data: {r['site_data']}\nlatest:    {r['latest']}\n"
-                   f"offline:   {r['offline_html'] or 'skipped (no offline-template.html in the site folder)'}")
+                   f"offline:   {r['offline_html'] or 'skipped (no offline-template.html in the site folder)'}\n"
+                   f"feeds:     {r['feeds']['releases'] + ' + topics/' if r.get('feeds') else 'none (publish.site_url not set)'}")
     if tarball:
         typer.echo(f"tarball: {r['tarball']}\nsha256:  {r['sha256']}\nnotes:   {r['notes']}")
         typer.echo(f"upload it yourself (needs the owner's go-ahead):\n  {r['gh_command']}")
+
+
+@app.command("sdg-scores")
+def sdg_scores_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (built-in defaults if omitted)"),
+) -> None:
+    """Calibrate sdg.min_similarity: cosine quantiles and topic–goal links per threshold 0.30…0.60 (read-only)."""
+    from atlas.config import load_config
+    from atlas.sdg import score_report
+
+    typer.echo(score_report(load_config(config)))
 
 
 @app.command("bakeoff")

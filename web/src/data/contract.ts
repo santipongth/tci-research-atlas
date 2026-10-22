@@ -377,6 +377,10 @@ export type TotalsTh = number[];
  * the series years (series.json years; trimmed recent years left out)
  */
 export type Years2 = number[];
+/**
+ * Atom feeds are on the site: data/feeds/releases.xml and data/feeds/topics/<id>.xml (P4; written only when publish.site_url is set)
+ */
+export type Feeds = boolean | null;
 export type GeneratedAt = string;
 export type Path1 = string;
 export type Release1 = string;
@@ -1255,6 +1259,7 @@ export interface KeywordTrend {
   term: Term1;
 }
 export interface Latest {
+  feeds?: Feeds;
   generated_at: GeneratedAt;
   path: Path1;
   release: Release1;

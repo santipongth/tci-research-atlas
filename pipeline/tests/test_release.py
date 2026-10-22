@@ -611,3 +611,44 @@ def test_executive_modules_are_published_valid_and_name_no_person(two_releases):
     assert all(i["articles"] >= cfg["institutions"]["min_articles"] for i in inst["institutions"])
     sdg = json.loads((rel / "sdg.json").read_text(encoding="utf-8"))
     assert sdg["method"] == "lexical" and len([g for g in sdg["goals"] if g["framework"] == "sdg"]) == 17
+
+
+def test_researcher_modules_are_valid_and_carry_no_person_and_no_abstract(two_releases):
+    root, _ = two_releases
+    rel = root / "out" / "data" / "2026Q2"
+    man = Manifest.model_validate_json((rel / "manifest.json").read_text(encoding="utf-8"))
+    p4 = [f.path for f in man.files if f.path in ("references.json", "galaxy.json", "kwtrends.json")
+          or f.path.startswith("search/")]
+    assert {"search/meta.json", "search/vocab.json", "kwtrends.json"} <= set(p4)
+    assert any(p.startswith("search/idx-") for p in p4) and any(p.startswith("search/docs-") for p in p4)
+    for p in p4:
+        model_for(p).model_validate_json((rel / p).read_bytes())
+    blob = "".join((rel / p).read_text(encoding="utf-8") for p in p4)
+    blob += "".join(json.dumps(json.loads(t.read_text(encoding="utf-8")).get("glossary") or [], ensure_ascii=False)
+                    for t in (rel / "topics").glob("*.json"))
+    people = {n for n in read_table(root / "work" / "01_authors.parquet")["name"].fillna("").astype(str) if len(n) >= 6}
+    assert people and not any(n in blob for n in people)                         # no author name in any P4 file
+    docs = read_table(root / "work" / "02_docs.parquet")
+    snippets = [a[:40] for a in list(docs["abstract_th"].fillna("").astype(str)) +
+                list(docs["abstract_en"].fillna("").astype(str)) if len(a) >= 40]
+    assert snippets and not any(s in blob for s in snippets)                     # no abstract text either
+
+
+def test_publish_with_a_site_url_writes_atom_feeds_for_the_real_release(two_releases, tmp_path):
+    import xml.etree.ElementTree as ET
+
+    from atlas.publish import publish
+
+    root, cfg = two_releases
+    site = tmp_path / "site"
+    pub = {**cfg["publish"], "site_url": "https://example.github.io/atlas/"}
+    for rel in ("2026Q1", "2026Q2"):
+        publish({**cfg, "pipeline": {**cfg["pipeline"], "release": rel}, "publish": pub}, site=site)
+    assert json.loads((site / "data" / "latest.json").read_text(encoding="utf-8"))["feeds"] is True
+    entries = ET.parse(site / "data" / "feeds" / "releases.xml").getroot().findall("{http://www.w3.org/2005/Atom}entry")
+    assert [e.find("{http://www.w3.org/2005/Atom}title").text for e in entries] == ["2026Q2", "2026Q1"]
+    topics = json.loads((site / "data" / "2026Q2" / "topics.json").read_text(encoding="utf-8"))["topics"]
+    feeds = sorted((site / "data" / "feeds" / "topics").glob("*.xml"))
+    assert [p.stem for p in feeds] == sorted(t["id"] for t in topics)
+    for p in feeds:
+        ET.parse(p)

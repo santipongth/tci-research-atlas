@@ -501,6 +501,12 @@ class ExportCfg(_Strict):
     offline_exclude: list[str] = Field(default_factory=lambda: ["match.json", "search", "galaxy.json"])
 
 
+class PublishCfg(_Strict):
+    """`atlas publish --site` extras (P4): Atom feeds need the public address of the site."""
+    site_url: str | None = Field(None, pattern=r"^https?://\S+$")   # e.g. https://<user>.github.io/<repo>/
+    feed_max_entries: int = Field(12, ge=1)              # releases per feed (newest first)
+
+
 class ValidateCfg(_Strict):
     max_topic_count_change: float = Field(0.25, ge=0.0)
     min_kept_ids: float = Field(0.9, ge=0.0, le=1.0)
@@ -625,6 +631,7 @@ class AtlasConfig(_Strict):
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     layout: LayoutCfg = Field(default_factory=LayoutCfg)
     export: ExportCfg = Field(default_factory=ExportCfg)
+    publish: PublishCfg = Field(default_factory=PublishCfg)
     validation: ValidateCfg = Field(default_factory=ValidateCfg)
     bakeoff: BakeoffCfg = Field(default_factory=BakeoffCfg)
 

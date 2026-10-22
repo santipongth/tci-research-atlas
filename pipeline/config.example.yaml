@@ -434,6 +434,10 @@ export:
   max_neighbors: 6
   offline_exclude: [match.json, search, galaxy.json]   # ไฟล์/โฟลเดอร์ที่ไม่ใส่ใน HTML เดี่ยว (atlas-offline.html ≤ ~15MB) — หน้า /match /search /galaxy ในไฟล์ offline บอกให้ใช้เว็บออนไลน์
 
+publish:                      # atlas publish --site (P4)
+  site_url: null              # ที่อยู่สาธารณะของเว็บ เช่น https://<user>.github.io/<repo>/ — ตั้งแล้วจึงเขียนฟีด Atom (data/feeds/releases.xml + data/feeds/topics/<รหัสหัวข้อ>.xml); null = ไม่เขียนฟีด
+  feed_max_entries: 12        # จำนวนรอบข้อมูลสูงสุดต่อฟีด (ใหม่สุดก่อน)
+
 # ---------- atlas validate: เทียบกับรอบก่อน ----------
 validation:
   max_topic_count_change: 0.25  # จำนวนหัวข้อเปลี่ยน > 25% → warning

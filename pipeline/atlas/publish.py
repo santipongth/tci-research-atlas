@@ -12,6 +12,9 @@ Validates first (refuses on errors, and on warnings unless allow_warnings). Then
                                  by plain string replacement (Python only — no Node on the operator's machine);
                                  files in export.offline_exclude (default match.json, the largest) stay out of it —
                                  the offline /match page says it needs the web edition
+  <site>/data/feeds/…            Atom feeds (atlas.feeds) when publish.site_url is set — releases.xml + one per
+                                 topic of the newest release; latest.json then carries feeds: true (the offline
+                                 edition does not: its feeds would be links to the site)
 Older releases already in <site>/data/ stay (the web can compare quarters), and the earlier releases this one
 builds on (manifest.previous_release, then its previous_release, …) that the site lacks are restored from
 output/data/ — e.g. after `npm run build` emptied dist/data. A release folder already on the site is never
@@ -31,6 +34,7 @@ import shutil
 import tarfile
 from pathlib import Path
 
+from atlas.feeds import write_feeds
 from atlas.schema.contract import Latest
 from atlas.state import _checked, default_release, is_newest, known_releases
 from atlas.validate import render_report, validate_release
@@ -149,6 +153,18 @@ def restore_previous(release_dir: Path, site: Path) -> list[str]:
     return restored
 
 
+def _mark_feeds(path: Path) -> None:
+    """latest.json kept on another release (an older quarter was re-published): only say the feeds are there."""
+    try:
+        latest = Latest.model_validate_json(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return
+    if not latest.feeds:
+        latest.feeds = True
+        path.write_text(json.dumps(latest.model_dump(mode="json", exclude_none=True), ensure_ascii=False),
+                        encoding="utf-8")
+
+
 def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_latest: bool = False) -> dict:
     release = release_dir.name
     dst = site / "data" / release
@@ -160,18 +176,30 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
         shutil.rmtree(dst)
     shutil.copytree(release_dir, dst)
     restored = restore_previous(release_dir, site)
+    pcfg = (cfg or {}).get("publish") or {}
+    feeds = None
+    if pcfg.get("site_url"):
+        feeds = write_feeds(site, pcfg["site_url"], int(pcfg.get("feed_max_entries", 12)))
+    else:
+        print("[publish] publish.site_url is not set — no Atom feeds written (set it to the public address of the "
+              "site to get data/feeds/)")
     man = json.loads((release_dir / "manifest.json").read_text(encoding="utf-8"))
-    latest = Latest(release=release, path=f"{release}/manifest.json", generated_at=man["generated_at"])
-    latest_json = latest.model_dump(mode="json")
+    latest = Latest(release=release, path=f"{release}/manifest.json", generated_at=man["generated_at"],
+                    feeds=True if feeds else None)
+    latest_json = latest.model_dump(mode="json", exclude_none=True)
+    offline_latest = {k: v for k, v in latest_json.items() if k != "feeds"}   # feeds live on the site, not in the file
     offline = None
     template = site / OFFLINE_TEMPLATE
     if not move:                                   # latest.json and the offline edition stay on the newest release
         print(f"[publish] WARNING: {release} is not the newest release on the site — latest.json still points at "
               f"{current} (atlas-offline.html unchanged); pass --set-latest to make {release} the latest")
+        if feeds:
+            _mark_feeds(site / "data" / "latest.json")
     elif template.exists():
         (site / "data" / "latest.json").write_text(json.dumps(latest_json, ensure_ascii=False), encoding="utf-8")
         exclude = tuple(cfg["export"]["offline_exclude"]) if cfg else ()
-        html = inject_offline(template.read_text(encoding="utf-8"), offline_bundle(release_dir, latest_json, exclude))
+        html = inject_offline(template.read_text(encoding="utf-8"),
+                              offline_bundle(release_dir, offline_latest, exclude))
         offline = site / OFFLINE_HTML
         offline.write_text(html, encoding="utf-8", newline="")     # same bytes on Windows and Linux
     else:
@@ -179,7 +207,7 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
         print(f"[publish] WARNING: {template} not found — build the web first (npm run build); "
               "the single-file offline edition was skipped")
     return {"site_data": str(dst), "latest": str(site / "data" / "latest.json"), "latest_moved": move,
-            "restored": restored,
+            "restored": restored, "feeds": feeds,
             "offline_html": str(offline) if offline else None}
 
 

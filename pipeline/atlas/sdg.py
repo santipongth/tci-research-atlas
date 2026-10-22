@@ -9,6 +9,7 @@ most sdg.max_goals_per_topic goals per framework, scored by
              sample) whose title or keywords name a goal keyword (text folded like the web search; Latin keywords as
              whole words); ≥ sdg.min_article_share
   16_topic_goals    topic_id, framework, goal_id, score
+  16_topic_goal_scores  (embedding only) every topic × goal cosine, same columns — read by `atlas sdg-scores`
   16_sdg_meta.json  method, version (yaml version + sha1), frameworks [{key, th, en, goals [{id, number, th, en}]}]
 A machine-made overview, not an official classification (the web says so). Abstracts are not read.
 """
@@ -141,6 +142,9 @@ def sdg(cfg: dict, embedder=None) -> pd.DataFrame:
     if method == "lexical":
         texts = _topic_texts(work, int(scfg["docs_per_topic"]), int(cfg["pipeline"]["seed"]))
         scores, threshold = lexical_scores(texts, goal_patterns(goals)), float(scfg["min_article_share"])
+    if method == "embedding":                      # every topic × goal cosine, for `atlas sdg-scores` (calibration)
+        write_table(scores.assign(framework=scores["goal_id"].map(goal_framework))[GOAL_COLUMNS],
+                    work / "16_topic_goal_scores.parquet")
     out = pick(scores, goal_framework, threshold, int(scfg["max_goals_per_topic"]))
     write_table(out, work / "16_topic_goals.parquet")
     meta = {"method": method, "version": f"{fw.get('version', 1)}-{fw['sha1']}",
@@ -150,3 +154,40 @@ def sdg(cfg: dict, embedder=None) -> pd.DataFrame:
     (work / "16_sdg_meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     print(f"[sdg] {method}: {out['topic_id'].nunique():,} topics matched to {out['goal_id'].nunique():,} goals")
     return out
+
+
+SCORE_THRESHOLDS = tuple(round(0.30 + 0.05 * i, 2) for i in range(7))      # 0.30 … 0.60
+
+
+def score_report(cfg: dict) -> str:
+    """`atlas sdg-scores`: from 16_topic_goal_scores, the cosine quantiles and how many topic–goal links each
+    candidate threshold would give (raw, and after max_goals_per_topic per framework). Read-only."""
+    work = Path(cfg["pipeline"]["work_dir"])
+    meta = work / "16_sdg_meta.json"
+    method = json.loads(meta.read_text(encoding="utf-8")).get("method") if meta.exists() else None
+    path = work / "16_topic_goal_scores.parquet"
+    try:
+        scores = read_table(path)
+    except FileNotFoundError:
+        scores = None
+    if scores is None:
+        if method == "lexical":
+            return "embedding scores not computed (method lexical)"
+        return (f"embedding scores not computed: {path.name} not found in {work} — run the sdg step with "
+                f"sdg.method embedding (or auto with centroids on disk)" + (f" (last method {method})" if method else ""))
+    s = scores["score"].astype(float)
+    k, current = int(cfg["sdg"]["max_goals_per_topic"]), float(cfg["sdg"]["min_similarity"])
+    gf = dict(zip(scores["goal_id"], scores["framework"], strict=False))
+    lines = [f"sdg-scores: {scores['topic_id'].nunique():,} topics × {scores['goal_id'].nunique():,} goals "
+             f"= {len(s):,} cosines (sdg.min_similarity now {current:.2f}, max_goals_per_topic {k})",
+             "quantiles  " + "  ".join(f"q{int(q * 100):02d}={s.quantile(q):.3f}"
+                                       for q in (0.0, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1.0)),
+             f"{'threshold':>9}  {'links':>7}  {'kept':>7}  {'topics':>7}  {'goals':>6}"]
+    for t in SCORE_THRESHOLDS:
+        raw = scores[s >= t]
+        kept = pick(scores, gf, t, k)
+        lines.append(f"{t:>9.2f}  {len(raw):>7,}  {len(kept):>7,}  {kept['topic_id'].nunique():>7,}  "
+                     f"{kept['goal_id'].nunique():>6,}")
+    lines.append("links = topic–goal pairs with cosine ≥ threshold; kept = after max_goals_per_topic per framework "
+                 "(what sdg.json would list)")
+    return "\n".join(lines)

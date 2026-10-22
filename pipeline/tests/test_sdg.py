@@ -47,3 +47,36 @@ def test_similarity_scores_rank_goals_by_cosine():
                           ["sdg-01", "sdg-02"])
     top = pick(s, {"sdg-01": "sdg", "sdg-02": "sdg"}, 0.5, 1)
     assert list(zip(top["topic_id"], top["goal_id"])) == [(7, "sdg-01"), (8, "sdg-02")]
+
+
+def test_embedding_runs_keep_every_cosine_for_sdg_scores(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    import atlas.sdg as sdg_mod
+    from atlas.cli import app
+    from atlas.io_utils import read_table
+    from atlas.sdg import score_report
+
+    cfg = make_p2_work(tmp_path)
+    work = Path(cfg["pipeline"]["work_dir"])
+    assert "method lexical" in (sdg(cfg), score_report(cfg))[1]                    # lexical: nothing to calibrate
+    n_goals = sum(len(f["goals"]) for f in load_frameworks()["frameworks"])
+    rng = np.random.default_rng(0)
+    np.save(work / "04_centroids.npy", rng.normal(size=(3, 8)))
+    (work / "04_centroid_ids.json").write_text("[1, 2, 3]", encoding="utf-8")
+    monkeypatch.setattr(sdg_mod, "embed_texts", lambda cfg, texts, emb=None: rng.normal(size=(len(texts), 8)))
+    cfg["sdg"]["method"] = "embedding"
+    sdg(cfg)
+    scores = read_table(work / "16_topic_goal_scores.parquet")
+    assert len(scores) == 3 * n_goals and set(scores.columns) == {"topic_id", "framework", "goal_id", "score"}
+    report = score_report(cfg)
+    rows = [ln.split() for ln in report.splitlines() if ln.strip()[:4] in ("0.30", "0.35", "0.40", "0.45",
+                                                                           "0.50", "0.55", "0.60")]
+    assert [r[0] for r in rows] == ["0.30", "0.35", "0.40", "0.45", "0.50", "0.55", "0.60"]
+    links = [int(r[1].replace(",", "")) for r in rows]
+    assert links == sorted(links, reverse=True) and links[0] == int((scores["score"] >= 0.30).sum())
+    assert "quantiles" in report
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "c.yaml").write_text(f"pipeline: {{work_dir: '{work.as_posix()}'}}\n", encoding="utf-8")
+    res = CliRunner().invoke(app, ["sdg-scores", "-c", str(tmp_path / "c.yaml")])
+    assert res.exit_code == 0 and "threshold" in res.output
