@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
 import { Figure } from '../components/Figure'
@@ -22,6 +23,9 @@ import {
   articlesColumn, ciColumn, ciHighColumn, growthColumn, idColumn, journalsColumn, orgsColumn, ratioColumn, reasonColumn, scoreColumn, shareColumn, topicColumn,
   type ColumnContext,
 } from './topicColumns'
+
+// The embed code for the top-10 widget loads on demand (this page is in the entry chunk).
+const EmbedSnippet = lazy(() => import('../embed/EmbedTools').then((m) => ({ default: m.EmbedSnippet })))
 
 export default function EmergingPage() {
   const { t } = useI18n()
@@ -113,6 +117,11 @@ function Emerging({ release }: { release: AtlasRelease }) {
           {rows.some((r) => r.metrics.orgs_unverified) ? <p className="note">{t('em.dagger')}</p> : null}
         </Tabs>
       )}
+      {counts.EMERGING + counts.WATCH > 0 ? (
+        <Suspense fallback={null}>
+          <EmbedSnippet kind="emerging" path="emerging" height={780} />
+        </Suspense>
+      ) : null}
       <Keywords release={release} />
     </div>
   )

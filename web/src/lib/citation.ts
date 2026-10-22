@@ -83,3 +83,32 @@ export function toBibtex(records: readonly CiteRecord[], release: string): strin
     })
     .join('\n')
 }
+
+/** "Cite this atlas" (Ruling 10): the release as a data set — the organisation is the author, never a person. */
+export interface AtlasCite {
+  org: string
+  title: string
+  version: string
+  kind: string
+  year: number
+  url: string | null
+}
+
+/** APA-like: Org. (Year). Title (Version) [Kind]. URL */
+export function atlasCitation(c: AtlasCite): string {
+  return `${oneLine(c.org)}. (${c.year}). ${oneLine(c.title)} (${oneLine(c.version)}) [${oneLine(c.kind)}].${c.url ? ` ${oneLine(c.url)}` : ''}`
+}
+
+/** BibTeX `@misc` for one release (English fields; the organisation in double braces so it is never split as a name). */
+export function atlasBibtex(release: string, year: number, url: string | null, definitionVersion: number): string {
+  const fields: [string, string][] = [
+    ['author', `{${bibEscape('Thai-Journal Citation Index Centre (TCI)')}}`],
+    ['title', `{TCI Research Atlas}: Thai research landscape, release ${bibEscape(release)}`],
+    ['year', String(year)],
+    ['version', bibEscape(release)],
+    ['howpublished', 'Data set'],
+  ]
+  if (url) fields.push(['url', bibVerbatim(url)])
+  fields.push(['note', bibEscape(`Status definition version ${definitionVersion}`)])
+  return `@misc{tci-atlas-${release.toLowerCase().replace(/[^a-z0-9]/g, '')},\n${fields.map(([k, v]) => `  ${k} = {${v}},`).join('\n')}\n}\n`
+}

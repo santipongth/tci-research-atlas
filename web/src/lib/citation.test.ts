@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bibEscape, toBibtex, toRis, type CiteRecord } from './citation'
+import { atlasBibtex, atlasCitation, bibEscape, toBibtex, toRis, type CiteRecord } from './citation'
 
 const TH = 'การตลาดดิจิทัลของวิสาหกิจชุมชน'
 const records: CiteRecord[] = [
@@ -69,5 +69,22 @@ describe('BibTeX', () => {
     expect(twice).toContain('@article{tci:so02:example3:20002,')
     expect(twice).toContain('@article{tci:so02:example3:20002-2,')
     expect(/\bauthor\s*=/i.test(bib + twice)).toBe(false)
+  })
+})
+
+describe('cite this atlas', () => {
+  it('writes an APA-like data-set citation with the organisation as author', () => {
+    const text = atlasCitation({ org: 'Thai-Journal Citation Index Centre (TCI)', title: 'TCI Research Atlas: Thai research landscape', version: 'Release 2026Q4', kind: 'Data set', year: 2026, url: 'https://example.org/atlas/' })
+    expect(text).toBe('Thai-Journal Citation Index Centre (TCI). (2026). TCI Research Atlas: Thai research landscape (Release 2026Q4) [Data set]. https://example.org/atlas/')
+    expect(atlasCitation({ org: 'O', title: 'T', version: 'V', kind: 'K', year: 2026, url: null })).toBe('O. (2026). T (V) [K].')
+  })
+
+  it('writes a balanced @misc entry whose author is the organisation in double braces', () => {
+    const bib = atlasBibtex('2026Q4', 2026, 'https://example.org/atlas/', 3)
+    expect(bib.startsWith('@misc{tci-atlas-2026q4,')).toBe(true)
+    expect(bib).toContain('author = {{Thai-Journal Citation Index Centre (TCI)}},')
+    expect(bib).toContain('url = {https://example.org/atlas/},')
+    expect(bib.split('{').length).toBe(bib.split('}').length)
+    expect(atlasBibtex('2026Q4', 2026, null, 3)).not.toContain('url =')
   })
 })

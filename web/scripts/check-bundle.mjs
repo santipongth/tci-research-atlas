@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Bundle budget for the Pages build (run after `npm run build`):
 //   * the entry chunk named in dist/index.html stays under the budget, gzip (default 180 KB, or --budget <kb>)
-//   * every page App.tsx loads with lazy(() => import('./pages/X')) is its own chunk (not in the first download)
+//   * every page or embed App.tsx loads with lazy(() => import('./pages/X' | './embed/X')) is its own chunk (not in the first download)
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
-const LAZY = [...readFileSync(join('src', 'App.tsx'), 'utf8').matchAll(/lazy\(\(\) => import\('\.\/pages\/(\w+)'\)\)/g)].map((m) => m[1])
+const LAZY = [...readFileSync(join('src', 'App.tsx'), 'utf8').matchAll(/lazy\(\(\) => import\('\.\/(?:pages|embed)\/(\w+)'\)\)/g)].map((m) => m[1])
 const arg = process.argv.indexOf('--budget')
 const budget = Number(arg > 0 ? process.argv[arg + 1] : 180)
 const html = readFileSync(join('dist', 'index.html'), 'utf8')

@@ -85,7 +85,7 @@ function Results({ release, index, result, headingRef }: { release: AtlasRelease
   const byId = new Map((jf.status === 'ready' ? jf.data.journals : []).map((j) => [j.id, j]))
   const topicOf = (id: string) => release.topicById.get(id) as Topic
   return (
-    <section className="sec" aria-labelledby="match-results">
+    <section className="sec match-res" aria-labelledby="match-results">
       <h2 id="match-results" ref={headingRef} tabIndex={-1}>{t('mt.topics.h')}</h2>
       <p className="hint" role="status">{t('mt.resultsN', { n: fmtInt(result.hits.length) })}</p>
       {result.hits.length === 0 ? (

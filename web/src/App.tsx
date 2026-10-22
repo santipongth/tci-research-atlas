@@ -3,8 +3,6 @@ import { Navigate, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import { RouteLoading } from './components/RouteLoading'
 import AboutPage from './pages/AboutPage'
-import AtlasPage from './pages/AtlasPage'
-import BriefPage from './pages/BriefPage'
 import ComparePage from './pages/ComparePage'
 import DataPage from './pages/DataPage'
 import EmergingPage from './pages/EmergingPage'
@@ -12,6 +10,12 @@ import NotFoundPage from './pages/NotFoundPage'
 import OverviewPage from './pages/OverviewPage'
 import TopicPage from './pages/TopicPage'
 
+// The map (its terrain code) and the printable brief load on demand too: neither is needed for the first page.
+const AtlasPage = lazy(() => import('./pages/AtlasPage'))
+const BriefPage = lazy(() => import('./pages/BriefPage'))
+// Embeddable widgets (iframe) render without the site's header, navigation and footer.
+const EmbedTopic = lazy(() => import('./embed/EmbedTopic'))
+const EmbedEmerging = lazy(() => import('./embed/EmbedEmerging'))
 // The editors' pages load on demand: their code (and the data they fetch) stays out of the first download.
 const JournalsPage = lazy(() => import('./pages/JournalsPage'))
 const JournalPage = lazy(() => import('./pages/JournalPage'))
@@ -38,11 +42,14 @@ function Lazy({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/brief" element={<BriefPage />} />
+      <Route path="/brief" element={<Lazy><BriefPage /></Lazy>} />
+      <Route path="/embed/topic/:id" element={<Lazy><EmbedTopic /></Lazy>} />
+      <Route path="/embed/emerging" element={<Lazy><EmbedEmerging /></Lazy>} />
+      <Route path="/embed/*" element={<Lazy><EmbedTopic /></Lazy>} />
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/overview" replace />} />
         <Route path="overview" element={<OverviewPage />} />
-        <Route path="atlas" element={<AtlasPage />} />
+        <Route path="atlas" element={<Lazy><AtlasPage /></Lazy>} />
         <Route path="topics/:id" element={<TopicPage />} />
         <Route path="emerging" element={<EmergingPage />} />
         <Route path="journals" element={<Lazy><JournalsPage /></Lazy>} />

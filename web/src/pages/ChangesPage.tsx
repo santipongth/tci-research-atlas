@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
+import { FeedLink } from '../embed/EmbedTools'
 import { JournalLink } from '../components/JournalLink'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
@@ -24,7 +25,9 @@ export default function ChangesPage() {
       {(release) =>
         !hasModule(release, 'diff') && !release.overview.previous_release ? (
           <div className="container">
-            <PageHeader title={t('ch.title')} />
+            <PageHeader title={t('ch.title')}>
+              <FeedLink release={release} kind="releases" />
+            </PageHeader>
             <EmptyState title={t('ch.noPrevious')}><p>{t('ch.noPreviousBody')}</p></EmptyState>
           </div>
         ) : (
@@ -90,6 +93,7 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
     <div className="container">
       <PageHeader title={t('ch.title')} lede={t('ch.lede', { release: diff.release, prev: diff.previous_release })}>
         {diff.previous_source === 'output' ? <p className="note">{t('ch.fromOutput', { prev: diff.previous_release })}</p> : null}
+        <FeedLink release={release} kind="releases" />
       </PageHeader>
       {diff.kpis.length ? (
         <Section id="kpis" title={t('ch.kpi.h')}>

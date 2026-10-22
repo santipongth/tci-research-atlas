@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // After `vite build --mode offline`: check the single-file build against the `atlas publish` contract
 // (exactly one empty atlas-data slot, everything inlined, nothing fetched from the network),
-// then move it to dist/offline-template.html.
+// then move it to dist/offline-template.html with a robots noindex meta: the offline file is a download copy of the
+// site (and the template on Pages carries no data), so search engines should index the site, never the file.
 import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,6 +25,9 @@ const urls = [...css.matchAll(/url\(\s*(["']?)([^)"']*)\1\s*\)/gi)].map((m) => m
 if (urls.length) fail(`CSS url() must be data: URIs, found: ${urls.slice(0, 5).join(', ')}`)
 if (/@import\b/i.test(css)) fail('@import is not allowed in the offline file')
 if (/<script[^>]+\bsrc\s*=/i.test(html) || /<link[^>]+rel=["']?stylesheet/i.test(html)) fail('scripts and styles must be inlined')
-writeFileSync(out, html)
+const NOINDEX = '<meta name="robots" content="noindex">'
+const final = html.includes(NOINDEX) ? html : html.replace(/<head([^>]*)>/i, (m) => `${m}${NOINDEX}`)
+if (!final.includes(NOINDEX)) fail('no <head> to carry the robots noindex meta')
+writeFileSync(out, final)
 rmSync(join(web, 'dist-offline'), { recursive: true, force: true })
 console.log(`[offline] ${out} (${Math.round(statSync(out).size / 1024)} KB)`)

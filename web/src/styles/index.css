@@ -12,6 +12,7 @@
 @import "./editors.css";
 @import "./executive.css";
 @import "./research.css";
+@import "./embed.css";
 @import "./print.css";
 
 /* Tailwind utilities read the design tokens; components use the tokens directly. */

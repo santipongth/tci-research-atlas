@@ -24,6 +24,7 @@
   .match-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .privacy { margin-top: 10px; padding: 10px 14px; border-left: 4px solid var(--brand); background: var(--surface); max-width: 46em; }
   .hits { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+  .match-res { max-width: 760px; }
   .hits li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-2); }
   .hits .topic-sub { grid-column: 1 / -1; }
 }

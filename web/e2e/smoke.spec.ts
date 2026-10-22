@@ -34,6 +34,8 @@ const ROUTES = [
   { name: 'galaxy', path: '/galaxy' },
   { name: 'keywords', path: '/keywords' },
   { name: 'references', path: '/references' },
+  { name: 'embedTopic', path: '/embed/topic/T000201' },
+  { name: 'embedEmerging', path: '/embed/emerging' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -95,6 +97,10 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     const ris = page.waitForEvent('download')
     await page.getByRole('button', { name: /บทความตัวแทน 4 เรื่องเป็น RIS/ }).click()
     expect((await ris).suggestedFilename()).toBe('atlas-2026Q4-T000201-articles.ris')
+    // P4: fixtures have latest.feeds false → no feed link; the embed code points at this site's widget
+    await expect(page.locator('.feed-link')).toHaveCount(0)
+    await page.locator('.embed-snip summary').click()
+    await expect(page.locator('#embed-code-topic')).toHaveValue(/^<iframe src="http:\/\/127\.0\.0\.1:4173\/#\/embed\/topic\/T000201\?lang=th" title="AI เพื่อการศึกษา — TCI Research Atlas"/)
     await page.goto(`${EXAMPLE}#/topics/T000701`)
     await expect(page.locator('.uncertain')).toContainText('แนวโน้มไม่แน่นอน')
     await expect(page.locator('.uncertain')).not.toContainText('บทความยังน้อย')
@@ -155,6 +161,10 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.defs > div')).toHaveCount(6)
     await expect(page.locator('#changelog li')).toHaveCount(2)
     await expect(page.locator('#definition')).toContainText('+10%')
+    // cite this atlas: APA-like text and BibTeX for the current release, organisation as author
+    await expect(page.locator('#cite-apa')).toHaveValue(/ศูนย์ดัชนีการอ้างอิงวารสารไทย \(TCI\)\. \(\d{4}\)\. .*รอบข้อมูล 2026Q4/)
+    await expect(page.locator('#cite-bib')).toHaveValue(/^@misc\{tci-atlas-2026q4,[\s\S]*author = \{\{Thai-Journal Citation Index Centre \(TCI\)\}\}/)
+    await expect(page.locator('#cite').getByRole('button', { name: 'คัดลอก แบบ APA' })).toBeVisible()
   },
   brief: async (page) => {
     await expect(page.locator('[data-brief-ready="true"]')).toBeVisible()
@@ -203,6 +213,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#restructured li')).toHaveCount(2)
     await expect(page.locator('#movers table')).toBeVisible()
     await expect(page.locator('#journals')).toContainText('example5')
+    await expect(page.locator('.feed-link')).toHaveCount(0)
   },
   match: async (page) => {
     await expect(page.locator('.privacy')).toBeVisible()
@@ -381,11 +392,34 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#ref-flows tbody tr')).toHaveCount(5)
     await expect(page.locator('#ref-topics tbody tr').first().locator('.topic-link')).toBeVisible()
   },
+  embedTopic: async (page) => {
+    await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
+    await expect(page.locator('.embed-status .chip')).toBeVisible()
+    await expect(page.locator('svg.tr')).toBeVisible()
+    await expect(page.locator('header, nav, footer')).toHaveCount(0)
+    await expect(page.locator('.embed-sample .phase-tag.is-sample')).toBeVisible()
+    const attr = page.getByRole('link', { name: /TCI Research Atlas/ })
+    await expect(attr).toHaveAttribute('target', '_blank')
+    await expect(attr).toHaveAttribute('href', /#\/topics\/T000201\?lang=th$/)
+    await page.goto(`${EXAMPLE}#/embed/topic/T999999`)
+    await expect(page.locator('h1')).toHaveText('ไม่พบหัวข้อ T999999')
+    await expect(page.getByRole('link', { name: /TCI Research Atlas/ })).toHaveAttribute('href', /#\/overview\?lang=th$/)
+  },
+  embedEmerging: async (page) => {
+    await expect(page.locator('h1')).toHaveText('หัวข้อที่กำลังเกิดใหม่และควรจับตา')
+    await expect(page.locator('header, nav, footer')).toHaveCount(0)
+    const items = page.locator('.embed-list li')
+    expect(await items.count()).toBeGreaterThan(0)
+    expect(await items.count()).toBeLessThanOrEqual(10)
+    await expect(items.first().locator('.chip')).toContainText('กำลังเกิดใหม่')
+    await expect(items.first().getByRole('link')).toHaveAttribute('target', '_blank')
+    await expect(page.getByRole('link', { name: /TCI Research Atlas/ })).toHaveAttribute('href', /#\/emerging\?lang=th$/)
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps', `/search?q=${encodeURIComponent('ผู้สูงอายุ')}`, '/galaxy', '/keywords', '/references']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps', `/search?q=${encodeURIComponent('ผู้สูงอายุ')}`, '/galaxy', '/keywords', '/references', '/embed/topic/T000201', '/embed/emerging']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
@@ -603,4 +637,19 @@ test('references: a skipped module gives its coverage reason; too few internal m
   await expect(page.locator('#ref-internal .empty-state')).toContainText('จับคู่รายการอ้างอิงกับบทความในคลังได้น้อยเกินไป')
   await expect(page.locator('#ref-internal .empty-state')).toContainText('12 references matched')
   await expect(page.locator('#ref-flows')).toHaveCount(0)
+})
+
+test('feed links appear on /changes and the topic page when the site has Atom feeds', async ({ page }) => {
+  await page.route('**/data/latest.json', async (route) => {
+    const res = await route.fetch()
+    await route.fulfill({ response: res, json: { ...(await res.json()), feeds: true } })
+  })
+  await page.goto(`${EXAMPLE}#/changes`)
+  await expect(page.getByRole('link', { name: 'ติดตามรอบใหม่ (Atom/RSS)' })).toHaveAttribute('href', './data/feeds/releases.xml')
+  await page.goto(`${EXAMPLE}#/topics/T000201`)
+  await expect(page.getByRole('link', { name: 'ติดตามหัวข้อนี้ (Atom/RSS)' })).toHaveAttribute('href', './data/feeds/topics/T000201.xml')
+})
+
+test('the offline template is kept out of search engines', () => {
+  expect(readFileSync('dist/offline-template.html', 'utf8')).toContain('<meta name="robots" content="noindex">')
 })

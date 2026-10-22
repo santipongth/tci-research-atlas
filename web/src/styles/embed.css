@@ -1,0 +1,44 @@
+/* P4: embeddable widgets (/embed/*), the embed-code disclosure, copy fields, feed links and "cite this atlas". Tokens only. */
+@layer components {
+  /* the widget fills its iframe: white sheet, airy padding, no site chrome */
+  .embed { display: flex; flex-direction: column; min-height: 100vh; padding: 20px 16px 14px; background: var(--bg); }
+  @media (min-width: 641px) { .embed { padding: 24px 24px 16px; } }
+  .embed-main { flex: 1 0 auto; }
+  .embed-sample { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 16px; font-size: 0.875rem; line-height: 1.55; color: var(--ink-2); }
+  .embed-h { font-size: clamp(1.25rem, 1.05rem + 0.9vw, 1.625rem); font-weight: 700; line-height: 1.5; max-width: 34ch; }
+  .embed-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; font-size: 0.9375rem; color: var(--ink-2); }
+  .embed-topic .fig { margin-top: 18px; }
+  .embed-nf p { margin-top: 6px; color: var(--ink-2); max-width: 40em; }
+  .embed-sub { margin-top: 2px; font-size: 0.9375rem; color: var(--ink-2); }
+  .embed-list { list-style: none; margin: 14px 0 0; padding: 0; counter-reset: rank; }
+  .embed-list li { counter-increment: rank; display: grid; grid-template-columns: 2ch minmax(0, 1fr); column-gap: 12px; align-items: baseline; padding-block: 8px; border-top: 1px solid var(--border-2); }
+  .embed-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; min-width: 0; }
+  .embed-list li:last-child { border-bottom: 1px solid var(--border-2); }
+  .embed-list li::before { content: counter(rank); color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+  .embed-topic-link { font-weight: 600; overflow-wrap: anywhere; }
+  .embed-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 0.875rem; color: var(--ink-2); }
+  .embed-more { margin-top: 12px; font-size: 0.9375rem; }
+  .embed-attr { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--border-2); font-size: 0.8125rem; line-height: 1.5; color: var(--ink-2); }
+  .embed-attr a { display: inline-flex; align-items: center; min-height: 24px; }
+  .embed-brand { font-weight: 700; }
+
+  /* "ฝังกราฟ / Embed" disclosure under a chart or a list */
+  .embed-snip { margin-top: 18px; }
+  .embed-snip summary { display: inline-flex; align-items: center; min-height: 32px; cursor: pointer; color: var(--link); text-decoration: underline; text-underline-offset: 0.15em; }
+  .embed-snip summary:hover { color: var(--link-hover); }
+  .embed-snip-body { display: grid; gap: 10px; margin-top: 10px; max-width: 46rem; }
+
+  .copy-field { display: grid; gap: 6px; }
+  .copy-field label { font-weight: 700; }
+  .copy-field textarea { width: 100%; padding: 10px 12px; border: 2px solid var(--field-border); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9375rem; line-height: 1.6; resize: vertical; overflow-wrap: anywhere; }
+  .copy-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+  .copy-st { font-size: 0.9375rem; color: var(--ink-2); }
+  .copy-st.is-fail { color: var(--ink); }
+
+  .feed-link { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 14px; }
+  .feed-link a { display: inline-flex; align-items: center; min-height: 24px; font-weight: 600; }
+  .feed-ic { flex: none; fill: none; stroke: var(--ink); stroke-width: 2; }
+  .feed-ic circle { fill: var(--ink); stroke: none; }
+
+  .cite-atlas { display: grid; gap: 16px; max-width: 46rem; }
+}

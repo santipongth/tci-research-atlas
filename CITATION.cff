@@ -1,0 +1,26 @@
+# Citation metadata for TCI Research Atlas (https://citation-file-format.github.io/).
+# The license below covers the published data (the releases under data/ on the site). The repository has no
+# LICENSE file yet, so the code's licence is not stated here.
+cff-version: 1.2.0
+message: "If you use figures from TCI Research Atlas, please cite the release you used."
+type: dataset
+title: "TCI Research Atlas"
+abstract: >-
+  TCI Research Atlas is a quarterly map of the Thai research landscape built from articles in Thai journals
+  indexed by TCI. A batch pipeline groups articles into research topics, marks each topic as emerging, watch,
+  hot, declining, stable or low data with a published definition and confidence intervals, and forecasts trends;
+  a bilingual (Thai and English) website shows the results for researchers, journal editors and policy makers.
+  Only aggregate figures are published: no person names, rankings of people or abstracts.
+authors:
+  - name: "Thai-Journal Citation Index Centre (TCI)"
+keywords:
+  - research landscape
+  - Thailand
+  - Thai journals
+  - topic modelling
+  - emerging topics
+  - bibliometrics
+license: CC-BY-4.0
+repository-code: "https://github.com/santipongth/tci-research-atlas"
+version: 2.0.0-p4
+date-released: 2026-10-23

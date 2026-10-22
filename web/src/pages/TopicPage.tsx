@@ -30,6 +30,9 @@ import { FOREST_DOMAIN } from './topicColumns'
 // SDG chips (they read sdg.json) and the RIS/BibTeX export load on demand: this page is in the entry chunk.
 const TopicSdg = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.TopicSdg })))
 const ArticleCite = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.ArticleCite })))
+// The embed code and the topic's Atom feed link, also on demand.
+const EmbedSnippet = lazy(() => import('../embed/EmbedTools').then((m) => ({ default: m.EmbedSnippet })))
+const FeedLink = lazy(() => import('../embed/EmbedTools').then((m) => ({ default: m.FeedLink })))
 
 export default function TopicPage() {
   const { id } = useParams()
@@ -296,6 +299,11 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
             ) : (
               <EmptyState title={t('tp.noSeries')} />
             )}
+            {counts.length ? (
+              <Suspense fallback={null}>
+                <EmbedSnippet kind="topic" path={`topic/${topic.id}`} title={`${name(topic)} — TCI Research Atlas`} height={720} />
+              </Suspense>
+            ) : null}
           </Section>
 
           {keywords.length ? (
@@ -389,6 +397,11 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
             <Link className="btn-secondary" to={`/compare?ids=${topic.id}`}>{t('addToCompare')}</Link>
           </p>
           <p className="mt-2 hint">{level}% · {topic.id}</p>
+          {release.latest.feeds === true ? (
+            <Suspense fallback={null}>
+              <FeedLink release={release} kind="topic" topicId={topic.id} />
+            </Suspense>
+          ) : null}
         </aside>
       </div>
     </div>

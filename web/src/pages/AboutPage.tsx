@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BRAND } from '../brand/brand'
 import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
@@ -11,6 +12,9 @@ import { ciPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { STATUSES } from '../lib/status'
 import { statusName } from '../lib/topicText'
+
+// "Cite this atlas" (text + BibTeX with copy buttons) loads on demand: this page is in the entry chunk.
+const CiteAtlas = lazy(() => import('./about/CiteAtlas'))
 
 /** Plain-language method, the status definition, the forecast rule, privacy and the definition changelog. Works without data. */
 export default function AboutPage() {
@@ -28,6 +32,7 @@ export default function AboutPage() {
     ...METHOD.map((m) => ({ id: `m-${m.id}`, label: pick(m.h.th, m.h.en) })),
     { id: 'definition', label: t('about.def.h') },
     { id: 'privacy', label: t('about.privacy.h') },
+    { id: 'cite', label: t('about.cite.h') },
     { id: 'changelog', label: t('about.log.h') },
   ]
   return (
@@ -60,6 +65,11 @@ export default function AboutPage() {
           <Section id="privacy" title={t('about.privacy.h')}>
             <p>{t('about.privacy.body')}</p>
             {BRAND.temporary ? <p className="note">{t('wordmarkNote')}</p> : null}
+          </Section>
+          <Section id="cite" title={t('about.cite.h')}>
+            <Suspense fallback={<p className="loading" role="status">{t('loading')}</p>}>
+              <CiteAtlas release={release} />
+            </Suspense>
           </Section>
           <Section id="changelog" title={t('about.log.h')} intro={t('about.log.intro')}>
             <ol className="changelog">

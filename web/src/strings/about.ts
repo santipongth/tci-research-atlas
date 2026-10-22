@@ -11,6 +11,7 @@ export const about = defineStrings({
   'about.def.order': { th: 'เกณฑ์ตัวเลขเป็นค่าตั้งของระบบ แต่ละรอบข้อมูลบันทึกเลขฉบับของนิยามและรหัสของไฟล์ตั้งค่าไว้ และเกณฑ์ทั้งหมดแสดงอยู่ในหน้านี้ เพื่อให้ตรวจย้อนหลังได้', en: 'The thresholds are settings of the system. Each release records the definition version and a hash of the configuration, and every threshold is listed on this page, so results can be checked later.' },
   'about.privacy.h': { th: 'ความเป็นส่วนตัวและลิขสิทธิ์', en: 'Privacy and copyright' },
   'about.privacy.body': { th: 'Atlas แสดงผลระดับหัวข้อ วารสาร และสถาบันเท่านั้น ไม่จัดอันดับหรือแสดงข้อมูลบุคคล (PDPA) ไม่เผยแพร่บทคัดย่อเพราะเป็นลิขสิทธิ์ของวารสาร ชื่อเรื่องบทความลิงก์กลับไปยัง ThaiJO และเว็บไซต์ไม่เรียกใช้บริการภายนอกหรือ AI ใด ๆ ขณะเปิดดู', en: 'The atlas shows topics, journals and institutions only; it never ranks or shows individuals (PDPA). Abstracts are not republished because they belong to the journals; article titles link back to ThaiJO, and the site calls no outside service or AI while you browse.' },
+  'about.cite.h': { th: 'การอ้างอิง Atlas', en: 'Cite this atlas' },
   'about.log.h': { th: 'ประวัติการเปลี่ยนนิยาม', en: 'Definition changelog' },
   'about.log.intro': { th: 'ทุกครั้งที่นิยามเปลี่ยน เลขฉบับจะเพิ่มขึ้น ตัวเลขต่างฉบับจึงไม่ควรนำมาเทียบกันโดยตรง', en: 'Each change to the definition raises its version number, so figures from different versions should not be compared directly.' },
   'about.log.version': { th: 'ฉบับที่ {v} · {date}', en: 'Version {v} · {date}' },
