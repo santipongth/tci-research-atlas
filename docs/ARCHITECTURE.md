@@ -59,12 +59,18 @@ corpus/*.md (ThaiJO scrape)            ← ตรวจก่อนด้วย:
 [benchmark]  ไทยเทียบโลกจาก OpenAlex (16 requests; offline = ข้ามพร้อมเหตุผล)                           → work/17_*
 [gaps]       ช่องว่างงานวิจัย R5 + ความเสี่ยงกระจุกตัว E10                                              → work/18_*
         ▼
+[references] แนวปฏิบัติการอ้างอิงรายวารสาร D7 + "ถูกอ้างใน TCI" R12 (DOI → ชื่อเรื่องตรงตัว; เผยแพร่เมื่อ coverage ถึงเกณฑ์) → work/19_*
+[search]     ดัชนีค้นหาบทความแบบแบ่งไฟล์ R2 (ชื่อเรื่อง + คำสำคัญผู้แต่ง, pythainlp newmm) + จุดกาแล็กซี R8 (จาก 09_galaxy) → work/20_*
+[kwtrends]   แนวโน้มคำสำคัญของผู้แต่งรายปี R7 + อภิธานศัพท์ไทย↔อังกฤษต่อหัวข้อ/ทั้งคลัง                → work/21_*
+        ▼
 [export]     output/atlas_data.json (schema 1.1 — เว็บ v2 ไม่อ่านแล้ว) + output/data/<release>/ (contract v2) + latest.json
         ▼
 atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>  →  data/<release>/ + data/latest.json + atlas-offline.html
+                                                           (+ data/feeds/*.xml เมื่อตั้ง publish.site_url)
 เว็บ v2 อ่าน data/latest.json แบบ path สัมพัทธ์จาก BASE_URL — ไม่เรียก API ตอน runtime; อัปเดตรายไตรมาส = คัดลอกโฟลเดอร์ data
 ```
 
+- **P4:** ลำดับ step `… gaps → references → search → kwtrends → export`; `export` (ผ่าน `atlas/export_research.py`) เขียน `references.json`, `search/{meta,vocab}.json` + `search/idx-<NNN>.json` + `search/docs-<NNN>.json`, `galaxy.json`, `kwtrends.json` และ `cited_in_tci` / `glossary` ในรายหัวข้อ (contract 2.3) — โมดูลที่ข้ามบอกเหตุผลใน `manifest.skipped_modules`; `search/` และ `galaxy.json` อยู่นอก HTML ออฟไลน์; ฟีด Atom ไม่ใช่ส่วนของรอบข้อมูล แต่ `atlas publish` (`atlas/feeds.py`) สร้างจากรอบที่อยู่บนเว็บ จึงต้องรู้ที่อยู่สาธารณะ (`publish.site_url`); ค้นหาในเบราว์เซอร์ใช้การตัดคำแบบยาวที่สุดก่อนกับ vocab ที่เผยแพร่ (ไม่มี pythainlp ฝั่งเว็บ) ตรึงด้วย `pipeline/tests/fixtures/search_parity.json`
 - **P3:** ลำดับ step `match → institutions → sdg → benchmark → gaps → export`; แคช ROR อยู่ใน `state_dir/ror/` (ข้อมูลถาวร) และคำขอ OpenAlex ของ `benchmark` ใช้ `state_dir/openalex/` เดียวกับ taxonomy; `export` เขียน `institutions*.json`, `regions.json`, `sdg.json`, `global.json`, `gaps.json` และ `overview.executive` (contract 2.2); เว็บแสดงเป็น 6 หน้า lazy และเส้นขอบจังหวัดอยู่ใน chunk ของ `/regions`
 - **P2:** `export` เขียน `state_dir/releases/<release>/snapshot.json` ทุกรอบ แล้วรอบถัดไปเทียบกับ snapshot นั้นเป็น `diff.json` (รอบก่อน P2 ใช้ `output/data/<prev>/`); `match.json` อยู่นอก HTML ออฟไลน์ และเว็บคำนวณ match ในเบราว์เซอร์ล้วน ๆ (`web/src/lib/matcher.ts` ตรึงด้วย `pipeline/tests/fixtures/match_parity.json`)
 - งาน LLM ทั้งหมดเป็นระดับหัวข้อ (ชื่อ คู่ซ้ำ คำอธิบาย บทสรุป) ผ่าน adapter เดียวแบบ OpenAI-compatible (`atlas/llm.py`) บนแกน HTTP ร่วมกับ embedding (`atlas/api_http.py`) — ไม่มี SDK ของผู้ให้บริการรายใด
@@ -80,10 +86,12 @@ atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>
 |---|---|
 | `src/data/source.ts` + `src/data/release.ts` | แหล่งข้อมูล (Http \| Embedded) และ loader ที่ตรวจ schema major — แถบแจ้งเมื่อโหลดไม่ได้ |
 | `src/data/contract.ts` (generated) + `types.ts` | ชนิดข้อมูลจาก `contract.schema.json` (`npm run gen:types`) |
-| `src/pages/*Page.tsx` | overview · atlas · topics/:id · emerging · compare · data · about · brief |
+| `src/pages/*Page.tsx` | overview · atlas · topics/:id · emerging · compare · data · about · brief + หน้า lazy ของ P2–P4 (journals … gaps, search · galaxy · keywords · references) |
+| `src/embed/` | กราฟฝัง `/embed/topic/:id`, `/embed/emerging` (ไม่มีเมนู/ส่วนท้าย; chunk lazy) + ปุ่มคัดลอก `<iframe>` และลิงก์ฟีด |
+| `src/lib/{searchTokens,searchClient,citation,galaxyGl}.ts` | ตัดคำค้น (ตรงกับ Python) · ค้นหาแบบโหลดเฉพาะ shard (doc shard ≤ 6 ต่อคำค้น) · RIS/BibTeX ไม่มีผู้แต่ง · WebGL2 (`gl.POINTS` draw call เดียว + กริดหาจุดใกล้สุด) |
 | `src/charts/` | forest plot · portfolio matrix · trend · multi-line (ทุกกราฟมีแท็บตาราง) |
 | `src/features/atlas/` | แผนที่ภูมิประเทศ (canvas + SVG overlay) + ดัชนีหัวข้อ |
-| `src/strings/` | ข้อความ UI ไทย+อังกฤษ (`i18n.test.ts` ตรวจครบคู่) |
+| `src/strings/` | ข้อความ UI ไทย+อังกฤษ (`i18n.test.ts` ตรวจครบคู่) — หน้า lazy ใช้ไฟล์ strings ของตัวเองผ่าน `useStrings(dict)` เพื่อไม่ให้ข้อความเข้า entry chunk (งบ 180 KB gzip; หลัง P4 ≈ 171 KB เพราะ `/atlas` และ `/brief` เป็น lazy แล้ว) |
 | `src/styles/tokens.css` | design tokens light/dark |
 
 รายละเอียดคำสั่งและโครงสร้างโค้ด: `web/README.md`
@@ -101,7 +109,8 @@ atlas validate  →  atlas publish --site <โฟลเดอร์เว็บ>
 
 ข้อมูลเปลี่ยนปีละ 4 ครั้ง (รันรายไตรมาส) → ความสดของข้อมูลไม่ต้องการ real-time API
 static hosting ถูกกว่า เสถียรกว่า และ publish ผ่าน Kimi/ที่อื่นได้ทันที
-ถ้าอนาคตต้องการ search/auth/per-user state ค่อยเพิ่ม backend (ดู ROADMAP.md §ทางเลือกอนาคต)
+ค้นหาบทความทั้งคลัง (P4) ก็ไม่ต้องมี backend: ดัชนีเป็นไฟล์สถิตแบ่ง shard ที่เบราว์เซอร์โหลดเฉพาะส่วนที่ต้องใช้
+ถ้าอนาคตต้องการ auth/per-user state หรือค้นหาบทคัดย่อ (full-text) ค่อยเพิ่ม backend (ดู ROADMAP.md §ทางเลือกอนาคต)
 
 ## 6. ข้อจำกัดที่รับรู้ไว้
 

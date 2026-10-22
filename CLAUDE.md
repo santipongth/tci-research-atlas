@@ -19,6 +19,7 @@
 tci-research-atlas/
 ├── CLAUDE.md               ← ไฟล์นี้
 ├── README.md               ← ภาพรวมสำหรับทีม (ภาษาไทย)
+├── CITATION.cff            ← วิธีอ้างอิง Atlas (ผู้แต่ง = องค์กร TCI; CC-BY-4.0 เฉพาะข้อมูล — โค้ดยังไม่มี LICENSE)
 ├── DESIGN.md               ← ระบบดีไซน์ (tokens + กฎ) — ชนะ catalog ทั่วไปเสมอ
 ├── docs/
 │   ├── ARCHITECTURE.md     ← การออกแบบระบบ + การไหลของข้อมูล
@@ -30,8 +31,10 @@ tci-research-atlas/
 ├── pipeline/               ← Python batch pipeline (Phase 1,2,4,5)
 │   ├── atlas/              ← โมดูล pipeline: ingest→preprocess→embed→cluster→taxonomy→label
 │   │                         →series→emerging→keywords→forecast→narrate→layout→methods→journals→match
+│   │                         →institutions→sdg→benchmark→gaps→references→search→kwtrends
 │   │                         →export (P2: journals.py, journal_metrics.py, journal_topics.py, registry.py, methods.py, matcher.py, diff.py;
-│   │                         P3: places.py, institutions_ref.py, institutions.py, sdg.py, global_bench.py, gaps.py, export_exec.py)
+│   │                         P3: places.py, institutions_ref.py, institutions.py, sdg.py, global_bench.py, gaps.py, export_exec.py;
+│   │                         P4: references.py, search_index.py, kwtrends.py, export_research.py, feeds.py (ฟีด Atom ตอน publish))
 │   │   ├── sources/        ← parser ข้อมูลเข้า (thaijo_md.py)
 │   │   └── schema/         ← data contract v2 (contract.py → JSON Schema)
 │   ├── configs/ci.yaml     ← config สำหรับ CI
@@ -39,14 +42,16 @@ tci-research-atlas/
 │   ├── registry/           ← ไฟล์ที่ผู้ดูแลคัดเอง (journals.csv, institutions_aliases.csv, province_population.csv — git-ignored) — repo มีแต่ *.example.csv
 │   ├── state/              ← ข้อมูลถาวรข้ามรอบ (embedding store, LLM cache, ID หัวข้อ/ตำแหน่งแผนที่ต่อรอบ, งานอ้างอิง OpenAlex) — git-ignored, ห้ามลบ
 │   ├── config.example.yaml ← คัดลอกเป็น config.yaml แล้วแก้
-│   ├── tests/              ← pytest (มี test_emerging.py ครอบคลุมนิยาม emerging)
-│   ├── scripts/            ← run_all.sh
+│   ├── tests/              ← pytest (มี test_emerging.py ครอบคลุมนิยาม emerging; fixtures/match_parity.json + search_parity.json ตรึงฝั่งเว็บ)
+│   ├── scripts/            ← run_all.sh · make_search_parity.py (สร้าง tests/fixtures/search_parity.json)
 │   └── requirements.txt    ← export จาก uv.lock สำหรับติดตั้งแบบไม่ใช้ uv (ทางหลักคือ `uv sync`)
 ├── web/                    ← เว็บ v2: React 19 + Vite + TS + Tailwind 4, HashRouter (ดู web/README.md)
 │   ├── src/data/           ← contract.ts (generated) · source.ts (Http | Embedded) · release.ts (loader)
 │   ├── src/styles/tokens.css ← design tokens light/dark (ค่าตาม DESIGN.md)
 │   ├── src/strings/        ← ข้อความ UI ไทย+อังกฤษทุกตัว
-│   ├── src/pages/          ← overview · atlas · topics/:id · emerging · compare · data · about · brief · journals · journals/:id · methods · changes · match · institutions · institutions/:id · regions · sdg · global · gaps (ตั้งแต่ journals เป็น React.lazy; เมนูแบ่งกลุ่มผู้บริหาร/บรรณาธิการ/นักวิจัย)
+│   ├── src/pages/          ← overview · atlas · topics/:id · emerging · compare · data · about · brief · journals · journals/:id · methods · changes · match · institutions · institutions/:id · regions · sdg · global · gaps · search · galaxy · keywords · references (atlas, brief และตั้งแต่ journals เป็น React.lazy; เมนูแบ่งกลุ่มผู้บริหาร/บรรณาธิการ/นักวิจัย)
+│   ├── src/embed/          ← กราฟฝัง /embed/topic/:id · /embed/emerging (นอก app shell, lazy) + ปุ่มคัดลอก <iframe> และลิงก์ฟีด
+│   ├── src/lib/            ← searchTokens.ts (คู่ของ atlas.search_index) · searchClient.ts · citation.ts (RIS/BibTeX) · galaxyGl.ts (WebGL2) · matcher.ts · urlState.ts ฯลฯ
 │   ├── src/geo/thProvinces.ts ← เส้นขอบ 77 จังหวัด (Natural Earth, สาธารณสมบัติ; สร้างครั้งเดียวด้วย scripts/make-province-map.mjs)
 │   └── fixtures/           ← รอบข้อมูลสังเคราะห์ (example + empty) สำหรับ dev/test — ไม่ใช่ข้อมูลจริง
 ├── prompts/                ← LLM prompts ทั้งหมด (ฉบับเดียว — โค้ดอ่านไฟล์ตอนรัน)
@@ -70,9 +75,10 @@ tci-research-atlas/
 | P1 | LLM ผ่าน API (label · merge · narrative · brief) + review/overrides | `pipeline/atlas/{llm,llm_runner,label,review,narrative}.py` | ✅ |
 | P1 | Contract v2 release + validate + publish --site (+ offline HTML) | `pipeline/atlas/{export_v2,validate,publish}.py` | ✅ |
 | P2 | Editors: journals (D1–D5, D7), methods (E11), what changed (E5), match my abstract (R3/R4) | `pipeline/atlas/{journals,methods,matcher,diff}.py` + `web/src/pages/{Journals,Journal,Methods,Changes,Match}Page.tsx` | ✅ |
+| P4 | Researchers: ค้นหาบทความทั้งคลัง (R2) + RIS/BibTeX (R9), กาแล็กซีบทความ WebGL2 (R8), แนวโน้มคำสำคัญ + อภิธานศัพท์ไทย↔อังกฤษ (R7), การอ้างอิงรายวารสาร + ถูกอ้างใน TCI (D7, R12), ฟีด Atom (R11), กราฟฝัง, อ้างอิง Atlas + `CITATION.cff`, `atlas sdg-scores`, `/atlas` `/brief` lazy | `pipeline/atlas/{references,search_index,kwtrends,export_research,feeds}.py` + `web/src/pages/{Search,Galaxy,Keywords,References}Page.tsx` + `web/src/embed/` | ✅ |
 | P3 | Executives: สถาบัน + เครือข่ายความร่วมมือ + แผนที่จังหวัด (E6, E7, D6, R6), SDG/BCG/แผน ววน./แผนฯ 13 (E8), ไทยเทียบโลก (E9), ช่องว่างงานวิจัย + ความเสี่ยงกระจุกตัว (R5, E10), KPI ครบ + ประโยคเชิงนโยบายในภาพรวม/brief | `pipeline/atlas/{places,institutions_ref,institutions,sdg,global_bench,gaps,export_exec}.py` + `web/src/pages/{Institutions,Institution,Regions,Sdg,Global,Gaps}Page.tsx` | ✅ |
 
-สิ่งที่ยังไม่มี / ไอเดียต่อยอดอยู่ใน `docs/ROADMAP.md` (เช่น author network, journal view, compare mode, API backend)
+สิ่งที่ยังไม่มี / ไอเดียต่อยอดอยู่ใน `docs/ROADMAP.md` (หัวข้อ "ต่อยอดจาก P2/P3/P4" และงานแนะนำ เช่น ปรับภาษาให้เข้าใจง่าย + ปรับภาพทั้งเว็บ (ถัดไป), ปรับจุดกาแล็กซีกับข้อมูลจริง, LICENSE ของโค้ด, API backend)
 
 ## 4. คำสั่งที่ใช้บ่อย
 
@@ -93,9 +99,12 @@ uv run pytest -q && uv run pytest -m slow -q
 uv run atlas llm -c config.yaml --check | --dry-run      # ปลายทาง LLM / ประมาณ token+ค่าใช้จ่าย; ไม่ใส่ flag = รัน label + narrate (--background; หยุด: atlas llm-stop)
 uv run atlas review export -c config.yaml                # CSV ให้บรรณาธิการตรวจชื่อ → atlas review import <csv>
 uv run atlas validate -c config.yaml                     # exit 0/1/2
-uv run atlas publish -c config.yaml --site ../web/dist   # data/<release>/ + data/latest.json + atlas-offline.html
+uv run atlas publish -c config.yaml --site ../web/dist   # data/<release>/ + data/latest.json + atlas-offline.html (+ data/feeds/ เมื่อตั้ง publish.site_url)
+uv run atlas sdg-scores -c config.yaml                   # ตั้งเกณฑ์ sdg.min_similarity: ควอนไทล์ cosine + จำนวนคู่ต่อเกณฑ์ 0.30…0.60 (อ่านอย่างเดียว; ต้อง sdg.method embedding)
 uv run atlas bakeoff -c config.yaml --kind all           # เทียบ embedding/clustering
+uv run python scripts/make_search_parity.py              # หลังแก้การตัดคำของ search_index → สร้าง tests/fixtures/search_parity.json ใหม่ (แล้วแก้ web/src/lib/searchTokens.ts ให้ตรง)
 ```
+(ฟีด Atom เขียนเฉพาะเมื่อตั้ง `publish.site_url` = ที่อยู่สาธารณะของเว็บ — ไม่ตั้ง = publish บอกว่าไม่มีฟีด; ดู `docs/OPERATIONS.md` §19)
 (key อยู่ใน env var เท่านั้น: `ATLAS_EMBED_API_KEY` สำหรับ embedding แบบ API, `ATLAS_LLM_API_KEY` สำหรับ LLM (ชื่อหัวข้อ · คู่ซ้ำ · คำอธิบาย · บทสรุป) — ใช้ key เดียวกันได้, `OPENALEX_API_KEY` ทางเลือกสำหรับ taxonomy; embed ครั้งใหญ่ดู `docs/OPERATIONS.md` §1A, LLM ดู §6, OpenAlex ดู §9)
 
 ### Web (ทำงานใน `web/`)
@@ -131,6 +140,7 @@ bash scripts/import_atlas.sh                              # build เว็บ +
 - ข้อเท็จจริงที่ UI ใช้: share/growth เป็นทศนิยม (0.10 = 10%), ระดับช่วงเชื่อมั่นคือ `manifest.ci_level`, `share_ratio: null` + `no_baseline: true` → "ใหม่ — ไม่มีในช่วงฐาน", `low_data_reason ∈ {few_articles, not_estimable}`, `forecast.show === false` → "แนวโน้มไม่แน่นอน", นิยามสถานะแสดงจาก `manifest.definition_version` (ตอนนี้ 3)
 - **contract 2.1 (P2, เพิ่มอย่างเดียว):** ไฟล์เสริม `journals.json`, `journals/<id>.json`, `methods.json`, `diff.json`, `match.json` ที่ประกาศใน `manifest.modules` — ทุกไฟล์ optional; เว็บตรวจ major 2 เท่านั้น และหน้าที่ต้องใช้ไฟล์เหล่านี้ต้องอธิบายตัวเองเมื่อไม่มี (`ModuleFile`); `match.json` ไม่อยู่ใน HTML ออฟไลน์ (`export.offline_exclude`)
 - **contract 2.2 (P3, เพิ่มอย่างเดียว):** ไฟล์เสริม `institutions.json`, `institutions/<id>.json`, `regions.json`, `sdg.json`, `global.json`, `gaps.json` ใน `manifest.modules`; `Kpis` เพิ่ม `pct_international`, `pct_multi_institution`, `provinces` (เป็นเปอร์เซ็นต์ เหมือน `pct_abstract_en`); `Overview.executive` (ประโยคแม่แบบ ไม่ใช้ LLM); `Manifest.skipped_modules` (โมดูลที่ข้ามพร้อมเหตุผล เช่น `global` เมื่อ OpenAlex ใช้ไม่ได้); `CountItem.id` ลิงก์สถาบันได้ด้วย — สถาบันที่มีบทความน้อยกว่า `institutions.min_articles` ไม่ถูกเผยแพร่/ลิงก์
+- **contract 2.3 (P4, เพิ่มอย่างเดียว):** ไฟล์เสริม `references.json`, `search/meta.json`, `search/vocab.json`, `search/idx-<NNN>.json`, `search/docs-<NNN>.json`, `galaxy.json`, `kwtrends.json` — โมดูล `references`, `search`, `galaxy`, `kwtrends` ใน `manifest.modules` หรือเหตุผลใน `manifest.skipped_modules` (เช่น coverage ของรายการอ้างอิงต่ำกว่า `references.min_coverage`, `layout.galaxy is false`); `TopicDetail` เพิ่ม `cited_in_tci` และ `glossary` (**null = ไม่เผยแพร่, [] = ไม่พบ**); `Latest` เพิ่ม `feeds` (true เมื่อ publish เขียน `data/feeds/releases.xml` + `data/feeds/topics/<id>.xml` — ต้องตั้ง `publish.site_url`); checkpoint `19_*` (references) · `20_*` (search + galaxy) · `21_*` (kwtrends); ลำดับ step `… gaps → references → search → kwtrends → export`; `search/` และ `galaxy.json` ไม่อยู่ใน HTML ออฟไลน์ (`export.offline_exclude`); ordinal บทความ (`search_index.doc_order`) ใช้ร่วมกันระหว่าง doc shard และ galaxy; references เผยแพร่เมื่อ coverage ≥ `min_coverage` และส่วน "ถูกอ้างใน TCI" เมื่อจับคู่ได้ ≥ `min_internal_matches` (ไม่ถึง → `internal: null` + `internal_reason`)
 - โหลดไม่ได้ / schema ผิด major / ไฟล์เสีย → แถบแจ้งเหตุผล (หน้าเว็บไม่มีวันขาว) — **ไม่มีข้อมูล bundle สำรองแล้ว**
 - **การอัปเดตข้อมูล = `uv run atlas publish --site <เว็บที่ build แล้ว>` หรือคัดลอกโฟลเดอร์ `data/` ใหม่ — ไม่ต้อง build เว็บใหม่**; `atlas_data.json` (schema 1.1) ยังถูกเขียนโดย pipeline แต่เว็บ v2 ไม่อ่านแล้ว
 
@@ -154,6 +164,9 @@ bash scripts/import_atlas.sh                              # build เว็บ +
 - **DO** แถวผู้แต่งอ่านเพื่อ **สังกัด** เท่านั้นใน `institutions_ref` / `institutions` (คอลัมน์ชื่อบุคคลถูกทิ้งตอนอ่าน) — สถาบันที่มีบทความในช่วงต่ำกว่า `institutions.min_articles` ถูกนับในยอดรวมแต่ไม่เคยถูกแสดงเป็นรายการ ลิงก์ หรือจับคู่ในเครือข่าย; ตารางชื่อสถาบัน (`registry/institutions_aliases.csv`) และตารางประชากร (`province_population.csv`) เป็นไฟล์ในเครื่อง git-ignored
 - **DO** เรียก LLM ผ่าน `atlas.llm_runner.run_job` เท่านั้น (cache, งบ, หยุด/ต่อ, repair, fallback; lock/progress/stop ใช้ `atlas.jobs` ของ P0 ตัวเดียวกับ embedding) — งาน LLM เป็นระดับหัวข้อ ไม่เรียกต่อบทความ
 - **DO** ตัวเลขในข้อความที่ LLM เขียนต้องมาจาก pipeline และผ่าน `narrative.grounding_error` (ปฏิเสธตัวเลขที่ไม่อยู่ในข้อมูล, คำบอกจำนวนเท่าที่ไม่มีที่มา, และทิศทางผิดในประโยคอัตรา; เขียนใหม่ 1 ครั้ง แล้วใช้ประโยคแม่แบบ) — ห้ามเผยแพร่ข้อความ LLM ที่ไม่ได้ตรวจ
+- **DO** ไฟล์ P4 (ค้นหา กาแล็กซี การอ้างอิง RIS/BibTeX) เผยแพร่ข้อมูลบทความได้แค่ id, ชื่อเรื่อง TH/EN, ปี, ชื่อวารสาร, หัวข้อ, DOI, ลิงก์ ThaiJO, จำนวนถูกอ้างใน TCI — ไม่มีชื่อผู้แต่ง ไม่มีบทคัดย่อ ไม่มีข้อความรายการอ้างอิง; ดัชนีค้นหาสร้างจาก `title_th/en` + `keywords_th/en` เท่านั้น (`test_release` สแกนหาชื่อผู้แต่ง/บทคัดย่อ)
+- **DO** แก้การตัดคำของ `atlas.search_index` (normalisation, stopword, กฎ token) = รัน `scripts/make_search_parity.py` ใหม่ + แก้ `web/src/lib/searchTokens.ts` ให้ได้ผลเดียวกัน + เพิ่ม `TOKENIZER_VERSION` ทั้งสองฝั่ง — `search_parity.json` ตรึงทั้ง pytest และ vitest
+- **DON'T** ลดเกณฑ์ `references.min_coverage` / `min_internal_matches` เพียงเพื่อให้หน้าแสดงผล — คลังที่รายการอ้างอิงครอบคลุมต่ำทำให้ตัวเลขรายวารสารหลอกตา (ถามเจ้าของข้อมูล)
 - **DON'T** ใช้ชื่อรอบ (release) นอกรูป YYYYQn, ใช้ ID หัวข้อซ้ำ หรือรันรอบที่เก่ากว่ารอบที่มีอยู่ — โค้ดปฏิเสธอยู่แล้ว อย่าเลี่ยง
 
 ### Web
@@ -166,6 +179,9 @@ bash scripts/import_atlas.sh                              # build เว็บ +
 - **DO** หน้าที่ใช้ไฟล์ module (journals/methods/diff/match) เรนเดอร์ผ่าน `ModuleFile` — ถ้าไม่มีโมดูลต้องแสดง h1 พร้อมเหตุผล ไม่ใช่หน้าขาว; ข้อความที่วางใน `/match` ต้องไม่ออกจากเบราว์เซอร์ (ไม่อยู่ใน URL, storage หรือ request) และ `web/src/lib/matcher.ts` ต้องตรงกับ `pipeline/tests/fixtures/match_parity.json`
 - **DO** โมดูลที่ pipeline ข้าม (เช่น `global` ตอน offline) ต้องอธิบายตัวเองผ่าน `ModuleFile` โดยอ่านเหตุผลจาก `manifest.skipped_modules`; แผนที่จังหวัด (`ProvinceMap`) ไม่สื่อตัวเลขด้วยสีอย่างเดียว — มีมุมมองตารางครบทุกจังหวัดเสมอ และเส้นขอบจังหวัดอยู่ใน chunk ของ `/regions` เท่านั้น (entry ≤ 180 KB gzip)
 - **DO** ทำให้ section "หดตัวเอง" (ไม่ render) เมื่อข้อมูลไม่มีฟิลด์นั้น; หน้าเว็บไม่มีวันขาว
+- **DO** หน้า/ส่วนใหม่ที่ lazy เก็บข้อความในไฟล์ `src/strings/<หน้า>.ts` ของตัวเองแล้วอ่านด้วย `useStrings(dict)` (`src/lib/i18n.ts`) — import เฉพาะในหน้า lazy นั้น ไม่ใช่ใน dictionary กลาง เพื่อรักษางบ entry ≤ 180 KB gzip (หลัง P4 ≈ 171 KB; `npm run check:bundle` ตรวจงบ + ทุก lazy import ใน `App.tsx` เป็น chunk แยก)
+- **DO** `/search` ใช้ `searchTokens.ts` ที่ต้องตรงกับ `pipeline/tests/fixtures/search_parity.json` (คำที่ไม่อยู่ใน vocab ต้องบอกผู้ใช้ ไม่ทิ้งเงียบ) และโหลด doc shard ≤ 6 ไฟล์ต่อคำค้น (`MAX_DOC_SHARDS`) — ผลจากบางส่วนต้องบอกผู้อ่าน; RIS/BibTeX (`citation.ts`) ไม่มีบรรทัดผู้แต่ง — RIS ใส่ชื่อเรื่องอังกฤษใน `TT` และวารสารใน `T2`
+- **DO** กราฟฝัง (`/embed/*`) อยู่นอก app shell (ไม่มีเมนู/ส่วนท้าย) แต่ต้องมีลิงก์ที่มา "TCI Research Atlas" และป้ายข้อมูลตัวอย่างเมื่อเป็นข้อมูลสังเคราะห์; ลิงก์ฟีดแสดงเฉพาะเมื่อ `latest.feeds === true`
 - **DO** เก็บสถานะตัวกรอง/การเลือกไว้ใน URL ผ่าน `useUrlState` + codec ใน `web/src/lib/urlState.ts`
 - **DO** ไฟล์ `.tsx` export ได้เฉพาะ component (กฎ react-refresh) — hook/context/helper อยู่ใน `.ts`; ห้าม setState แบบ synchronous ใน effect และห้ามอ่าน `ref.current` ระหว่าง render (react-hooks v7)
 - **DON'T** ใช้ Tailwind class แบบ dynamic (`bg-[${color}]`) — ใช้ inline style `var(--…)` หรือ class ที่เขียนไว้ใน CSS ครบทุกค่า (`chip-${status}`)

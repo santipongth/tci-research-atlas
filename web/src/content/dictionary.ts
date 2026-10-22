@@ -30,4 +30,6 @@ export const DICTIONARY: readonly DictEntry[] = [
   { file: 'keywords.json', field: 'term, emerging, journal_driven', th: 'คำสำคัญเกิดใหม่ วัดจากคำสำคัญของผู้แต่ง', en: 'Emerging keywords, measured on author keywords' },
   { file: 'topics/<id>.json', field: 'articles[]', th: 'บทความตัวแทน: ชื่อเรื่อง วารสาร ปี ลิงก์ ThaiJO และ DOI (ไม่มีบทคัดย่อ)', en: 'Representative articles: title, journal, year, ThaiJO link and DOI (no abstracts)' },
   { file: 'topics/<id>.json', field: 'journals[], institutions[]', th: 'วารสารและสถาบันที่มีบทความในหัวข้อนี้มากที่สุด (ระดับองค์กร ไม่ใช่บุคคล)', en: 'Journals and institutions with the most articles on the topic (organisations, never people)' },
+  { file: 'topics/<id>.json', field: 'cited_in_tci, glossary', th: 'จำนวนครั้งที่บทความของหัวข้อถูกบทความอื่นในคลังอ้าง และคู่คำสำคัญไทย↔อังกฤษเด่น (null = รอบนี้ไม่เผยแพร่, [] = ไม่พบคู่คำ)', en: 'Citations the topic’s articles received from other corpus articles, and its top Thai↔English keyword pairs (null = not published in this release, [] = none found)' },
+  { file: 'latest.json', field: 'feeds', th: 'true เมื่อเว็บมีฟีด Atom ที่ data/feeds/releases.xml และ data/feeds/topics/<id>.xml', en: 'true when the site has Atom feeds at data/feeds/releases.xml and data/feeds/topics/<id>.xml' },
 ]

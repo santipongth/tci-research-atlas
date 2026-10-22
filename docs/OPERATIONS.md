@@ -52,6 +52,7 @@ uv run atlas publish  -c config.yaml --site ../web/dist      # วาง data/<r
 - `atlas-offline.html` = เว็บทั้งหน้าในไฟล์เดียว (ส่งอีเมล/เปิดโดยไม่ต่อเน็ตได้) — สร้างด้วย Python จาก `offline-template.html` ของ web build; ถ้าโฟลเดอร์เว็บยังไม่มีไฟล์นี้ publish จะเตือนแล้วข้ามไป
 - ต้องการไฟล์แนบ GitHub Release ด้วย: เติม `--tarball` (ได้ tar.gz ที่ทำซ้ำได้ + sha256 + release notes และคำสั่ง `gh release create` ให้คนรันเอง — โปรแกรมไม่อัปโหลดเอง)
 - ทางลัด (จาก root): `bash scripts/import_atlas.sh` = `npm run build` ใน web แล้ว `atlas publish --site web/dist`
+- **ฟีด Atom (P4)**: ตั้ง `publish.site_url` (ที่อยู่สาธารณะของเว็บ เช่น `https://<user>.github.io/<repo>/`) แล้ว publish จะเขียน `data/feeds/releases.xml` + `data/feeds/topics/<รหัสหัวข้อ>.xml` และ `latest.json.feeds: true` (เว็บจึงแสดงลิงก์ฟีด) — ไม่ตั้ง = publish พิมพ์ `feeds: none (publish.site_url not set)` และไม่เขียนฟีด (ดู §19)
 
 ### ขั้น 4 — ตรวจหน้าเว็บ + เผยแพร่
 
@@ -307,9 +308,9 @@ uv run atlas llm -c config.yaml                            # รันจริ�
 
 prompt อยู่ที่ `prompts/topic_methods.th.md` ไฟล์เดียว
 
-## 12. HTML เดี่ยว (`atlas-offline.html`) ไม่มีหน้า /match
+## 12. HTML เดี่ยว (`atlas-offline.html`) ไม่มีหน้า /match, /search, /galaxy
 
-ดัชนี `match.json` ใหญ่ (≤ 5 MB) จึงไม่ใส่ในไฟล์ออฟไลน์ (`export.offline_exclude: [match.json]`) — หน้า `/match` ในไฟล์นั้นแสดง "ฉบับออฟไลน์ไม่มีส่วนนี้ ต้องใช้เว็บไซต์ออนไลน์" หน้าอื่นทำงานครบ ถ้าอยากใส่ในไฟล์ออฟไลน์ให้เอา `match.json` ออกจากรายการ (ไฟล์จะใหญ่ขึ้น) ข้อความที่ผู้ใช้วางใน `/match` ประมวลผลในเบราว์เซอร์ ไม่ถูกส่งไปที่ใด
+ไฟล์ใหญ่ไม่ใส่ในไฟล์ออฟไลน์ (`export.offline_exclude: [match.json, search, galaxy.json]` — ชื่อโฟลเดอร์ `search` = ทุกไฟล์ใต้ `search/`): ดัชนี `match.json` (≤ 5 MB), ดัชนีค้นหาบทความ และจุดของกาแล็กซี (ขนาดตามคลัง ดู §17) — หน้า `/match` `/search` `/galaxy` ในไฟล์นั้นแสดง "ฉบับออฟไลน์ไม่มีส่วนนี้ ต้องใช้เว็บไซต์ออนไลน์" หน้าอื่นทำงานครบ ถ้าอยากใส่ในไฟล์ออฟไลน์ให้เอาออกจากรายการ (ไฟล์จะใหญ่ขึ้นมาก) ข้อความที่ผู้ใช้วางใน `/match` ประมวลผลในเบราว์เซอร์ ไม่ถูกส่งไปที่ใด · ฉบับออฟไลน์ไม่มีฟีด (ฟีดอยู่บนเว็บเท่านั้น) และกราฟฝัง (`/embed/*`) ต้องใช้จากเว็บออนไลน์
 
 ## 13. ทะเบียนชื่อสถาบัน (ไม่บังคับ แต่แนะนำ)
 
@@ -341,4 +342,56 @@ cp pipeline/registry/institutions_aliases.example.csv pipeline/registry/institut
 
 เป้าหมายและคำสำคัญอยู่ที่ `pipeline/atlas/data/frameworks.yaml` (SDG 17 · BCG 3 · แผนด้าน ววน. 2566–2570 4 แพลตฟอร์ม · หมุดหมายแผนฯ 13 13 ข้อ) — แก้คำสำคัญได้ หรือชี้ `sdg.frameworks_path` ไปไฟล์ของผู้ดูแล; `sdg.method` = `lexical` (ค่าเริ่ม — นับคำสำคัญ) | `embedding` | `auto` (embedding เมื่อใช้ provider api/local และมี centroid). **ก่อนเปิด embedding:** รันจริงครั้งแรกด้วย `embedding` ในโฟลเดอร์ทดลอง ดูการกระจายคะแนนใน `work/16_topic_goals` แล้วตั้ง `sdg.min_similarity` ให้เหมาะกับโมเดล (0.45 เป็นค่าตั้งต้นที่ยังไม่ได้ปรับกับข้อมูลจริง — ตั้งต่ำไปจะดูเหมือนครอบคลุมเป้าหมายเกินจริง). หลังแก้: `uv run atlas run -c config.yaml -s sdg -s export`. ผลเป็นการจัดกลุ่มโดยเครื่องเพื่อดูภาพรวม ไม่ใช่การจัดประเภทอย่างเป็นทางการ (เว็บบอกไว้ในหน้า)
 
+**ตัวช่วยตั้งเกณฑ์ (P4):** เมื่อ `sdg.method` เป็น embedding ขั้น `sdg` เขียน cosine ทุกคู่หัวข้อ × เป้าหมายลง `work/16_topic_goal_scores` แล้ว
+
+```bash
+uv run atlas sdg-scores -c config.yaml     # อ่านอย่างเดียว ไม่เผยแพร่อะไร
+```
+
+พิมพ์ควอนไทล์ของคะแนน (q00…q100) และตารางเกณฑ์ 0.30…0.60 (ทีละ 0.05): `links` = คู่หัวข้อ–เป้าหมายที่คะแนนถึงเกณฑ์, `kept` = หลังจำกัด `max_goals_per_topic` ต่อกรอบ (= ที่ `sdg.json` จะแสดง), จำนวนหัวข้อและเป้าหมายที่ถูกครอบคลุม — เลือกเกณฑ์ที่ไม่ทำให้เกือบทุกหัวข้อผูกกับเป้าหมาย แล้วตั้ง `sdg.min_similarity` และรัน `-s sdg -s export`; ถ้าใช้ lexical จะได้ข้อความ `embedding scores not computed (method lexical)`
+
 **เพิ่มในรายการตรวจรายไตรมาส:** ตรวจ `/institutions` หาชื่อสถาบันที่ควรรวม (สะกดต่างกันแยกเป็นหลายแถว) แล้วเพิ่มในทะเบียนชื่อสถาบัน; ดู `/regions` ว่า coverage ของจังหวัดสมเหตุสมผล; เปิด `/global` และ `/gaps` ว่ามีข้อมูลหรือบอกเหตุผลที่ข้าม
+
+## 17. ค้นหาบทความทั้งคลัง (`search`) และกาแล็กซี
+
+ขั้น `search` (หลัง `references`) สร้างดัชนีแบบสถิตจาก **ชื่อเรื่อง TH/EN + คำสำคัญของผู้แต่ง** เท่านั้น (ไม่มีบทคัดย่อ ไม่มีชื่อผู้แต่ง) → `search/meta.json`, `search/vocab.json`, `search/idx-<NNN>.json` (`search.index_shards` ไฟล์ ค่าเริ่ม 64), `search/docs-<NNN>.json` (ไฟล์ละ `search.docs_per_shard` = 2,000 บทความ) และ `galaxy.json` (สเปกใน `docs/DATA_SPEC.md` §9)
+
+- log ของขั้นนี้บอกขนาด: `[search] N articles, T tokens, P postings in Xs — 64 index shards (a–b tokens each), D doc shards of ≤ 2,000; galaxy: G placed` — ดูทุกรอบว่าจำนวนบทความสมเหตุสมผล (เฉพาะบทความในช่วงที่วิเคราะห์ที่มีชื่อเรื่อง จึงน้อยกว่า `kpis.articles` ได้) และ token แต่ละ shard ไม่เอียงมาก
+- สิ่งที่ผู้อ่านดาวน์โหลด: เปิด `/search` ครั้งแรกโหลด `meta.json` + `vocab.json` ทั้งไฟล์ (โตตามจำนวนคำในคลัง — ไฟล์ที่ใหญ่ที่สุดที่ต้องโหลดก่อนค้น); แต่ละคำค้นโหลดเฉพาะ index shard ของคำนั้น และ doc shard **ไม่เกิน 6 ไฟล์ต่อคำค้น** (≈ 0.5 MB gzip ที่ค่าเริ่ม) — คำค้นกว้างที่ผลกระจายหลาย shard จะแสดงจากบางส่วนของผลที่ตรง พร้อมบอกผู้อ่านและแนะนำให้เติมคำ; หน้าแสดงสูงสุด `search.max_results` (500) รายการ
+- `galaxy.json` ≈ 20 ไบต์ต่อบทความก่อน gzip (ประมาณการ: 250K บทความ ≈ 5 MB) โหลดเมื่อเปิด `/galaxy` เท่านั้น
+- ปรับขนาด: คลังใหญ่มาก (250–500K) แล้ว `vocab.json` ใหญ่เกิน → เพิ่ม `search.min_df` (เช่น 2 = ตัดคำที่พบบทความเดียว); doc shard ใหญ่ไป → ลด `docs_per_shard` (ไฟล์มากขึ้นแต่เล็กลง) — ไม่กระทบนิยามใด ๆ รัน `-s search -s export` ใหม่ได้
+- **การตัดคำต้องตรงกันสองฝั่ง**: Python (`atlas.search_index`) ตัดคำตอนสร้างดัชนี, เว็บ (`web/src/lib/searchTokens.ts`) ตัดคำค้นแบบยาวที่สุดก่อนกับ vocab (ไม่มี pythainlp ในเบราว์เซอร์) — ถ้าแก้ normalisation/stopword/กฎ token ต้องรัน `uv run python scripts/make_search_parity.py` (ใน `pipeline/`) สร้าง `tests/fixtures/search_parity.json` ใหม่ แก้ `searchTokens.ts` ให้ตรง และเพิ่ม `TOKENIZER_VERSION`; `pytest` และ `npm test` ตรวจ fixture เดียวกัน
+- ปิด: `search.enabled: false` (หน้า `/search` และ `/galaxy` บอกเหตุผล); ปิดเฉพาะกาแล็กซี: `layout.galaxy: false` → `skipped_modules.galaxy = "layout.galaxy is false"`
+
+### ปรับขนาดจุดของกาแล็กซีกับข้อมูลจริง (ทำในรอบจริงรอบแรก)
+
+ขนาดและความทึบของจุดคำนวณจากจำนวนจุด (`pointSize` / `pointAlpha` ใน `web/src/lib/galaxyGl.ts`) — ค่าตั้งต้นทดสอบกับข้อมูลสังเคราะห์ ~600 จุดเท่านั้น รอบจริงรอบแรกให้เปิด `/galaxy` ทั้งโหมดสว่าง/มืด บนจอปกติและมือถือ: จุดทับกันจนเป็นก้อนสีเดียว → ลดขนาด/ความทึบ; กลุ่มเล็กมองไม่เห็นตอนซูมออก → เพิ่มขนาดขั้นต่ำ — เป็นการแก้โค้ดเว็บ (build ใหม่ครั้งเดียว) ไม่ใช่ข้อมูล
+
+## 18. การอ้างอิง (`references`): เกณฑ์ที่ต้องผ่านก่อนเผยแพร่
+
+ขั้น `references` นับรายการอ้างอิงจาก `01_references` (ไม่นับการอ้างตัวเองและฉบับแปลซ้ำ) แล้วคำนวณแนวปฏิบัติการอ้างอิงรายวารสาร (D7) และ "ถูกอ้างใน TCI" (R12 — จับคู่รายการอ้างอิงกับบทความในคลังด้วย DOI ก่อน แล้วชื่อเรื่องตรงตัวหลัง normalise) มีประตูสองชั้น:
+
+1. **coverage** = สัดส่วนบทความในช่วงที่วิเคราะห์ที่มีรายการอ้างอิงที่นับได้ ≥ 1 รายการ — ต่ำกว่า `references.min_coverage` (0.5) → ไม่มี `references.json` และ `manifest.skipped_modules.references` เป็นข้อความเช่น `reference coverage 12.3% of 4,210 articles 2015–2025 (< references.min_coverage 50.0%)` หน้า `/references` แสดงข้อความนั้น หน้าหัวข้อซ่อน "ถูกอ้างใน TCI"
+2. **จับคู่ภายในคลัง** ได้น้อยกว่า `references.min_internal_matches` (20) → `references.json` ยังมีส่วนรายวารสาร แต่ `internal: null` + `internal_reason` (เช่น `12 references matched a corpus article (< references.min_internal_matches 20)`); `cited_in_tci` ของหัวข้อเป็น null
+
+เหตุผลที่ข้ามแปลว่า **คลังรอบนี้มีรายการอ้างอิงที่ parse ได้น้อยเกินจะสรุป** (มักเพราะไฟล์ ThaiJO ไม่มีส่วนอ้างอิง หรือรูปแบบที่ parser อ่านไม่ได้) ไม่ใช่ pipeline ล้ม — ดูบรรทัด `[references]` ใน log และ `work/19_refs_meta.json` (coverage, จำนวนที่จับคู่ด้วย DOI/ชื่อเรื่อง); อย่าลดเกณฑ์เพียงเพื่อให้หน้าแสดงผล เพราะตัวเลขจากคลังที่ครอบคลุมต่ำทำให้วารสารที่ข้อมูลไม่ครบดูเหมือนอ้างอิงน้อย — ถ้าจะลดต้องตัดสินใจกับเจ้าของข้อมูลและบันทึกเหตุผล ไฟล์ที่เผยแพร่ไม่มีข้อความรายการอ้างอิงหรือชื่อผู้แต่ง (`top_articles` มีแค่ชื่อเรื่อง วารสาร ปี ลิงก์ จำนวน)
+
+## 19. ฟีด Atom (`publish.site_url`)
+
+```yaml
+publish:
+  site_url: https://<user>.github.io/<repo>/   # ที่อยู่สาธารณะของเว็บ (ลิงก์ในฟีดเป็น absolute)
+  feed_max_entries: 12                         # รอบสูงสุดต่อฟีด ใหม่สุดก่อน
+```
+
+- `atlas publish --site <dir>` เขียน `data/feeds/releases.xml` (หนึ่ง entry ต่อรอบบนเว็บ: headline + จำนวนหัวข้อใหม่/หายไป/เปลี่ยนสถานะจาก `diff.json`, ลิงก์ `#/changes`) และ `data/feeds/topics/<รหัสหัวข้อ>.xml` ทุกหัวข้อของรอบใหม่สุด (สถานะ บทความช่วงล่าสุด อัตราโต ต่อรอบ; ลิงก์ `#/topics/<รหัส>`); ฟีดของหัวข้อที่ไม่อยู่ในรอบใหม่สุดถูกลบ
+- สร้างจากไฟล์ที่อยู่บนเว็บเท่านั้น → publish ซ้ำได้ไบต์เดิม; publish รอบที่เก่ากว่า (ไม่ย้าย latest) ยังอัปเดตฟีดและตั้ง `feeds: true` ใน latest ที่มีอยู่
+- เว็บแสดงลิงก์ฟีด (หน้า `/changes` และหน้าหัวข้อ) เฉพาะเมื่อ `latest.json.feeds` เป็น true; HTML ออฟไลน์ไม่มีฟีด
+- เว็บสาธิต (Pages + ข้อมูลสังเคราะห์) ไม่ต้องตั้ง — fixture ตั้ง `feeds: false`
+
+## 20. แนวโน้มคำสำคัญ (`kwtrends`) และกราฟฝัง
+
+- ขั้น `kwtrends` นับคำสำคัญของผู้แต่ง (ไทย/อังกฤษแยกกัน) ต่อปีของอนุกรมเวลา เก็บ `kwtrends.max_keywords` (3,000) คำที่พบ ≥ `kwtrends.min_count` (5) บทความ และจับคู่คำไทย↔อังกฤษตามตำแหน่งเมื่อรายการยาวเท่ากัน (อภิธานศัพท์ต่อหัวข้อและทั้งคลัง) — หน้า `/keywords` เทียบได้ครั้งละ 4 คำ (สี่สีของเส้น); ถ้าอภิธานศัพท์มีคู่คำแปลก ๆ มาก แสดงว่าบางวารสารเรียงคำสำคัญสองภาษาไม่ตรงกัน — เพิ่ม `kwtrends.glossary_min_pairs`
+- กราฟฝัง: หน้าหัวข้อและ `/emerging` มีปุ่ม "ฝังกราฟ / Embed" ให้คัดลอก `<iframe>` ที่ชี้ `/embed/topic/<รหัส>` หรือ `/embed/emerging` ของเว็บที่เปิดอยู่ — ใช้ได้เฉพาะเว็บออนไลน์; ข้อมูลสังเคราะห์ยังมีป้าย "ข้อมูลตัวอย่าง" ในกรอบที่ฝัง
+
+**เพิ่มในรายการตรวจรายไตรมาส (P4):** เปิด `/search` ลองค้นคำไทย 1 คำและอังกฤษ 1 คำ; `/galaxy` ว่าจุดแสดงและคลิกแล้วได้บทความ; `/references` ว่ามีข้อมูลหรือบอก coverage ที่ไม่ถึงเกณฑ์; `/keywords` ว่าคำยอดนิยมสมเหตุสมผล; ถ้าตั้ง `site_url` เปิด `data/feeds/releases.xml` ว่ามีรอบใหม่

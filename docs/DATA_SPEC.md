@@ -242,3 +242,45 @@ PDPA: ตัวเลขของวารสารเป็นยอดรว�
 | `gaps.json` | `GapsFile` | เกณฑ์ที่ใช้, `few_institutions[]`, `bridges[]` (a, b, similarity, shared, jaccard), `world[]`, `concentration[]` = `Concentration` (scope, id, kind, articles, hhi, top_share, top, top_name, concentrated) |
 
 หน่วย KPI: `Kpis.pct_international` / `pct_multi_institution` เป็น **เปอร์เซ็นต์** (เหมือน `pct_abstract_en`), `provinces` เป็นจำนวนจังหวัดที่มีบทความ; สัดส่วนในไฟล์โมดูล (`intl_share`, `share`, `coverage`, `top_share`) เป็น **เศษส่วน** 0–1. `Overview.executive` = `bullets_th` / `bullets_en` / `source: "template"` — ประโยคแม่แบบสร้างตอน export จากไฟล์ข้างต้น (ไม่มี LLM; ตัวเลขทุกตัวมาจากไฟล์)
+
+## 9. P4 — รุ่นนักวิจัย (contract 2.3, เพิ่มอย่างเดียว)
+
+`SCHEMA_VERSION = "2.3.0"` — ไฟล์ใหม่ทุกไฟล์ optional และประกาศใน `manifest.modules` (`references`, `search`, `galaxy`, `kwtrends`); โมดูลที่ข้ามพร้อมเหตุผลอยู่ใน `manifest.skipped_modules` (เช่น `{"references": "reference coverage 12.3% of 4,210 articles 2015–2025 (< references.min_coverage 50.0%)"}`, `{"galaxy": "layout.galaxy is false"}`). ลำดับ step: `… gaps → references → search → kwtrends → export`. PDPA: ข้อมูลบทความที่เผยแพร่ = id, ชื่อเรื่อง TH/EN, ปี, ชื่อวารสาร, หัวข้อ, DOI, ลิงก์ ThaiJO, จำนวน "ถูกอ้างใน TCI" เท่านั้น — **ไม่มีชื่อผู้แต่งและไม่มีบทคัดย่อ** ในไฟล์ใดเลย (ดัชนีค้นหาสร้างจากชื่อเรื่อง + คำสำคัญของผู้แต่ง; ไม่มีข้อความรายการอ้างอิง); `test_release` สแกนไฟล์ใหม่ทุกไฟล์หาชื่อผู้แต่ง/ข้อความบทคัดย่อของไฟล์จริง 11 ไฟล์
+
+### Checkpoint ใหม่ใน `work_dir` (ลบได้)
+
+| ไฟล์ | step | เนื้อหา |
+|---|---|---|
+| `19_ref_matches` · `19_article_cites` · `19_journal_refs` · `19_topic_flows` · `19_refs_meta.json` | `references` | citing_id, cited_id, method (`doi` \| `title`) · article_id, cited_in_tci (จำนวนบทความในคลังที่อ้างถึง นับครั้งเดียวต่อบทความที่อ้าง; > 0 เท่านั้น) · ต่อวารสารที่มีบทความที่มีรายการอ้างอิง ≥ `references.min_journal_articles`: articles, articles_with_refs, refs_median, age_median, share_recent, share_thai, share_doi · หัวข้อที่อ้าง → หัวข้อที่ถูกอ้าง, n · window, coverage, counts, methods, published/skipped, internal/internal_reason |
+| `20_docs` · `20_postings` · `20_galaxy_points` · `20_search_meta.json` | `search` | ordinal, article_id, title_th/en, year, journal_index, topic_id (−1 = ยังไม่จัดหมวด), doi, url (ไม่มีผู้แต่ง ไม่มีบทคัดย่อ) · คู่ (token, ordinal) ไม่ซ้ำ เรียงแล้ว · ordinal, x, y (0…65535 บน view box ของแผนที่, −1 = ไม่มีพิกัด), topic_id, year · n_docs, window, journals, years, search {published, skipped, tokenizer_version, …}, galaxy {published, skipped, bounds, placed} |
+| `21_kw_years` · `21_glossary` · `21_kwtrends_meta.json` | `kwtrends` | lang, key, term, rank, year, count (หนึ่งแถวต่อคำ × ปีของอนุกรมเวลา) · scope (`topic` \| `all`), topic_id (−1 = ทั้งคลัง), rank, th_key, en_key, th, en, n · published, skipped, years, totals, totals_th, totals_en, candidates, kept, paired_articles, pairs |
+| `16_topic_goal_scores` | `sdg` | (เฉพาะ `sdg.method` embedding) cosine ทุกคู่หัวข้อ × เป้าหมาย คอลัมน์เดียวกับ `16_topic_goals` — อ่านโดย `atlas sdg-scores` เท่านั้น ไม่เผยแพร่ |
+
+**ลำดับบทความ (doc ordinal):** หนึ่ง ordinal ต่อบทความที่เผยแพร่ = ตำแหน่งใน `01_articles` เรียงตาม `article_id` เฉพาะบทความที่มีปีอยู่ในช่วงที่วิเคราะห์ (`atlas.checkpoints.analysed_window` = ปีของอนุกรมเวลา + ปีล่าสุดที่ตัดออก) และมีชื่อเรื่อง TH หรือ EN — ไฟล์ค้นหาและ `galaxy.json` ใช้ ordinal เดียวกัน (`atlas.search_index.doc_order`)
+
+**การตัดคำ (tokenizer_version 1):** NFC, ตัวพิมพ์เล็ก, เลขไทย → 0–9, แบ่งเป็นช่วงอักษรไทย/ช่วงอักษรอื่น; ช่วงไทยตัดด้วย pythainlp `newmm`; เก็บ token ≥ 2 code point ที่ไม่อยู่ใน stopword (ตัวเลขล้วนเก็บเฉพาะ 4 หลัก = ปี), ยาว ≤ `search.max_token_chars`, df ≥ `search.min_df`. ฝั่งค้น (`query_tokens` ใน Python = `web/src/lib/searchTokens.ts`) ไม่ใช้ pythainlp: ช่วงไทยจับคู่แบบยาวที่สุดก่อนกับ vocab, คำที่ไม่พบรายงานเป็น `unknown` — ทั้งสองฝั่งตรึงด้วย `pipeline/tests/fixtures/search_parity.json` (สร้างใหม่ด้วย `pipeline/scripts/make_search_parity.py`)
+
+### ไฟล์ที่เผยแพร่ (`data/<release>/`)
+
+| ไฟล์ | model | เนื้อหา |
+|---|---|---|
+| `references.json` | `ReferencesFile` | (เผยแพร่เมื่อ coverage ≥ `references.min_coverage`) `window`, `articles`, `articles_with_refs`, `coverage`, `refs_counted`, เกณฑ์ (`min_coverage`, `min_journal_articles`, `recent_years`); `journals[]` = `JournalRefs` (journal, id → `journals/<id>.json`, refs_median, age_median, share_recent, share_thai, share_doi); `internal` = `InternalCitations` (matches, citing/cited_articles, share_doi/share_title, `topics[]` received/given, `flows[]` source→target ≥ `min_flow`, `top_articles[]` = `CitedArticle` ไม่มีผู้แต่ง) หรือ null + `internal_reason` เมื่อจับคู่ได้ < `references.min_internal_matches` |
+| `search/meta.json` | `SearchMeta` | tokenizer_version, n_docs, n_tokens, n_postings, index_shards, docs_per_shard, doc_shards, max_token_chars, max_results, min_df, fields (title_th, title_en, keywords_th, keywords_en), stopwords, journals (รายชื่อ — แถว doc อ้างด้วย index), years |
+| `search/vocab.json` | `SearchVocab` | `tokens` (เรียงตาม code point) + `df` ต่อ token |
+| `search/idx-<NNN>.json` | `SearchIndexShard` | `postings`: token → ordinal เรียงไม่ซ้ำ เข้ารหัส delta (ค่าแรกเป็นค่าจริง ต่อไปเป็นผลต่าง); token อยู่ shard `fnv1a32(token) % index_shards` (FNV-1a 32 บิตบนไบต์ UTF-8) — เขียนครบทุก shard แม้ว่าง |
+| `search/docs-<NNN>.json` | `SearchDocShard` | `start` + `docs[]` = `[article_id, title_th, title_en, year, journal_index, topic id \| null, doi \| null, ThaiJO url \| null, cited_in_tci]` ของ ordinal `start …` (shard = ordinal // docs_per_shard) |
+| `galaxy.json` | `GalaxyFile` | แบบคอลัมน์ ตรงกับ ordinal: `n` (= n_docs), `scale` (65535), `bounds` (x0, y0, x1, y1 = view box ของแผนที่หัวข้อ), `topics` (รหัสหัวข้อ), `x`/`y` (−1 = ไม่มีพิกัด), `t` (index ใน topics, −1 = ยังไม่จัดหมวด), `yr` — ข้ามเมื่อ `layout.galaxy: false` หรือไม่มี `09_galaxy` |
+| `kwtrends.json` | `KwTrendsFile` | `years` (ปีของอนุกรมเวลา — ไม่รวมปีล่าสุดที่ตัดออก), `totals` (= `series.json` corpus_total), `totals_th`/`totals_en` (บทความที่มีคำสำคัญไทย/อังกฤษ ≥ 1), เกณฑ์ (`min_count`, `max_keywords`, `glossary_min_pairs`); `keywords[]` = `KeywordTrend` (term, lang, n, counts ต่อปี) — สัดส่วน = counts ÷ totals; `glossary[]` = `GlossaryItem` (th, en, n) ทั้งคลัง สูงสุด `kwtrends.glossary_max` |
+| `topics/<id>.json` (เพิ่มฟิลด์) | `TopicDetail` | `cited_in_tci` (จำนวนครั้งที่บทความของหัวข้อถูกบทความอื่นในคลังอ้าง; null = ไม่เผยแพร่ส่วน internal), `glossary` (คู่คำไทย↔อังกฤษเด่นของหัวข้อ สูงสุด `kwtrends.glossary_per_topic`; **null = โมดูลไม่ถูกเผยแพร่, [] = ไม่พบคู่คำ**) |
+| `latest.json` (เพิ่มฟิลด์) | `Latest` | `feeds: true` เมื่อ `atlas publish --site` เขียนฟีด Atom (ต้องตั้ง `publish.site_url`) — ไม่อยู่ใน latest ที่ฝังใน HTML ออฟไลน์ |
+
+`search/` และ `galaxy.json` ไม่อยู่ใน HTML ออฟไลน์ (`export.offline_exclude: [match.json, search, galaxy.json]`) — หน้า `/search` และ `/galaxy` ของฉบับออฟไลน์อธิบายตัวเองผ่าน `ModuleFile`
+
+### ฟีด Atom (เขียนโดย `atlas publish --site` เท่านั้น ไม่ใช่ส่วนของรอบข้อมูล)
+
+| ไฟล์ | เนื้อหา |
+|---|---|
+| `<site>/data/feeds/releases.xml` | หนึ่ง entry ต่อรอบที่อยู่บนเว็บ ใหม่สุดก่อน (≤ `publish.feed_max_entries`): title = รอบ, summary = headline ของ overview (TH, EN) + สิ่งที่เปลี่ยน (ใหม่/หายไป/เปลี่ยนสถานะ จาก `diff.json` เมื่อมี), ลิงก์ `<site_url>#/changes` |
+| `<site>/data/feeds/topics/<id>.xml` | หนึ่งฟีดต่อหัวข้อของรอบใหม่สุด; entry = รอบที่มีหัวข้อนั้น (สถานะ, บทความในช่วงล่าสุด, อัตราโตของสัดส่วน), ลิงก์ `<site_url>#/topics/<id>`; ฟีดของหัวข้อที่ไม่อยู่ในรอบใหม่สุดถูกลบ |
+
+สร้างจากไฟล์ที่อยู่บนเว็บเท่านั้น (`manifest.json`, `overview.json`, `diff.json`, `topics.json` ของแต่ละรอบ) → รันซ้ำได้ไบต์เดิม; `<updated>` = `generated_at` ของ manifest; XML escape เอง (`xml.sax.saxutils.escape`)
