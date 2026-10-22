@@ -33,13 +33,14 @@ const GROUPS: readonly { id: string; key: StrKey; items: readonly Item[] }[] = [
       { to: '/brief', key: 'nav.brief' },
     ],
   },
-  { id: 'nav-editors', key: 'nav.group.editors', items: [{ to: '/journals', key: 'nav.journals' }, { to: '/methods', key: 'nav.methods' }] },
+  { id: 'nav-editors', key: 'nav.group.editors', items: [{ to: '/journals', key: 'nav.journals' }, { to: '/methods', key: 'nav.methods' }, { to: '/references', key: 'nav.references' }] },
   {
     id: 'nav-research',
     key: 'nav.group.research',
     items: [
       { to: '/search', key: 'nav.search' },
       { to: '/galaxy', key: 'nav.galaxy' },
+      { to: '/keywords', key: 'nav.keywords' },
       { to: '/gaps', key: 'nav.gaps' },
       { to: '/match', key: 'nav.match' },
       { to: '/compare', key: 'nav.compare' },

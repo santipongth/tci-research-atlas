@@ -32,6 +32,8 @@ const ROUTES = [
   { name: 'gaps', path: '/gaps' },
   { name: 'search', path: '/search' },
   { name: 'galaxy', path: '/galaxy' },
+  { name: 'keywords', path: '/keywords' },
+  { name: 'references', path: '/references' },
 ] as const
 
 type RouteName = (typeof ROUTES)[number]['name']
@@ -85,6 +87,14 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('svg.tr')).toBeVisible()
     await expect(page.getByRole('link', { name: /AI เพื่อการศึกษา: กรณีศึกษาที่ 1/ })).toHaveAttribute('href', /tci-thaijo\.org/)
     await expect(page.locator('#related')).toBeVisible()
+    // P4: glossary, cited-in-TCI figure (0 is a value, not a missing one), SDG goal chips, RIS export of the articles
+    await expect(page.locator('#glossary tbody tr')).toHaveCount(2)
+    await expect(page.locator('#glossary')).toContainText('generative AI')
+    await expect(page.locator('.summary')).toContainText('ถูกอ้างใน TCI')
+    await expect(page.locator('.tp-sdg-chip')).toContainText('SDG 4')
+    const ris = page.waitForEvent('download')
+    await page.getByRole('button', { name: /บทความตัวแทน 4 เรื่องเป็น RIS/ }).click()
+    expect((await ris).suggestedFilename()).toBe('atlas-2026Q4-T000201-articles.ris')
     await page.goto(`${EXAMPLE}#/topics/T000701`)
     await expect(page.locator('.uncertain')).toContainText('แนวโน้มไม่แน่นอน')
     await expect(page.locator('.uncertain')).not.toContainText('บทความยังน้อย')
@@ -327,11 +337,55 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.getByRole('tab', { name: 'แผนภูมิ' }).click()
     await expect(canvas).toBeVisible()
   },
+  keywords: async (page) => {
+    // opens on the most used keywords, led by a plain sentence about the first one
+    await expect(page.locator('.cmp-chip')).toHaveCount(3)
+    await expect(page.locator('.kw-insight')).toContainText('digital marketing')
+    await expect(page.locator('svg.ml')).toBeVisible()
+    const box = page.getByRole('combobox', { name: 'เพิ่มคำสำคัญ (ไทยหรืออังกฤษ)' })
+    await box.fill('ผู้สูงอายุ')
+    await expect(page.getByRole('option').first()).toBeVisible()
+    await box.press('ArrowDown')
+    await box.press('Enter')
+    await expect(page).toHaveURL(/k=/)
+    await expect(page.locator('.cmp-chip')).toHaveCount(4)
+    await expect(page.getByText('เลือกได้ครั้งละ 4 คำ')).toBeFocused()
+    await expect(box).toBeDisabled()
+    await page.getByRole('button', { name: /^เอา “digital marketing” ออก$/ }).click()
+    await expect(page.locator('.cmp-chip')).toHaveCount(3)
+    await page.locator('#fig-kw-tab-table').click()
+    await expect(page).toHaveURL(/view=table/)
+    await expect(page.locator('#fig-kw-panel table')).toContainText('2024')
+    // glossary: filter, sort, CSV
+    await page.getByLabel('กรองคำ').fill('solar')
+    await expect(page).toHaveURL(/gq=solar/)
+    await expect(page.locator('#kw-glossary tbody')).toContainText('เซลล์แสงอาทิตย์')
+    await page.locator('#kw-glossary').getByRole('button', { name: 'คำอังกฤษ' }).click()
+    await expect(page.locator('#kw-glossary th[aria-sort="ascending"]')).toContainText('คำอังกฤษ')
+    const csv = page.waitForEvent('download')
+    await page.locator('#kw-glossary').getByRole('button', { name: 'ดาวน์โหลด CSV' }).click()
+    expect((await csv).suggestedFilename()).toBe('atlas-2026Q4-glossary.csv')
+  },
+  references: async (page) => {
+    await expect(page.locator('.lede')).toContainText('72%')
+    await expect(page.locator('.ref-kpis .kpi')).toHaveCount(3)
+    await expect(page.locator('#ref-journals tbody tr')).toHaveCount(5)
+    await expect(page.locator('#ref-journals').getByRole('link').first()).toHaveAttribute('href', /#\/journals\/so02\./)
+    await page.locator('#ref-journals').getByRole('button', { name: 'มี DOI' }).click()
+    await expect(page.locator('#ref-journals th[aria-sort="descending"]')).toContainText('มี DOI')
+    await expect(page.locator('#ref-top .srch-hit')).toHaveCount(10)
+    await expect(page.locator('#ref-top .srch-hit').first()).toContainText('ถูกอ้าง 9 ครั้ง')
+    const ris = page.waitForEvent('download')
+    await page.getByRole('button', { name: /เป็น RIS$/ }).click()
+    expect((await ris).suggestedFilename()).toBe('atlas-2026Q4-most-cited.ris')
+    await expect(page.locator('#ref-flows tbody tr')).toHaveCount(5)
+    await expect(page.locator('#ref-topics tbody tr').first().locator('.topic-link')).toBeVisible()
+  },
   // checks:end
 }
 
 /** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps', `/search?q=${encodeURIComponent('ผู้สูงอายุ')}`, '/galaxy']
+const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps', `/search?q=${encodeURIComponent('ผู้สูงอายุ')}`, '/galaxy', '/keywords', '/references']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
@@ -513,4 +567,40 @@ test('the article galaxy explains itself on a release without it and in the offl
   await page.goto(`${pathToFileURL(file).href}#/galaxy`)
   await expect(page.locator('h1')).toHaveText('กาแล็กซีบทความ')
   await expect(page.locator('.empty-state')).toContainText('ฉบับออฟไลน์ไม่มีส่วนนี้')
+})
+
+test('keyword trends and references explain themselves on a release without them', async ({ page }) => {
+  for (const [path, h1] of [['/keywords', 'แนวโน้มคำสำคัญ'], ['/references', 'การอ้างอิง']]) {
+    await page.goto(`${EMPTY}#${path}`)
+    await expect(page.locator('h1')).toHaveText(h1)
+    await expect(page.locator('.empty-state')).toContainText('รอบข้อมูลนี้ไม่มีส่วนนี้')
+  }
+})
+
+test('references: a skipped module gives its coverage reason; too few internal matches are explained in words', async ({ page }, info) => {
+  const template = readFileSync('dist/offline-template.html', 'utf8')
+  const slot = '<script type="application/json" id="atlas-data">null</script>'
+  const write = (name: string, bundle: ReturnType<typeof bundleOf>) => {
+    const file = info.outputPath(name)
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
+    return pathToFileURL(file).href
+  }
+  // low coverage: the pipeline leaves the module out and says why (Review Focus 3)
+  const skipped = bundleOf('example')
+  const manifest = skipped.files['manifest.json'] as { modules: string[]; skipped_modules?: Record<string, string> }
+  manifest.modules = manifest.modules.filter((m) => m !== 'references')
+  manifest.skipped_modules = { ...(manifest.skipped_modules ?? {}), references: 'reference coverage 31% of 18,234 articles 2020–2024 (< references.min_coverage 50%)' }
+  delete skipped.files['references.json']
+  await page.goto(`${write('atlas-offline-refs-skipped.html', skipped)}#/references`)
+  await expect(page.locator('h1')).toHaveText('การอ้างอิง')
+  await expect(page.locator('.empty-state')).toContainText('reference coverage 31%')
+  // coverage fine, but too few citations inside the collection: those sections give way to a plain explanation
+  const few = bundleOf('example')
+  Object.assign(few.files['references.json'] as object, { internal: null, internal_reason: '12 references matched a corpus article (< references.min_internal_matches 20)' })
+  await page.goto(`${write('atlas-offline-refs-few.html', few)}#/references`)
+  await expect(page.locator('#ref-journals tbody tr')).toHaveCount(5)
+  await expect(page.locator('#ref-internal .empty-state')).toContainText('จับคู่รายการอ้างอิงกับบทความในคลังได้น้อยเกินไป')
+  await expect(page.locator('#ref-internal .empty-state')).toContainText('12 references matched')
+  await expect(page.locator('#ref-flows')).toHaveCount(0)
 })

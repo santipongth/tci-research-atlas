@@ -28,6 +28,8 @@ const GapsPage = lazy(() => import('./pages/GapsPage'))
 // The researchers' pages (P4), also on demand.
 const SearchPage = lazy(() => import('./pages/SearchPage'))
 const GalaxyPage = lazy(() => import('./pages/GalaxyPage'))
+const KeywordsPage = lazy(() => import('./pages/KeywordsPage'))
+const ReferencesPage = lazy(() => import('./pages/ReferencesPage'))
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -56,6 +58,8 @@ export default function App() {
         <Route path="gaps" element={<Lazy><GapsPage /></Lazy>} />
         <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
         <Route path="galaxy" element={<Lazy><GalaxyPage /></Lazy>} />
+        <Route path="keywords" element={<Lazy><KeywordsPage /></Lazy>} />
+        <Route path="references" element={<Lazy><ReferencesPage /></Lazy>} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="data" element={<DataPage />} />
         <Route path="about" element={<AboutPage />} />

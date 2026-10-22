@@ -1,4 +1,4 @@
-/* P4 researchers' pages: /search, /galaxy. Tokens only (DESIGN.md). */
+/* P4 researchers' pages: /search, /galaxy, /keywords, /references and the topic-page additions. Tokens only (DESIGN.md). */
 @layer components {
   .srch-form { display: grid; gap: 8px; margin-top: 24px; max-width: 46rem; }
   .srch-form label { font-weight: 700; }
@@ -89,4 +89,37 @@
   .gx-facts .topic-link { font-weight: 600; }
   .gx-field { display: flex; align-items: center; gap: 8px; }
   .gx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+  /* /keywords — picker, suggestions, one plain sentence that leads, then the figure */
+  .kw-picker { margin-top: 28px; gap: 16px; }
+  .kw-search { max-width: 34rem; }
+  .kw-search .search-list li { grid-template-columns: 4.5em minmax(0, 1fr); }
+  .kw-lang { font-size: 0.8125rem; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+  .search-list .kw-lang { align-self: baseline; }
+  .cmp-chip .kw-lang { margin-left: -2px; }
+  .kw-chip-term { font-weight: 600; overflow-wrap: anywhere; }
+  .kw-suggest { display: grid; gap: 4px; }
+  .kw-try { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 18px; font-size: 0.9375rem; }
+  .kw-try > span { font-weight: 600; color: var(--ink-2); }
+  .kw-try .linkbtn { display: inline-flex; align-items: center; min-height: 32px; }
+  .kw-try .linkbtn:disabled { color: var(--ink-2); text-decoration: none; cursor: not-allowed; }
+  .kw-insight { margin-top: 14px; max-width: 36em; font-size: clamp(1.125rem, 1rem + 0.4vw, 1.375rem); font-weight: 600; line-height: 1.6; font-variant-numeric: tabular-nums; }
+  .kw-insight-base { display: block; margin-top: 2px; font-size: 0.9375rem; font-weight: 400; color: var(--ink-2); }
+  .kw-gl-filter { max-width: 26rem; margin-top: 20px; }
+  .kw-gl-count { margin-top: 14px; font-variant-numeric: tabular-nums; }
+  .kw-gl-more { margin-top: 16px; }
+
+  /* /references */
+  .ref-lead { margin-top: 14px; max-width: 40em; font-size: 1.0625rem; line-height: 1.65; }
+  .ref-kpis { margin-top: 20px; }
+  .ref-sub { display: block; font-size: 0.9375rem; color: var(--ink-2); line-height: 1.5; }
+  .ref-of { color: var(--ink-2); font-size: 0.875rem; white-space: nowrap; }
+  .ref-top { margin-top: 4px; }
+  .ref-source { margin-top: 40px; }
+
+  /* topic page: SDG goals under the tags, export under the representative articles */
+  .tp-sdg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; font-size: 0.9375rem; }
+  .tp-sdg-label { color: var(--ink-2); font-weight: 600; }
+  .tp-sdg-chip { display: inline-flex; align-items: baseline; gap: 6px; min-height: 28px; padding: 1px 8px; border: 1px solid var(--ink); color: var(--ink); text-decoration: none; }
+  .tp-sdg-chip:hover { background: var(--surface); text-decoration: underline; }
+  .tp-cite { margin-top: 18px; }
 }

@@ -72,6 +72,8 @@ export type GlossaryItem = NonNullable<TopicDetail['glossary']>[number]
 export type JournalRefs = ReferencesFile['journals'][number]
 export type InternalCitations = NonNullable<ReferencesFile['internal']>
 export type CitedArticle = InternalCitations['top_articles'][number]
+export type CitationFlow = InternalCitations['flows'][number]
+export type TopicCitations = InternalCitations['topics'][number]
 export type KeywordTrend = KwTrendsFile['keywords'][number]
 export type GalaxyBounds = GalaxyFile['bounds']
 

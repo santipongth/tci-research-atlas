@@ -18,6 +18,8 @@ export const modules = defineStrings({
   'data.file.galaxy': { th: 'ตำแหน่งบทความบนแผนที่ (หนึ่งจุดต่อบทความ)', en: 'Article positions on the map (one point per article)' },
   'data.file.kwtrends': { th: 'แนวโน้มคำสำคัญรายปี และอภิธานศัพท์ไทย–อังกฤษ', en: 'Keyword trends by year and the Thai–English glossary' },
   'nav.search': { th: 'ค้นหาบทความ', en: 'Search articles' },
+  'nav.keywords': { th: 'แนวโน้มคำสำคัญ', en: 'Keyword trends' },
+  'nav.references': { th: 'การอ้างอิง', en: 'References' },
   'nav.galaxy': { th: 'กาแล็กซีบทความ', en: 'Article galaxy' },
   'search.articles': { th: 'ค้นหาบทความทั้งคลัง', en: 'Search all articles' },
   'data.file.match': { th: 'ดัชนีสำหรับเทียบบทคัดย่อ (น้ำหนักชิ้นอักษร ไม่มีข้อความบทความ)', en: 'Index for matching an abstract (character-trigram weights, no article text)' },

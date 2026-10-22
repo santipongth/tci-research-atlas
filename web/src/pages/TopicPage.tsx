@@ -1,4 +1,5 @@
 import { TopicName } from '../components/TopicName'
+import { lazy, Suspense } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { CiWhisker } from '../components/CiWhisker'
 import { DataTable } from '../components/DataTable'
@@ -14,7 +15,7 @@ import { TopicSearch } from '../components/TopicSearch'
 import { TrendChart } from '../charts/TrendChart'
 import { NOWCAST_MARK } from '../lib/status'
 import { useTopicDetail } from '../data/atlasContext'
-import { groupName, neighborsOf, seriesOf, type AtlasRelease } from '../data/release'
+import { groupName, hasModule, neighborsOf, seriesOf, type AtlasRelease } from '../data/release'
 import type { CountItem, Topic } from '../data/types'
 import { DEFINITION, fmtWindow, ruleVars, windows } from '../lib/definition'
 import { breadthText } from '../lib/breadth'
@@ -25,6 +26,10 @@ import { ciText, growthText, lowDataText, ratioText, statusName } from '../lib/t
 import { topicCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { FOREST_DOMAIN } from './topicColumns'
+
+// SDG chips (they read sdg.json) and the RIS/BibTeX export load on demand: this page is in the entry chunk.
+const TopicSdg = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.TopicSdg })))
+const ArticleCite = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.ArticleCite })))
 
 export default function TopicPage() {
   const { id } = useParams()
@@ -84,6 +89,13 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
   const narrative = ready?.narrative ?? null
   const journals = ready?.journals ?? []
   const institutions = ready?.institutions ?? []
+  // null / absent = the module is not in this release (hidden); [] = none found (hidden too)
+  const glossary = ready?.glossary ?? []
+  const cited = ready?.cited_in_tci ?? null
+  const sdgGoals = topic.sdg ?? []
+  // tables are numbered in page order; sections without data are not rendered and take no number
+  const tableNo = { glossary: 2, journals: glossary.length ? 3 : 2 }
+  const orgsNo = tableNo.journals + (journals.length ? 1 : 0)
   const ci = ciText(t, m, release.ciLevel)
   const lineage = topic.lineage ?? {}
   const event = lineage.event ?? 'new'
@@ -104,6 +116,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
     { id: 'numbers', label: t('tp.numbers.h') },
     { id: 'trend', label: t('tp.trend.h') },
     ...(keywords.length ? [{ id: 'keywords', label: t('tp.keywords.h') }] : []),
+    ...(glossary.length ? [{ id: 'glossary', label: t('tp.glossary.h') }] : []),
     { id: 'articles', label: t('tp.articles.h') },
     ...(related.length ? [{ id: 'related', label: t('tp.related.h') }] : []),
     ...(journals.length ? [{ id: 'journals', label: t('tp.journals.h') }] : []),
@@ -133,6 +146,11 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
           {topic.subfield_en ? <span className="tp-sub" lang="en">{topic.subfield_en}</span> : null}
           {topic.cross_field ? <span className="tp-badge">{t('tp.crossField')}</span> : null}
         </div>
+        {sdgGoals.length ? (
+          <Suspense fallback={null}>
+            <TopicSdg release={release} goals={sdgGoals} />
+          </Suspense>
+        ) : null}
         <p className="tp-lineage">
           {t(`tp.lineage.${event}` as const, { born: lineage.born ?? DASH })}
           {(lineage.parents ?? []).map((p, i) => {
@@ -190,6 +208,18 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 <dt>{t('col.orgs')}</dt>
                 <dd>{fmtInt(m.n_orgs_R)}<small>{m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })}</small></dd>
               </div>
+              {cited !== null ? (
+                <div>
+                  <dt>{t('tp.cited')}</dt>
+                  <dd>
+                    {t('tp.cited.v', { n: fmtInt(cited) })}
+                    <small>
+                      {t('tp.cited.sub')}
+                      {hasModule(release, 'references') ? <> · <Link to="/references">{t('tp.cited.link')}</Link></> : null}
+                    </small>
+                  </dd>
+                </div>
+              ) : null}
               {topic.status === 'LOW_DATA' ? (
                 <div>
                   <dt>{t('col.reason')}</dt>
@@ -276,6 +306,24 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
             </Section>
           ) : null}
 
+          {glossary.length ? (
+            <Section id="glossary" title={t('tp.glossary.h')} intro={t('tp.glossary.intro')}>
+              <DataTable
+                caption={t('table.n', { n: tableNo.glossary, title: t('tp.glossary.table') })}
+                rows={glossary}
+                rowKey={(g) => `${g.th}|${g.en}`}
+                stack={false}
+                csvFilename={`atlas-${release.overview.release}-${topic.id}-glossary.csv`}
+                defaultSort={{ key: 'n', dir: 'desc' }}
+                columns={[
+                  { key: 'th', csvHeader: 'th', header: t('tp.glossary.th'), rowHeader: true, cell: (g) => <span lang="th">{g.th}</span>, sortValue: (g) => g.th },
+                  { key: 'en', csvHeader: 'en', header: t('tp.glossary.en'), cell: (g) => <span lang="en">{g.en}</span>, sortValue: (g) => g.en.toLowerCase(), csv: (g) => g.en },
+                  { key: 'n', csvHeader: 'n', header: t('col.articles'), numeric: true, cell: (g) => fmtInt(g.n), sortValue: (g) => g.n },
+                ]}
+              />
+            </Section>
+          ) : null}
+
           <Section id="articles" title={t('tp.articles.h')} intro={t('tp.articles.intro')}>
             {detail.status === 'loading' ? (
               <p className="loading" role="status">{t('loading')}</p>
@@ -304,6 +352,11 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
             ) : (
               <p className="note">{t('tp.articles.none')}</p>
             )}
+            {ready && ready.articles.length ? (
+              <Suspense fallback={null}>
+                <ArticleCite release={release} topicId={topic.id} articles={ready.articles} />
+              </Suspense>
+            ) : null}
           </Section>
 
           {related.length ? (
@@ -321,12 +374,12 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
 
           {journals.length ? (
             <Section id="journals" title={t('tp.journals.h')}>
-              {countTable('journals', t('table.n', { n: 2, title: t('tp.journals.table') }), journals, t('col.journal'), '/journals')}
+              {countTable('journals', t('table.n', { n: tableNo.journals, title: t('tp.journals.table') }), journals, t('col.journal'), '/journals')}
             </Section>
           ) : null}
           {institutions.length ? (
             <Section id="orgs" title={t('tp.orgs.h')}>
-              {countTable('institutions', t('table.n', { n: 3, title: t('tp.orgs.table') }), institutions, t('col.institution'), '/institutions')}
+              {countTable('institutions', t('table.n', { n: orgsNo, title: t('tp.orgs.table') }), institutions, t('col.institution'), '/institutions')}
             </Section>
           ) : null}
         </div>

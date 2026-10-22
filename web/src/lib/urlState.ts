@@ -205,3 +205,28 @@ export const galaxyCodec = makeCodec<GalaxyUrlState>({
   g: text('g', 24),
   view: oneOf('view', VIEWS, 'chart'),
 })
+/** Keyword picks of /keywords: "<lang>:<term>" items joined by "|". null (no k in the URL) = the page's default pick;
+ *  "" = the visitor removed every keyword. */
+export function keywordList(key: string, max: number): Field<string[] | null> {
+  return {
+    key,
+    def: null,
+    parse: (raw) =>
+      raw === null
+        ? null
+        : [...new Set(raw.split('|').map((s) => s.trim()).filter((s) => /^(th|en):\S/.test(s) && s.length <= 160))].slice(0, max),
+    write: (v) => (v === null ? null : v.join('|')),
+  }
+}
+export const KEYWORD_MAX = 4
+export interface KeywordsUrlState {
+  k: string[] | null
+  view: View
+  /** glossary filter */
+  gq: string
+}
+export const keywordsCodec = makeCodec<KeywordsUrlState>({
+  k: keywordList('k', KEYWORD_MAX),
+  view: oneOf('view', VIEWS, 'chart'),
+  gq: text('gq', 80),
+})

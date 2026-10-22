@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mergeParams, atlasCodec, compareCodec, emergingCodec, overviewCodec, topicCodec, type AtlasUrlState, type EmergingUrlState } from './urlState'
+import { mergeParams, atlasCodec, compareCodec, emergingCodec, keywordsCodec, overviewCodec, topicCodec, type AtlasUrlState, type EmergingUrlState } from './urlState'
 
 describe('URL state codecs', () => {
   it('emerging: round-trips and writes nothing for the defaults', () => {
@@ -23,6 +23,15 @@ describe('URL state codecs', () => {
     expect(ids).toEqual(['T000701', 'T000201', 'T000101', 'T000102'])
     const s = { ids: ['T000201', 'T000701'], metric: 'count', view: 'table' } as const
     expect(compareCodec.parse(compareCodec.write({ ...s, ids: [...s.ids] }))).toEqual(s)
+  })
+
+  it('keywords: no k = the default pick, an empty k = none, items need a language prefix, capped at four', () => {
+    expect(keywordsCodec.parse(new URLSearchParams('')).k).toBeNull()
+    expect(keywordsCodec.parse(new URLSearchParams('k=')).k).toEqual([])
+    expect(keywordsCodec.parse(new URLSearchParams('k=en:ai|bogus|th:ข้าว|en:ai|en:b|en:c|en:d')).k).toEqual(['en:ai', 'th:ข้าว', 'en:b', 'en:c'])
+    const s = { k: ['th:ผู้สูงอายุ', 'en:digital marketing'], view: 'table', gq: 'care' } as const
+    expect(keywordsCodec.parse(new URLSearchParams(keywordsCodec.write({ ...s, k: [...s.k] }).toString()))).toEqual(s)
+    expect(keywordsCodec.write({ k: [], view: 'chart', gq: '' }).toString()).toBe('k=')
   })
 
   it('overview and topic views', () => {
