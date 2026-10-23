@@ -27,6 +27,7 @@ tci-research-atlas/
 │   ├── EMERGING_SPEC.md    ← นิยาม "emerging" ของ TCI ฉบับเต็ม + สูตรคะแนน
 │   ├── ROADMAP.md          ← ฟีเจอร์ทั้ง 5 phase + ของที่ควรทำต่อ
 │   ├── OPERATIONS.md       ← รอบไตรมาสด้วยคำสั่งเดียว (`atlas quarterly`) step-by-step + embedding ครั้งใหญ่ + troubleshoot
+│   ├── INTERN_GUIDE.md     ← คู่มือนักศึกษาฝึกงาน 2 งาน: เตรียมคลัง + รันวิเคราะห์/เปิดเว็บสาธารณะ (ขออนุมัติค่าใช้จ่ายและก่อนเปิดสาธารณะ)
 │   ├── corpus/             ← คู่มือเตรียมคลังรูปแบบ 1.0 สำหรับทีมข้อมูล (README.md) + corpus.schema.json (generated) + validate_jsonl.py + example/ (สังเคราะห์)
 │   └── superpowers/        ← specs + plans ของ v2 (แผนหลัก: specs/2026-10-18-tci-atlas-v2-design.md)
 ├── pipeline/               ← Python batch pipeline (Phase 1,2,4,5)

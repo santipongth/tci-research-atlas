@@ -35,7 +35,7 @@ cd ../web && npm run dev                   # ดูผลที่ localhost
 
 ข้อมูลจริง (คลังบทความ, รอบข้อมูลจริง) **ไม่เข้า git** — repo เก็บเฉพาะตัวอย่าง 11 ไฟล์ใน `pipeline/tests/fixtures/` และรอบข้อมูลสังเคราะห์ใน `web/fixtures/`
 
-รอบรันจริงรายไตรมาส (step-by-step): `docs/OPERATIONS.md` §1 · เตรียมคลังบทความ: `docs/corpus/README.md` · สเปกข้อมูล: `docs/DATA_SPEC.md` · นิยาม emerging: `docs/EMERGING_SPEC.md` · แผนหลัก v2: `docs/superpowers/specs/2026-10-18-tci-atlas-v2-design.md`
+คู่มือนักศึกษาฝึกงาน (เตรียมคลัง → รัน → เปิดเว็บสาธารณะ): `docs/INTERN_GUIDE.md` · รอบรันจริงรายไตรมาส (step-by-step): `docs/OPERATIONS.md` §1 · เตรียมคลังบทความ: `docs/corpus/README.md` · สเปกข้อมูล: `docs/DATA_SPEC.md` · นิยาม emerging: `docs/EMERGING_SPEC.md` · แผนหลัก v2: `docs/superpowers/specs/2026-10-18-tci-atlas-v2-design.md`
 
 ## นิยาม "Emerging" ของ TCI v3 (ย่อ)
 
