@@ -14,7 +14,7 @@ import { tickDecimals } from '../charts/scale'
 import { assignSlots, SERIES_DASHES } from '../charts/series'
 import { seriesOf, type AtlasRelease } from '../data/release'
 import type { Topic } from '../data/types'
-import { fmtCompact, fmtInt, fmtPct } from '../lib/format'
+import { fmtCompact, fmtInt, fmtShare } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { sortBy } from '../lib/sort'
@@ -63,8 +63,8 @@ function Compare({ release }: { release: AtlasRelease }) {
       values: years.map((_, i) => (counts === null ? null : share ? (totals[i] ? (counts[i] ?? 0) / totals[i] : null) : (counts[i] ?? null))),
     }
   })
-  const format = (v: number) => (share ? fmtPct(v, 2) : fmtInt(v))
-  const axisFormat = (v: number, step: number) => (share ? fmtPct(v, tickDecimals(step, 100)) : fmtCompact(v))
+  const format = (v: number) => (share ? fmtShare(v, 2) : fmtInt(v))
+  const axisFormat = (v: number, step: number) => (share ? fmtShare(v, tickDecimals(step, 100)) : fmtCompact(v))
   const setIds = (ids: string[]) => {
     setSeenSlots(assignSlots(ids, slots))
     update({ ids })

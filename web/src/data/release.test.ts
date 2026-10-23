@@ -16,6 +16,7 @@ describe('loadRelease', () => {
     expect(r.keywords?.length).toBeGreaterThan(0)
     expect(r.previousOverview).toBeNull() // the offline file carries one release
     expect(r.previousMissing).toBe('2026Q3')
+    expect(r.previousProblem).toBe('offline') // the one-release file says so, not "not on this site"
     expect(r.sample).toBe(true)
     expect(r.ciLevel).toBe(0.9)
     expect(r.definitionVersion).toBe(3)
@@ -86,7 +87,25 @@ describe('loadRelease', () => {
     const r = await loadRelease(new HttpSource('./', gone))
     expect(r.previousOverview).toBeNull()
     expect(r.previousMissing).toBe('2026Q3')
+    expect(r.previousProblem).toBe('missing')
     expect(asked.filter((u) => u.includes('2026Q3/'))).toHaveLength(1)
+  })
+
+  it('tells a failed request for the previous release from one that is not there', async () => {
+    const base = fixtureFetch('example', './')
+    const down = ((input: RequestInfo | URL, init?: RequestInit) => (String(input).includes('2026Q3/') ? Promise.reject(new TypeError('network down')) : base(input, init))) as typeof fetch
+    const r = await loadRelease(new HttpSource('./', down))
+    expect(r.previousOverview).toBeNull()
+    expect(r.previousMissing).toBe('2026Q3')
+    expect(r.previousProblem).toBe('failed')
+  })
+
+  it('treats a previous overview without its KPI block as damaged, not as a crash', async () => {
+    const base = fixtureFetch('example', './')
+    const odd = ((input: RequestInfo | URL, init?: RequestInit) => (String(input).endsWith('2026Q3/overview.json') ? Promise.resolve(new Response(JSON.stringify({ release: '2026Q3' }))) : base(input, init))) as typeof fetch
+    const r = await loadRelease(new HttpSource('./', odd))
+    expect(r.previousOverview).toBeNull()
+    expect(r.previousProblem).toBe('failed')
   })
 
   it('parses schema majors', () => {

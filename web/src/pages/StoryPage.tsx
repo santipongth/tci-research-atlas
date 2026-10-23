@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import tciLogo from '../assets/brand/partners/tci.png'
 import { HowNote } from '../components/HowNote'
+import { KeepTogether } from '../components/KeepTogether'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { useReleaseFile } from '../data/atlasContext'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { RegionsFile } from '../data/types'
-import { pickFindings } from '../lib/findings'
+import { perVars, pickFindings } from '../lib/findings'
 import { fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { sortBy } from '../lib/sort'
@@ -54,8 +55,8 @@ function Story({ release }: { release: AtlasRelease }) {
   const findings = pickFindings(release.topics)
   const large = findings.find((f) => f.kind === 'large')?.topic
   if (large) {
-    const k = fmtInt(Math.max(1, Math.round(large.metrics.share_recent * 100)))
-    facts.push({ id: 'large', big: s('st.big.big', { k }), line: s('st.big.line', { topic: name(large) }), sub: s('st.big.sub', { k, g: fmtSignedPct(large.metrics.share_growth, 0) }), to: `/topics/${large.id}` })
+    const per = perVars(large.metrics.share_recent)
+    facts.push({ id: 'large', big: s('st.big.big', per), line: s('st.big.line', { topic: name(large) }), sub: s('st.big.sub', { ...per, g: fmtSignedPct(large.metrics.share_growth, 0) }), to: `/topics/${large.id}` })
   }
   const down = findings.find((f) => f.kind === 'decline')?.topic
   if (down) {
@@ -70,7 +71,7 @@ function Story({ release }: { release: AtlasRelease }) {
   }
   return (
     <div className="container">
-      <PageHeader title={s('st.title', { release: ov.release })} lede={s('st.lede')} />
+      <PageHeader title={s('st.title', { release: ov.release })} titleNode={<KeepTogether text={s('st.title', { release: ov.release })} phrase={'งานวิจัยไทย'} />} lede={s('st.lede')} />
       <ol className="facts">
         {facts.map((f, i) => (
           <li className="fact" key={f.id}>

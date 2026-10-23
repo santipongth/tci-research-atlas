@@ -4,24 +4,28 @@ import { SplitBar } from '../charts/MixBar'
 import { OpportunityQuadrant } from '../charts/OpportunityQuadrant'
 import { DataTable, type Column } from '../components/DataTable'
 import { Figure } from '../components/Figure'
+import { ListMore } from '../components/ListMore'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { ShareBar } from '../components/ShareBar'
-import { Sparkline } from '../components/StatTile'
 import { Term } from '../components/Term'
 import { TopicLink } from '../components/TopicLink'
 import { useReleaseFile } from '../data/atlasContext'
-import { groupName, hasModule, MODULE_FILES, seriesOf, type AtlasRelease } from '../data/release'
+import { groupName, hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { Bridge, Concentration, FewInstitutions, GapsFile, GlobalFile, Topic, WorldGap } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct, fmtRatio } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { statusName } from '../lib/topicText'
+import { useCapped } from '../lib/useCapped'
 import { gapsCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { execViz } from '../strings/execViz'
+
+/** Rows of each picture before "show all": with hundreds of topics the tables carry the rest. */
+const LIST_ROWS = 25
 
 export default function GapsPage() {
   const { t } = useI18n()
@@ -68,7 +72,7 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
     { key: 'topics', csvHeader: 'topic_ids', header: t('gl.col.topics'), cell: (w) => topicList(w.topics ?? []), csv: (w) => (w.topics ?? []).join(';') },
   ]
   const fewColumns: Column<FewInstitutions>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (f) => <TopicLink topic={topic(f.topic) as Topic} showStatus />, sortValue: (f) => f.topic, csv: (f) => f.topic },
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (f) => <TopicLink topic={topic(f.topic) as Topic} showStatus />, sortValue: (f) => tname(f.topic), csv: (f) => f.topic },
     { key: 'institutions', csvHeader: 'institutions', header: t('gp.col.institutions'), numeric: true, firstDir: 'asc', cell: (f) => fmtInt(f.institutions), sortValue: (f) => f.institutions },
   ]
   const bridgeColumns: Column<Bridge>[] = [
@@ -95,7 +99,7 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
     {
       key: 'unit', csvHeader: 'unit', header: t('gp.col.unit'), rowHeader: true,
       cell: (c) => (c.scope === 'topic' ? <TopicLink topic={topic(c.id) as Topic} showStatus /> : groupName(release, c.id, lang)),
-      sortValue: (c) => c.id, csv: (c) => c.id,
+      sortValue: (c) => unitName(c), csv: (c) => c.id,
     },
     { key: 'kind', csvHeader: 'kind', header: t('gp.col.kind'), cell: (c) => t(c.kind === 'institution' ? 'gp.kind.institution' : 'gp.kind.journal'), csv: (c) => c.kind },
     { key: 'top', csvHeader: 'top', header: t('gp.col.top'), cell: topName, csv: (c) => c.top ?? '' },
@@ -116,9 +120,12 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
   const gapIds = new Set(file.world.map((w) => w.subfield))
   const quadPoints = (glob ? glob.subfields.map((g) => ({ id: g.id, label: g.en, x: g.activity_index, y: g.world_ratio, hot: gapIds.has(g.id) })) : file.world.map((w) => ({ id: w.subfield, label: w.en, x: w.activity_index, y: w.world_ratio, hot: true })))
     .filter((p): p is { id: string; label: string; x: number; y: number; hot: boolean } => typeof p.x === 'number' && typeof p.y === 'number')
-  const years = release.series.years
   const fewSorted = [...few].sort((p, q) => p.institutions - q.institutions)
   const riskSorted = [...risk].sort((p, q) => q.top_share - p.top_share)
+  const bridgesSorted = [...bridges].sort((p, q) => q.similarity - p.similarity)
+  const fewCap = useCapped(fewSorted, LIST_ROWS)
+  const bridgeCap = useCapped(bridgesSorted, LIST_ROWS)
+  const riskCap = useCapped(riskSorted, LIST_ROWS)
   return (
     <div className="container">
       <PageHeader title={t('gp.title')} lede={t('gp.lede', { a: r.start, b: r.end })} />
@@ -145,7 +152,7 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
                 labelLang="en"
               />
             }
-            table={<DataTable caption={tbl(1, t('gp.world.table'))} rows={file.world} columns={worldColumns} rowKey={(w) => w.subfield} defaultSort={{ key: 'ratio', dir: 'desc' }} />}
+            table={<DataTable caption={tbl(1, t('gp.world.table'))} rows={file.world} columns={worldColumns} rowKey={(w) => w.subfield} defaultSort={{ key: 'ratio', dir: 'desc' }} limit={25} />}
           />
         </Section>
       ) : null}
@@ -166,26 +173,19 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
             view={state.f}
             onView={(v) => update({ f: v })}
             chart={
+              <>
               <ul className="few">
-                {fewSorted.map((f) => {
-                  const series = seriesOf(release, f.topic)
-                  return (
-                    <li key={f.topic} className="few-row">
-                      <span className="few-name"><TopicLink topic={topic(f.topic) as Topic} showStatus /></span>
-                      <span className="few-k"><b>{fmtInt(f.institutions)}</b> {x('xv.few.unit')}</span>
-                      {series && series.length > 2 ? (
-                        <span className="few-trend">
-                          <Sparkline values={series} />
-                          <span className="few-yr" aria-hidden="true"><span>{years[0]}</span><span>{years[years.length - 1]}</span></span>
-                          <span className="sr-only">{t('stat.trend', { a: years[0], b: years[years.length - 1], values: series.map((v) => fmtInt(v)).join(', ') })}</span>
-                        </span>
-                      ) : null}
-                    </li>
-                  )
-                })}
+                {fewCap.shown.map((f) => (
+                  <li key={f.topic} className="few-row">
+                    <span className="few-name"><TopicLink topic={topic(f.topic) as Topic} showStatus /></span>
+                    <span className="few-k"><b>{fmtInt(f.institutions)}</b> {x('xv.few.unit')}</span>
+                  </li>
+                ))}
               </ul>
+              <ListMore {...fewCap.more} />
+              </>
             }
-            table={<DataTable caption={tbl(2, t('gp.few.table'))} rows={few} columns={fewColumns} rowKey={(f) => f.topic} stack={false} defaultSort={{ key: 'institutions', dir: 'asc' }} />}
+            table={<DataTable caption={tbl(2, t('gp.few.table'))} rows={few} columns={fewColumns} rowKey={(f) => f.topic} stack={false} defaultSort={{ key: 'institutions', dir: 'asc' }} limit={25} />}
           />
         </Section>
       ) : null}
@@ -211,9 +211,10 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
             view={state.b}
             onView={(v) => update({ b: v })}
             chart={
+              <>
               <BridgePairs
                 label={x('xv.br.title')}
-                rows={[...bridges].sort((p, q) => q.similarity - p.similarity).map((b) => ({
+                rows={bridgeCap.shown.map((b) => ({
                   key: `${b.a}~${b.b}`,
                   a: <TopicLink topic={topic(b.a) as Topic} showStatus />,
                   b: <TopicLink topic={topic(b.b) as Topic} showStatus />,
@@ -222,8 +223,10 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
                   simText: x('xv.br.sim', { s: fmtNum(b.similarity, 2) }),
                 }))}
               />
+              <ListMore {...bridgeCap.more} />
+              </>
             }
-            table={<DataTable caption={tbl(3, t('gp.bridge.h'))} rows={bridges} columns={bridgeColumns} rowKey={(b) => `${b.a}~${b.b}`} defaultSort={{ key: 'similarity', dir: 'desc' }} />}
+            table={<DataTable caption={tbl(3, t('gp.bridge.h'))} rows={bridges} columns={bridgeColumns} rowKey={(b) => `${b.a}~${b.b}`} defaultSort={{ key: 'similarity', dir: 'desc' }} limit={25} />}
           />
         </Section>
       ) : null}
@@ -261,8 +264,9 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
             }
             chart={
               riskSorted.length ? (
+                <>
                 <ul className="rk">
-                  {riskSorted.map((c) => (
+                  {riskCap.shown.map((c) => (
                     <li key={`${c.scope}:${c.id}:${c.kind}`} className="rk-row">
                       <span className="rk-unit">
                         {c.scope === 'topic' ? <TopicLink topic={topic(c.id) as Topic} showStatus /> : <b>{groupName(release, c.id, lang)}</b>}
@@ -275,9 +279,11 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
                     </li>
                   ))}
                 </ul>
+                <ListMore {...riskCap.more} />
+                </>
               ) : <p className="note">{t('gp.risk.all')}</p>
             }
-            table={<DataTable caption={tbl(4, t('gp.risk.table'))} rows={risk} columns={riskColumns} rowKey={(c) => `${c.scope}:${c.id}:${c.kind}`} defaultSort={{ key: 'share', dir: 'desc' }} />}
+            table={<DataTable caption={tbl(4, t('gp.risk.table'))} rows={risk} columns={riskColumns} rowKey={(c) => `${c.scope}:${c.id}:${c.kind}`} defaultSort={{ key: 'share', dir: 'desc' }} limit={25} />}
           />
         </Section>
       ) : null}

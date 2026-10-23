@@ -41,6 +41,10 @@ describe('i18n strings', () => {
     }
   })
 
+  it('a key the dictionary does not know shows the key instead of throwing', () => {
+    expect(translate('th', 'in.type.nonsense' as never)).toBe('in.type.nonsense')
+  })
+
   it('fills placeholders and leaves unknown ones visible', () => {
     expect(translate('en', 'topicsN', { n: 3 })).toBe('3 topics')
     expect(translate('th', 'topicsN', { n: 1200 })).toBe('1200 หัวข้อ')

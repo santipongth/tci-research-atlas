@@ -21,7 +21,8 @@ export interface ForestGroup {
   total: number
   /** topics of this status without a confidence interval (drawn as text rows when shown) */
   noCi?: number
-  more?: { to: string; label: string }
+  /** a pointer past the rows shown: a link to the full list, or a button that expands this group in place */
+  more?: { to?: string; onClick?: () => void; label: string }
 }
 
 /** Growth-axis limits: a share cannot fall faster than −100 %/yr; an interval beyond +300 %/yr runs to the edge as an arrow (its numbers are beside it). */
@@ -89,6 +90,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
                   <Link
                     className="fr-row"
                     to={`/topics/${tp.id}`}
+                    title={name(tp)}
                     aria-label={[name(tp), subtitle(tp), `${fmtSignedPct(tp.metrics.share_growth)}${tp.metrics.no_baseline ? ` (${t('noBaseline', { base })})` : ''}`, ci ? t('ciRange', { level, lo: fmtSignedPct(tp.metrics.share_growth_lo), hi: fmtSignedPct(tp.metrics.share_growth_hi) }) : t('noCi')].join(', ')}
                   >
                     <span className="fr-name">
@@ -114,7 +116,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
           </ul>
           {g.more ? (
             <p className="fr-more">
-              <Link to={g.more.to}>{g.more.label}</Link>
+              {g.more.to ? <Link to={g.more.to}>{g.more.label}</Link> : <button type="button" className="btn-secondary" onClick={g.more.onClick}>{g.more.label}</button>}
             </p>
           ) : null}
         </div>

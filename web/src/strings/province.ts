@@ -39,6 +39,7 @@ export const province = defineStrings({
   'pv.map.allCap': { th: 'สีเข้ม = งานวิจัยมาก · สีจาง = งานวิจัยน้อย · สีเทา = ยังไม่พบ กดจังหวัดบนแผนที่เพื่อดูรายละเอียด', en: 'Darker = more research · lighter = less · grey = none found. Click a province to open it.' },
   'pv.map.one': { th: 'แผนที่ประเทศไทย เน้น{name}', en: 'Map of Thailand with {name} highlighted' },
   'pv.map.oneCap': { th: '{name} คือพื้นที่สีน้ำเงินเข้มที่มีเส้นขอบสีส้ม', en: '{name} is the dark blue area outlined in orange' },
+  'pv.t.how': { th: 'ความยาวแถบคือจำนวนบทความของหัวข้อนั้นในจังหวัด เทียบกับหัวข้อแรก ตัวเลขท้ายแถบคือจำนวนบทความและสัดส่วนของงานวิจัยในจังหวัดนี้ ตารางและไฟล์ CSV มีครบทุกหัวข้อ', en: 'Bar length is the number of articles on that topic in the province, compared with the first topic. The number at the end gives the articles and the share of this province’s research. The table and the CSV file have every topic.' },
   'pv.t.share': { th: 'สัดส่วนในจังหวัด', en: 'Share in the province' },
   'pv.t.none': { th: 'รอบข้อมูลนี้ยังไม่มีรายชื่อหัวข้อรายจังหวัด', en: 'This release has no topic list per province yet.' },
   'pv.i.h': { th: 'สถาบันใน{name}', en: 'Institutions in {name}' },

@@ -10,6 +10,12 @@ export function overlaps(a: Box, b: Box, pad = 0): boolean {
   return !(a.x + a.w + pad < b.x || b.x + b.w + pad < a.x || a.y + a.h + pad < b.y || b.y + b.h + pad < a.y)
 }
 
+/** A Thai line is taller than its font size: tone marks and stacked vowels rise to ~1 em above the baseline and tails fall ~0.3 em below. */
+export const THAI_ASCENT = 1.0
+export const THAI_LINE = 1.3
+/** Room kept round a measured label for its outline halo (2 px a side) and breathing space. */
+export const LABEL_PAD = 2
+
 export interface LabelCandidate {
   id: string
   text: string
@@ -43,11 +49,12 @@ export function placeLabels(cands: readonly LabelCandidate[], obstacles: readonl
       [c.x, c.y - c.radius - 7, 'middle'],
       [c.x, c.y + c.radius + c.height + 2, 'middle'],
     ]
+    // the box covers the whole Thai line (tone marks above the baseline, tails below) and the outline halo
     const boxOf = (x: number, y: number, anchor: PlacedLabel['anchor']): Box => ({
-      x: anchor === 'start' ? x : anchor === 'end' ? x - c.width : x - c.width / 2,
-      y: y - c.height,
-      w: c.width,
-      h: c.height + 3,
+      x: (anchor === 'start' ? x : anchor === 'end' ? x - c.width : x - c.width / 2) - LABEL_PAD / 2,
+      y: y - c.height * THAI_ASCENT,
+      w: c.width + LABEL_PAD,
+      h: c.height * THAI_LINE,
     })
     const inFrame = (b: Box) => b.x >= frame.x && b.y >= frame.y && b.x + b.w <= frame.x + frame.w && b.y + b.h <= frame.y + frame.h
     const free = (b: Box) => !placed.some((p) => overlaps(p.box, b, 4)) && !obstacles.some((o) => o.id !== c.id && overlaps(o, b, 2))

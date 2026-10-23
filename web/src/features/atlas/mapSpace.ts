@@ -1,5 +1,5 @@
 import type { GroupInfo, Topic } from '../../data/types'
-import { overlaps, type Box, type PlacedLabel } from '../../lib/labels'
+import { LABEL_PAD, THAI_ASCENT, THAI_LINE, overlaps, type Box, type PlacedLabel } from '../../lib/labels'
 import type { StatusId } from '../../lib/status'
 
 export { overlaps, placeLabels, type Box, type LabelCandidate, type PlacedLabel } from '../../lib/labels'
@@ -124,9 +124,11 @@ export function groupCentroids(points: readonly MapPoint[]): Map<number, { x: nu
 export function placeCentered(cands: readonly { id: string; text: string; width: number; height: number; x: number; y: number }[], frame: Box, obstacles: readonly Box[] = []): PlacedLabel[] {
   const placed: PlacedLabel[] = []
   for (const c of cands) {
-    const line = c.height + 6
-    const at = ([dx, dy]: [number, number]): Box => ({ x: c.x + dx - c.width / 2, y: c.y + dy - c.height, w: c.width, h: c.height + 4 })
-    const usable = (b: Box) => b.x >= frame.x && b.y >= frame.y && b.x + b.w <= frame.x + frame.w && b.y + b.h <= frame.y + frame.h && !placed.some((p) => overlaps(p.box, b, 8))
+    const line = c.height * THAI_LINE + 4
+    const at = ([dx, dy]: [number, number]): Box => ({ x: c.x + dx - c.width / 2 - LABEL_PAD, y: c.y + dy - c.height * THAI_ASCENT - LABEL_PAD / 2, w: c.width + 2 * LABEL_PAD, h: c.height * THAI_LINE + LABEL_PAD })
+    const usable = (b: Box) => b.x >= frame.x && b.y >= frame.y && b.x + b.w <= frame.x + frame.w && b.y + b.h <= frame.y + frame.h && !placed.some((p) => overlaps(p.box, b, 2))
+    // a name that would touch another field name is dropped; only markers under it move it
+    if (placed.some((p) => overlaps(p.box, at([0, 0]), 2))) continue
     const shifts: [number, number][] = [[0, 0], [0, -line], [0, line], [-c.width / 3, 0], [c.width / 3, 0]]
     const clear = shifts.find((s) => usable(at(s)) && !obstacles.some((o) => overlaps(o, at(s), 2)))
     const shift = clear

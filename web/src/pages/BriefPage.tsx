@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Wordmark } from '../brand/Wordmark'
+import { KeepTogether } from '../components/KeepTogether'
 import { DataTable } from '../components/DataTable'
 import { Figure } from '../components/Figure'
 import { SegmentText } from '../components/SegmentText'
@@ -13,6 +14,7 @@ import { pickFindings } from '../lib/findings'
 import { ciPct, fmtDate, fmtInt, fmtSignedPct } from '../lib/format'
 import { segmentHeadline } from '../lib/highlight'
 import { useI18n } from '../lib/i18n'
+import { previousNote } from '../lib/previous'
 import { hasCi } from '../lib/forest'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import type { View } from '../lib/urlState'
@@ -65,10 +67,12 @@ function Brief({ release }: { release: AtlasRelease }) {
     <div className="container brief" data-brief-ready="true">
       <header className="brief-head">
         <Wordmark sub={t('brandSub')} lang={lang} />
-        <p className="brief-meta">{t('brief.sub', { year: ov.last_complete_year, date: fmtDate(ov.generated_at, lang) })}</p>
       </header>
       <div className="brief-top">
-        <h1>{t('brief.title', { release: ov.release })}</h1>
+        <div>
+          <h1><KeepTogether text={t('brief.title', { release: ov.release })} phrase="งานวิจัยไทย" /></h1>
+          <p className="brief-meta brief-byline">{t('brief.sub', { year: ov.last_complete_year, date: fmtDate(ov.generated_at, lang) })}</p>
+        </div>
         <p className="brief-acts no-print">
           <button type="button" className="btn-secondary" onClick={() => window.print()}>
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
@@ -91,7 +95,7 @@ function Brief({ release }: { release: AtlasRelease }) {
       ) : null}
       <section aria-labelledby="brief-kpi">
         <h2 id="brief-kpi">{t('brief.kpi')}</h2>
-        {release.previousMissing ? <p className="note">{t('prev.missing', { prev: release.previousMissing })}</p> : null}
+        {previousNote(t, release) ? <p className="note">{previousNote(t, release)}</p> : null}
         <KpiGrid release={release} more={false} />
       </section>
       {findings.length ? (

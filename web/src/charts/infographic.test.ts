@@ -3,7 +3,7 @@ import type { Topic } from '../data/types'
 import { pickFindings } from '../lib/findings'
 import { stepOf, STATUS_STEPS } from '../lib/statusSteps'
 import { STATUSES } from '../lib/status'
-import { dotDomain, pctAt, percentOf, rankBars, topMovers, waffleGroups } from './infographic'
+import { dotDomain, pctAt, percentOf, rankBars, topMovers, waffleCells, waffleGroups, waffleUnit } from './infographic'
 
 const tp = (id: string, status: Topic['status'], g: number | null, score = 0, share = 0.01): Topic =>
   ({ id, status, score, th: id, en: id, metrics: { share_growth: g, share_recent: share } }) as unknown as Topic
@@ -31,6 +31,32 @@ describe('waffleGroups', () => {
   it('percentOf rounds and never divides by zero', () => {
     expect(percentOf(5, 48)).toBe(10)
     expect(percentOf(3, 0)).toBe(0)
+  })
+})
+
+describe('waffleUnit / waffleCells', () => {
+  it('draws a square per topic up to 300 topics, then groups topics in round numbers', () => {
+    expect(waffleUnit(48)).toBe(1)
+    expect(waffleUnit(300)).toBe(1)
+    expect(waffleUnit(301)).toBe(5)
+    expect(waffleUnit(750)).toBe(5)
+    expect(waffleUnit(1500)).toBe(10)
+    expect(waffleUnit(6000)).toBe(50)
+    expect([5, 10, 25, 50, 100, 250, 500, 1000]).toContain(waffleUnit(3_000_000))
+  })
+
+  it('keeps the squares near 150 however many topics there are', () => {
+    for (const n of [301, 800, 1500, 4000]) expect(Math.ceil(n / waffleUnit(n))).toBeLessThanOrEqual(150 + 1)
+  })
+
+  it('cuts a status into runs of the unit, strongest first, and never loses a topic', () => {
+    const topics = Array.from({ length: 23 }, (_, i) => tp('t' + i, 'HOT', 0.1, 50 - i))
+    const cells = waffleCells(topics, 10)
+    expect(cells.map((c) => c.length)).toEqual([10, 10, 3])
+    expect(cells.flat().map((x) => x.id)).toEqual(topics.map((x) => x.id))
+    expect(waffleCells(topics, 1)).toHaveLength(23)
+    expect(waffleCells([], 10)).toEqual([])
+    expect(waffleCells(topics.slice(0, 1), 10)).toHaveLength(1)
   })
 })
 

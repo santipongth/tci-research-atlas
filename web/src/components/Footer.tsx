@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { BRAND, PARTNERS } from '../brand/brand'
 import { useI18n } from '../lib/i18n'
 
@@ -18,6 +19,7 @@ export function Footer() {
         </div>
         <div className="licence">
           <span>{t('footer.licence')}</span>
+          <Link to="/about" state={{ section: 'cite' }}>{t('footer.cite')}</Link>
           <span>{t('footer.privacy')}</span>
           {BRAND.temporary ? <span>{t('wordmarkNote')}</span> : null}
         </div>

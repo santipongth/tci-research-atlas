@@ -113,6 +113,40 @@ export function queryTokens(q: string, vocab: ReadonlySet<string>, stopwords: Re
   return { known, unknown }
 }
 
+/**
+ * Stopwords the query contained: they are not searched (`queryTokens` consumes them silently), so the page says so
+ * — a query of only "การ" must not read as "no article contains it". Same greedy scan as `queryTokens`; not part of the
+ * parity fixtures (it never decides what is searched).
+ */
+export function ignoredWords(q: string, vocab: ReadonlySet<string>, stopwords: ReadonlySet<string>, maxChars: number): string[] {
+  const out: string[] = []
+  const add = (w: string) => {
+    if (!out.includes(w)) out.push(w)
+  }
+  for (const [thai, run] of runs(q)) {
+    if (!thai) {
+      if (stopwords.has(run)) add(run)
+      continue
+    }
+    const chars = Array.from(run)
+    const n = chars.length
+    let i = 0
+    while (i < n) {
+      let hitLen = 0
+      for (let len = Math.min(maxChars, n - i); len > 1; len--) {
+        const w = chars.slice(i, i + len).join('')
+        if (vocab.has(w) || stopwords.has(w)) {
+          hitLen = len
+          if (stopwords.has(w)) add(w)
+          break
+        }
+      }
+      i += hitLen || 1
+    }
+  }
+  return out
+}
+
 const FNV_OFFSET = 0x811c9dc5
 const FNV_PRIME = 0x01000193
 const utf8 = new TextEncoder()

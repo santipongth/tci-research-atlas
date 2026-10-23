@@ -188,6 +188,8 @@
   .empty-title { font-weight: 700; }
   .empty-body { margin-top: 6px; }
   .topic-link { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; font-weight: 600; }
+  .topic-ref { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+  .topic-st { font-size: var(--fs-caption); font-weight: 400; color: var(--ink-2); }
   .topic-sub { display: block; font-size: var(--fs-meta); color: var(--ink-2); font-weight: 400; }
 }
 

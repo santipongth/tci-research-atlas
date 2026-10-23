@@ -1,3 +1,4 @@
+import { THAI } from '../../lib/script'
 import { Link } from 'react-router'
 import { BarRank } from '../../charts/BarRank'
 import { rankBars } from '../../charts/infographic'
@@ -45,7 +46,6 @@ export function TopicSdg({ release, goals }: { release: AtlasRelease; goals: rea
   )
 }
 
-const THAI = new RegExp(`[${String.fromCodePoint(0x0e00)}-${String.fromCodePoint(0x0e7f)}]`)
 
 const cite = (a: RepresentativeArticle): CiteRecord => {
   const thaiMain = THAI.test(a.title) || !a.title_en
@@ -127,7 +127,7 @@ export function TopicRanking({ release, topicId, kind, rows, number, tableNo, vi
           {rest > 0 ? <p className="br-more">{s('rk.more', { n: fmtInt(rest) })}</p> : null}
         </>
       }
-      table={<DataTable caption={tableTitle} rows={rows} rowKey={(r) => r.key} stack={false} columns={columns} />}
+      table={<DataTable caption={tableTitle} rows={rows} rowKey={(r) => r.key} stack={false} columns={columns} limit={25} />}
     />
   )
 }

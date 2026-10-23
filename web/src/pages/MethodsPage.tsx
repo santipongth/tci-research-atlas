@@ -38,7 +38,7 @@ export default function MethodsPage() {
 }
 
 function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }) {
-  const { t, lang } = useI18n()
+  const { t, lang, name } = useI18n()
   const s = useStrings(editorViz)
   const [state, update] = useUrlState(methodsCodec)
   const info = new Map(file.methods.map((m) => [m.key, m]))
@@ -67,7 +67,7 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
   const topicRows = file.topics.filter((r) => release.topicById.has(r.topic) && (state.mono === 'all' || r.monoculture))
   const topicOf = (r: TopicMethods) => release.topicById.get(r.topic) as Topic
   const topicColumns: Column<TopicMethods>[] = withPrimary<TopicMethods>([
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => <TopicLink topic={topicOf(r)} showStatus />, sortValue: (r) => r.topic, csv: (r) => r.topic },
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => <TopicLink topic={topicOf(r)} showStatus />, sortValue: (r) => name(topicOf(r)), csv: (r) => r.topic },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), sortValue: (r) => r.articles },
     { key: 'coverage', csvHeader: 'coverage', header: t('col.coverage'), numeric: true, cell: (r) => fmtPct(r.coverage, 0), sortValue: (r) => r.coverage },
     {
@@ -151,7 +151,7 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
                 ) : null}
               </>
             }
-            table={<DataTable caption={t('table.n', { n: 2, title: t('me.corpus.table', { a: w.start, b: w.end }) })} rows={file.corpus} columns={corpusColumns} rowKey={(m) => m.method} defaultSort={{ key: 'count', dir: 'desc' }} />}
+            table={<DataTable caption={t('table.n', { n: 2, title: t('me.corpus.table', { a: w.start, b: w.end }) })} rows={file.corpus} columns={corpusColumns} rowKey={(m) => m.method} defaultSort={{ key: 'count', dir: 'desc' }} limit={25} />}
           />
         </Section>
       ) : null}
@@ -165,7 +165,7 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
             <input type="checkbox" checked={state.mono === 'only'} onChange={(e) => update({ mono: e.target.checked ? 'only' : 'all' })} />
             {t('me.onlyMono')}
           </label>
-          <DataTable caption={t('table.n', { n: 3, title: t('me.topics.table') })} rows={topicRows} columns={topicColumns} rowKey={(r) => r.topic} defaultSort={{ key: 'mono', dir: 'desc' }} csvFilename={`atlas-${rel}-methods-by-topic.csv`} />
+          <DataTable caption={t('table.n', { n: 3, title: t('me.topics.table') })} rows={topicRows} columns={topicColumns} rowKey={(r) => r.topic} defaultSort={{ key: 'mono', dir: 'desc' }} csvFilename={`atlas-${rel}-methods-by-topic.csv`} limit={25} />
         </Section>
       ) : null}
       {notes.length ? (

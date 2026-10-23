@@ -20,7 +20,7 @@ import { TopicLink } from '../components/TopicLink'
 import { useReleaseFile } from '../data/atlasContext'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { CompletenessItem, DriftPoint, JournalDetail, JournalSummary, JournalsFile, MethodShare, MethodsFile, Topic, TopicShare } from '../data/types'
-import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
+import { DASH, fmtInt, fmtNum, fmtPct, fmtPts, fmtShare } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { withPrimary } from '../lib/columns'
 import { figureCsv } from '../lib/tableCsv'
@@ -96,7 +96,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const share = (s: TopicShare) => s.share
   const topTopic = topics.length ? topicOf(topics.reduce((a, b) => (b.count > a.count ? b : a)).topic) : undefined
   const topicColumns: Column<TopicShare>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s.topic) as Topic} showStatus />, sortValue: (s) => s.topic, csv: (s) => s.topic },
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s.topic) as Topic} showStatus />, sortValue: (s) => name(topicOf(s.topic) as Topic), csv: (s) => s.topic },
     { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (s) => fmtInt(s.count), sortValue: (s) => s.count },
     { key: 'share', csvHeader: 'share', header: t('col.share'), numeric: true, cell: (s) => <ShareBar value={s.share} max={Math.max(...topics.map(share), 0.0001)} />, sortValue: share },
   ]
@@ -114,14 +114,11 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
     const tp = topicOf(tid)
     return tp ? name(tp) : tid
   }
-  const pts = (before: number, after: number) => {
-    const d = Math.round((after - before) * 100)
-    return s('pm.pts', { d: d > 0 ? `+${d}` : d < 0 ? `−${Math.abs(d)}` : '0' })
-  }
+  const pts = (before: number, after: number) => s('pm.pts', { d: fmtPts(after - before) })
   const mixColumns: Column<PeriodRow>[] = [
     { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => (topicOf(r.topic) ? <TopicLink topic={topicOf(r.topic) as Topic} showStatus /> : r.topic), csv: (r) => r.topic },
-    { key: 'before', csvHeader: 'share_before', header: s('pm.col.before', { b: baseSpan }), numeric: true, cell: (r) => fmtPct(r.before, 0), sortValue: (r) => r.before },
-    { key: 'after', csvHeader: 'share_after', header: s('pm.col.after', { r: recentSpan }), numeric: true, cell: (r) => fmtPct(r.after, 0), sortValue: (r) => r.after },
+    { key: 'before', csvHeader: 'share_before', header: s('pm.col.before', { b: baseSpan }), numeric: true, cell: (r) => fmtShare(r.before, 0), sortValue: (r) => r.before },
+    { key: 'after', csvHeader: 'share_after', header: s('pm.col.after', { r: recentSpan }), numeric: true, cell: (r) => fmtShare(r.after, 0), sortValue: (r) => r.after },
     { key: 'change', csvHeader: 'change', header: s('pm.col.change'), unit: s('pm.ptsUnit'), numeric: true, cell: (r) => pts(r.before, r.after), sortValue: (r) => r.after - r.before, csv: (r) => Math.round((r.after - r.before) * 1e4) / 1e4 },
   ]
   type TyRow = { year: number; articles: number; shares: (number | null)[]; other: number | null }
@@ -129,8 +126,8 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const tyColumns: Column<TyRow>[] = [
     { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => String(r.year), sortValue: (r) => r.year },
     { key: 'articles', csvHeader: 'articles', header: s('ty.col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), sortValue: (r) => r.articles },
-    ...tyTopics.map((x, i): Column<TyRow> => ({ key: x.topic, csvHeader: x.topic, header: mixName(x.topic), numeric: true, cell: (r) => fmtPct(r.shares[i], 0), sortValue: (r) => r.shares[i], csv: (r) => r.shares[i] })),
-    { key: 'other', csvHeader: 'other', header: s('ty.col.other'), numeric: true, cell: (r) => fmtPct(r.other, 0), sortValue: (r) => r.other, csv: (r) => r.other },
+    ...tyTopics.map((x, i): Column<TyRow> => ({ key: x.topic, csvHeader: x.topic, header: mixName(x.topic), numeric: true, cell: (r) => fmtShare(r.shares[i], 0), sortValue: (r) => r.shares[i], csv: (r) => r.shares[i] })),
+    { key: 'other', csvHeader: 'other', header: s('ty.col.other'), numeric: true, cell: (r) => fmtShare(r.other, 0), sortValue: (r) => r.other, csv: (r) => r.other },
   ]
   const thinYears = ty ? ty.years.filter((_, k) => ty.articles[k] < ty.min_articles) : []
   /** the example: the largest topic, from its first to its last year with a share */
@@ -140,7 +137,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
     const known = first.shares.flatMap((v, k) => (v == null ? [] : [k]))
     if (known.length < 2) return null
     const [a, b] = [known[0], known[known.length - 1]]
-    return s('ty.lead', { t: mixName(first.topic), a: fmtPct(first.shares[a] ?? null, 0), y1: ty.years[a], b: fmtPct(first.shares[b] ?? null, 0), y2: ty.years[b] })
+    return s('ty.lead', { t: mixName(first.topic), a: fmtShare(first.shares[a] ?? null, 0), y1: ty.years[a], b: fmtShare(first.shares[b] ?? null, 0), y2: ty.years[b] })
   })()
   // figures and tables are numbered in reading order, counting only those on the page
   const numbered = (shown: [string, boolean][]): Record<string, number> => Object.fromEntries(shown.filter(([, on]) => on).map(([k], i) => [k, i + 1]))
@@ -219,7 +216,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
 
           {topics.length ? (
             <Section id="topics" title={t('jr.topics.h')} intro={t('jr.topics.intro', { a: w.start, b: w.end, topic: topTopic ? name(topTopic) : DASH })}>
-              <DataTable caption={t('table.n', { n: tabNo.topics, title: t('jr.topics.table') })} rows={topics} columns={topicColumns} rowKey={(x) => x.topic} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${rel}-${journal.id}-topics.csv`} />
+              <DataTable caption={t('table.n', { n: tabNo.topics, title: t('jr.topics.table') })} rows={topics} columns={topicColumns} rowKey={(x) => x.topic} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${rel}-${journal.id}-topics.csv`} limit={25} />
               {hasTy && ty ? (
                 <Figure
                   id="fig-topic-years"
@@ -244,8 +241,9 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
                     <SmallMultiples
                       years={ty.years}
                       series={tyTopics.map((x) => ({ id: x.topic, label: mixName(x.topic), values: x.shares.map((v) => v ?? null) }))}
-                      format={(v) => fmtPct(v, 0)}
-                      axisFormat={(v) => fmtPct(v, 0)}
+                      format={(v) => fmtShare(v, 0)}
+                      axisFormat={(v) => fmtShare(v, 0)}
+                      mono
                     />
                   }
                   table={<DataTable caption={t('table.n', { n: tabNo.ty, title: s('ty.table') })} rows={tyRows} columns={tyColumns} rowKey={(r) => String(r.year)} stack={false} />}
@@ -258,7 +256,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
             <Section
               id="drift"
               title={t('jr.drift.h')}
-              intro={moved ? s('pm.lead', { t: mixName(moved.topic), a: fmtPct(moved.before, 0), b: fmtPct(moved.after, 0) }) : t('jr.drift.intro', { n: fmtInt(file.drift_reference_years ?? 0) })}
+              intro={moved ? s('pm.lead', { t: mixName(moved.topic), a: fmtShare(moved.before, 0), b: fmtShare(moved.after, 0) }) : t('jr.drift.intro', { n: fmtInt(file.drift_reference_years ?? 0) })}
             >
               {mix.rows.length ? (
                 <Figure
@@ -277,18 +275,18 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
                       other={mix.other}
                       periods={[baseSpan, recentSpan]}
                       name={(tid) => (topicOf(tid) ? <TopicLink topic={topicOf(tid) as Topic} /> : tid)}
-                      fmt={(v) => fmtPct(v, 0)}
+                      fmt={(v) => fmtShare(v, 0)}
                       change={pts}
                       otherName={s('pm.other')}
                       label={s('pm.label', {
                         b: baseSpan,
                         r: recentSpan,
-                        x: mix.rows.map((r) => `${mixName(r.topic)} ${fmtPct(r.before, 0)}`).join(', '),
-                        y: mix.rows.map((r) => `${mixName(r.topic)} ${fmtPct(r.after, 0)}`).join(', '),
+                        x: mix.rows.map((r) => `${mixName(r.topic)} ${fmtShare(r.before, 0)}`).join(', '),
+                        y: mix.rows.map((r) => `${mixName(r.topic)} ${fmtShare(r.after, 0)}`).join(', '),
                       })}
                     />
                   }
-                  table={<DataTable caption={t('table.n', { n: tabNo.mix, title: s('pm.table') })} rows={mix.rows} columns={mixColumns} rowKey={(r) => r.topic} defaultSort={{ key: 'change', dir: 'desc' }} />}
+                  table={<DataTable caption={t('table.n', { n: tabNo.mix, title: s('pm.table') })} rows={mix.rows} columns={mixColumns} rowKey={(r) => r.topic} defaultSort={{ key: 'change', dir: 'desc' }} limit={25} />}
                 />
               ) : null}
               {hasDrift ? (
@@ -349,7 +347,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
 
           {peers.length ? (
             <Section id="peers" title={t('jr.peers.h')} intro={t('jr.peers.intro')}>
-              <DataTable caption={t('table.n', { n: tabNo.peers, title: t('jr.peers.table') })} rows={peerRows} columns={peerColumns} rowKey={(r) => r.journal.id} csvFilename={`atlas-${rel}-${journal.id}-peers.csv`} />
+              <DataTable caption={t('table.n', { n: tabNo.peers, title: t('jr.peers.table') })} rows={peerRows} columns={peerColumns} rowKey={(r) => r.journal.id} csvFilename={`atlas-${rel}-${journal.id}-peers.csv`} limit={25} />
               <HowNote>
                 <p className="how-terms">
                   <span>{t('glossary.terms')}:</span>
@@ -361,7 +359,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
 
           {methods.length ? (
             <Section id="methods" title={t('jr.methods.h')} intro={t('jr.methods.intro', { p: fmtPct(journal.methods_coverage ?? null, 0) })}>
-              <DataTable caption={t('table.n', { n: tabNo.methods, title: t('jr.methods.table') })} rows={methods} columns={methodColumns} rowKey={(m) => m.method} stack={false} csvFilename={`atlas-${rel}-${journal.id}-methods.csv`} />
+              <DataTable caption={t('table.n', { n: tabNo.methods, title: t('jr.methods.table') })} rows={methods} columns={methodColumns} rowKey={(m) => m.method} stack={false} csvFilename={`atlas-${rel}-${journal.id}-methods.csv`} limit={25} />
             </Section>
           ) : null}
 

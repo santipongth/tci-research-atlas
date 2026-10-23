@@ -238,16 +238,20 @@ export interface PlacedLabel {
 /**
  * Greedy, collision-aware point labels: candidates right, left, above, below each mark (in that order), kept inside
  * `bounds`, clear of every mark (radius `r`), of `avoid` boxes and of labels already placed. Points are tried in the
- * given order (most important first) and at most `max` get a label.
+ * given order (most important first) and at most `max` get a label. `tries` caps how many points are examined at all
+ * (a chart of thousands of marks only ever names its first few dozen, so the tests stay cheap and deterministic).
+ * `measure` replaces the character estimate with a real measurement (lib/measure.ts, Sarabun on a canvas) in the browser.
  */
-export function placeLabels(points: readonly { id: string; text: string; cx: number; cy: number }[], opts: { px: number; r: number; bounds: Box; avoid?: readonly Box[]; max?: number }): PlacedLabel[] {
-  const { px, r, bounds, avoid = [], max = 8 } = opts
+export function placeLabels(points: readonly { id: string; text: string; cx: number; cy: number }[], opts: { px: number; r: number; bounds: Box; avoid?: readonly Box[]; max?: number; tries?: number; measure?: (text: string, px: number) => number }): PlacedLabel[] {
+  const { px, r, bounds, avoid = [], max = 8, tries = Infinity, measure = textWidth } = opts
   const h = px * 1.35
   const marks = points.map((p) => ({ x: p.cx - r, y: p.cy - r, w: 2 * r, h: 2 * r }))
   const placed: PlacedLabel[] = []
+  let examined = 0
   for (const p of points) {
-    if (placed.length >= max) break
-    const w = textWidth(p.text, px) + 4
+    if (placed.length >= max || examined >= tries) break
+    examined += 1
+    const w = measure(p.text, px) + 4
     const gap = r + 4
     const cands: { box: Box; x: number; y: number; anchor: PlacedLabel['anchor'] }[] = [
       { box: { x: p.cx + gap, y: p.cy - h / 2, w, h }, x: p.cx + gap, y: p.cy, anchor: 'start' },
@@ -288,6 +292,11 @@ export interface FlowLayout {
   right: FlowNode[]
   links: FlowLink[]
   height: number
+}
+
+/** Pixels per topic in the status-flow diagram: `maxUnit` for a handful of changes, shrinking so the bands stay within `budget` px however many topics changed. */
+export function flowUnit(total: number, maxUnit = 26, budget = 520): number {
+  return total > 0 ? Math.min(maxUnit, budget / total) : maxUnit
 }
 
 /**

@@ -4,7 +4,7 @@ import { defineStrings } from './define'
 export const journals = defineStrings({
   'nav.journals': { th: 'วารสาร', en: 'Journals' },
   'jr.title': { th: 'วารสาร', en: 'Journals' },
-  'jr.lede': { th: 'วารสารแต่ละฉบับตีพิมพ์เรื่องอะไร ผู้เขียนมาจากไหน และข้อมูลบทความครบแค่ไหน คิดจากบทความปี {a}–{b}', en: 'What each journal publishes, where its authors come from and how complete its article records are, from articles published {a}–{b}.' },
+  'jr.lede': { th: 'ข้อมูลรอบ {release} ดูได้ {n} วารสาร ว่าแต่ละฉบับตีพิมพ์เรื่องอะไร ผู้เขียนมาจากไหน และข้อมูลบทความครบแค่ไหน คิดจากบทความปี {a}–{b}', en: 'Release {release} covers {n} journals: what each publishes, where its authors come from and how complete its article records are, from articles published {a}–{b}.' },
   'jr.how': { th: 'หน้านี้ดูเฉพาะระดับวารสารและสถาบัน ไม่มีข้อมูลรายบุคคล คะแนน “ข้อมูลบทความครบ” นับจาก 7 รายการตามเกณฑ์ TCI แต่ไม่ใช่ผลประเมินอย่างเป็นทางการ', en: 'Journal and institution level only, nothing about individuals. The complete-records score counts 7 items from the TCI assessment but is not the official result.' },
   'jr.search': { th: 'ค้นหาวารสาร (ชื่อหรือ ISSN)', en: 'Find a journal (name or ISSN)' },
   'jr.tier': { th: 'กลุ่มวารสาร TCI', en: 'TCI tier' },

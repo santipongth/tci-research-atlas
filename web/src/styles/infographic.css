@@ -67,7 +67,7 @@
 
   /* dot plot: name | estimate on a shared axis | value and range */
   .dp { margin-top: 4px; }
-  .dp-head, .dp-row { display: grid; grid-template-columns: minmax(0, 28%) minmax(0, 1fr) 11rem; gap: 0 16px; align-items: center; }
+  .dp-head, .dp-row { display: grid; grid-template-columns: minmax(0, 34%) minmax(0, 1fr) 11rem; gap: 0 16px; align-items: center; }
   .dp-head { align-items: end; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
   .dp-axl { font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; padding-bottom: 2px; }
   .dp-scale { position: relative; height: 44px; margin-inline: 10px; }
@@ -76,8 +76,9 @@
   .dp-list { list-style: none; margin: 0; padding: 0; }
   .dp-row { padding: 8px 0; border-bottom: 1px solid var(--border-2); }
   .dp-name { min-width: 0; font-size: var(--fs-meta); line-height: 1.5; }
-  .dp-name a, .dp-name b { font-weight: 600; }
-  .dp-name a { display: inline-block; min-height: 24px; }
+  /* a long name takes at most two lines; the full name is the link's title */
+  .dp-name a, .dp-name b { font-weight: 600; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .dp-name a { min-height: 24px; }
   .dp-name small { display: block; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
   .dp-track { position: relative; height: 28px; margin-inline: 10px; }
   .dp-zero { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--ink); }
@@ -96,15 +97,15 @@
 
   /* mini bar ranking */
   .br { list-style: none; margin: 4px 0 0; padding: 0; }
-  .br-row { display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 1fr) 5.5rem; gap: 4px 16px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border-2); }
+  .br-row { display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 1fr) max-content; gap: 4px 16px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border-2); }
   .br-name { min-width: 0; font-size: var(--fs-meta); line-height: 1.5; overflow-wrap: anywhere; }
   .br-name a { display: inline-block; min-height: 24px; font-weight: 600; }
   .br-bar { height: 12px; border-radius: 3px; background: var(--surface); }
   .br-bar i { display: block; height: 100%; border-radius: 0 3px 3px 0; background: var(--brand); }
-  .br-val { text-align: right; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  .br-val { white-space: nowrap; text-align: right; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; }
   .br-more { margin-top: 8px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; }
   @media (max-width: 640px) {
-    .br-row { grid-template-columns: minmax(0, 1fr) 4.5rem; }
+    .br-row { grid-template-columns: minmax(0, 1fr) max-content; }
     .br-name { grid-column: 1 / -1; }
   }
 

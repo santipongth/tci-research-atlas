@@ -1,3 +1,4 @@
+import { THAI } from '../lib/script'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
@@ -12,7 +13,7 @@ import { toBibtex, toRis, type CiteRecord } from '../lib/citation'
 import { downloadText, toCsv, type CsvColumn } from '../lib/csv'
 import { fmtInt } from '../lib/format'
 import { buildSearchIndex, topicsForWords } from '../lib/search'
-import { useI18n, useStrings } from '../lib/i18n'
+import { useI18n, useStrings, nameIn } from '../lib/i18n'
 import { facet, filterHits, popularWords, type SearchHit, type SearchOutcome } from '../lib/searchClient'
 import { useArticleSearch, useSearchSource } from '../lib/useArticleSearch'
 import { useMediaQuery } from '../lib/useMediaQuery'
@@ -25,7 +26,6 @@ const PAGE = 50
 /** Topic cards above the articles. */
 const TOPIC_CARDS = 5
 /** Thai script (U+0E00–U+0E7F), built from code points: the codebase never writes a backslash-u escape. */
-const THAI = new RegExp(`[${String.fromCodePoint(0x0e00)}-${String.fromCodePoint(0x0e7f)}]`)
 
 export default function SearchPage() {
   const s = useStrings(search)
@@ -56,7 +56,7 @@ function Search({ release, meta }: { release: AtlasRelease; meta: SearchMeta }) 
       ) : src.status === 'error' ? (
         <p className="note">{t('mod.error')}</p>
       ) : !q ? (
-        src.status === 'ready' ? <Tips vocab={src.vocab} /> : null
+        src.status === 'ready' ? <Tips vocab={src.vocab} /> : <p className="loading" role="status">{s('index.loading')}</p>
       ) : (
         <>
         <TopicMatches release={release} q={q} words={result.status === 'ready' ? result.outcome.known : []} />
@@ -149,8 +149,11 @@ function QueryForm({ initial, disabled, onSearch, onClear }: { initial: string; 
 
 function Tips({ vocab }: { vocab: SearchVocab }) {
   const s = useStrings(search)
-  const words = popularWords(vocab, 60)
-  const tries = [...words.filter((w) => THAI.test(w)).slice(0, 4), ...words.filter((w) => !THAI.test(w)).slice(0, 3)]
+  // sorting the whole vocabulary is the costly part: once per release, not once per render
+  const tries = useMemo(() => {
+    const words = popularWords(vocab, 60)
+    return [...words.filter((w) => THAI.test(w)).slice(0, 4), ...words.filter((w) => !THAI.test(w)).slice(0, 3)]
+  }, [vocab])
   return (
     <section className="sec srch-tips" aria-labelledby="srch-tips-h">
       <h2 id="srch-tips-h">{s('tips.h')}</h2>
@@ -188,21 +191,26 @@ function Results({ release, meta, outcome, state, update }: {
   const filtering = state.from !== null || state.to !== null || state.topic !== null || state.journal !== ''
   const topicName = (id: string) => {
     const tp = release.topicById.get(id)
-    return tp ? (lang === 'en' ? tp.en || tp.th : tp.th || tp.en) : id
+    return tp ? nameIn(tp, lang) : id
   }
 
   if (outcome.known.length === 0) {
-    return <p className="note" role="status">{outcome.unknown.length ? s('res.unknownOnly', { words: quoted(outcome.unknown) }) : s('res.none')}</p>
+    return (
+      <p className="note" role="status">
+        {outcome.unknown.length ? s('res.unknownOnly', { words: quoted(outcome.unknown) }) : outcome.ignored.length ? s('res.ignoredOnly', { words: quoted(outcome.ignored) }) : s('res.none')}
+      </p>
+    )
   }
   return (
     <>
       <div className="srch-summary">
         <p className="srch-count" role="status">
-          {filtering ? s('res.countFiltered', { n: fmtInt(filtered.length), all: fmtInt(outcome.total) }) : s('res.count', { n: fmtInt(outcome.total) })}
+          {filtering ? s('res.countFiltered', { n: fmtInt(filtered.length), all: fmtInt(outcome.complete ? outcome.total : outcome.examined) }) : s('res.count', { n: fmtInt(outcome.total) })}
         </p>
         <p className="hint">
           {s('res.words')}: {outcome.known.map((w, i) => <span key={w}>{i ? ' · ' : ''}<strong lang={THAI.test(w) ? 'th' : 'en'}>{w}</strong></span>)}
         </p>
+        {outcome.ignored.length ? <p className="srch-unknown">{s('res.ignored', { words: quoted(outcome.ignored) })}</p> : null}
         {outcome.unknown.length ? <p className="srch-unknown">{s('res.unknown', { words: quoted(outcome.unknown) })}</p> : null}
         {!outcome.complete ? <p className="srch-partial">{s('res.partial', { total: fmtInt(outcome.total), examined: fmtInt(outcome.examined) })}</p> : null}
       </div>

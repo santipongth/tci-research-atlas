@@ -15,8 +15,8 @@ import { Gazetteer } from '../features/atlas/Gazetteer'
 import { groupCentroids, gridRef, MAP_H, MAP_W, tintTokens, toMapPoints } from '../features/atlas/mapSpace'
 import { TerrainMap, type MapGroup, type TerrainMapHandle } from '../features/atlas/TerrainMap'
 import { buildTerrain } from '../features/atlas/terrain'
-import { ciPct, fmtInt, fmtPct } from '../lib/format'
-import { useI18n } from '../lib/i18n'
+import { ciPct, fmtInt, fmtShare } from '../lib/format'
+import { useI18n, nameIn } from '../lib/i18n'
 import { prefersReducedMotion } from '../lib/scroll'
 import { glyphPath, SIGNAL_STATUSES, STATUSES, type StatusId } from '../lib/status'
 import { ciText, growthText, statusName } from '../lib/topicText'
@@ -72,7 +72,7 @@ function Atlas({ release }: { release: AtlasRelease }) {
   )
   const centroids = useMemo(() => groupCentroids(points), [points])
   const tints = useMemo(() => tintTokens(release.taxonomy.groups), [release])
-  const names = useMemo(() => new Map(release.topics.map((tp) => [tp.id, lang === 'en' ? tp.en || tp.th : tp.th || tp.en])), [release, lang])
+  const names = useMemo(() => new Map(release.topics.map((tp) => [tp.id, nameIn(tp, lang)])), [release, lang])
   if (points.length === 0) {
     return (
       <div className="container">
@@ -82,7 +82,7 @@ function Atlas({ release }: { release: AtlasRelease }) {
     )
   }
   const groups: MapGroup[] = release.taxonomy.groups.map((g, i) => ({
-    name: lang === 'en' ? g.en || g.th : g.th || g.en,
+    name: nameIn(g, lang),
     color: tints[i],
     cx: centroids.get(i)?.x ?? MAP_W / 2,
     cy: centroids.get(i)?.y ?? MAP_H / 2,
@@ -153,7 +153,7 @@ function Atlas({ release }: { release: AtlasRelease }) {
                 <p className="mt-2"><StatusChip status={sel.status} label={statusName(t, sel.status)} small /></p>
                 <dl className="summary compact">
                   <div><dt>{t('col.field')}</dt><dd>{groupName(release, sel.group, lang)}</dd></div>
-                  <div><dt>{t('tp.share')}</dt><dd>{fmtPct(sel.metrics.share_recent, 2)}</dd></div>
+                  <div><dt>{t('tp.share')}</dt><dd>{fmtShare(sel.metrics.share_recent, 2)}</dd></div>
                   <div><dt>{t('tp.growth')}</dt><dd>{growthText(t, sel.metrics)}{selCi ? <small>{selCi}</small> : null}</dd></div>
                 </dl>
                 <p className="mt-4"><Link className="btn" to={`/topics/${sel.id}`}>{t('map.sel.open')}</Link></p>

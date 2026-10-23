@@ -1,3 +1,4 @@
+import { useDeferredValue, useMemo } from 'react'
 import { ArcNetwork } from '../charts/ArcNetwork'
 import { BarRank } from '../charts/BarRank'
 import { rankBars } from '../charts/infographic'
@@ -46,8 +47,10 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
   const [state, update] = useUrlState(institutionsCodec)
   const w = file.window
   const rw = `${file.recent.start}–${file.recent.end}`
-  const rows = filterInstitutions(file.institutions, state.q, state.type)
-  const byId = new Map(file.institutions.map((i) => [i.id, i]))
+  // typing stays responsive: the table filters on the deferred text while the box shows every keystroke at once
+  const q = useDeferredValue(state.q)
+  const rows = useMemo(() => filterInstitutions(file.institutions, q, state.type), [file.institutions, q, state.type])
+  const byId = useMemo(() => new Map(file.institutions.map((i) => [i.id, i])), [file.institutions])
   const provinces = new Map((file.province_names ?? []).map((p) => [p.code, p]))
   const place = (i: InstitutionSummary): string => {
     if (i.province) {
@@ -65,13 +68,13 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
     { key: 'type', csvHeader: 'type', header: t('in.col.type'), cell: (i) => t(`in.type.${i.type ?? 'other'}` as StrKey), csv: (i) => i.type ?? 'other' },
     { key: 'province', csvHeader: 'province', header: t('in.col.province'), cell: place, sortValue: place, csv: (i) => i.province ?? '' },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (i) => fmtInt(i.articles), sortValue: (i) => i.articles },
-    { key: 'recent', csvHeader: 'articles_recent', header: t('in.col.recent', { r: rw }), numeric: true, cell: (i) => fmtInt(i.articles_recent ?? 0), sortValue: (i) => i.articles_recent ?? 0 },
+    { key: 'recent', csvHeader: 'articles_recent', header: t('in.col.recent', { r: rw }), numeric: true, cell: (i) => fmtInt(i.articles_recent ?? null), sortValue: (i) => i.articles_recent ?? null },
     { key: 'intl', csvHeader: 'intl_share', header: t('in.col.intl'), numeric: true, cell: (i) => <ShareBar value={i.intl_share} />, sortValue: (i) => i.intl_share ?? null },
-    { key: 'partners', csvHeader: 'partners', header: t('in.col.partners'), numeric: true, cell: (i) => fmtInt(i.partners ?? 0), sortValue: (i) => i.partners ?? 0 },
+    { key: 'partners', csvHeader: 'partners', header: t('in.col.partners'), numeric: true, cell: (i) => fmtInt(i.partners ?? null), sortValue: (i) => i.partners ?? null },
     { key: 'group', csvHeader: 'group', header: t('col.field'), cell: (i) => (i.group ? groupName(release, i.group, lang) : DASH), csv: (i) => i.group ?? '' },
   ]
   const valid = columns.some((c) => c.key === state.sort && c.sortValue)
-  const edges = (file.edges ?? []).filter((e) => byId.has(e.a) && byId.has(e.b))
+  const edges = useMemo(() => (file.edges ?? []).filter((e) => byId.has(e.a) && byId.has(e.b)), [file.edges, byId])
   const edgeColumns: Column<CollabEdge>[] = [
     {
       key: 'pair', csvHeader: 'institution_a', header: t('in.col.pair'), rowHeader: true,
@@ -100,17 +103,20 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
   const countriesTitle = t('table.n', { n: 2, title: t('in.countries.table') })
   const countryBars = rankBars(countries.map((c) => ({ key: lang === 'en' ? c.name_en : c.name_th, id: c.code, count: c.articles })), 8)
   // pairs outside the arc diagram's top rows stay in the table
-  const netIds = new Set(
-    [...file.institutions]
-      .filter((i) => edges.some((e) => e.a === i.id || e.b === i.id))
-      .sort((p, q) => q.articles - p.articles || (p.id < q.id ? -1 : 1))
+  // only the largest institutions that have a partner become arc rows: with ~10,000 institutions the rest stay in the tables
+  const { netRows, netLinks, hiddenPairs } = useMemo(() => {
+    const linked = new Set(edges.flatMap((e) => [e.a, e.b]))
+    const top = file.institutions
+      .filter((i) => linked.has(i.id))
+      .sort((a, b) => b.articles - a.articles || (a.id < b.id ? -1 : 1))
       .slice(0, NET_NODES)
-      .map((i) => i.id),
-  )
-  const hiddenPairs = edges.filter((e) => !netIds.has(e.a) || !netIds.has(e.b)).length
+    const ids = new Set(top.map((i) => i.id))
+    const links = edges.filter((e) => ids.has(e.a) && ids.has(e.b))
+    return { netRows: top, netLinks: links, hiddenPairs: edges.length - links.length }
+  }, [edges, file.institutions])
   return (
     <div className="container">
-      <PageHeader title={t('in.title')} lede={t('in.lede', { n: fmtInt(file.min_articles), a: w.start, b: w.end })} />
+      <PageHeader title={x('q.in')} lede={t('in.lede', { release: rel, k: fmtInt(file.institutions.length), n: fmtInt(file.min_articles), a: w.start, b: w.end })} />
       <Section id="glance" title={t('in.kpi.h')} intro={topInst ? t('ex.most', { x: instName(topInst, lang).text, k: fmtInt(topInst.articles) }) : undefined}>
         <StatGrid cols={2}>
           <StatTile label={t('in.kpi.multi')} value={fmtPct(file.pct_multi_institution ?? null, 1)} sub={t('in.kpi.intlSub', { n: fmtInt(file.articles_with_org) })} />
@@ -132,8 +138,8 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
             chart={
               <>
                 <ArcNetwork
-                  rows={file.institutions.map((i) => ({ id: i.id, name: <InstitutionLink inst={i} />, text: instName(i, lang).text, weight: i.articles, sub: x('xv.articles', { k: fmtInt(i.articles) }) }))}
-                  links={edges.map((e) => ({ a: e.a, b: e.b, value: e.articles }))}
+                  rows={netRows.map((i) => ({ id: i.id, name: <InstitutionLink inst={i} />, text: instName(i, lang).text, weight: i.articles, sub: x('xv.articles', { k: fmtInt(i.articles) }) }))}
+                  links={netLinks.map((e) => ({ a: e.a, b: e.b, value: e.articles }))}
                   label={x('xv.net.label', { n: fmtInt(edges.length) })}
                   pairTitle={(a, b, k) => x('xv.net.pair', { a, b, k: fmtInt(k) })}
                   maxNodes={NET_NODES}
@@ -141,7 +147,7 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
                 {hiddenPairs > 0 ? <p className="br-more">{x('xv.net.more', { n: fmtInt(hiddenPairs) })}</p> : null}
               </>
             }
-            table={<DataTable caption={pairsTitle} rows={edges} columns={edgeColumns} rowKey={(e) => `${e.a}~${e.b}`} defaultSort={{ key: 'articles', dir: 'desc' }} />}
+            table={<DataTable caption={pairsTitle} rows={edges} columns={edgeColumns} rowKey={(e) => `${e.a}~${e.b}`} defaultSort={{ key: 'articles', dir: 'desc' }} limit={25} />}
           />
         </Section>
       ) : null}
@@ -163,7 +169,7 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
                 {countryBars.rest > 0 ? <p className="br-more">{x('xv.more', { n: fmtInt(countryBars.rest) })}</p> : null}
               </>
             }
-            table={<DataTable caption={countriesTitle} rows={countries} columns={countryColumns} rowKey={(c) => c.code} stack={false} defaultSort={{ key: 'articles', dir: 'desc' }} />}
+            table={<DataTable caption={countriesTitle} rows={countries} columns={countryColumns} rowKey={(c) => c.code} stack={false} defaultSort={{ key: 'articles', dir: 'desc' }} limit={25} />}
           />
         </Section>
       ) : null}
@@ -188,6 +194,7 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
           rows={rows}
           columns={columns}
           rowKey={(i) => i.id}
+          limit={50}
           sort={valid ? { key: state.sort, dir: state.dir } : { key: 'articles', dir: 'desc' }}
           onSort={(s) => update({ sort: isSort(s.key) ? s.key : 'articles', dir: s.dir })}
           csvFilename={`atlas-${rel}-institutions.csv`}

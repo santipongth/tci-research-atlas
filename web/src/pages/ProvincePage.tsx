@@ -17,9 +17,10 @@ import { useReleaseFile } from '../data/atlasContext'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { InstitutionsFile, ProvinceStat, RegionsFile, Topic } from '../data/types'
 import { windows } from '../lib/definition'
-import { fmtInt, fmtNum, fmtPct } from '../lib/format'
-import { useI18n, useStrings } from '../lib/i18n'
+import { fmtInt, fmtNum, fmtShare } from '../lib/format'
+import { useI18n, useStrings, nameIn } from '../lib/i18n'
 import type { StrKey } from '../strings'
+import { figureCsv } from '../lib/tableCsv'
 import { provinceCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { province as PV } from '../strings/province'
@@ -132,7 +133,7 @@ function OneProvince({ release, file, p }: { release: AtlasRelease; file: Region
   const [state, update] = useUrlState(provinceCodec)
   const bars = rankBars(rows.map((r) => ({ key: lang === 'en' ? r.topic.en : r.topic.th, id: r.topic.id, count: r.count })), rows.length)
   const columns: Column<TopicRow>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => <TopicLink topic={r.topic} showStatus />, sortValue: (r) => r.topic.id, csv: (r) => r.topic.id },
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => <TopicLink topic={r.topic} showStatus />, sortValue: (r) => nameIn(r.topic, lang), csv: (r) => r.topic.id },
     { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
     { key: 'share', csvHeader: 'share', header: s('pv.t.share'), numeric: true, cell: (r) => <ShareBar value={r.share} max={maxShare} />, sortValue: (r) => r.share },
   ]
@@ -154,25 +155,27 @@ function OneProvince({ release, file, p }: { release: AtlasRelease; file: Region
           </figure>
         <StatGrid cols={2}>
           <StatTile label={s('pv.f.articles', { a: w.start, b: w.end })} value={fmtInt(p.articles)} sub={s('pv.f.articlesSub')} />
-          <StatTile label={s('pv.f.recent', { a: R[0], b: R[1] })} value={fmtInt(p.articles_recent ?? 0)} sub={s('pv.f.recentSub')} />
-          <StatTile label={s('pv.f.share')} value={fmtPct(p.share ?? null, 1)} sub={s('pv.f.shareSub')} />
+          <StatTile label={s('pv.f.recent', { a: R[0], b: R[1] })} value={fmtInt(p.articles_recent ?? null)} sub={s('pv.f.recentSub')} />
+          <StatTile label={s('pv.f.share')} value={fmtShare(p.share ?? null, 1)} sub={s('pv.f.shareSub')} />
           <StatTile label={s('pv.f.rank')} value={s('pv.f.rankV', { r: fmtInt(rank), n: fmtInt(placed.length) })} sub={s('pv.f.rankSub')} />
           {p.per_100k != null ? <StatTile label={s('pv.f.per100k')} value={fmtNum(p.per_100k, 1)} sub={s('pv.f.per100kSub', { y: file.population_year ?? '' })} /> : null}
         </StatGrid>
         </div>
       </Section>
-      <Section id="topics" title={s('pv.t.h', { name })} intro={lead ? s('pv.t.intro', { topic: lang === 'en' ? lead.topic.en : lead.topic.th, p: fmtPct(lead.share, 0) }) : undefined}>
+      <Section id="topics" title={s('pv.t.h', { name })} intro={lead ? s('pv.t.intro', { topic: lang === 'en' ? lead.topic.en : lead.topic.th, p: fmtShare(lead.share, 0) }) : undefined}>
         {rows.length ? (
           <Figure
             id="fig-pv-topics"
             number={1}
             title={s('pv.t.fig', { name })}
             tableTitle={t('table.n', { n: 1, title: s('pv.t.table', { name }) })}
+            csv={figureCsv(`atlas-${release.overview.release}-${p.code}-topics.csv`, rows, columns)}
+            how={<p>{s('pv.t.how')}</p>}
             source={t('source.line', { release: release.overview.release })}
             view={state.v}
             onView={(v) => update({ v })}
-            chart={<BarRank rows={bars.rows} href={(r) => `/topics/${r.id}`} value={(r) => s('pv.t.bar', { k: fmtInt(r.count), p: fmtPct(rows.find((x) => x.topic.id === r.id)?.share ?? null, 0) })} label={s('pv.t.fig', { name })} />}
-            table={<DataTable caption={t('table.n', { n: 1, title: s('pv.t.table', { name }) })} rows={rows} columns={columns} rowKey={(r) => r.topic.id} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${release.overview.release}-${p.code}-topics.csv`} />}
+            chart={<BarRank rows={bars.rows} href={(r) => `/topics/${r.id}`} value={(r) => s('pv.t.bar', { k: fmtInt(r.count), p: fmtShare(rows.find((x) => x.topic.id === r.id)?.share ?? null, 0) })} label={s('pv.t.fig', { name })} />}
+            table={<DataTable caption={t('table.n', { n: 1, title: s('pv.t.table', { name }) })} rows={rows} columns={columns} rowKey={(r) => r.topic.id} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${release.overview.release}-${p.code}-topics.csv`} limit={25} />}
           />
         ) : (
           <EmptyState title={s('pv.t.none')} />

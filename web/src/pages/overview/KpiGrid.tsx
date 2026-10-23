@@ -36,7 +36,7 @@ export function KpiGrid({ release, more: showMore = true }: { release: AtlasRele
   const tile = (k: Kpi) => {
     const value = num(now[k.key])
     if (value === null) return null
-    const before = prev ? num(prev.kpis[k.key]) : null
+    const before = prev ? num(prev.kpis?.[k.key]) : null
     const delta = kpiDelta(value, before, k.unit, lang)
     return (
       <StatTile

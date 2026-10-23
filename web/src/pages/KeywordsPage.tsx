@@ -7,7 +7,6 @@ import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
-import { Sparkline } from '../components/StatTile'
 import { riserOf } from '../charts/editorLayout'
 import { MultiLineChart, type LineSeries } from '../charts/MultiLineChart'
 import { tickDecimals } from '../charts/scale'
@@ -136,7 +135,7 @@ function Keywords({ release, file }: { release: AtlasRelease; file: KwTrendsFile
 
   return (
     <div className="container">
-      <PageHeader title={s('title')} lede={s('lede', { n: fmtInt(file.keywords.length) })} />
+      <PageHeader title={s('q')} lede={s('lede', { release: release.overview.release, n: fmtInt(file.keywords.length) })} />
       <div className="cmp-picker kw-picker">
         <KeywordPicker file={file} exclude={exclude} disabled={full} onPick={add} />
         {full ? <p className="hint" ref={hintRef} tabIndex={-1}>{s('pick.max')}</p> : null}
@@ -234,7 +233,6 @@ function Risers({ file, risers, chosen, full, onAdd }: { file: KwTrendsFile; ris
                 onClick={() => onAdd(kwKey(k))}
               >
                 <span className="kr-term"><span className="sr-only">{s('kr.addSr')} </span><span lang={k.lang}>{k.term}</span></span>
-                <Sparkline values={shares} width={96} height={24} />
                 {r ? <span className="kr-d">{sharePct(r.from)} → <b>{sharePct(r.to)}</b></span> : null}
                 {on ? <span className="kr-on">{s('kr.shown')}</span> : null}
               </button>

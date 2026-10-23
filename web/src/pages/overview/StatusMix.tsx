@@ -3,7 +3,7 @@ import { Figure } from '../../components/Figure'
 import { StatusChip } from '../../components/StatusGlyph'
 import { TopicTip } from '../../components/TopicTip'
 import { StatusWaffle } from '../../charts/StatusWaffle'
-import { percentOf, waffleGroups, type WaffleGroup } from '../../charts/infographic'
+import { percentOf, waffleGroups, waffleUnit, type WaffleGroup } from '../../charts/infographic'
 import type { AtlasRelease } from '../../data/release'
 import { fmtInt } from '../../lib/format'
 import { useI18n } from '../../lib/i18n'
@@ -24,6 +24,7 @@ export function StatusMix({ release, number, tableNo, view, onView, compact = fa
   const { t } = useI18n()
   const total = release.topics.length
   const groups = waffleGroups(release.topics)
+  const unit = waffleUnit(total)
   const tableTitle = t('table.n', { n: tableNo, title: t('ov.wf.table') })
   const columns: Column<WaffleGroup>[] = [
     { key: 'status', csvHeader: 'status', header: t('col.status'), rowHeader: true, cell: (g) => <StatusChip status={g.status} label={statusName(t, g.status)} small />, csv: (g) => g.status },
@@ -35,10 +36,10 @@ export function StatusMix({ release, number, tableNo, view, onView, compact = fa
     <Figure
       id="fig-statusmix"
       number={number}
-      title={t('ov.wf.title', { n: fmtInt(total) })}
+      title={t('ov.wf.title', { n: fmtInt(total), unit: unit === 1 ? t('ov.wf.unit1') : t('ov.wf.unitK', { k: fmtInt(unit) }) })}
       tableTitle={tableTitle}
       csv={figureCsv(`atlas-${release.overview.release}-status-counts.csv`, groups, columns)}
-      how={<p>{t('ov.wf.how')}</p>}
+      how={<><p>{t('ov.wf.how')}</p>{unit > 1 ? <p>{t('ov.wf.howK', { k: fmtInt(unit) })}</p> : null}</>}
       source={t('source.line', { release: release.overview.release })}
       view={view}
       onView={onView}
@@ -47,9 +48,15 @@ export function StatusMix({ release, number, tableNo, view, onView, compact = fa
         <StatusWaffle
           groups={groups}
           total={total}
+          unit={unit}
           statusLabel={(s) => statusName(t, s)}
           meaning={(s) => statusMeaning(t, s)}
-          tipFor={(tp) => <TopicTip topic={tp} ciLevel={release.ciLevel} />}
+          tipFor={(tp, more) => (
+            <>
+              <TopicTip topic={tp} ciLevel={release.ciLevel} />
+              {more > 0 ? <div className="tip-row tip-muted">{t('ov.wf.cellMore', { n: fmtInt(more) })}</div> : null}
+            </>
+          )}
           compact={compact}
         />
       }

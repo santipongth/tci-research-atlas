@@ -9,7 +9,6 @@ import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { ShareBar } from '../components/ShareBar'
-import { StatusChip } from '../components/StatusGlyph'
 import { TopicLink } from '../components/TopicLink'
 import { groupName, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { JournalSummary, JournalsFile, SpecialIssueTopic, Topic } from '../data/types'
@@ -40,6 +39,7 @@ const isSort = (v: string): v is JournalSort => (JOURNAL_SORTS as readonly strin
 
 function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile }) {
   const { t, lang } = useI18n()
+  const s = useStrings(editorViz)
   const [state, update] = useUrlState(journalsCodec)
   const w = file.window
   const rows = filterJournals(file.journals, state.q, state.tier)
@@ -83,7 +83,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
   const valid = columns.some((c) => c.key === state.sort && c.sortValue)
   return (
     <div className="container">
-      <PageHeader title={t('jr.title')} lede={t('jr.lede', { a: w.start, b: w.end })} />
+      <PageHeader title={s('q.jr')} lede={t('jr.lede', { release: release.overview.release, n: fmtInt(file.journals.length), a: w.start, b: w.end })} />
       <div className="j-tools">
         <label>
           {t('jr.search')}
@@ -106,6 +106,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
           rows={rows}
           columns={columns}
           rowKey={(j) => j.id}
+          limit={50}
           sort={valid ? { key: state.sort, dir: state.dir } : { key: 'articles', dir: 'desc' }}
           onSort={(s) => update({ sort: isSort(s.key) ? s.key : 'articles', dir: s.dir })}
           csvFilename={`atlas-${release.overview.release}-journals.csv`}
@@ -175,7 +176,7 @@ function Scatter({ release, file, rows, view, update }: {
             }}
           />
         }
-        table={<DataTable caption={t('table.n', { n: 1, title: s('js.table') })} rows={plotted} columns={columns} rowKey={(j) => j.id} defaultSort={{ key: 'articles', dir: 'desc' }} />}
+        table={<DataTable caption={t('table.n', { n: 1, title: s('js.table') })} rows={plotted} columns={columns} rowKey={(j) => j.id} defaultSort={{ key: 'articles', dir: 'desc' }} limit={50} />}
         note={rows.length > plotted.length ? <p className="note">{s('js.left', { n: fmtInt(rows.length - plotted.length) })}</p> : null}
       />
     </Section>
@@ -191,7 +192,7 @@ function SpecialIssues({ release, file }: { release: AtlasRelease; file: Journal
   const r = file.recent
   const span = `${r.start}–${r.end}`
   const columns: Column<SpecialIssueTopic>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (x) => <TopicLink topic={topicOf(x)} showStatus />, sortValue: (x) => x.topic, csv: (x) => x.topic },
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (x) => <TopicLink topic={topicOf(x)} showStatus />, sortValue: (x) => name(topicOf(x)), csv: (x) => x.topic },
     { key: 'hosts', csvHeader: 'hosts', header: t('col.hosts'), numeric: true, firstDir: 'asc', cell: (x) => fmtInt(x.hosts), sortValue: (x) => x.hosts },
     { key: 'top', csvHeader: 'top_host_share', header: t('col.topHost'), numeric: true, cell: (x) => fmtPct(x.top_host_share, 0), sortValue: (x) => x.top_host_share },
     { key: 'articles', csvHeader: 'articles_recent', header: t('col.articlesR', { r: span }), numeric: true, cell: (x) => fmtInt(x.articles_recent), sortValue: (x) => x.articles_recent },
@@ -214,8 +215,7 @@ function SpecialIssues({ release, file }: { release: AtlasRelease; file: Journal
           const tp = topicOf(x)
           return (
             <li key={x.topic} className="si-card">
-              <StatusChip status={tp.status} label={statusName(t, tp.status)} small />
-              <p className="si-name"><TopicLink topic={tp} /></p>
+              <p className="si-name"><TopicLink topic={tp} showStatus /></p>
               <dl className="si-nums">
                 <div><dt>{t('col.hosts')}</dt><dd>{fmtInt(x.hosts)}</dd></div>
                 <div><dt>{t('col.topHost')}</dt><dd>{fmtPct(x.top_host_share, 0)}</dd></div>
@@ -233,6 +233,7 @@ function SpecialIssues({ release, file }: { release: AtlasRelease; file: Journal
             rows={rows}
             columns={columns}
             rowKey={(x) => x.topic}
+            limit={25}
             defaultSort={{ key: 'hosts', dir: 'asc' }}
             csvFilename={`atlas-${release.overview.release}-special-issues.csv`}
           />

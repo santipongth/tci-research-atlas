@@ -3,9 +3,10 @@ import { defineStrings } from './define'
 /** /keywords (R7 keyword trends + TH–EN glossary). Imported only by the lazy KeywordsPage (entry budget). */
 export const keywords = defineStrings({
   title: { th: 'แนวโน้มคำสำคัญ', en: 'Keyword trends' },
+  q: { th: 'คำไหนมีคนใช้มากขึ้น คำไหนน้อยลง', en: 'Which keywords are used more, which less?' },
   lede: {
-    th: 'คำสำคัญคือคำที่ผู้เขียนใส่ไว้ท้ายบทคัดย่อ หน้านี้ดูว่าคำไหนมีคนใช้มากขึ้นหรือน้อยลงในแต่ละปี จากคำที่ใช้บ่อย {n} คำ',
-    en: 'Authors list keywords under their abstract. See which words are used more or less each year, across the {n} most used keywords.',
+    th: 'ข้อมูลรอบ {release}: ดูได้ว่าคำที่ใช้บ่อย {n} คำ มีคนใช้มากขึ้นหรือน้อยลงในแต่ละปี คำสำคัญคือคำที่ผู้เขียนใส่ไว้ท้ายบทคัดย่อ',
+    en: 'Release {release}: see whether the {n} most used keywords are used more or less each year. Authors list keywords under their abstract.',
   },
 
   'pick.label': { th: 'เพิ่มคำสำคัญ (ไทยหรืออังกฤษ)', en: 'Add a keyword (Thai or English)' },

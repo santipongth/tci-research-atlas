@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { docShardOf, fnv1a32, indexShardOf, keepWord, normalise, queryTokens, TOKENIZER_VERSION } from './searchTokens'
+import { docShardOf, fnv1a32, ignoredWords, indexShardOf, keepWord, normalise, queryTokens, TOKENIZER_VERSION } from './searchTokens'
 
 /** The parity fixture written from pipeline/atlas/search_index.py — the browser must cut queries exactly like it. */
 interface Parity {
@@ -19,6 +19,20 @@ interface Parity {
 const parity = JSON.parse(readFileSync(fileURLToPath(new URL('../../../pipeline/tests/fixtures/search_parity.json', import.meta.url)), 'utf8')) as Parity
 const vocab = new Set(parity.vocab)
 const stop = new Set(parity.stopwords)
+
+describe('ignoredWords', () => {
+  const stopwords = new Set(['การ', 'the'])
+  const words = new Set(['ผู้สูงอายุ', 'ageing'])
+  it('names the stopwords of a query, which queryTokens consumes without a word', () => {
+    expect(ignoredWords('การ', words, stopwords, 20)).toEqual(['การ'])
+    expect(queryTokens('การ', words, stopwords, 20)).toEqual({ known: [], unknown: [] })
+    expect(ignoredWords('the ageing', words, stopwords, 20)).toEqual(['the'])
+    expect(ignoredWords('การผู้สูงอายุ', words, stopwords, 20)).toEqual(['การ'])
+  })
+  it('says nothing when no stopword was used', () => {
+    expect(ignoredWords('ผู้สูงอายุ ageing', words, stopwords, 20)).toEqual([])
+  })
+})
 
 describe('searchTokens parity with atlas.search_index', () => {
   it('uses the same tokenizer version', () => {

@@ -1,5 +1,7 @@
 import { useTooltip } from '../lib/tooltip'
 import { useElementSize } from '../lib/useElementSize'
+import { useFontsVersion } from '../lib/useFontsVersion'
+import { textWidth as measureText } from '../lib/measure'
 import { LABEL_PX } from '../lib/labelSizes'
 import { placeLabels, quadrantLayout, textWidth, type Box, type QuadPoint } from './execLayout'
 import { tickDecimals } from './scale'
@@ -28,6 +30,7 @@ export function OpportunityQuadrant({ points, xMax, yMin, text, label, describe,
 }) {
   const [ref, { width: W }] = useElementSize<HTMLDivElement>()
   const tip = useTooltip()
+  useFontsVersion() // label boxes are measured in Sarabun: measure again once it has loaded
   if (W === 0 || points.length === 0) return <div ref={ref} className="oq-host" />
   const narrow = W < 560
   const H = Math.round(Math.max(300, Math.min(460, W * 0.62)))
@@ -54,7 +57,7 @@ export function OpportunityQuadrant({ points, xMax, yMin, text, label, describe,
   // on phones only the opportunities are named; the rest are context (named in the tooltip and the table)
   const labels = placeLabels(
     order.filter((p) => !narrow || p.hot).map((p) => ({ id: p.id, text: clip(p.label, narrow ? 18 : 30), cx: L.x(p.x), cy: L.y(p.y) })),
-    { px: LABEL_PX.label, r: 7, bounds: { x: 0, y: 0, w: W, h: H - M.b + 4 }, avoid, max: narrow ? 4 : 9 },
+    { px: LABEL_PX.label, r: 7, bounds: { x: 0, y: 0, w: W, h: H - M.b + 4 }, avoid, max: narrow ? 4 : 9, measure: (txt, px) => measureText(txt, px, 600) },
   )
   return (
     <div ref={ref} className="oq-host">

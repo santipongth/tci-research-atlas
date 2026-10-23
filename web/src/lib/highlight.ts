@@ -1,3 +1,5 @@
+import { THAI } from './script'
+
 /** Split a sentence into plain text, figures to highlight and topic names to link (Editorial headline). */
 export type Segment = { kind: 'text'; text: string } | { kind: 'figure'; text: string } | { kind: 'topic'; text: string; id: string }
 
@@ -12,17 +14,30 @@ interface Named {
 const FIGURE = /(?<![A-Za-z0-9.,\-−])[+−-]?(?:\d[\d,]*(?:\.\d+)?|[๐-๙][๐-๙,]*(?:\.[๐-๙]+)?)(?![A-Za-z0-9])(?:\s?(?:%|×|เท่า))?/g
 const YEAR = /^(19|20)\d{2}$/
 
+/** A Thai name shorter than this is not linked: a 5-letter Thai word turns up inside unrelated words (Thai has no spaces to stop it). */
+export const MIN_THAI_NAME = 8
+// Thai syllable edges: a name may not start on a vowel or tone mark that only follows a consonant, nor sit right after a
+// leading vowel (เ แ โ ใ ไ), nor end on one — each would cut a syllable in two.
+const NO_START = 'ะัาำิีึืฺุู็่้๊๋์ํๆฯ'
+const LEADING = 'เแโใไ'
+function atSyllableEdge(text: string, start: number, end: number): boolean {
+  if (NO_START.includes(text.charAt(start))) return false
+  if (start > 0 && LEADING.includes(text.charAt(start - 1))) return false
+  return !LEADING.includes(text.charAt(end - 1))
+}
+
 export function segmentHeadline(text: string, topics: readonly Named[], opts: { figures?: boolean; minNameLength?: number } = {}): Segment[] {
   const figures = opts.figures ?? true
   const minLength = opts.minNameLength ?? 4
   const names = topics
-    .flatMap((t) => [t.th, t.en].filter((n) => n && n.length >= minLength).map((name) => ({ id: t.id, name: name.toLowerCase() })))
+    .flatMap((t) => [t.th, t.en].filter((n) => n && n.length >= (THAI.test(n) ? Math.max(minLength, MIN_THAI_NAME) : minLength)).map((name) => ({ id: t.id, name: name.toLowerCase(), thai: THAI.test(name) })))
     .sort((a, b) => b.name.length - a.name.length)
   const lower = text.toLowerCase()
   const taken: { start: number; end: number; id: string }[] = []
-  for (const { id, name } of names) {
+  for (const { id, name, thai } of names) {
     for (let from = 0, i = lower.indexOf(name); i >= 0; from = i + name.length, i = lower.indexOf(name, from)) {
       const end = i + name.length
+      if (thai && !atSyllableEdge(lower, i, end)) continue
       if (!taken.some((r) => i < r.end && end > r.start)) taken.push({ start: i, end, id })
     }
   }

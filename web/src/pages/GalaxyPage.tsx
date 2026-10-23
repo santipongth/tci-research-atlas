@@ -1,3 +1,4 @@
+import { THAI } from '../lib/script'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Link } from 'react-router'
 import { galaxyPicks } from '../charts/editorLayout'
@@ -17,7 +18,7 @@ import {
   buildGrid, combineView, createRenderer, fitView, inFilter, nearest, NEUTRAL_SLOT, pointAlpha, pointSize, preparePoints, resolvePalette, rgbCss,
   RESET_VIEW, supportsWebGL2, toScreen, toWorld, zoomAt, type GalaxyPoints, type GalaxyRenderer, type Palette, type PickGrid, type PointFilter, type UserView,
 } from '../lib/galaxyGl'
-import { useI18n, useStrings } from '../lib/i18n'
+import { useI18n, useStrings, nameIn } from '../lib/i18n'
 import { textWidth } from '../lib/measure'
 import { LABEL_PX } from '../lib/labelSizes'
 import { rowToDoc } from '../lib/searchClient'
@@ -26,11 +27,11 @@ import { useTheme } from '../lib/theme'
 import { galaxyCodec } from '../lib/urlState'
 import { useElementSize } from '../lib/useElementSize'
 import { useFontsVersion } from '../lib/useFontsVersion'
+import { figureCsv } from '../lib/tableCsv'
 import { useUrlState } from '../lib/useUrlState'
 import { galaxy } from '../strings/galaxy'
 
 /** Thai script (U+0E00–U+0E7F), built from code points: the codebase never writes a backslash-u escape. */
-const THAI = new RegExp(`[${String.fromCodePoint(0x0e00)}-${String.fromCodePoint(0x0e7f)}]`)
 const langOf = (text: string) => (THAI.test(text) ? 'th' : 'en')
 const PAN: Record<string, [number, number]> = { ArrowLeft: [60, 0], ArrowRight: [-60, 0], ArrowUp: [0, 60], ArrowDown: [0, -60] }
 /** hover / tap reach around the pointer (CSS px); Enter looks a little further around the centre */
@@ -135,7 +136,7 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
   const present = useMemo(() => new Set(fields.map((f) => f.g.id)), [fields])
   const spots = useMemo(() => fieldSpots(release, lang, present), [release, lang, present])
   const topicSpots = useMemo(
-    () => release.topics.map((tp) => ({ id: tp.id, text: lang === 'en' ? tp.en || tp.th : tp.th || tp.en, x: tp.x, y: tp.y, n: tp.size })).sort((a, b) => b.n - a.n),
+    () => release.topics.map((tp) => ({ id: tp.id, text: nameIn(tp, lang), x: tp.x, y: tp.y, n: tp.size })).sort((a, b) => b.n - a.n),
     [release, lang],
   )
 
@@ -163,7 +164,7 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
   const rel = release.overview.release
   const tableRows = slot === null ? release.topics : release.topics.filter((tp) => slotOf.get(tp.group) === slot)
   const columns: Column<Topic>[] = [
-    { key: 'topic', header: s('tbl.topic'), cell: (tp) => <TopicLink topic={tp} />, sortValue: (tp) => (lang === 'en' ? tp.en || tp.th : tp.th || tp.en), rowHeader: true, csvCols: [{ header: 'topic_id', value: (tp) => tp.id }, { header: 'name_th', value: (tp) => tp.th }, { header: 'name_en', value: (tp) => tp.en }] },
+    { key: 'topic', header: s('tbl.topic'), cell: (tp) => <TopicLink topic={tp} />, sortValue: (tp) => nameIn(tp, lang), rowHeader: true, csvCols: [{ header: 'topic_id', value: (tp) => tp.id }, { header: 'name_th', value: (tp) => tp.th }, { header: 'name_en', value: (tp) => tp.en }] },
     { key: 'field', header: s('tbl.field'), cell: (tp) => groupName(release, tp.group, lang), sortValue: (tp) => groupName(release, tp.group, lang), csvHeader: 'group', csv: (tp) => tp.group },
     { key: 'articles', header: s('tbl.articles'), cell: (tp) => fmtInt(tp.size), sortValue: (tp) => tp.size, numeric: true, csvHeader: 'size' },
   ]
@@ -175,7 +176,7 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
         {fields.map((f) => (
           <li key={f.g.id} className={slot !== null && slot !== f.slot ? 'is-dim' : undefined}>
             <span className="gx-swatch" style={{ background: rgbCss(palette.slots[f.slot]) }} aria-hidden="true" />
-            <span>{lang === 'en' ? f.g.en || f.g.th : f.g.th || f.g.en}</span>
+            <span>{nameIn(f.g, lang)}</span>
             <span className="gx-key-n">{fmtInt(f.n)}</span>
           </li>
         ))}
@@ -193,7 +194,7 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
 
   return (
     <div className="container">
-      <PageHeader title={s('title')} lede={s('lede', { n: fmtInt(points.total) })} />
+      <PageHeader title={s('q')} lede={s('lede', { release: release.overview.release, n: fmtInt(points.total) })} />
       <fieldset className="j-tools gx-filters">
         <legend className="sr-only">{s('f.h')}</legend>
         <label>
@@ -214,7 +215,7 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
           {s('f.group')}
           <select value={slot === null ? '' : state.g} onChange={(e) => update({ g: e.target.value })}>
             <option value="">{s('f.any')}</option>
-            {fields.map((f) => <option key={f.g.id} value={f.g.id}>{`${lang === 'en' ? f.g.en || f.g.th : f.g.th || f.g.en} (${fmtInt(f.n)})`}</option>)}
+            {fields.map((f) => <option key={f.g.id} value={f.g.id}>{`${nameIn(f.g, lang)} (${fmtInt(f.n)})`}</option>)}
           </select>
         </label>
         {filtering ? <button type="button" className="btn-secondary" onClick={() => update({ from: null, to: null, g: '' })}>{s('f.reset')}</button> : null}
@@ -229,6 +230,8 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
           id="gx"
           number={1}
           title={s('fig.title')}
+          csv={figureCsv(`atlas-${rel}-galaxy-topics.csv`, tableRows, columns)}
+          how={<p>{s('fig.how')}</p>}
           source={t('source.line', { release: rel })}
           view={state.view}
           onView={(v) => update({ view: v })}
@@ -263,7 +266,7 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
                               <li key={i}>
                                 <button type="button" className="gx-try-btn" onClick={() => onPick(i)}>
                                   <span className="gx-swatch" style={{ background: rgbCss(palette.slots[points.slot[i]]) }} aria-hidden="true" />
-                                  <span className="gx-try-t">{s('try.pick', { t: lang === 'en' ? tp.en || tp.th : tp.th || tp.en })}</span>
+                                  <span className="gx-try-t">{s('try.pick', { t: nameIn(tp, lang) })}</span>
                                   <span className="gx-try-f">{groupName(release, tp.group, lang)} · {points.yr[i]}</span>
                                 </button>
                               </li>
@@ -286,6 +289,7 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
               rows={tableRows}
               columns={columns}
               rowKey={(tp) => tp.id}
+              limit={50}
               defaultSort={{ key: 'articles', dir: 'desc' }}
               csvFilename={`atlas-${rel}-galaxy-topics.csv`}
               empty={s('tbl.empty')}

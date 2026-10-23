@@ -10,7 +10,7 @@ import { Term } from '../components/Term'
 import { TopicLink } from '../components/TopicLink'
 import { groupName, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { GlobalFile, SubfieldBench, Topic } from '../data/types'
-import { DASH, fmtInt, fmtNum, fmtPct, fmtRatio } from '../lib/format'
+import { DASH, fmtInt, fmtNum, fmtRatio, fmtShare } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { withPrimary } from '../lib/columns'
 import { figureCsv } from '../lib/tableCsv'
@@ -55,10 +55,10 @@ function Global({ release, file }: { release: AtlasRelease; file: GlobalFile }) 
     { key: 'field', csvHeader: 'group', header: t('col.field'), cell: (s) => (release.groupById.has(s.group) ? groupName(release, s.group, lang) : DASH), csv: (s) => s.group },
     { key: 'ratio', csvHeader: 'world_ratio', header: t('gl.col.ratio'), numeric: true, cell: (s) => fmtRatio(s.world_ratio ?? null), sortValue: (s) => s.world_ratio ?? null },
     { key: 'ai', csvHeader: 'activity_index', header: t('gl.col.ai'), numeric: true, cell: (s) => fmtNum(s.activity_index ?? null, 2), sortValue: (s) => s.activity_index ?? null },
-    { key: 'share', csvHeader: 'country_share', header: t('gl.col.share'), numeric: true, cell: (s) => fmtPct(s.country_share ?? null, 2), sortValue: (s) => s.country_share ?? null },
+    { key: 'share', csvHeader: 'country_share', header: t('gl.col.share'), numeric: true, cell: (s) => fmtShare(s.country_share ?? null, 2), sortValue: (s) => s.country_share ?? null },
     { key: 'country', csvHeader: 'country_recent', header: t('gl.col.country', { r }), numeric: true, cell: (s) => fmtInt(s.country_recent), sortValue: (s) => s.country_recent },
     { key: 'world', csvHeader: 'world_recent', header: t('gl.col.world', { r }), numeric: true, cell: (s) => fmtInt(s.world_recent), sortValue: (s) => s.world_recent },
-    { key: 'tci', csvHeader: 'tci_recent', header: t('gl.col.tci'), numeric: true, cell: (s) => fmtInt(s.tci_recent ?? 0), sortValue: (s) => s.tci_recent ?? 0 },
+    { key: 'tci', csvHeader: 'tci_recent', header: t('gl.col.tci'), numeric: true, cell: (s) => fmtInt(s.tci_recent ?? null), sortValue: (s) => s.tci_recent ?? null },
     {
       key: 'topics', csvHeader: 'topic_ids', header: t('gl.col.topics'),
       cell: (s) => {
@@ -112,12 +112,12 @@ function Global({ release, file }: { release: AtlasRelease; file: GlobalFile }) 
                 labelLang="en"
               />
             }
-            table={<DataTable caption={oppTitle} rows={opp} columns={oppColumns} rowKey={(s) => s.id} defaultSort={{ key: 'ratio', dir: 'desc' }} />}
+            table={<DataTable caption={oppTitle} rows={opp} columns={oppColumns} rowKey={(s) => s.id} defaultSort={{ key: 'ratio', dir: 'desc' }} limit={25} />}
           />
         </Section>
       ) : null}
       <Section id="all" title={t('gl.all.h')}>
-        <DataTable caption={t('table.n', { n: 2, title: t('gl.all.table') })} rows={file.subfields} columns={columns(true)} rowKey={(s) => s.id} defaultSort={{ key: 'world', dir: 'desc' }} csvFilename={`atlas-${rel}-global.csv`} />
+        <DataTable caption={t('table.n', { n: 2, title: t('gl.all.table') })} rows={file.subfields} columns={columns(true)} rowKey={(s) => s.id} defaultSort={{ key: 'world', dir: 'desc' }} csvFilename={`atlas-${rel}-global.csv`} limit={50} />
       </Section>
       <p className="source">{t('gl.source', { v: file.source })}</p>
     </div>

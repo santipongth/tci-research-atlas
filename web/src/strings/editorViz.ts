@@ -99,6 +99,7 @@ export const editorViz = defineStrings({
   'ms.rank': { th: 'อันดับ {n}', en: 'No. {n}' },
   'ms.size': { th: '{n} บทความปี {r}', en: '{n} articles in {r}' },
 
+  'q.jr': { th: 'วารสารไหนตีพิมพ์เรื่องอะไร', en: 'Which journals publish what?' },
   'sm.label': { th: 'แผนภูมิเล็กของ {t}: {values}', en: 'Small chart of {t}: {values}' },
   'sm.same': { th: 'ทุกช่องใช้แกนตั้งเดียวกัน จึงเทียบความสูงข้ามช่องได้', en: 'Every panel uses the same vertical scale, so heights compare across panels.' },
 })

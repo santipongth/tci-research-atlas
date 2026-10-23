@@ -56,8 +56,14 @@ export function fillVars(s: string, vars?: Vars): string {
 }
 
 export function translate(lang: Lang, key: StrKey, vars?: Vars): string {
-  const entry: Entry = STR[key]
-  return fillVars(entry[lang], vars)
+  // a key missing from the dictionary (an enum value the strings do not know) shows the key, never a white page
+  const entry = (STR as Record<string, Entry | undefined>)[key]
+  return entry ? fillVars(entry[lang], vars) : key
+}
+
+/** A bilingual name in the UI language, falling back to the other language when one is empty. */
+export function nameIn(o: { th?: string | null; en?: string | null }, lang: Lang): string {
+  return (lang === 'en' ? o.en || o.th : o.th || o.en) || ''
 }
 
 export interface I18n {
@@ -78,7 +84,7 @@ export function useI18n(): I18n {
       otherLang: lang === 'th' ? 'en' : 'th',
       t: (key, vars) => translate(lang, key, vars),
       pick: (th, en) => (lang === 'en' ? en : th),
-      name: (o) => (lang === 'en' ? o.en || o.th : o.th || o.en),
+      name: (o) => nameIn(o, lang),
       other: (o) => (lang === 'en' ? o.th : o.en),
       setLang,
     }),
@@ -89,5 +95,5 @@ export function useI18n(): I18n {
 /** A translator over a page's own strings file (lazy pages keep their strings out of the entry chunk). */
 export function useStrings<K extends string>(dict: Record<K, Entry>): (key: K, vars?: Vars) => string {
   const { lang } = useI18n()
-  return useCallback((key: K, vars?: Vars) => fillVars(dict[key][lang], vars), [dict, lang])
+  return useCallback((key: K, vars?: Vars) => (dict[key] ? fillVars(dict[key][lang], vars) : key), [dict, lang])
 }

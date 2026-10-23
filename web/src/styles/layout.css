@@ -46,7 +46,8 @@
     .menubtn { display: inline-flex; }
     .nav:not(.is-open) { display: none; }
     .nav { box-shadow: 0 12px 24px rgba(20, 24, 43, 0.08); }
-    .nav-row { display: grid; gap: 0; padding-block: 14px 22px; }
+    /* one full-width column: the desktop row's space-between would shrink the grid track to its widest item */
+    .nav-row { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 0; padding-block: 14px 22px; }
     .nav-search { max-width: none; padding-bottom: 10px; }
     .nav-list { display: block; margin: 0; }
     .nav-list > li { border-bottom: 1px solid var(--border-2); }
@@ -71,6 +72,11 @@
   .notice-body { display: grid; gap: 6px; margin-top: 4px; padding: 6px 0 8px; max-width: var(--measure-body); color: var(--ink); }
   .phase-tag { flex: none; display: inline-block; padding: 1px 10px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: var(--fs-caption); line-height: 1.6; }
   .phase-tag.is-sample { background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
+  /* phones: the strip is one line (tag + details); the sentence is the first line of the details */
+  @media (max-width: 640px) {
+    .notice summary { flex-wrap: nowrap; justify-content: space-between; }
+    .notice-short { display: none; }
+  }
   @media (prefers-reduced-motion: reduce) { .notice-more svg { transition: none; } }
 
   main { display: block; min-height: 50vh; }
@@ -79,6 +85,7 @@
   @media (max-width: 640px) { .page-h { padding-block: 36px 4px; } }
   .page-h h1 { font-size: var(--fs-h1); line-height: 1.45; max-width: 24ch; }
   .page-h h1:lang(en) { line-height: 1.25; }
+  .page-h h1.is-long { font-size: var(--fs-h2); max-width: 32ch; }
   .page-h .lede { margin-top: 18px; font-size: var(--fs-lead); line-height: 1.65; color: var(--ink-2); max-width: var(--measure-lede); }
   /* release facts as one quiet byline, not a boxed form */
   .meta { margin: 20px 0 0; display: flex; flex-wrap: wrap; gap: 4px 0; font-size: var(--fs-meta); line-height: 1.6; color: var(--ink-2); }
@@ -108,7 +115,7 @@
   @media (max-width: 480px) { .ftr-logos { gap: 16px 28px; } .ftr-logos img { height: 40px; } }
 
   .banner { margin-top: 16px; padding: 14px 18px; border-radius: var(--radius); background: var(--tag-HOT-bg); color: var(--tag-HOT-ink); }
-  .banner h2 { font-size: var(--fs-body); }
+  .banner h1, .banner h2 { font-size: var(--fs-body); }
   .banner p { margin-top: 4px; font-size: var(--fs-meta); }
   .banner .detail { font-size: var(--fs-caption); color: var(--ink-2); overflow-wrap: anywhere; }
   .loading { padding-block: 40px; color: var(--ink-2); }

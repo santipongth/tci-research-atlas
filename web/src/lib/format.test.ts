@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DASH, fmtCompact, fmtDate, fmtInt, fmtPct, fmtPp, fmtRatio, fmtSignedInt, fmtSignedPct, kpiDelta, kpiDir } from './format'
+import { DASH, fmtCompact, fmtDate, fmtInt, fmtPct, fmtPp, fmtPts, fmtRatio, fmtShare, fmtSignedInt, fmtSignedPct, kpiDelta, kpiDir } from './format'
 import { segmentHeadline, type Segment } from './highlight'
 
 describe('number formatting', () => {
@@ -14,6 +14,26 @@ describe('number formatting', () => {
     expect(fmtPct(0.0123, 2)).toBe('1.23%')
     expect(fmtPct(0.742)).toBe('74.2%')
     expect(fmtPct(undefined)).toBe(DASH)
+  })
+
+  it('prints a share that exists but rounds to nothing as "<" one display step, never "0%"', () => {
+    expect(fmtShare(0.0004, 1)).toBe('<0.1%')
+    expect(fmtShare(0.0004, 0)).toBe('<1%')
+    expect(fmtShare(0.00004, 2)).toBe('<0.01%')
+    expect(fmtShare(0.0012, 1)).toBe('0.1%')
+    expect(fmtShare(0.0049, 0)).toBe('<1%')
+    expect(fmtShare(0.005, 0)).toBe('1%')
+    expect(fmtShare(0, 1)).toBe('0.0%')
+    expect(fmtShare(null)).toBe(DASH)
+    expect(fmtShare(0.742)).toBe('74.2%')
+  })
+
+  it('prints a change in points, marking a real change under one point', () => {
+    expect(fmtPts(0.03)).toBe('+3')
+    expect(fmtPts(-0.021)).toBe('−2')
+    expect(fmtPts(0.004)).toBe('+<1')
+    expect(fmtPts(-0.004)).toBe('−<1')
+    expect(fmtPts(0)).toBe('0')
   })
 
   it('signs growth and never prints −0', () => {
@@ -79,6 +99,19 @@ describe('segmentHeadline', () => {
     const segs = segmentHeadline('ai in education grew 12% while COVID-19 papers fell −3.1% since 2020', topics)
     expect(kinds(segs, 'topic')).toEqual(['ai in education'])
     expect(kinds(segs, 'figure')).toEqual(['12%', '−3.1%'])
+  })
+
+  it('does not link a short Thai name (8 letters is the minimum), which turns up inside unrelated words', () => {
+    const short = [{ id: 'T1', th: 'การเงิน', en: '' }, { id: 'T2', th: 'การแพทย์ทางไกล', en: '' }]
+    const segs = segmentHeadline('การเงินและการแพทย์ทางไกลโตเร็ว', short)
+    expect(kinds(segs, 'topic')).toEqual(['การแพทย์ทางไกล'])
+  })
+
+  it('does not cut a Thai syllable: no link right after a leading vowel, or that starts on a vowel mark', () => {
+    const t = [{ id: 'T1', th: 'ตัวอย่างหัวข้อ', en: '' }, { id: 'T2', th: 'ิตัวอย่างหัวข้อสอง', en: '' }]
+    expect(kinds(segmentHeadline('ไตัวอย่างหัวข้อ', t), 'topic')).toEqual([])
+    expect(kinds(segmentHeadline('ซิตัวอย่างหัวข้อสอง', [t[1]]), 'topic')).toEqual([])
+    expect(kinds(segmentHeadline('มีตัวอย่างหัวข้อ', t), 'topic')).toEqual(['ตัวอย่างหัวข้อ'])
   })
 
   it('can link names without marking figures, and ignores very short names', () => {

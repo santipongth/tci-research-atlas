@@ -3,9 +3,10 @@ import { defineStrings } from './define'
 /** /galaxy (R8 article galaxy). Imported only by the lazy GalaxyPage (entry budget). */
 export const galaxy = defineStrings({
   title: { th: 'แผนที่บทความทุกเรื่อง', en: 'Map of every article' },
+  q: { th: 'บทความทั้งหมดอยู่ตรงไหนบนแผนที่', en: 'Where does every article sit on the map?' },
   lede: {
-    th: 'แผนที่นี้มีบทความ {n} เรื่อง หนึ่งจุดคือหนึ่งบทความ สีบอกสาขา เช่น สองจุดที่อยู่ติดกันคือสองเรื่องที่เนื้อหาใกล้กัน',
-    en: '{n} articles, one dot each; the colour shows the field. For example, two dots side by side are two articles about similar things.',
+    th: 'ข้อมูลรอบ {release}: แผนที่นี้มีบทความ {n} เรื่อง หนึ่งจุดคือหนึ่งบทความ สีบอกสาขา เช่น สองจุดที่อยู่ติดกันคือสองเรื่องที่เนื้อหาใกล้กัน',
+    en: 'Release {release}: {n} articles, one dot each; the colour shows the field. For example, two dots side by side are two articles about similar things.',
   },
 
   'f.h': { th: 'เลือกบทความที่จะเน้น', en: 'Highlight articles' },
@@ -19,6 +20,7 @@ export const galaxy = defineStrings({
   noCoord: { th: 'อีก {n} บทความยังไม่มีตำแหน่งบนแผนที่ จึงไม่ปรากฏในภาพ', en: '{n} more articles have no place on the map yet, so they are not drawn.' },
 
   'fig.title': { th: 'บทความทุกเรื่องบนแผนที่หัวข้อวิจัย', en: 'Every article on the map of research topics' },
+  'fig.how': { th: 'แต่ละจุดคือบทความ 1 เรื่อง จุดที่อยู่ใกล้กันคือเรื่องที่เนื้อหาใกล้กัน สีบอกสาขา ลากเพื่อเลื่อน ซูมด้วยปุ่มบวกลบหรือเมาส์ แล้วกดที่จุดเพื่อดูบทความ ส่วนตารางและไฟล์ CSV สรุปจำนวนบทความต่อหัวข้อ ตามตัวกรองที่เลือกอยู่', en: 'Each dot is one article; dots close together are about similar things and the colour shows the field. Drag to move, zoom with the plus and minus buttons or the mouse, and press a dot to see the article. The table and the CSV file count articles per topic for the filter you chose.' },
   'fig.label': { th: 'แผนที่บทความ ลากเพื่อเลื่อน ใช้ปุ่มบวกลบเพื่อซูม กด Enter เพื่อดูบทความตรงกลางภาพ', en: 'Article map. Drag to move, use plus and minus to zoom, press Enter to see the article in the middle.' },
   hint: {
     th: 'ลากเพื่อเลื่อน · ปุ่ม + − หรือกด Ctrl ค้างแล้วหมุนล้อเมาส์เพื่อซูม · ชี้หรือแตะจุดเพื่อดูบทความ · แป้นพิมพ์: ลูกศรเลื่อน, + − ซูม, Enter เลือกจุดกลางภาพ, 0 กลับมุมมองเดิม',

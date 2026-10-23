@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
 import { Figure } from '../components/Figure'
@@ -42,6 +42,9 @@ function ruleText(t: I18n['t'], status: StatusId, level: number): string {
   return t(`rule.${status}` as const, ruleVars(level))
 }
 
+/** Rows drawn in the interval chart before "show all": with hundreds of topics in a status the table carries the rest. */
+const FOREST_ROWS = 25
+
 const isSort = (v: string): v is EmergingSort => (EMERGING_SORTS as readonly string[]).includes(v)
 
 function Emerging({ release }: { release: AtlasRelease }) {
@@ -50,6 +53,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
   const level = ciPct(release.ciLevel)
   const ctx: ColumnContext = columnContext(release, { t, name, lang })
   const st = state.status
+  const [expanded, setExpanded] = useState<ReadonlySet<StatusId>>(() => new Set())
   const label = statusName(t, st)
   const counts = Object.fromEntries(STATUSES.map((s) => [s, release.topics.filter((tp) => tp.status === s).length])) as Record<StatusId, number>
   const rows = release.topics.filter((tp) => tp.status === st)
@@ -69,6 +73,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
       rows={rows}
       columns={columns}
       rowKey={(r) => r.id}
+      limit={50}
       sort={sort}
       onSort={(s) => update({ sort: isSort(s.key) ? s.key : 'growth', dir: s.dir })}
       csvFilename={csvName}
@@ -77,13 +82,15 @@ function Emerging({ release }: { release: AtlasRelease }) {
     />
   )
   // every topic of the status, strongest first; topics without an interval are listed as text rows, never dropped
-  const forest = isSignal(st) ? forestSelection(release.topics, st) : null
+  const showAll = expanded.has(st)
+  const forest = isSignal(st) ? forestSelection(release.topics, st, showAll ? Infinity : FOREST_ROWS) : null
+  const flipAll = () => setExpanded((prev) => { const next = new Set(prev); if (next.has(st)) next.delete(st); else next.add(st); return next })
   const example = sortBy(release.topics.filter((tp) => tp.status === 'EMERGING'), (tp) => tp.score, 'desc')[0]
-  const lede = example ? t('em.lede', { n: fmtInt(counts.EMERGING), topic: name(example) }) : t('em.ledePlain')
+  const lede = example ? t('em.lede', { release: release.overview.release, n: fmtInt(counts.EMERGING), topic: name(example) }) : t('em.ledePlain', { release: release.overview.release })
   const bar = fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0)
   return (
     <div className="container">
-      <PageHeader title={t('em.title')} lede={lede} />
+      <PageHeader title={t('em.q')} lede={lede} />
       {release.topics.length ? <StatusSteps topics={release.topics} status={st} level={level} /> : null}
       {release.topics.length === 0 ? (
         <EmptyState title={t('empty.topics')} />
@@ -129,7 +136,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
               onView={(view) => update({ view })}
               chart={
                 <ForestPlot
-                  groups={[{ status: st, title: label, rows: forest.rows, total: forest.total, noCi: forest.noCi }]}
+                  groups={[{ status: st, title: label, rows: forest.rows, total: forest.total, noCi: forest.noCi, more: forest.total > FOREST_ROWS ? { onClick: flipAll, label: showAll ? t('em.forest.fewer', { n: FOREST_ROWS }) : t('seeAll', { n: fmtInt(forest.total) }) } : undefined }]}
                   level={level}
                   base={ctx.base}
                   axisLabel={t('ov.forest.axis')}
@@ -206,6 +213,7 @@ function Keywords({ release }: { release: AtlasRelease }) {
         rows={rows}
         columns={columns}
         rowKey={(k) => k.term}
+        limit={25}
         defaultSort={{ key: 'growth', dir: 'desc' }}
         csvFilename={`atlas-${release.overview.release}-emerging-keywords.csv`}
       />

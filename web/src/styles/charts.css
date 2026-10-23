@@ -10,11 +10,8 @@
   .headline a { color: inherit; text-decoration-thickness: 2px; text-underline-offset: 0.18em; }
   .headline a:hover { color: var(--link); }
   .headline-src { margin-top: 8px; font-size: var(--fs-meta); color: var(--ink-2); }
-  mark { background: linear-gradient(transparent 52%, var(--hl) 52%, var(--hl) 92%, transparent 92%); background-repeat: no-repeat; background-size: 100% 100%; color: inherit; padding-inline: 0.06em; }
-  @media (prefers-reduced-motion: no-preference) {
-    .headline mark { animation: hl-swipe 900ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
-  }
-  @keyframes hl-swipe { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+  /* the figures in a sentence: heavier and TCI blue (no highlighter) */
+  mark { background: none; color: var(--brand); font-weight: 700; padding: 0; }
 
   .kpis { margin: 18px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 
@@ -25,7 +22,7 @@
 
   .forest { margin-top: 6px; }
   /* name | whisker | value: the whisker band keeps at least 55 % of the plot's width */
-  .fr-axis, .fr-row { display: grid; grid-template-columns: minmax(0, 24%) minmax(0, 1fr) 9rem; gap: 0 16px; }
+  .fr-axis, .fr-row { display: grid; grid-template-columns: minmax(0, 30%) minmax(0, 1fr) 9rem; gap: 0 16px; }
   .fr-axis { align-items: end; position: sticky; top: 0; z-index: 2; background: var(--bg); padding-top: 6px; border-bottom: 1px solid var(--border); }
   .fr-axislabel { font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; padding-bottom: 6px; }
   .fr-axis svg { display: block; overflow: visible; }
@@ -41,7 +38,8 @@
   .fr-row:hover { background: var(--surface); color: var(--ink); text-decoration: none; }
   .fr-row:hover .fr-name b { text-decoration: underline; }
   .fr-name { min-width: 0; padding-left: 4px; }
-  .fr-name b { display: block; font-weight: 600; font-size: var(--fs-meta); line-height: 1.5; color: var(--link); }
+  /* a long name takes at most two lines; the full name is the link's title */
+  .fr-name b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-weight: 600; font-size: var(--fs-meta); line-height: 1.5; color: var(--link); }
   .fr-name span { display: block; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
   .fr-name .fr-new { display: block; margin: 2px 0; padding: 0; color: var(--ink-2); font-weight: 600; font-size: var(--fs-caption); text-wrap: balance; }
   .fr-noci { display: flex; align-items: center; height: 100%; padding-left: 6px; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
@@ -53,7 +51,7 @@
   .fr-more { margin-top: 8px; font-size: var(--fs-meta); }
   /* /emerging spans the full container: the whisker band takes the room the rail would have */
   @media (min-width: 641px) {
-    .forest.is-wide .fr-axis, .forest.is-wide .fr-row { grid-template-columns: minmax(0, 21%) minmax(0, 1fr) 8.5rem; gap: 0 20px; }
+    .forest.is-wide .fr-axis, .forest.is-wide .fr-row { grid-template-columns: minmax(0, 26%) minmax(0, 1fr) 8.5rem; gap: 0 20px; }
   }
   .forest.is-wide .fr-plot { height: 30px; }
   .em-steps { margin: var(--sp-block) 0; padding-top: var(--sp-group); border-top: 1px solid var(--border-2); }

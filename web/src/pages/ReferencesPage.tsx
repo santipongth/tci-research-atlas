@@ -1,3 +1,4 @@
+import { THAI } from '../lib/script'
 import { Link } from 'react-router'
 import { BridgePairs, type BridgeRow } from '../charts/BridgePairs'
 import { weightedMean } from '../charts/editorLayout'
@@ -5,6 +6,7 @@ import { SplitBar } from '../charts/MixBar'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
 import { Figure } from '../components/Figure'
+import { ListMore } from '../components/ListMore'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
@@ -22,6 +24,7 @@ import { useI18n, useStrings } from '../lib/i18n'
 import { sortBy } from '../lib/sort'
 import { figureCsv } from '../lib/tableCsv'
 import { referencesCodec } from '../lib/urlState'
+import { useCapped } from '../lib/useCapped'
 import { useUrlState } from '../lib/useUrlState'
 import { references as REF } from '../strings/references'
 
@@ -44,7 +47,6 @@ export default function ReferencesPage() {
 }
 
 /** Thai script (U+0E00–U+0E7F), built from code points: the codebase never writes a backslash-u escape. */
-const THAI = new RegExp(`[${String.fromCodePoint(0x0e00)}-${String.fromCodePoint(0x0e7f)}]`)
 const langOf = (text: string) => (THAI.test(text) ? 'th' : 'en')
 const median = (v: number | null | undefined) => (v === null || v === undefined ? DASH : fmtNum(v, Number.isInteger(v) ? 0 : 1))
 
@@ -112,6 +114,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: ReferencesFi
   const withRecent = file.journals.filter((j) => j.share_recent !== null && j.share_recent !== undefined)
   const bars = sortBy(withRecent, (j) => j.share_recent, 'desc')
   const best = bars[0]
+  const barCap = useCapped(bars, 25)
   const avg = weightedMean(file.journals, (j) => j.share_recent, (j) => j.articles_with_refs)
   const y = file.recent_years
   const columns: Column<JournalRefs>[] = [
@@ -139,6 +142,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: ReferencesFi
       rows={file.journals}
       columns={columns}
       rowKey={(j) => j.id ?? j.journal}
+      limit={25}
       defaultSort={{ key: 'read', dir: 'desc' }}
       csvFilename={`atlas-${release.overview.release}-references-journals.csv`}
       wide
@@ -167,8 +171,9 @@ function Journals({ release, file }: { release: AtlasRelease; file: ReferencesFi
             </ul>
           }
           chart={
+            <>
             <ul className="rk ref-split" aria-label={s('rs.list')}>
-              {bars.map((j) => (
+              {barCap.shown.map((j) => (
                 <li key={j.id ?? j.journal} className="rk-row">
                   <span className="rk-unit"><JournalName j={j} linkable={linkable} /></span>
                   <span className="rk-bar">
@@ -177,6 +182,8 @@ function Journals({ release, file }: { release: AtlasRelease; file: ReferencesFi
                 </li>
               ))}
             </ul>
+            <ListMore {...barCap.more} />
+            </>
           }
           table={table}
         />
@@ -291,6 +298,7 @@ function Flows({ release, internal }: { release: AtlasRelease; internal: Interna
       rows={internal.flows}
       columns={columns}
       rowKey={(f) => `${f.source}-${f.target}`}
+      limit={25}
       defaultSort={{ key: 'n', dir: 'desc' }}
       csvFilename={`atlas-${rel}-references-flows.csv`}
       empty={s('flow.none')}

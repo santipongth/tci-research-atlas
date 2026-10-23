@@ -1,10 +1,12 @@
 import { defineStrings } from './define'
 
 export const emerging = defineStrings({
+  'em.q': { th: 'หัวข้อไหนกำลังโต หัวข้อไหนกำลังลด', en: 'Which topics are growing, and which are shrinking?' },
   'em.title': { th: 'สถานะของหัวข้อวิจัย', en: 'Status of research topics' },
-  'em.lede': { th: 'รอบนี้มี {n} หัวข้อที่กำลังเกิดใหม่ เช่น “{topic}” เลือกสถานะเพื่อดูทุกหัวข้อในสถานะนั้น กดหัวคอลัมน์เพื่อเรียงลำดับ หรือดาวน์โหลดเป็น CSV ก็ได้', en: 'This release has {n} emerging topics, such as “{topic}”. Choose a status to see every topic in it; sort any column and download as CSV.' },
-  'em.ledePlain': { th: 'เลือกสถานะเพื่อดูทุกหัวข้อในสถานะนั้น กดหัวคอลัมน์เพื่อเรียงลำดับ หรือดาวน์โหลดเป็น CSV ก็ได้', en: 'Choose a status to see every topic in it; sort any column and download as CSV.' },
+  'em.lede': { th: 'ข้อมูลรอบ {release} มี {n} หัวข้อที่กำลังเกิดใหม่ เช่น “{topic}” เลือกสถานะเพื่อดูทุกหัวข้อในสถานะนั้น กดหัวคอลัมน์เพื่อเรียงลำดับ หรือดาวน์โหลดเป็น CSV ก็ได้', en: 'Release {release} has {n} emerging topics, such as “{topic}”. Choose a status to see every topic in it; sort any column and download as CSV.' },
+  'em.ledePlain': { th: 'ข้อมูลรอบ {release}: เลือกสถานะเพื่อดูทุกหัวข้อในสถานะนั้น กดหัวคอลัมน์เพื่อเรียงลำดับ หรือดาวน์โหลดเป็น CSV ก็ได้', en: 'Release {release}: choose a status to see every topic in it; sort any column and download as CSV.' },
   'em.tabs': { th: 'เลือกสถานะ', en: 'Choose a status' },
+  'em.forest.fewer': { th: 'แสดงเฉพาะ {n} หัวข้อแรก', en: 'Show the first {n} topics only' },
   'em.fig.title': { th: 'สัดส่วนบทความเพิ่ม/ลดต่อปี: หัวข้อสถานะ “{status}”', en: 'Yearly change in share of articles: “{status}” topics' },
   'em.table.title': { th: 'หัวข้อสถานะ “{status}” ({n} หัวข้อ)', en: 'Topics with status “{status}” ({n})' },
   'em.none': { th: 'รอบนี้ไม่มีหัวข้อสถานะ “{status}”', en: 'No topics have the status “{status}” in this release' },

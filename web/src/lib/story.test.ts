@@ -5,23 +5,35 @@ import { pickRisers, spreadLabels } from './story'
 const tp = (id: string, status: Topic['status'], g: number | null): Topic =>
   ({ id, status, th: id, en: id, metrics: { share_growth: g } }) as unknown as Topic
 
+const tpm = (id: string, status: Topic['status'], g: number, lo: number | null, extra: Record<string, unknown> = {}, score = 0): Topic =>
+  ({ id, status, score, th: id, en: id, metrics: { share_growth: g, share_growth_lo: lo, ...extra } }) as unknown as Topic
+
 describe('pickRisers', () => {
   const TOPICS = [
-    tp('e1', 'EMERGING', 0.5),
-    tp('h1', 'HOT', 1.2),
-    tp('w1', 'WATCH', 0.5),
-    tp('s1', 'STABLE', 3),
-    tp('d1', 'DECLINING', 2),
-    tp('l1', 'LOW_DATA', 5),
+    tpm('e1', 'EMERGING', 0.5, 0.2),
+    tpm('h1', 'HOT', 1.2, 0.6),
+    tpm('w1', 'WATCH', 9, 4),
+    tpm('s1', 'STABLE', 3, 1),
+    tpm('d1', 'DECLINING', 2, 1),
+    tpm('l1', 'LOW_DATA', 5, 2),
+    tpm('nb', 'EMERGING', 8, 3, { no_baseline: true }),
     tp('e2', 'EMERGING', null),
-    tp('h2', 'HOT', -0.1),
+    tpm('h2', 'HOT', -0.1, -0.3),
   ]
-  it('ranks the rising statuses by growth, largest first, ties by id', () => {
-    expect(pickRisers(TOPICS).map((t) => t.id)).toEqual(['h1', 'e1', 'w1'])
+  it('ranks confirmed risers (EMERGING, HOT) by the lower bound of the growth interval', () => {
+    expect(pickRisers(TOPICS).map((t) => t.id)).toEqual(['h1', 'e1'])
+    // a wide interval loses to a tighter one even with a bigger point estimate
+    expect(pickRisers([tpm('wide', 'HOT', 5, 0.1), tpm('tight', 'HOT', 0.9, 0.7)]).map((t) => t.id)).toEqual(['tight', 'wide'])
   })
-  it('never takes a stable, declining or low-data topic, nor one without growth', () => {
-    expect(pickRisers(TOPICS, 10).map((t) => t.status)).not.toContain('STABLE')
-    expect(pickRisers([tp('l1', 'LOW_DATA', 5), tp('e2', 'EMERGING', null)])).toEqual([])
+  it('never takes WATCH, a topic with no baseline, nor a stable, declining or low-data one', () => {
+    const ids = pickRisers(TOPICS, 10).map((t) => t.id)
+    expect(ids).not.toContain('w1')
+    expect(ids).not.toContain('nb')
+    expect(pickRisers([tpm('l1', 'LOW_DATA', 5, 2), tp('e2', 'EMERGING', null)])).toEqual([])
+  })
+  it('puts a topic without an interval after those with one, ranked by score, then id', () => {
+    const noCi = [tpm('a', 'EMERGING', 0.4, null, {}, 10), tpm('b', 'EMERGING', 0.4, null, {}, 30), tpm('c', 'HOT', 0.3, 0.1)]
+    expect(pickRisers(noCi).map((t) => t.id)).toEqual(['c', 'b', 'a'])
   })
   it('stops at n', () => {
     expect(pickRisers(TOPICS, 1).map((t) => t.id)).toEqual(['h1'])

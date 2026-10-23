@@ -6,7 +6,7 @@ import { StatusChip } from '../components/StatusGlyph'
 import { groupName, type AtlasRelease } from '../data/release'
 import type { Topic } from '../data/types'
 import { DEFINITION, fmtWindow, windows } from '../lib/definition'
-import { DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
+import { DASH, fmtInt, fmtNum, fmtSignedPct, fmtShare } from '../lib/format'
 import type { I18n } from '../lib/i18n'
 import { lowDataText, ratioText, statusName } from '../lib/topicText'
 
@@ -58,7 +58,7 @@ export function statusColumn(ctx: ColumnContext): Column<Topic> {
 }
 
 export function shareColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'share', csvHeader: 'share_recent', header: ctx.t('col.share'), unit: ctx.t('unit.pct'), numeric: true, cell: (r) => fmtPct(r.metrics.share_recent, 2), sortValue: (r) => r.metrics.share_recent }
+  return { key: 'share', csvHeader: 'share_recent', header: ctx.t('col.share'), unit: ctx.t('unit.pct'), numeric: true, cell: (r) => fmtShare(r.metrics.share_recent, 2), sortValue: (r) => r.metrics.share_recent }
 }
 
 export function growthColumn(ctx: ColumnContext): Column<Topic> {

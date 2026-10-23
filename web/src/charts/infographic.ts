@@ -21,6 +21,26 @@ export function waffleGroups(topics: readonly Topic[]): WaffleGroup[] {
   }))
 }
 
+/** Above this many topics the waffle stops drawing one square per topic (a square would be 1,400 px of page at 1,500). */
+export const WAFFLE_FULL_MAX = 300
+const WAFFLE_UNITS = [5, 10, 25, 50, 100, 250, 500, 1000]
+/** Cells the waffle aims for once squares stand for several topics. */
+const WAFFLE_TARGET = 150
+
+/** Topics per square: 1 up to WAFFLE_FULL_MAX topics, then the smallest round number (5, 10, 25 …) that keeps the waffle near WAFFLE_TARGET squares. */
+export function waffleUnit(total: number): number {
+  if (total <= WAFFLE_FULL_MAX) return 1
+  return WAFFLE_UNITS.find((k) => total / k <= WAFFLE_TARGET) ?? WAFFLE_UNITS[WAFFLE_UNITS.length - 1]
+}
+
+/** The squares of one status: its topics (strongest first) cut into runs of `unit`; the last square may stand for fewer. Any topic at all gives a square. */
+export function waffleCells(topics: readonly Topic[], unit: number): Topic[][] {
+  const k = Math.max(1, Math.floor(unit))
+  const cells: Topic[][] = []
+  for (let i = 0; i < topics.length; i += k) cells.push(topics.slice(i, i + k))
+  return cells
+}
+
 /** Percent of `total`, rounded to a whole number for labels (never NaN). */
 export function percentOf(n: number, total: number): number {
   return total > 0 ? Math.round((n / total) * 100) : 0

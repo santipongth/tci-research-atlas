@@ -13,7 +13,7 @@ import { useReleaseFile } from '../data/atlasContext'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { InstitutionsFile, ProvinceStat, RegionStat, RegionsFile } from '../data/types'
 import { fmtWindow, windows } from '../lib/definition'
-import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
+import { DASH, fmtInt, fmtNum, fmtPct, fmtShare } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { REGION_METRICS, regionsCodec } from '../lib/urlState'
@@ -58,8 +58,8 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
     { key: 'region', csvHeader: 'region', header: t('rg.col.region'), cell: (p) => t(`rg.region.${p.region}` as StrKey), sortValue: (p) => p.region, csv: (p) => p.region },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (p) => fmtInt(p.articles), sortValue: (p) => p.articles },
     { key: 'share', csvHeader: 'share', header: t('rg.col.share'), numeric: true, cell: (p) => <ShareBar value={p.share} digits={1} max={maxShare} />, sortValue: (p) => p.share ?? null },
-    { key: 'recent', csvHeader: 'articles_recent', header: t('in.col.recent', { r: fmtWindow(windows(release.overview.last_complete_year).R) }), numeric: true, cell: (p) => fmtInt(p.articles_recent ?? 0), sortValue: (p) => p.articles_recent ?? 0 },
-    { key: 'institutions', csvHeader: 'institutions', header: t('rg.col.institutions'), numeric: true, cell: (p) => fmtInt(p.institutions ?? 0), sortValue: (p) => p.institutions ?? 0 },
+    { key: 'recent', csvHeader: 'articles_recent', header: t('in.col.recent', { r: fmtWindow(windows(release.overview.last_complete_year).R) }), numeric: true, cell: (p) => fmtInt(p.articles_recent ?? null), sortValue: (p) => p.articles_recent ?? null },
+    { key: 'institutions', csvHeader: 'institutions', header: t('rg.col.institutions'), numeric: true, cell: (p) => fmtInt(p.institutions ?? null), sortValue: (p) => p.institutions ?? null },
     ...(hasPop ? [{ key: 'per100k', csvHeader: 'per_100k', header: t('rg.col.per100k'), numeric: true, cell: (p: ProvinceStat) => fmtNum(p.per_100k ?? null, 1), sortValue: (p: ProvinceStat) => p.per_100k ?? null }] : []),
     {
       key: 'top', csvHeader: 'top_institutions', header: t('rg.col.top'),
@@ -73,7 +73,7 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
   const regionColumns: Column<RegionStat>[] = [
     { key: 'name', csvHeader: 'region', header: t('rg.col.region'), rowHeader: true, cell: (r) => t(`rg.region.${r.key}` as StrKey), csv: (r) => r.key },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), sortValue: (r) => r.articles },
-    { key: 'share', csvHeader: 'share', header: t('rg.col.share'), numeric: true, cell: (r) => fmtPct(r.share ?? null, 1), sortValue: (r) => r.share ?? null },
+    { key: 'share', csvHeader: 'share', header: t('rg.col.share'), numeric: true, cell: (r) => fmtShare(r.share ?? null, 1), sortValue: (r) => r.share ?? null },
   ]
   const top = rankBars(
     file.provinces.map((p) => ({ key: pname(p), id: p.code, count: valueOf(p) ?? Number.NaN })),
@@ -85,7 +85,7 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
   const regionsTitle = t('table.n', { n: 2, title: t('rg.regions.table') })
   return (
     <div className="container">
-      <PageHeader title={t('rg.title')} lede={t('rg.lede', { a: w.start, b: w.end })} />
+      <PageHeader title={x('q.rg')} lede={t('rg.lede', { release: rel, n: fmtInt(file.provinces.filter((p) => p.articles > 0).length), a: w.start, b: w.end })} />
       <Section id="map" title={t('rg.provinces.h')} intro={topProv && topProv.articles > 0 ? t('ex.most', { x: pname(topProv), k: fmtInt(topProv.articles) }) : undefined}>
         {hasPop ? (
           <fieldset className="metric-switch">
