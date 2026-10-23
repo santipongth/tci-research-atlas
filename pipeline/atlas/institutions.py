@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 
 from atlas.institutions_ref import Institution, Resolver, inst_code, load_aliases, load_ror
-from atlas.io_utils import read_table, write_table
+from atlas.io_utils import read_table, text_column, write_table
 from atlas.orgs import org_display_names
 from atlas.places import provinces, region_of
 from atlas.thai import thai_ratio
@@ -54,10 +54,6 @@ def windows(cfg: dict, last: int) -> dict[str, tuple[int, int]]:
 
 def _in(years: pd.Series, span: tuple[int, int]) -> pd.Series:
     return years.between(*span).fillna(False).astype(bool)
-
-
-def _text(df: pd.DataFrame, col: str) -> pd.Series:
-    return df[col].fillna("").astype(str) if col in df.columns else pd.Series("", index=df.index, dtype=str)
 
 
 def _given(v) -> bool:
@@ -78,10 +74,10 @@ def resolve_authors(authors: pd.DataFrame, resolver: Resolver, display: dict[str
     """(article_id, inst_key) distinct, and one identity row per inst_key. Each distinct affiliation is resolved once;
     an institution's province and country are the most frequent among its author rows; an institution known only as
     written takes the P1 display name of its org_key (most frequent written form)."""
-    a = pd.DataFrame({"article_id": authors["article_id"], "th": _text(authors, "affiliation_th"),
-                      "en": _text(authors, "affiliation_en"), "org_key": _text(authors, "org_key"),
-                      "h_ror": _text(authors, "ror"), "h_country": _text(authors, "country"),
-                      "h_province": _text(authors, "province")})        # hints given by corpus format 1.0
+    a = pd.DataFrame({"article_id": authors["article_id"], "th": text_column(authors, "affiliation_th"),
+                      "en": text_column(authors, "affiliation_en"), "org_key": text_column(authors, "org_key"),
+                      "h_ror": text_column(authors, "ror"), "h_country": text_column(authors, "country"),
+                      "h_province": text_column(authors, "province")})        # hints given by corpus format 1.0
     keys = ["th", "en", "org_key", "h_ror", "h_country", "h_province"]
     trip = a[keys].drop_duplicates().reset_index(drop=True)
     found: list[Institution | None] = [resolver.resolve(t, e, k, ror=r, country=c, province=p)

@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 from atlas.io_utils import read_table, write_table
 from atlas.orgs import org_key
+from atlas.registry import journal_keys
 from atlas.sources import corpus_jsonl
 from atlas.sources.thaijo_md import fill_years_from_issue, parse_markdown
 from atlas.thai import clean_text, norm_key
@@ -334,20 +335,29 @@ def _drop_title_year_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     cand = (key != "") & key.duplicated(keep=False)
     if not cand.any():
         return df
-    doi = doi_key(df)
-    jkey = df["journal_key"].fillna("").astype(str) if "journal_key" in df.columns else pd.Series("", index=df.index)
+    # a short generic title ("บทบรรณาธิการ", "Editorial") is only a duplicate inside one journal
+    short = tkey.str.len() < SHORT_TITLE
+    key = key.where(~(cand & short), key + "|" + journal_keys(df))
+    cand = (key != "") & key.duplicated(keep=False)
+    if not cand.any():
+        return df
+    doi = doi_key(df).tolist()
     drop: list[int] = []
     for rows in key[cand].groupby(key[cand]).indices.values():
-        pos = sorted(key[cand].index[rows])
-        kept: list[int] = []
-        for i in pos:
-            same = any((doi[i] == "" or doi[k] == "" or doi[i] == doi[k])
-                       and not (len(tkey[i]) < SHORT_TITLE and jkey[i] != "" and jkey[k] != "" and jkey[i] != jkey[k])
-                       for k in kept)
-            if same:
+        # same title + year: a duplicate unless both DOIs are known and differ. Linear: a kept row without a DOI
+        # matches everything after it; otherwise a row matches when its DOI is empty or already kept.
+        kept_dois: set[str] = set()
+        kept_blank = kept_any = False
+        for i in sorted(key[cand].index[rows]):
+            d = doi[i]
+            if kept_any and (kept_blank or d == "" or d in kept_dois):
                 drop.append(i)
+                continue
+            kept_any = True
+            if d:
+                kept_dois.add(d)
             else:
-                kept.append(i)
+                kept_blank = True
     return df.drop(index=drop)
 
 

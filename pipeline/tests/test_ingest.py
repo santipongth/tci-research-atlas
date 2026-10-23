@@ -355,3 +355,33 @@ def test_a_refused_run_leaves_no_thinned_checkpoint(make_cfg, thaijo_dir, tmp_pa
         assert not (tmp_path / "work" / "01_articles.parquet").exists()
     else:
         pytest.skip("empty files are tolerated by the parser; the ordering is covered by the code path")
+
+
+def test_generic_short_titles_are_kept_per_journal_also_for_markdown_ids():
+    import pandas as pd
+
+    from atlas.ingest import dedup
+    t = "บทบรรณาธิการ"
+    df = pd.DataFrame({"article_id": ["so02:A:1", "so02:B:2", "so02:C:3", "so02:A:4"], "title": [t] * 4,
+                       "title_th": [t] * 4, "title_en": [""] * 4, "year": [2023] * 4, "doi": [""] * 4,
+                       "journal_name": ["A", "B", "C", "A"], "abstract_th": [""] * 4, "abstract_en": [""] * 4,
+                       "keywords_th": [""] * 4, "keywords_en": [""] * 4, "authors": [""] * 4})
+    out, _ = dedup(df)                       # no journal_key column: the key comes from the ThaiJO id
+    assert sorted(out["article_id"]) == ["so02:A:1", "so02:B:2", "so02:C:3"]
+
+
+def test_dedup_stays_linear_on_thousands_of_identical_titles():
+    import time
+
+    import pandas as pd
+
+    from atlas.ingest import dedup
+    n = 30_000
+    t = "Editorial note on the special issue about regional development"   # long enough not to be "generic short"
+    df = pd.DataFrame({"article_id": [f"x:{i}" for i in range(n)], "title": [t] * n, "title_th": [""] * n,
+                       "title_en": [t] * n, "year": [2023] * n, "doi": [f"10.5555/e.{i}" for i in range(n)],
+                       "abstract_th": [""] * n, "abstract_en": [""] * n, "keywords_th": [""] * n,
+                       "keywords_en": [""] * n, "authors": [""] * n})
+    t0 = time.perf_counter()
+    out, _ = dedup(df)
+    assert len(out) == n and time.perf_counter() - t0 < 20       # distinct DOIs: all kept, and no quadratic pass

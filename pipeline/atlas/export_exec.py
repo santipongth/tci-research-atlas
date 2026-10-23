@@ -15,8 +15,6 @@ Only institution-level aggregates are published; no person, no abstract.
 """
 from __future__ import annotations
 
-import json
-import math
 from collections.abc import Callable
 from pathlib import Path
 
@@ -24,29 +22,10 @@ import pandas as pd
 
 from atlas.countries import COUNTRY_NAMES
 from atlas.institutions_ref import INST_TYPES
-from atlas.io_utils import read_table
+from atlas.io_utils import json_float, read_json, read_optional, read_table
 from atlas.places import REGIONS, provinces
 from atlas.registry import journal_path
 from atlas.schema import contract as C
-
-
-def _f(v, nd: int = 4) -> float | None:
-    try:
-        x = float(v)
-    except (TypeError, ValueError):
-        return None
-    return round(x, nd) if math.isfinite(x) else None
-
-
-def _opt(path: Path) -> pd.DataFrame | None:
-    try:
-        return read_table(path)
-    except FileNotFoundError:
-        return None
-
-
-def _meta(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 def _window(pair) -> C.YearWindow:
@@ -69,19 +48,19 @@ def _country(code: str, n) -> C.CountryCount:
 def institution_files(cfg: dict, work: Path, code: dict[int, str], topic_group: dict[int, str]
                       ) -> tuple[dict[str, C._Model], dict[str, str], dict]:
     """({path: model}, {inst_key: published id}, KPI additions) — empty when the institutions step did not run."""
-    inst = _opt(work / "15_institutions.parquet")
-    meta = _meta(work / "15_institutions_meta.json")
+    inst = read_optional(work / "15_institutions.parquet")
+    meta = read_json(work / "15_institutions_meta.json")
     if inst is None or not meta:
         return {}, {}, {}
     icfg = cfg["institutions"]
     pub = inst[inst["published"].fillna(False).astype(bool)].sort_values(["articles", "code"], ascending=[False, True])
     iid = dict(zip(pub["inst_key"], pub["code"]))
-    mix_by = _groups(_opt(work / "15_inst_topics.parquet"), "inst_key")
-    years_by = _groups(_opt(work / "15_inst_years.parquet"), "inst_key")
-    countries = _opt(work / "15_inst_countries.parquet")
+    mix_by = _groups(read_optional(work / "15_inst_topics.parquet"), "inst_key")
+    years_by = _groups(read_optional(work / "15_inst_years.parquet"), "inst_key")
+    countries = read_optional(work / "15_inst_countries.parquet")
     countries_by = _groups(countries[countries["inst_key"] != ""] if countries is not None else None, "inst_key")
-    sugg_by = _groups(_opt(work / "15_inst_suggest.parquet"), "inst_key")
-    pairs = _opt(work / "15_inst_pairs.parquet")
+    sugg_by = _groups(read_optional(work / "15_inst_suggest.parquet"), "inst_key")
+    pairs = read_optional(work / "15_inst_pairs.parquet")
     pairs = pairs[pairs["a"].isin(list(iid)) & pairs["b"].isin(list(iid))] if pairs is not None else pd.DataFrame(
         columns=["a", "b", "articles"])
     both = pd.concat([pairs.rename(columns={"a": "k", "b": "o"}), pairs.rename(columns={"b": "k", "a": "o"})])
@@ -101,20 +80,20 @@ def institution_files(cfg: dict, work: Path, code: dict[int, str], topic_group: 
             province=r.province if _given(r.province) else None, country=r.country if _given(r.country) else None,
             source=r.source, ror=r.ror if _given(r.ror) else "", articles=int(r.articles),
             articles_total=int(r.articles_total), articles_recent=int(r.articles_recent),
-            intl_share=_f(r.intl_share), partners=int(r.partners), topics=int(r.topics), group=group_of.get(k)))
+            intl_share=json_float(r.intl_share), partners=int(r.partners), topics=int(r.topics), group=group_of.get(k)))
         mix, yrs, ptn = mix_by.get(k), years_by.get(k), partners_by.get(k)
         ctr, sug = countries_by.get(k), sugg_by.get(k)
         files[f"institutions/{r.code}.json"] = C.InstitutionDetail(
             id=r.code,
             years=[C.JournalYear(year=int(y.year), articles=int(y.articles)) for y in yrs.itertuples()]
             if yrs is not None else [],
-            topics=[C.TopicShare(topic=code[int(t.topic_id)], count=int(t.count), share=_f(t.share) or 0.0)
+            topics=[C.TopicShare(topic=code[int(t.topic_id)], count=int(t.count), share=json_float(t.share) or 0.0)
                     for t in mix.head(int(icfg["top_topics"])).itertuples() if int(t.topic_id) in code]
             if mix is not None else [],
             partners=[C.Partner(id=iid[p.o], articles=int(p.articles)) for p in ptn.itertuples()]
             if ptn is not None else [],
             countries=[_country(c.country, c.articles) for c in ctr.itertuples()] if ctr is not None else [],
-            suggested=[C.Suggestion(id=iid[s.other_key], similarity=_f(s.similarity) or 0.0,
+            suggested=[C.Suggestion(id=iid[s.other_key], similarity=json_float(s.similarity) or 0.0,
                                     topics=[code[int(t)] for t in str(s.topics).split(";") if t and int(t) in code])
                        for s in sug.itertuples() if s.other_key in iid] if sug is not None else [])
     national = (countries[countries["inst_key"] == ""].sort_values(["articles", "country"], ascending=[False, True])
@@ -125,12 +104,12 @@ def institution_files(cfg: dict, work: Path, code: dict[int, str], topic_group: 
     files["institutions.json"] = C.InstitutionsFile(
         window=_window(w["W"]), recent=_window(w["R"]), min_articles=int(icfg["min_articles"]),
         network_min_articles=int(icfg["network_min_articles"]), articles_with_org=int(meta["with_org"]),
-        pct_international=_f(meta.get("pct_international")), pct_multi_institution=_f(meta.get("pct_multi_institution")),
+        pct_international=json_float(meta.get("pct_international")), pct_multi_institution=json_float(meta.get("pct_multi_institution")),
         sources={str(s): int(n) for s, n in (meta.get("sources") or {}).items()}, institutions=rows,
         edges=[C.CollabEdge(a=iid[e.a], b=iid[e.b], articles=int(e.articles)) for e in pairs.itertuples()],
         countries=[_country(c.country, c.articles) for c in national.itertuples()],
         province_names=[C.ProvinceName(code=p, name_th=P[p].name_th, name_en=P[p].name_en) for p in used])
-    prov = _opt(work / "15_provinces.parquet")
+    prov = read_optional(work / "15_provinces.parquet")
     pct = lambda key: round(100 * float(meta[key]), 1) if meta.get(key) is not None else None  # noqa: E731
     kpis = {"institutions": int(meta["institutions_total"]), "pct_international": pct("pct_international"),
             "pct_multi_institution": pct("pct_multi_institution"),
@@ -139,12 +118,12 @@ def institution_files(cfg: dict, work: Path, code: dict[int, str], topic_group: 
 
 
 def regions_file(cfg: dict, work: Path, iid: dict[str, str], code: dict[int, str] | None = None) -> C.RegionsFile | None:
-    prov = _opt(work / "15_provinces.parquet")
-    meta = _meta(work / "15_institutions_meta.json")
+    prov = read_optional(work / "15_provinces.parquet")
+    meta = read_json(work / "15_institutions_meta.json")
     if prov is None or not meta:
         return None
-    reg = _opt(work / "15_regions.parquet")
-    inst = _opt(work / "15_institutions.parquet")
+    reg = read_optional(work / "15_regions.parquet")
+    inst = read_optional(work / "15_institutions.parquet")
     located, with_org = int(meta["located"]), int(meta["with_org"])
     population = meta.get("population") or {}
     pop = population.get("by_code") or {}
@@ -153,33 +132,33 @@ def regions_file(cfg: dict, work: Path, iid: dict[str, str], code: dict[int, str
         placed = inst[inst["inst_key"].isin(list(iid)) & inst["province"].map(_given)]
         for p, g in placed.groupby("province"):
             top[str(p)] = [iid[k] for k in g.sort_values(["articles", "inst_key"], ascending=[False, True])["inst_key"].head(3)]
-    ptop = _opt(work / "15_province_topics.parquet")
+    ptop = read_optional(work / "15_province_topics.parquet")
     by_prov: dict[str, list[C.TopicShare]] = {}
     if ptop is not None and code:
         for t in ptop.itertuples():
             if int(t.topic_id) in code:
                 by_prov.setdefault(str(t.province), []).append(
-                    C.TopicShare(topic=code[int(t.topic_id)], count=int(t.count), share=_f(t.share) or 0.0))
+                    C.TopicShare(topic=code[int(t.topic_id)], count=int(t.count), share=json_float(t.share) or 0.0))
     P = provinces()
     rows = [C.ProvinceStat(
         code=r.code, name_th=P[r.code].name_th, name_en=P[r.code].name_en, region=P[r.code].region,
         articles=int(r.articles), articles_recent=int(r.articles_recent),
-        share=_f(r.articles / located) if located else None, institutions=int(r.institutions),
-        per_100k=_f(100_000 * r.articles / pop[r.code], 2) if r.code in pop else None, top=top.get(r.code, []),
+        share=json_float(r.articles / located) if located else None, institutions=int(r.institutions),
+        per_100k=json_float(100_000 * r.articles / pop[r.code], 2) if r.code in pop else None, top=top.get(r.code, []),
         topics=by_prov.get(r.code, []))
         for r in prov.itertuples() if r.code in P]
-    regions = [C.RegionStat(key=x.region, articles=int(x.articles), share=_f(x.articles / located) if located else None)
+    regions = [C.RegionStat(key=x.region, articles=int(x.articles), share=json_float(x.articles / located) if located else None)
                for x in reg.itertuples() if x.region in REGIONS] if reg is not None else []
     return C.RegionsFile(window=_window(meta["windows"]["W"]), articles_with_org=with_org, articles_located=located,
-                         coverage=_f(located / with_org) if with_org else None,
+                         coverage=json_float(located / with_org) if with_org else None,
                          population_year=population.get("year") if population else None, provinces=rows,
                          regions=regions)
 
 
 def topic_sdg_numbers(work: Path) -> dict[int, list[int]]:
     """{topic id: SDG numbers} for Topic.sdg (framework "sdg" only)."""
-    goals = _opt(work / "16_topic_goals.parquet")
-    meta = _meta(work / "16_sdg_meta.json")
+    goals = read_optional(work / "16_topic_goals.parquet")
+    meta = read_json(work / "16_sdg_meta.json")
     if goals is None or not meta:
         return {}
     number = {g["id"]: int(g["number"]) for f in meta["frameworks"] if f["key"] == "sdg" for g in f["goals"]}
@@ -188,8 +167,8 @@ def topic_sdg_numbers(work: Path) -> dict[int, list[int]]:
 
 
 def sdg_file(cfg: dict, work: Path, code: dict[int, str]) -> C.SdgFile | None:
-    goals = _opt(work / "16_topic_goals.parquet")
-    meta = _meta(work / "16_sdg_meta.json")
+    goals = read_optional(work / "16_topic_goals.parquet")
+    meta = read_json(work / "16_sdg_meta.json")
     if goals is None or not meta:
         return None
     em = read_table(work / "07_emerging.parquet").set_index("topic_id")
@@ -208,18 +187,18 @@ def sdg_file(cfg: dict, work: Path, code: dict[int, str]) -> C.SdgFile | None:
                                   topics=[code[t] for t in tids],
                                   articles_recent=int(sub["count_recent"].sum()) if len(sub) else 0,
                                   share_recent=round(share_r, 6),
-                                  share_ratio=_f(share_r / share_b) if share_b > 0 else None))
+                                  share_ratio=json_float(share_r / share_b) if share_b > 0 else None))
     return C.SdgFile(method=meta["method"], version=str(meta["version"]),
                      frameworks=[C.FrameworkInfo(key=f["key"], th=f["th"], en=f["en"]) for f in meta["frameworks"]],
                      goals=out)
 
 
 def global_file(cfg: dict, work: Path, code: dict[int, str], gcode: Callable[[int], str]) -> C.GlobalFile | None:
-    meta = _meta(work / "17_benchmark_meta.json")
-    table = _opt(work / "17_benchmark.parquet")
+    meta = read_json(work / "17_benchmark_meta.json")
+    table = read_optional(work / "17_benchmark.parquet")
     if table is None or not meta or meta.get("skipped"):
         return None
-    tax = _opt(work / "10_taxonomy.parquet")
+    tax = read_optional(work / "10_taxonomy.parquet")
     anchored = ({str(s): [code[int(t)] for t in sorted(g["topic_id"]) if int(t) in code]
                  for s, g in tax.groupby("subfield_id")} if tax is not None else {})
     bcfg = cfg["benchmark"]
@@ -230,21 +209,21 @@ def global_file(cfg: dict, work: Path, code: dict[int, str], gcode: Callable[[in
         subfields=[C.SubfieldBench(
             id=str(r.subfield_id), en=str(r.subfield_en), group=gcode(int(r.field_id)), world_recent=int(r.world_R),
             world_baseline=int(r.world_B), country_recent=int(r.country_R), country_baseline=int(r.country_B),
-            tci_recent=int(r.tci_R), world_ratio=_f(r.world_ratio), activity_index=_f(r.activity_index),
-            country_share=_f(r.country_share, 6), opportunity=bool(r.opportunity),
+            tci_recent=int(r.tci_R), world_ratio=json_float(r.world_ratio), activity_index=json_float(r.activity_index),
+            country_share=json_float(r.country_share, 6), opportunity=bool(r.opportunity),
             topics=anchored.get(str(r.subfield_id), [])) for r in table.itertuples()])
 
 
 def gaps_file(cfg: dict, work: Path, code: dict[int, str], iid: dict[str, str], jid: dict[str, str],
               jname: dict[str, str], gcode: Callable[[int], str]) -> C.GapsFile | None:
-    meta = _meta(work / "18_gaps_meta.json")
+    meta = read_json(work / "18_gaps_meta.json")
     if not meta:
         return None
-    few = _opt(work / "18_gap_few_institutions.parquet")
-    bridges = _opt(work / "18_gap_bridges.parquet")
-    world = _opt(work / "18_gap_world.parquet")
-    conc = _opt(work / "18_concentration.parquet")
-    inst = _opt(work / "15_institutions.parquet")
+    few = read_optional(work / "18_gap_few_institutions.parquet")
+    bridges = read_optional(work / "18_gap_bridges.parquet")
+    world = read_optional(work / "18_gap_world.parquet")
+    conc = read_optional(work / "18_concentration.parquet")
+    inst = read_optional(work / "15_institutions.parquet")
     inst_name = {r.inst_key: (r.name_th or r.name_en) for r in inst.itertuples()} if inst is not None else {}
 
     def top_of(kind: str, key: str) -> tuple[str, str]:
@@ -258,8 +237,8 @@ def gaps_file(cfg: dict, work: Path, code: dict[int, str], iid: dict[str, str], 
             continue
         top, name = top_of(c.kind, str(c.top_key))
         items.append(C.Concentration(scope=c.scope, id=code[int(c.unit)] if c.scope == "topic" else gcode(int(c.unit)),
-                                     kind=c.kind, articles=int(c.articles), hhi=_f(c.hhi) or 0.0,
-                                     top_share=_f(c.top_share) or 0.0, top=top, top_name=name,
+                                     kind=c.kind, articles=int(c.articles), hhi=json_float(c.hhi) or 0.0,
+                                     top_share=json_float(c.top_share) or 0.0, top=top, top_name=name,
                                      concentrated=bool(c.concentrated)))
     g, r = cfg["gaps"], cfg["risk"]
     return C.GapsFile(
@@ -268,12 +247,12 @@ def gaps_file(cfg: dict, work: Path, code: dict[int, str], iid: dict[str, str], 
         min_articles=int(r["min_articles"]), max_top_share=float(r["max_top_share"]), max_hhi=float(r["max_hhi"]),
         few_institutions=[C.FewInstitutions(topic=code[int(x.topic_id)], institutions=int(x.institutions))
                           for x in (few.itertuples() if few is not None else []) if int(x.topic_id) in code],
-        bridges=[C.Bridge(a=code[int(b.s)], b=code[int(b.t)], similarity=_f(b.similarity) or 0.0, shared=int(b.shared),
-                          jaccard=_f(b.jaccard) or 0.0)
+        bridges=[C.Bridge(a=code[int(b.s)], b=code[int(b.t)], similarity=json_float(b.similarity) or 0.0, shared=int(b.shared),
+                          jaccard=json_float(b.jaccard) or 0.0)
                  for b in (bridges.itertuples() if bridges is not None else [])
                  if int(b.s) in code and int(b.t) in code],
-        world=[C.WorldGap(subfield=str(x.subfield_id), en=str(x.subfield_en), world_ratio=_f(x.world_ratio),
-                          activity_index=_f(x.activity_index),
+        world=[C.WorldGap(subfield=str(x.subfield_id), en=str(x.subfield_en), world_ratio=json_float(x.world_ratio),
+                          activity_index=json_float(x.activity_index),
                           topics=[code[int(t)] for t in str(x.topics).split(";") if t and int(t) in code])
                for x in (world.itertuples() if world is not None else [])],
         concentration=items)
@@ -283,8 +262,8 @@ def topic_institutions(work: Path, article_ids, labels_arr, iid: dict[str, str],
                        ) -> dict[int, list[C.CountItem]] | None:
     """Top published institutions per topic (canonical — alias/ROR merge spelling variants), each linked (D6). An
     institution below institutions.min_articles, or without a publishable name, is in no file."""
-    links = _opt(work / "15_article_institutions.parquet")
-    inst = _opt(work / "15_institutions.parquet")
+    links = read_optional(work / "15_article_institutions.parquet")
+    inst = read_optional(work / "15_institutions.parquet")
     if links is None or inst is None:
         return None
     names = {r.inst_key: (r.name_th or r.name_en) for r in inst.itertuples() if r.inst_key in iid}
@@ -299,7 +278,7 @@ def topic_institutions(work: Path, article_ids, labels_arr, iid: dict[str, str],
 
 def skipped_modules(cfg: dict, work: Path) -> dict[str, str]:
     out = {}
-    bench = _meta(work / "17_benchmark_meta.json")
+    bench = read_json(work / "17_benchmark_meta.json")
     if bench.get("skipped"):
         out["global"] = str(bench["skipped"])
     if not cfg["institutions"]["enabled"]:

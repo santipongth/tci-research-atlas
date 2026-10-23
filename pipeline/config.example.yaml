@@ -454,6 +454,7 @@ validation:
   size_swing_min_articles: 50 # ...เฉพาะหัวข้อที่มี ≥ 50 บทความ
   max_article_drop: 0.02      # บทความทั้งหมดลดลง > 2% → error
   max_file_bytes: 50000000    # ไฟล์ใดใหญ่กว่า 50MB → warning (GitHub Pages รับไฟล์ละไม่เกิน 100MB)
+  privacy_allow: []           # ชื่อหน่วยงานที่คนตรวจแล้วว่าไม่ใช่ชื่อบุคคล แต่ด่านความเป็นส่วนตัวทักเพราะบังเอิญตรงกับชื่อผู้แต่ง (ใส่ตามตัวอักษรที่ error แสดง)
 
 # ---------- atlas bakeoff: เทียบ embedding/clustering ด้วยตัวเลข ----------
 bakeoff:

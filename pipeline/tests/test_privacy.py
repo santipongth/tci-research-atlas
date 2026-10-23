@@ -48,3 +48,30 @@ def test_name_matching_ignores_case_spacing_and_tone_marks():
     names = {"somchaijaidee"}
     assert contains_name("Dr. SOMCHAI  Jaidee, Mahidol University", names)
     assert not contains_name("Somchai University", names)
+
+
+def test_titles_are_removed_and_organisation_like_names_ignored(tmp_path):
+    from atlas.privacy import author_name_keys
+
+    work = tmp_path / "w"
+    write_table(pd.DataFrame({"article_id": ["a", "b", "c"],
+                              "name": ["ผศ.ดร.สมชาย ใจดี", "Mahidol University", "Asst. Prof. Dr. Anan Example"],
+                              "name_en": [None, None, None]}), work / "01_authors.parquet")
+    keys = author_name_keys(work)
+    assert contains_name("สมชาย ใจดี มหาวิทยาลัยมหิดล", keys)                     # the title no longer hides the name
+    assert contains_name("Anan Example Institute", keys)
+    assert not contains_name("Mahidol University", keys)                          # a mis-parsed affiliation is no person
+
+
+def test_curated_and_allowed_organisation_strings_are_not_errors(tmp_path):
+    root = tmp_path / "2026Q4"
+    (root / "topics").mkdir(parents=True)
+    (root / "institutions.json").write_text(json.dumps({"institutions": [
+        {"name_en": "Rattana Bundit University", "source": "alias"},
+        {"name_en": "Somchai Jaidee Clinic", "source": "name"}]}), encoding="utf-8")
+    work = tmp_path / "work"
+    write_table(pd.DataFrame({"article_id": ["a", "b"], "name": ["x y", "z w"],
+                              "name_en": ["Rattana Bundit", "Somchai Jaidee"]}), work / "01_authors.parquet")
+    errs = scan_release(root, work)
+    assert len(errs) == 1 and "Somchai Jaidee Clinic" in errs[0]                 # curated alias name is fine
+    assert scan_release(root, work, allow=["Somchai Jaidee Clinic"]) == []

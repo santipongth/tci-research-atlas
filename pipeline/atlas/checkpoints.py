@@ -62,3 +62,11 @@ def article_topics(work: str | Path) -> pd.Series:
     fine = read_table(work / "04_fine_topics.parquet")[["article_id", "fine_topic"]]
     t = docs.merge(fine, on="article_id", how="left")
     return pd.Series(t["fine_topic"].fillna(-1).astype(int).to_numpy(), index=t["article_id"].astype(str).to_numpy())
+
+
+def article_topics_or_empty(work: str | Path) -> pd.Series:
+    """article_topics, or an empty series before the cluster step has run."""
+    try:
+        return article_topics(work)
+    except FileNotFoundError:
+        return pd.Series(dtype=np.int64)

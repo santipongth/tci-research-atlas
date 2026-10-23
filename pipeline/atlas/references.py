@@ -28,7 +28,7 @@ from pathlib import Path
 import pandas as pd
 
 from atlas.checkpoints import analysed_window, article_topics
-from atlas.io_utils import read_table, write_table
+from atlas.io_utils import read_table, text_column, write_table
 from atlas.registry import journal_keys
 from atlas.thai import THAI_MARKS
 
@@ -39,10 +39,6 @@ _KEY_DROP = "[^0-9a-z\N{THAI CHARACTER KO KAI}-\N{THAI DIGIT NINE}]+"
 MATCH_COLUMNS = ["citing_id", "cited_id", "method"]
 JOURNAL_COLUMNS = ["journal_key", "journal", "articles", "articles_with_refs", "refs_median", "age_median",
                    "share_recent", "share_thai", "share_doi"]
-
-
-def _text(df: pd.DataFrame, col: str) -> pd.Series:
-    return df[col].fillna("").astype(str) if col in df.columns else pd.Series("", index=df.index, dtype=str)
 
 
 def doi_of(texts: pd.Series) -> pd.Series:
@@ -90,14 +86,14 @@ def match_references(articles: pd.DataFrame, refs: pd.DataFrame, min_title_chars
     refs = refs.assign(ref=range(len(refs)), citing_id=refs["article_id"].astype(str).to_numpy())
 
     # (a) DOI — only a DOI that belongs to exactly one article
-    adoi = pd.DataFrame({"cited_id": ids.to_numpy(), "doi": doi_of(_text(articles, "doi")).to_numpy()})
+    adoi = pd.DataFrame({"cited_id": ids.to_numpy(), "doi": doi_of(text_column(articles, "doi")).to_numpy()})
     adoi = adoi[adoi["doi"] != ""].drop_duplicates()
     adoi = adoi[~adoi["doi"].duplicated(keep=False)]
     rdoi = pd.DataFrame({"ref": refs["ref"].to_numpy(), "doi": doi_of(refs["text"]).to_numpy()})
     by_doi = rdoi[rdoi["doi"] != ""].merge(adoi, on="doi")[["ref", "cited_id"]].assign(method="doi")
 
     # (b) title segment — titles that occur once only, segments of refs without a DOI match
-    keys = pd.concat([pd.DataFrame({"cited_id": ids.to_numpy(), "key": title_keys(_text(articles, c)).to_numpy()})
+    keys = pd.concat([pd.DataFrame({"cited_id": ids.to_numpy(), "key": title_keys(text_column(articles, c)).to_numpy()})
                       for c in ("title_th", "title_en")])
     keys = keys[keys["key"].str.len() >= min_title_chars].drop_duplicates()
     keys = keys[~keys["key"].duplicated(keep=False)]
@@ -121,7 +117,7 @@ def journal_practice(articles: pd.DataFrame, refs: pd.DataFrame, min_articles: i
     a = articles.assign(n_refs=articles["article_id"].map(per).fillna(0).astype(int))
     ref_year = pd.to_numeric(refs["year"], errors="coerce") if "year" in refs.columns else pd.Series(
         float("nan"), index=refs.index)
-    r = refs[["article_id"]].assign(ref_year=ref_year, lang=_text(refs, "lang"), text=_text(refs, "text"))
+    r = refs[["article_id"]].assign(ref_year=ref_year, lang=text_column(refs, "lang"), text=text_column(refs, "text"))
     r = r.merge(a[["article_id", "year", "journal_key"]], on="article_id")
     age = pd.to_numeric(r["year"], errors="coerce") - r["ref_year"]
     r = r.assign(age=age.where(age >= 0), thai=r["lang"] == "th",     # a reference "from the future" is a parse error
@@ -176,7 +172,7 @@ def references(cfg: dict) -> dict:
     w = arts.loc[in_win, [c for c in ("article_id", "year", "journal_name", "journal_key") if c in arts.columns]
                  ].rename(columns={"journal_name": "journal"})
     w = w.assign(journal_key=journal_keys(w.rename(columns={"journal": "journal_name"})).to_numpy(),
-                 journal=_text(w, "journal"))
+                 journal=text_column(w, "journal"))
     wrefs = refs[refs["article_id"].isin(set(w["article_id"]))]
     with_refs = int(wrefs["article_id"].nunique())
     coverage = with_refs / len(w) if len(w) else 0.0

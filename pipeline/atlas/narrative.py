@@ -292,7 +292,7 @@ def _pct(v: float, nd: int = 2) -> str:
     p = v * 100
     if 0 < abs(p) < 10 ** -nd:
         if abs(p) < 0.0001:
-            return "0.0001"                                  # read as "under 0.0001" by the sentence around it
+            return "-0.0001" if p < 0 else "0.0001"          # the smallest printed magnitude, sign kept
         return f"{p:.{min(4, nd + 2)}f}"
     return f"{p:.{nd}f}"
 

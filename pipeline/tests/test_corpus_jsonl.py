@@ -208,3 +208,23 @@ def test_org_names_never_carry_contact_details_or_a_bare_person():
     assert publishable_name(org_name("สมชาย ใจดี", "")) == ""
     assert publishable_name(org_name("คณะบริหารธุรกิจ มหาวิทยาลัยเกษตรศาสตร์ 10900", "")) == "มหาวิทยาลัยเกษตรศาสตร์"
     assert "@" not in org_name("", "Faculty of Science, Chiang Mai University, tel 053-943-333, a@b.co")
+
+
+def test_contact_labels_need_a_number_and_names_keep_their_words():
+    from atlas.orgs import org_key, org_name
+    assert org_name("", "Tel Aviv University") == "Tel Aviv University"
+    assert org_name("", "Intel Corporation") == "Intel Corporation"
+    assert org_name("สถานีโทรทัศน์ไทยพีบีเอส", "") == "สถานีโทรทัศน์ไทยพีบีเอส"
+    assert org_name("", "Phra Nakhon Si Ayutthaya Rajabhat University") == "Phra Nakhon Si Ayutthaya Rajabhat University"
+    assert org_name("", "Faculty of Science, Chiang Mai University, Tel. 053-943-333") == "Chiang Mai University"
+    assert org_name("โรงพยาบาลเขต 9", "") == "โรงพยาบาลเขต 9" and org_key("โรงพยาบาลเขต 9", "") != org_key("โรงพยาบาลเขต 10", "")
+    # one organisation, one key, whatever phone number or address the affiliation carries
+    assert org_key("มหาวิทยาลัยเชียงใหม่ โทร 053-943-333", "") == org_key("มหาวิทยาลัยเชียงใหม่", "")
+
+
+def test_a_network_name_takes_its_campus_but_never_a_person_or_a_number():
+    from atlas.orgs import org_name
+    assert org_name("วิทยาลัยพยาบาลบรมราชชนนี สุราษฎร์ธานี สถาบันพระบรมราชชนก", "") == "วิทยาลัยพยาบาลบรมราชชนนี สุราษฎร์ธานี"
+    assert org_name("มหาวิทยาลัยราชภัฏ นายสมชาย", "") == "มหาวิทยาลัยราชภัฏ"
+    assert org_name("มหาวิทยาลัยราชภัฏ 123 ถ.มิตรภาพ", "") == "มหาวิทยาลัยราชภัฏ"
+    assert org_name("มหาวิทยาลัยราชภัฏ เชียงใหม่", "") == "มหาวิทยาลัยราชภัฏ เชียงใหม่"

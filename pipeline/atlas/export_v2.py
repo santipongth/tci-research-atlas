@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import shutil
 from datetime import UTC
 from pathlib import Path
@@ -37,7 +36,7 @@ from atlas.export_exec import (
     topic_sdg_numbers,
 )
 from atlas.export_research import kwtrends_file, references_file, search_files, topic_citations
-from atlas.io_utils import read_table
+from atlas.io_utils import json_float, read_json, read_optional, read_table
 from atlas.label import representative_indices
 from atlas.lineage import topic_code
 from atlas.llm_runner import release_spend
@@ -58,27 +57,8 @@ FIELD_COLOR = {"33": 1, "14": 2, "12": 3, "27": 4, "11": 5, "32": 6, "20": 7, "2
                "30": 11, "31": 4, "34": 9, "35": 6}
 
 
-def _f(v, nd: int = 4) -> float | None:
-    try:
-        x = float(v)
-    except (TypeError, ValueError):
-        return None
-    return round(x, nd) if math.isfinite(x) else None
-
-
 def _json_list(s) -> list:
     return json.loads(s) if isinstance(s, str) and s else []
-
-
-def _read_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-
-
-def _optional(path: Path) -> pd.DataFrame | None:
-    try:
-        return read_table(path)
-    except FileNotFoundError:
-        return None
 
 
 def config_hash(cfg: dict) -> str:
@@ -123,16 +103,16 @@ def _metrics(e: pd.Series, min_recent: int) -> C.TopicMetrics:
     if str(e["status"]) == "LOW_DATA":
         reason = "few_articles" if int(e["count_recent"]) < min_recent else "not_estimable"
     return C.TopicMetrics(
-        count_recent=int(e["count_recent"]), share_recent=_f(e["share_recent"], 6) or 0.0,
-        share_baseline=_f(e["share_baseline"], 6) or 0.0,
-        share_ratio=None if no_base else (_f(e["share_ratio"]) or 0.0), no_baseline=no_base,
-        share_growth=_f(e["share_growth"]), share_growth_lo=_f(e["share_growth_lo"]),
-        share_growth_hi=_f(e["share_growth_hi"]), acceleration=_f(e["acceleration"]) or 0.0,
-        burst_frac=_f(e["burst_frac"]) or 0.0,
+        count_recent=int(e["count_recent"]), share_recent=json_float(e["share_recent"], 6) or 0.0,
+        share_baseline=json_float(e["share_baseline"], 6) or 0.0,
+        share_ratio=None if no_base else (json_float(e["share_ratio"]) or 0.0), no_baseline=no_base,
+        share_growth=json_float(e["share_growth"]), share_growth_lo=json_float(e["share_growth_lo"]),
+        share_growth_hi=json_float(e["share_growth_hi"]), acceleration=json_float(e["acceleration"]) or 0.0,
+        burst_frac=json_float(e["burst_frac"]) or 0.0,
         burst_years=[int(y) for y in str(e["burst_years"] or "").split(",") if y.strip()],
-        novelty=_f(e["novelty"]) or 0.0, coherence=_f(e["coherence"]), n_journals_R=int(e["n_journals_R"]),
-        n_orgs_R=int(e["n_orgs_R"]), new_journal_share=_f(e["new_journal_share"]) or 0.0,
-        journal_hhi=_f(e["journal_hhi"]) or 0.0, journal_driven=bool(e["journal_driven"]),
+        novelty=json_float(e["novelty"]) or 0.0, coherence=json_float(e["coherence"]), n_journals_R=int(e["n_journals_R"]),
+        n_orgs_R=int(e["n_orgs_R"]), new_journal_share=json_float(e["new_journal_share"]) or 0.0,
+        journal_hhi=json_float(e["journal_hhi"]) or 0.0, journal_driven=bool(e["journal_driven"]),
         orgs_unverified=bool(e.get("orgs_unverified", False)), low_data_reason=reason)
 
 
@@ -141,7 +121,7 @@ def _forecast(f: pd.Series) -> C.TopicForecast:
     lists = {k: [float(v) for v in _json_list(f[c])] if show else []
              for k, c in (("mean", "fc_mean"), ("lo80", "fc_lo80"), ("hi80", "fc_hi80"),
                           ("lo95", "fc_lo95"), ("hi95", "fc_hi95"))}
-    return C.TopicForecast(model=str(f["model"]), mase=_f(f["mase"], 3), skill_vs_naive=_f(f["skill_vs_naive"], 3) or 0.0,
+    return C.TopicForecast(model=str(f["model"]), mase=json_float(f["mase"], 3), skill_vs_naive=json_float(f["skill_vs_naive"], 3) or 0.0,
                            show=show, years=[int(y) for y in _json_list(f["fc_years"])] if show else [], **lists)
 
 
@@ -161,20 +141,20 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     edges = read_table(work / "09_edges.parquet")
     fine = docs[["article_id"]].merge(read_table(work / "04_fine_topics.parquet"), on="article_id", how="left")
     labels_arr = fine["fine_topic"].fillna(-1).astype(int).to_numpy()
-    meta6 = _read_json(work / "06_meta.json")
-    fmeta = _read_json(work / "08_forecast_meta.json")
-    taxmeta = _read_json(work / "10_taxonomy_meta.json")
-    tax = _optional(work / "10_taxonomy.parquet")
+    meta6 = read_json(work / "06_meta.json")
+    fmeta = read_json(work / "08_forecast_meta.json")
+    taxmeta = read_json(work / "10_taxonomy_meta.json")
+    tax = read_optional(work / "10_taxonomy.parquet")
     source = "openalex" if tax is not None and len(tax) and (tax["source"] == "openalex").all() else "agglomerative"
     groups = load_topic_groups(work).set_index("topic_id")
-    lineage = _optional(work / "04_lineage.parquet")
+    lineage = read_optional(work / "04_lineage.parquet")
     lin = lineage.set_index("topic_id") if lineage is not None and len(lineage) else pd.DataFrame()
     reg_path = release_dir(cfg, release) / "topics" / "registry.parquet"
     born = read_table(reg_path).set_index("topic_id")["born"].to_dict() if reg_path.exists() else {}
-    galaxy = _optional(work / "09_galaxy.parquet")
+    galaxy = read_optional(work / "09_galaxy.parquet")
     gxy = galaxy.set_index("article_id")[["gx", "gy"]] if galaxy is not None and len(galaxy) else None
     try:
-        authors = read_table(work / "01_authors.parquet")
+        authors = read_table(work / "01_authors.parquet", ["article_id", "org_key", "affiliation_th", "affiliation_en"])
     except FileNotFoundError:
         authors = pd.DataFrame(columns=["article_id", "org_key"])
     org_names = org_display_names(authors)                  # org_key counts; its written name is published
@@ -190,10 +170,10 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     cents = dict(zip(cent_ids, np.load(work / "04_centroids.npy")))
 
     min_recent = int(cfg["emerging"]["min_articles_recent"])
-    narr = _optional(work / "11_narratives.parquet")
+    narr = read_optional(work / "11_narratives.parquet")
     narratives = ({int(r.topic_id): C.Narrative(th=str(r.th), en=str(r.en), source=str(r.source))
                    for r in narr.itertuples()} if narr is not None else {})
-    brief = _read_json(work / "11_brief.json")
+    brief = read_json(work / "11_brief.json")
 
     # ---- topics.json
     sdg_of = topic_sdg_numbers(work)                # P3: SDG numbers per topic (empty without the sdg step)
@@ -219,7 +199,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
             size=int(size_of[t]),
             x=float(pos.loc[t, "x"]), y=float(pos.loc[t, "y"]), r=float(pos.loc[t, "r"]),
             status=str(e["status"]) if e is not None else "LOW_DATA",
-            score=(_f(e["emerging_score"], 1) or 0.0) if e is not None else 0.0,
+            score=(json_float(e["emerging_score"], 1) or 0.0) if e is not None else 0.0,
             metrics=_metrics(e, min_recent) if e is not None else C.TopicMetrics(
                 count_recent=0, share_recent=0.0, share_baseline=0.0, share_ratio=None, share_growth=None,
                 share_growth_lo=None, share_growth_hi=None, acceleration=0.0, burst_frac=0.0, novelty=0.0,
@@ -230,7 +210,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
             subfield=str(tx["subfield_id"]) if tx is not None else None,
             subfield_en=str(tx["subfield_en"]) if tx is not None else "",
             cross_field=bool(tx["cross_field"]) if tx is not None else False,
-            taxonomy_vote=_f(tx["vote_share"]) if tx is not None else None,
+            taxonomy_vote=json_float(tx["vote_share"]) if tx is not None else None,
             sdg=sdg_of.get(t, []), nowcast=nowcast))
     files: dict[str, C._Model] = {"topics.json": C.TopicsFile(topics=topics)}
 
@@ -295,8 +275,8 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
                 article_id=str(aid), title=str(row.get("title", "") or ""), title_en=str(row.get("title_en", "") or ""),
                 year=int(year) if pd.notna(year) else None, journal=str(row.get("journal_name", "") or ""),
                 url=str(row.get("url", "") or ""), doi=str(row.get("doi", "") or ""),
-                gx=_f(gxy.loc[aid, "gx"], 2) if gxy is not None and aid in gxy.index else None,
-                gy=_f(gxy.loc[aid, "gy"], 2) if gxy is not None and aid in gxy.index else None))
+                gx=json_float(gxy.loc[aid, "gx"], 2) if gxy is not None and aid in gxy.index else None,
+                gy=json_float(gxy.loc[aid, "gy"], 2) if gxy is not None and aid in gxy.index else None))
         member_ids = docs["article_id"].to_numpy()[members]
         jc = jkey_of.loc[member_ids].value_counts().head(int(ecfg["max_topic_journals"]))
         nb = pd.concat([edges[edges["s"] == t].rename(columns={"t": "o"})[["o", "w"]],
@@ -339,8 +319,8 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
                                             n_topics=int(len(g)), size=int(g["size"].sum())))
     files["taxonomy.json"] = C.TaxonomyFile(
         source=source, version=taxmeta.get("version"),
-        holdout_accuracy_subfield=_f(taxmeta.get("holdout_accuracy_subfield")),
-        holdout_accuracy_field=_f(taxmeta.get("holdout_accuracy_field")), groups=group_rows, subfields=subfields)
+        holdout_accuracy_subfield=json_float(taxmeta.get("holdout_accuracy_subfield")),
+        holdout_accuracy_field=json_float(taxmeta.get("holdout_accuracy_field")), groups=group_rows, subfields=subfields)
 
     # ---- series.json + edges.json + keywords.json
     s = read_table(work / "06_series.parquet")
@@ -351,13 +331,13 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
                 for t, g in s.groupby("topic_id") if int(t) in code})
     files["edges.json"] = C.EdgesFile(edges=[C.Edge(s=code[int(r.s)], t=code[int(r.t)], w=float(r.w))
                                              for r in edges.itertuples() if int(r.s) in code and int(r.t) in code])
-    kw = _optional(work / "07_keywords.parquet")
+    kw = read_optional(work / "07_keywords.parquet")
     if kw is not None:
         files["keywords.json"] = C.KeywordsFile(keywords=[
             C.EmergingKeyword(term=str(r.term), count_recent=int(r.count_recent),
-                              share_ratio=None if bool(r.no_baseline) else (_f(r.share_ratio) or 0.0),
+                              share_ratio=None if bool(r.no_baseline) else (json_float(r.share_ratio) or 0.0),
                               no_baseline=bool(r.no_baseline),
-                              growth=_f(r.growth), growth_lo=_f(r.growth_lo), n_active_years=int(r.n_active_years),
+                              growth=json_float(r.growth), growth_lo=json_float(r.growth_lo), n_active_years=int(r.n_active_years),
                               n_orgs_R=int(r.n_orgs_R), n_journals_R=int(r.n_journals_R),
                               journal_driven=bool(r.journal_driven), emerging=bool(r.emerging),
                               topic=code.get(int(r.topic_id)))
@@ -396,7 +376,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
                                    unassigned_articles=int((labels_arr < 0).sum()),
                                    completeness_method=str(comp.get("method", "median")),
                                    text_quality={str(k): int(v) for k, v in tq.value_counts().items()}))
-    emb_meta = _read_json(work / "03_meta.json")
+    emb_meta = read_json(work / "03_meta.json")
     modules = ["overview", "taxonomy", "topics", "topic_detail", "series", "edges"] + (["keywords"] if kw is not None else [])
     if editor_files:
         modules += ["journals", "journal_detail"]
@@ -415,7 +395,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     if prev and (diff := release_diff(cfg, release, prev, files)) is not None:
         files["diff.json"] = diff
         modules.append("diff")
-    errs = _optional(work / "01_ingest_errors.parquet")
+    errs = read_optional(work / "01_ingest_errors.parquet")
     files["manifest.json"] = C.Manifest(
         release=release, generated_at=now, pipeline_version=_git_hash(), config_hash=config_hash(cfg),
         definition_version=int(cfg["emerging"]["definition_version"]), ci_level=float(cfg["emerging"]["ci_level"]),
@@ -460,14 +440,14 @@ def _llm_stats(cfg: dict, work: Path, brief: dict, release: str) -> list[C.LlmTa
     """Per LLM task: items, cache hits, new calls, repairs and fallbacks of the last run; cost_usd = the release's
     whole spend on the task (sum of its journal), this_run_cost_usd = the last run's."""
     found = []
-    lab = _read_json(work / "05_labels_meta.json")
+    lab = read_json(work / "05_labels_meta.json")
     if lab.get("provider") == "llm":
         found.append({**lab, "task": "label", "model": lab.get("model_id", ""),
                       "items": int(lab.get("topics", 0)) - int(lab.get("reused", 0))})     # reused names: no LLM item
-    merge = _read_json(work / "05_merge_meta.json").get("llm")
+    merge = read_json(work / "05_merge_meta.json").get("llm")
     found += [merge] if merge else []
     found += list((brief.get("llm") or {}).values())
-    methods_llm = _read_json(work / "12_methods_meta.json").get("llm")
+    methods_llm = read_json(work / "12_methods_meta.json").get("llm")
     found += [methods_llm] if methods_llm else []
     keys = ("from_cache", "generated", "repaired", "fallback")
     return [C.LlmTaskStats(task=s["task"], model=str(s.get("model", "")), items=int(s.get("items", 0)),

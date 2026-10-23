@@ -13,36 +13,15 @@ never an author name or an abstract.
 """
 from __future__ import annotations
 
-import json
-import math
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from atlas.checkpoints import article_topics
-from atlas.io_utils import read_table
+from atlas.io_utils import json_float, read_json, read_optional, read_table
 from atlas.schema import contract as C
 from atlas.search_index import FIELDS, QUANT, STOPWORDS, fnv1a32
-
-
-def _f(v, nd: int = 4) -> float | None:
-    try:
-        x = float(v)
-    except (TypeError, ValueError):
-        return None
-    return round(x, nd) if math.isfinite(x) else None
-
-
-def _opt(path: Path) -> pd.DataFrame | None:
-    try:
-        return read_table(path)
-    except FileNotFoundError:
-        return None
-
-
-def _meta(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 def _str(v) -> str:
@@ -56,8 +35,8 @@ def _internal_published(meta: dict) -> bool:
 
 def cited_counts(work: Path) -> dict[str, int]:
     """{article_id: distinct corpus articles citing it} — empty unless internal citation is published."""
-    meta = _meta(work / "19_refs_meta.json")
-    cites = _opt(work / "19_article_cites.parquet")
+    meta = read_json(work / "19_refs_meta.json")
+    cites = read_optional(work / "19_article_cites.parquet")
     if not _internal_published(meta) or cites is None:
         return {}
     return dict(zip(cites["article_id"].astype(str), cites["cited_in_tci"].astype(int)))
@@ -65,8 +44,8 @@ def cited_counts(work: Path) -> dict[str, int]:
 
 def topic_citations(work: Path) -> dict[int, tuple[int, int]] | None:
     """{topic id: (received, given)} — None unless internal citation is published."""
-    meta = _meta(work / "19_refs_meta.json")
-    matches = _opt(work / "19_ref_matches.parquet")
+    meta = read_json(work / "19_refs_meta.json")
+    matches = read_optional(work / "19_ref_matches.parquet")
     if not _internal_published(meta) or matches is None:
         return None
     topic_of = article_topics(work)
@@ -79,25 +58,25 @@ def references_file(cfg: dict, work: Path, code: dict[int, str], jid: dict[str, 
                     jname: dict[str, str] | None = None) -> tuple[C.ReferencesFile | None, str | None]:
     """(references.json, None), or (None, reason) when the step skipped the module, or (None, None) when the step
     did not run."""
-    meta = _meta(work / "19_refs_meta.json")
+    meta = read_json(work / "19_refs_meta.json")
     if not meta:
         return None, None
     if not meta.get("published"):
         return None, str(meta.get("skipped") or "references module not published")
     rcfg = cfg["references"]
     jid, jname = jid or {}, jname or {}
-    practice = _opt(work / "19_journal_refs.parquet")
+    practice = read_optional(work / "19_journal_refs.parquet")
     journals = [C.JournalRefs(
         journal=jname.get(r.journal_key) or _str(r.journal), id=jid.get(r.journal_key), articles=int(r.articles),
-        articles_with_refs=int(r.articles_with_refs), refs_median=_f(r.refs_median, 2) or 0.0,
-        age_median=_f(r.age_median, 2), share_recent=_f(r.share_recent), share_thai=_f(r.share_thai) or 0.0,
-        share_doi=_f(r.share_doi) or 0.0) for r in (practice.itertuples() if practice is not None else [])]
+        articles_with_refs=int(r.articles_with_refs), refs_median=json_float(r.refs_median, 2) or 0.0,
+        age_median=json_float(r.age_median, 2), share_recent=json_float(r.share_recent), share_thai=json_float(r.share_thai) or 0.0,
+        share_doi=json_float(r.share_doi) or 0.0) for r in (practice.itertuples() if practice is not None else [])]
     internal = None
     if meta.get("internal"):
         internal = _internal(cfg, work, code, meta)
     return C.ReferencesFile(
         window=C.YearWindow(start=int(meta["window"][0]), end=int(meta["window"][1])), articles=int(meta["articles"]),
-        articles_with_refs=int(meta["with_refs"]), coverage=_f(meta["coverage"]) or 0.0,
+        articles_with_refs=int(meta["with_refs"]), coverage=json_float(meta["coverage"]) or 0.0,
         refs_counted=int(meta["refs_counted"]), min_coverage=float(rcfg["min_coverage"]),
         min_journal_articles=int(rcfg["min_journal_articles"]), recent_years=int(rcfg["recent_years"]),
         journals=journals, internal=internal,
@@ -108,7 +87,7 @@ def _internal(cfg: dict, work: Path, code: dict[int, str], meta: dict) -> C.Inte
     rcfg = cfg["references"]
     n = int(meta["matches"])
     per_topic = topic_citations(work) or {}
-    flows = _opt(work / "19_topic_flows.parquet")
+    flows = read_optional(work / "19_topic_flows.parquet")
     flows = flows[(flows["source"] != flows["target"]) & (flows["n"] >= int(rcfg["min_flow"]))] if flows is not None \
         else pd.DataFrame(columns=["source", "target", "n"])
     cites = read_table(work / "19_article_cites.parquet").head(int(rcfg["top_articles"]))
@@ -130,7 +109,7 @@ def _internal(cfg: dict, work: Path, code: dict[int, str], meta: dict) -> C.Inte
     methods = meta.get("methods") or {}
     return C.InternalCitations(
         matches=n, citing_articles=int(meta["citing_articles"]), cited_articles=int(meta["cited_articles"]),
-        share_doi=_f(methods.get("doi", 0) / n) if n else 0.0, share_title=_f(methods.get("title", 0) / n) if n else 0.0,
+        share_doi=json_float(methods.get("doi", 0) / n) if n else 0.0, share_title=json_float(methods.get("title", 0) / n) if n else 0.0,
         min_flow=int(rcfg["min_flow"]),
         topics=[C.TopicCitations(topic=code[t], received=rg[0], given=rg[1])
                 for t, rg in sorted(per_topic.items()) if t in code],
@@ -147,7 +126,7 @@ def _or_none(values: pd.Series) -> list[str | None]:
 def search_files(cfg: dict, work: Path, code: dict[int, str]) -> tuple[dict[str, C._Model], dict[str, str]]:
     """({published path: model}, {module: skip reason}) for the search and galaxy modules — both empty when the
     search step did not run."""
-    meta = _meta(work / "20_search_meta.json")
+    meta = read_json(work / "20_search_meta.json")
     if not meta:
         return {}, {}
     files: dict[str, C._Model] = {}
@@ -218,7 +197,7 @@ def kwtrends_file(cfg: dict, work: Path, code: dict[int, str]) -> tuple[
         C.KwTrendsFile | None, str | None, dict[int, list[C.GlossaryItem]] | None]:
     """(kwtrends.json, None, {topic id: glossary}) — or (None, reason, None) when the step skipped the module, or
     (None, None, None) when the step did not run. Topics without pairs are absent from the dict (→ [])."""
-    meta = _meta(work / "21_kwtrends_meta.json")
+    meta = read_json(work / "21_kwtrends_meta.json")
     if not meta:
         return None, None, None
     if not meta.get("published"):

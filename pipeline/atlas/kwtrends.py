@@ -34,8 +34,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from atlas.checkpoints import analysed_window, article_topics
-from atlas.io_utils import read_table, write_table
+from atlas.checkpoints import analysed_window, article_topics_or_empty
+from atlas.io_utils import read_table, text_column, write_table
 from atlas.thai import THAI_LETTER, norm_key
 
 LANGS = ("th", "en")
@@ -53,16 +53,12 @@ def _keys(terms: pd.Series) -> pd.Series:
     return terms.map(uniq).fillna("").astype(str)
 
 
-def _text(df: pd.DataFrame, col: str) -> pd.Series:
-    return df[col].fillna("").astype(str) if col in df.columns else pd.Series("", index=df.index, dtype=str)
-
-
 def keyword_rows(docs: pd.DataFrame, min_key_length: int) -> pd.DataFrame:
     """One row per (article, lang, key): article_id, year, lang, key, term (docs: article_id, year, keywords_*)."""
     parts = []
     for lang in LANGS:
         d = pd.DataFrame({"article_id": docs["article_id"].astype(str).to_numpy(),
-                          "year": docs["year"].to_numpy(), "term": split_terms(_text(docs, f"keywords_{lang}")).to_numpy()})
+                          "year": docs["year"].to_numpy(), "term": split_terms(text_column(docs, f"keywords_{lang}")).to_numpy()})
         d = d.explode("term").dropna(subset=["term"])
         d = d.assign(term=d["term"].astype(str), lang=lang)
         d["key"] = _keys(d["term"])
@@ -108,7 +104,7 @@ def keyword_trends(rows: pd.DataFrame, years: list[int], min_count: int,
 def glossary_pairs(docs: pd.DataFrame, min_key_length: int) -> pd.DataFrame:
     """article_id, th_key, en_key, th, en — keyword lists of equal length paired by position, one row per article
     and pair (docs: article_id, keywords_th, keywords_en)."""
-    th, en = split_terms(_text(docs, "keywords_th")), split_terms(_text(docs, "keywords_en"))
+    th, en = split_terms(text_column(docs, "keywords_th")), split_terms(text_column(docs, "keywords_en"))
     n_th, n_en = th.map(len), en.map(len)
     ok = (n_th == n_en) & (n_th >= 1)
     d = pd.DataFrame({"article_id": docs.loc[ok, "article_id"].astype(str).to_numpy(), "th": th[ok].to_numpy(),
@@ -158,13 +154,6 @@ def _years(work: Path, dated: pd.Series) -> list[int]:
     return sorted({int(y) for y in dated})
 
 
-def _topics(work: Path) -> pd.Series:
-    try:
-        return article_topics(work)
-    except FileNotFoundError:
-        return pd.Series(dtype=np.int64)
-
-
 def kwtrends(cfg: dict) -> dict:
     work = Path(cfg["pipeline"]["work_dir"])
     kcfg = cfg["kwtrends"]
@@ -193,7 +182,7 @@ def kwtrends(cfg: dict) -> dict:
     win = analysed_window(work)
     gdocs = docs[docs["year"].between(*win)] if win else docs
     pairs = glossary_pairs(gdocs, min_len)
-    gloss = glossary(pairs, _topics(work), int(kcfg["glossary_per_topic"]), int(kcfg["glossary_min_pairs"]),
+    gloss = glossary(pairs, article_topics_or_empty(work), int(kcfg["glossary_per_topic"]), int(kcfg["glossary_min_pairs"]),
                      int(kcfg["glossary_max"]))
     write_table(trends, work / "21_kw_years.parquet")
     write_table(gloss, work / "21_glossary.parquet")

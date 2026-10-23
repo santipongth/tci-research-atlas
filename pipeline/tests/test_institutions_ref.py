@@ -129,7 +129,9 @@ def test_province_finder_prefers_an_explicit_province_and_ignores_the_letter_cho
     assert f.find("มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี จังหวัดปัตตานี", "") == "TH-94"   # not Songkhla (TH-90)
     assert f.find("ศูนย์วิจัยเศรษฐกิจตาก", "") is None            # "…จ" of เศรษฐกิจ is not the prefix "จ." (Tak)
     assert f.find("คณะบริหารธุรกิจน่าน", "") is None
-    assert f.find("สถาบันวิจัย จ. ตาก", "") == "TH-63" and f.find("โรงพยาบาลจ.ขอนแก่น", "") == "TH-40"
+    assert f.find("สถาบันวิจัย จ. ตาก", "") == "TH-63" and f.find("โรงพยาบาลขอนแก่น จ.ขอนแก่น", "") == "TH-40"
+    assert f.find("บจ.เชียงใหม่ฟู้ดส์ สำนักงานใหญ่", "") is None                 # "บจ." is a company, not "จ."
+    assert f.find("ศูนย์วิจัย จังหวัดเชียงใหม่ สำนักงานจังหวัดลำพูน", "") == "TH-50"   # "…งานจังหวัด" is no marker
 
 
 def test_a_thai_affiliation_ending_in_a_foreign_country_is_foreign():

@@ -137,13 +137,18 @@ def topic_novelty(cnt: np.ndarray, yrs: np.ndarray, r_years: list[int], last_yea
     return float(0.5 * recent + 0.5 * (1 - min(age, 15) / 15))
 
 
+def definition_windows(ecfg: dict, last_year: int) -> tuple[list[int], list[int], list[int]]:
+    """(R, B, W) of the definition (docs/EMERGING_SPEC.md): the recent years, the baseline years just before them and
+    the trend window, all ending at `last_year` (the last complete year)."""
+    wR, wB, wW = int(ecfg["recent_window"]), int(ecfg["baseline_window"]), int(ecfg["trend_window"])
+    return (list(range(last_year - wR + 1, last_year + 1)), list(range(last_year - wR - wB + 1, last_year - wR + 1)),
+            list(range(last_year - wW + 1, last_year + 1)))
+
+
 def compute_emerging(series: pd.DataFrame, last_year: int, ecfg: dict, jseries: pd.DataFrame,
                      oseries: pd.DataFrame, jfirst: pd.DataFrame,
                      coherence: dict | None = None) -> pd.DataFrame:
-    wR, wB, wW = int(ecfg["recent_window"]), int(ecfg["baseline_window"]), int(ecfg["trend_window"])
-    R = list(range(last_year - wR + 1, last_year + 1))
-    B = list(range(last_year - wR - wB + 1, last_year - wR + 1))
-    W = list(range(last_year - wW + 1, last_year + 1))
+    R, B, W = definition_windows(ecfg, last_year)
     ci, max_log = float(ecfg["ci_level"]), float(ecfg["max_abs_log_growth"])
     bcfg, br = ecfg["burst"], ecfg["breadth"]
     new_j = set(jfirst.loc[jfirst["first_year"] >= R[0], "journal"])

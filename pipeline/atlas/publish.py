@@ -92,6 +92,7 @@ def release_notes(release_dir: str | Path) -> str:
 
 DETAIL_FOLDERS = ("topics", "journals", "institutions")   # inlined in this order, as far as the byte budget goes
 SLIM_KEEP = ("manifest.json", "overview.json", "topics.json", "taxonomy.json", "diff.json")
+SLIM_KEEP_FOLDERS = ("topics",)          # topic feeds link data/<release>/topics/<code>.json of older releases
 
 
 def offline_bundle(release_dir: str | Path, latest: dict, exclude=(), max_bytes: int | None = None) -> dict:
@@ -109,8 +110,15 @@ def offline_bundle(release_dir: str | Path, latest: dict, exclude=(), max_bytes:
     files = {p.relative_to(root).as_posix(): json.loads(p.read_text(encoding="utf-8")) for p in top}
     used = sum(p.stat().st_size for p in top)
     left_out: dict[str, int] = {}
+    try:                                  # topic files in topics.json order (the order the web lists them), not by id
+        rank = {t["id"]: i for i, t in enumerate(json.loads((root / "topics.json").read_text(encoding="utf-8"))["topics"])}
+    except (OSError, ValueError, KeyError, TypeError):
+        rank = {}
     for name in DETAIL_FOLDERS:
-        for p in (p for p in paths if folder(p) == name):
+        members = [p for p in paths if folder(p) == name]
+        if name == "topics":
+            members.sort(key=lambda p: (rank.get(p.stem, len(rank)), p.stem))
+        for p in members:
             size = p.stat().st_size
             if max_bytes is not None and used + size > max_bytes:
                 left_out[name] = left_out.get(name, 0) + 1
@@ -123,18 +131,19 @@ def offline_bundle(release_dir: str | Path, latest: dict, exclude=(), max_bytes:
     return {"latest": latest, "files": files}
 
 
-def slim_old_releases(site: Path, keep_full: int) -> list[str]:
-    """Older releases on the site keep only what the web and the feeds read (SLIM_KEEP): the site must not grow by
-    hundreds of MB every quarter. The newest `keep_full` releases are untouched. Returns the slimmed names."""
+def slim_old_releases(site: Path, keep_full: int, protect=()) -> list[str]:
+    """Older releases on the site keep only what the web and the feeds read (SLIM_KEEP, SLIM_KEEP_FOLDERS): the
+    site must not grow by hundreds of MB every quarter. The newest `keep_full` releases and every release in
+    `protect` (the one latest.json now points to, also when a rollback made an older release the latest) are untouched. Returns the slimmed names."""
     data = site / "data"
     names = sorted((p.name for p in data.glob("*") if (p / "manifest.json").exists()), reverse=True)
     slimmed = []
-    for name in names[keep_full:]:
+    for name in (n for n in names[keep_full:] if n not in set(protect)):
         folder = data / name
         removed = False
         for p in sorted(folder.rglob("*"), reverse=True):
             rel = p.relative_to(folder).as_posix()
-            if p.is_file() and rel not in SLIM_KEEP:
+            if p.is_file() and rel not in SLIM_KEEP and rel.split("/", 1)[0] not in SLIM_KEEP_FOLDERS:
                 p.unlink()
                 removed = True
             elif p.is_dir() and not any(p.iterdir()):
@@ -224,7 +233,8 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
     shutil.copytree(release_dir, dst)
     restored = restore_previous(release_dir, site)
     pcfg = (cfg or {}).get("publish") or {}
-    slimmed = slim_old_releases(site, int(pcfg.get("keep_full_releases", 1))) if move else []
+    # only when latest.json moves to `release`: that release is the one the site now shows, so it is never slimmed
+    slimmed = slim_old_releases(site, int(pcfg.get("keep_full_releases", 1)), protect={release}) if move else []
     feeds = None
     if pcfg.get("site_url"):
         feeds = write_feeds(site, pcfg["site_url"], int(pcfg.get("feed_max_entries", 12)),

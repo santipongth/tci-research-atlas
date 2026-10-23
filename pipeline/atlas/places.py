@@ -25,7 +25,7 @@ REGIONS = ("bangkok", "central", "northeast", "north", "south")
 # Words that put a province name right after them. A bare "จ" is not one: folded, it is also the last letter of
 # ธุรกิจ / เศรษฐกิจ / วิจัย… ("ศูนย์วิจัยเศรษฐกิจตาก" is not in Tak). "จ." / "จังหวัด" are read first, unfolded.
 _TH_PREFIXES = ("จังหวัด", "ราชภัฏ", "มหาวิทยาลัย", "โรงพยาบาล", "วิทยาลัยพยาบาลบรมราชชนนี")
-_MARKED = re.compile(r"(?:จังหวัด|จ\.)\s*(\S+)")
+_MARKED = re.compile(r"(?:^|(?<=[\s,(]))(?:จังหวัด|จ\.)\s*(\S+)")
 
 
 @dataclass(frozen=True)

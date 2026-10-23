@@ -66,23 +66,19 @@ def reduce_embeddings(emb: np.ndarray, ccfg: dict, seed: int) -> np.ndarray:
 
 
 def hdbscan_labels(red: np.ndarray, fine: dict, backend: str = "sklearn") -> np.ndarray:
+    n = len(red)
+    mcs = max(2, min(int(fine["hdbscan_min_cluster_size"]), max(2, n // 2)))     # a tiny corpus still clusters
+    ms = max(1, min(int(fine["hdbscan_min_samples"]), mcs))
     if backend == "fast":
         try:
             import fast_hdbscan  # optional extra: uv sync --extra fast
         except ImportError as e:
-            raise RuntimeError("clustering.fine.hdbscan_backend is 'fast' but fast_hdbscan is not installed — run "
+            raise RuntimeError("clustering.hdbscan_backend is 'fast' but fast_hdbscan is not installed — run "
                                "`uv sync --extra fast` (or set the backend to 'sklearn' for a small corpus; it is "
                                "quadratic and gives slightly different clusters)") from e
-
-        n = len(red)
-        mcs = max(2, min(int(fine["hdbscan_min_cluster_size"]), max(2, n // 2)))
-        ms = max(1, min(int(fine["hdbscan_min_samples"]), mcs))
         return np.asarray(fast_hdbscan.HDBSCAN(min_cluster_size=mcs, min_samples=ms).fit_predict(red), dtype=int)
     from sklearn.cluster import HDBSCAN
 
-    n = len(red)
-    mcs = max(2, min(int(fine["hdbscan_min_cluster_size"]), max(2, n // 2)))
-    ms = max(1, min(int(fine["hdbscan_min_samples"]), mcs))
     return HDBSCAN(min_cluster_size=mcs, min_samples=ms, copy=True).fit_predict(red)
 
 

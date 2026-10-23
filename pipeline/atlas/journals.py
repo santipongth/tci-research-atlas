@@ -29,7 +29,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from atlas.io_utils import read_table, write_table
+from atlas.io_utils import read_optional, read_or_empty, read_table, write_table
 from atlas.journal_metrics import article_completeness, author_metrics, completeness_table, owners
 from atlas.journal_topics import (
     in_years,
@@ -54,13 +54,6 @@ SUMMARY_COLUMNS = [
 RATE_COLUMNS = ["completeness", "inhouse_share", "effective_orgs", "foreign_share", "methods_coverage", "owner_share"]
 AUTHOR_COLUMNS = ["article_id", "affiliation_th", "affiliation_en", "org_key"]
 REF_COLUMNS = ["article_id", "lang", "translated"]
-
-
-def _optional(path: Path, columns: list[str] | None = None) -> pd.DataFrame | None:
-    try:
-        return read_table(path)
-    except FileNotFoundError:
-        return pd.DataFrame(columns=columns) if columns is not None else None
 
 
 def windows(cfg: dict, last: int) -> dict[str, tuple[int, int]]:
@@ -96,8 +89,8 @@ def journals(cfg: dict) -> pd.DataFrame:
     arts = read_table(work / "01_articles.parquet")
     arts = arts.assign(journal_key=journal_keys(arts), year=pd.to_numeric(arts["year"], errors="coerce"))
     arts = arts[arts["journal_key"] != ""].reset_index(drop=True)
-    authors = _optional(work / "01_authors.parquet", AUTHOR_COLUMNS)
-    refs = _optional(work / "01_references.parquet", REF_COLUMNS)
+    authors = read_or_empty(work / "01_authors.parquet", AUTHOR_COLUMNS)
+    refs = read_or_empty(work / "01_references.parquet", REF_COLUMNS)
 
     registry, warnings = load_registry(jcfg["registry_path"])
     matched, more = match_registry(arts["journal_key"].unique(), registry)
@@ -130,11 +123,11 @@ def journals(cfg: dict) -> pd.DataFrame:
     tyears = topic_years(jt, mix, list(range(W[0], W[1] + 1)), eligible, int(jcfg["year_mix_topics"]),
                          int(jcfg["year_mix_min_articles"]))
     status = read_table(work / "07_emerging.parquet").set_index("topic_id")["status"]
-    edges = _optional(work / "09_edges.parquet", ["s", "t", "w"])
+    edges = read_or_empty(work / "09_edges.parquet", ["s", "t", "w"])
     opps = special_issue(in_years(jt, *R), status, list(jcfg["special_issue_statuses"]),
                          int(jcfg["special_issue_min_host_articles"]), int(jcfg["special_issue_max_hosts"]))
     jopps = journal_opportunities(opps, mix, edges, int(jcfg["scope_topics"]), int(jcfg["special_issue_per_journal"]))
-    jmeth, mcov = journal_methods(_optional(work / "12_methods_articles.parquet"), arts_w, eligible)
+    jmeth, mcov = journal_methods(read_optional(work / "12_methods_articles.parquet"), arts_w, eligible)
 
     dated = arts[arts["year"].notna() & (arts["year"] <= W[1])].astype({"year": int})
     years = dated.groupby(["journal_key", "year"]).size().rename("articles").reset_index()

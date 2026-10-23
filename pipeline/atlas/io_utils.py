@@ -3,6 +3,8 @@ survive Windows sharing violations (another process — `atlas status`, an antiv
 the file at that moment makes os.replace / os.unlink fail with PermissionError on Windows)."""
 from __future__ import annotations
 
+import json
+import math
 import os
 import random
 import time
@@ -119,3 +121,39 @@ def read_table(path: str | Path, columns: list[str] | None = None) -> pd.DataFra
         df = pd.read_pickle(alt)
         return df if columns is None else df[[c for c in columns if c in df.columns]]
     raise FileNotFoundError(f"neither {path} nor {alt} exists — run the previous step first")
+
+
+def read_optional(path: str | Path, columns: list[str] | None = None) -> pd.DataFrame | None:
+    """A checkpoint table, or None when the step that writes it did not run (optional modules)."""
+    try:
+        return read_table(path, columns)
+    except FileNotFoundError:
+        return None
+
+
+def read_json(path: str | Path) -> dict:
+    """A JSON checkpoint (meta files), {} when it is not there."""
+    p = Path(path)
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+def text_column(df: pd.DataFrame, col: str) -> pd.Series:
+    """A text column with missing values as "" — an all-"" column when the table lacks it."""
+    return df[col].fillna("").astype(str) if col in df.columns else pd.Series("", index=df.index, dtype=str)
+
+
+def json_float(v, nd: int = 4) -> float | None:
+    """A number for a published JSON file: rounded, None for missing / non-numeric / NaN / infinity (strict JSON)."""
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return round(x, nd) if math.isfinite(x) else None
+
+
+def read_or_empty(path: str | Path, columns: list[str]) -> pd.DataFrame:
+    """A checkpoint table, or an empty one with `columns` when the step that writes it did not run."""
+    try:
+        return read_table(path)
+    except FileNotFoundError:
+        return pd.DataFrame(columns=columns)

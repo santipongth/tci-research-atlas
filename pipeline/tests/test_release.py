@@ -752,10 +752,15 @@ def test_older_releases_on_the_site_are_slimmed_and_the_offline_file_has_a_budge
     for rel in ("2026Q1", "2026Q2"):
         publish_site(root / "out" / "data" / rel, site, cfg)
     old = site / "data" / "2026Q1"
-    assert sorted(p.relative_to(old).as_posix() for p in old.rglob("*") if p.is_file()) == sorted(
-        n for n in ("manifest.json", "overview.json", "topics.json", "taxonomy.json", "diff.json") if (old / n).exists())
+    kept = sorted(p.relative_to(old).as_posix() for p in old.rglob("*") if p.is_file())
+    top = sorted(n for n in ("manifest.json", "overview.json", "topics.json", "taxonomy.json", "diff.json") if (old / n).exists())
+    assert [k for k in kept if "/" not in k] == top and all(k.startswith("topics/") for k in kept if "/" in k)
+    assert not (old / "search").exists()                                          # the heavy files are gone
     assert (site / "data" / "2026Q2" / "search" / "meta.json").exists()          # the newest is whole
     assert slim_old_releases(site, 1) == []                                       # idempotent
+    # a rollback (--set-latest on the older release) never slims the release it makes the latest
+    publish_site(root / "out" / "data" / "2026Q1", site, cfg, set_latest=True)
+    assert (site / "data" / "2026Q1" / "manifest.json").exists() and (site / "data" / "2026Q2" / "search").exists()
     full = offline_bundle(root / "out" / "data" / "2026Q2", {"release": "2026Q2"})
     tight = offline_bundle(root / "out" / "data" / "2026Q2", {"release": "2026Q2"}, max_bytes=1)
     assert any(f.startswith("topics/") for f in full["files"]) and not any(f.startswith("topics/") for f in tight["files"])

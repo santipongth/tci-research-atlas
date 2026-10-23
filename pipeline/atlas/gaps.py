@@ -23,19 +23,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from atlas.io_utils import read_table, write_table
+from atlas.io_utils import read_or_empty, read_table, write_table
 from atlas.registry import journal_keys
 from atlas.taxonomy import load_topic_groups
 
 CONC_COLUMNS = ["scope", "unit", "kind", "articles", "hhi", "top_share", "top_key", "concentrated"]
 WORLD_COLUMNS = ["subfield_id", "subfield_en", "world_ratio", "activity_index", "topics"]
-
-
-def _opt(path: Path, columns: list[str]) -> pd.DataFrame:
-    try:
-        return read_table(path)
-    except FileNotFoundError:
-        return pd.DataFrame(columns=columns)
 
 
 def concentration(df: pd.DataFrame, unit: str, item: str) -> pd.DataFrame:
@@ -81,8 +74,8 @@ def weak_bridges(edges: pd.DataFrame, inst_sets: dict[int, set], min_sim: float,
 
 
 def world_gaps(work: Path, limit: int) -> pd.DataFrame:
-    bench = _opt(work / "17_benchmark.parquet", [])
-    tax = _opt(work / "10_taxonomy.parquet", ["topic_id", "subfield_id"])
+    bench = read_or_empty(work / "17_benchmark.parquet", [])
+    tax = read_or_empty(work / "10_taxonomy.parquet", ["topic_id", "subfield_id"])
     if bench.empty:
         return pd.DataFrame(columns=WORLD_COLUMNS)
     anchored = (tax.astype({"subfield_id": str}).groupby("subfield_id")["topic_id"]
@@ -104,12 +97,12 @@ def gaps(cfg: dict) -> dict:
     arts = read_table(work / "01_articles.parquet", ["article_id", "journal_name", "journal_key", "year"])
     arts = arts.assign(journal_key=journal_keys(arts), year=pd.to_numeric(arts["year"], errors="coerce"))
     in_r = arts[arts["year"].between(*R).fillna(False).astype(bool)]
-    docs = read_table(work / "02_docs.parquet")[["article_id"]]
+    docs = read_table(work / "02_docs.parquet", ["article_id"])
     fine = read_table(work / "04_fine_topics.parquet")[["article_id", "fine_topic"]]
     topic_of = docs.merge(fine, on="article_id").rename(columns={"fine_topic": "topic_id"})
     topic_of = topic_of[topic_of["topic_id"].fillna(-1).astype(int) >= 0].astype({"topic_id": int})
     ar = in_r[["article_id", "journal_key"]].merge(topic_of, on="article_id")
-    links = _opt(work / "15_article_institutions.parquet", ["article_id", "inst_key"])
+    links = read_or_empty(work / "15_article_institutions.parquet", ["article_id", "inst_key"])
     ai = ar.merge(links, on="article_id")
 
     # R5: emerging topics few institutions work on
@@ -123,7 +116,7 @@ def gaps(cfg: dict) -> dict:
                            "institutions": few.to_numpy(dtype=int)})
 
     # R5: neighbouring topics whose communities barely meet; world opportunities
-    edges = _opt(work / "09_edges.parquet", ["s", "t", "w"])
+    edges = read_or_empty(work / "09_edges.parquet", ["s", "t", "w"])
     sets = {int(t): set(g) for t, g in ai.groupby("topic_id")["inst_key"]}
     bridges = weak_bridges(edges, sets, float(gcfg["bridge_min_similarity"]), float(gcfg["bridge_max_jaccard"]), limit)
     world = world_gaps(work, limit)

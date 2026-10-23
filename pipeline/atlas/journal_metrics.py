@@ -24,6 +24,7 @@ import pandas as pd
 
 from atlas.config import COMPLETENESS_COMPONENTS
 from atlas.countries import is_foreign_affiliation
+from atlas.io_utils import text_column
 from atlas.orgs import org_key
 from atlas.thai import thai_ratio
 
@@ -33,7 +34,7 @@ OWNER_COLUMNS = ["journal_key", "owner_key", "owner_name", "owner_source", "owne
 
 
 def _text(df: pd.DataFrame, col: str) -> pd.Series:
-    return df[col].fillna("").astype(str).str.strip() if col in df.columns else pd.Series("", index=df.index)
+    return text_column(df, col).str.strip()
 
 
 def _flag(df: pd.DataFrame, col: str) -> pd.Series:

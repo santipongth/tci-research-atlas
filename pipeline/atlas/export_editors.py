@@ -13,29 +13,13 @@ Only aggregates are published; no abstract, no person.
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 
 import pandas as pd
 
-from atlas.io_utils import read_table
+from atlas.io_utils import json_float, read_optional, read_table
 from atlas.methods import METHODS
 from atlas.schema import contract as C
-
-
-def _f(v, nd: int = 4) -> float | None:
-    try:
-        x = float(v)
-    except (TypeError, ValueError):
-        return None
-    return round(x, nd) if math.isfinite(x) else None
-
-
-def _opt(path: Path) -> pd.DataFrame | None:
-    try:
-        return read_table(path)
-    except FileNotFoundError:
-        return None
 
 
 def _window(pair) -> C.YearWindow:
@@ -56,15 +40,15 @@ def _topic_years(t, code: dict, min_articles: int) -> C.JournalTopicYears | None
     order = t.drop_duplicates("topic_id")["topic_id"].astype(int).tolist()       # largest first, as the step wrote them
     return C.JournalTopicYears(
         years=years, articles=articles, min_articles=min_articles,
-        topics=[C.JournalTopicLine(topic=code[tid], shares=[_f(v) for v in wide[tid]]) for tid in order
+        topics=[C.JournalTopicLine(topic=code[tid], shares=[json_float(v) for v in wide[tid]]) for tid in order
                 if tid != -1 and tid in code],
-        other=[_f(v) for v in wide[-1]] if -1 in wide.columns else [None] * len(years))
+        other=[json_float(v) for v in wide[-1]] if -1 in wide.columns else [None] * len(years))
 
 
 def journal_files(cfg: dict, work: Path, code: dict[int, str], topic_group: dict[int, str]
                   ) -> tuple[dict[str, C._Model], dict[str, str], dict[str, str]]:
     """({path: model}, {journal_key: id}, {journal_key: display name}) — empty when the journals step did not run."""
-    summary = _opt(work / "13_journals.parquet")
+    summary = read_optional(work / "13_journals.parquet")
     if summary is None:
         return {}, {}, {}
     jcfg = cfg["journals"]
@@ -96,11 +80,11 @@ def journal_files(cfg: dict, work: Path, code: dict[int, str], topic_group: dict
             publisher=r.publisher or "", url=r.url or "", in_registry=bool(r.in_registry), articles=int(r.articles),
             articles_window=int(r.articles_window), articles_recent=int(r.articles_recent),
             first_year=_int_or_none(r.first_year), last_year=_int_or_none(r.last_year), active=bool(r.active),
-            low_data=bool(r.low_data), group=group_of.get(jk), completeness=_f(r.completeness, 1),
+            low_data=bool(r.low_data), group=group_of.get(jk), completeness=json_float(r.completeness, 1),
             owner=r.owner_name or "", owner_source=r.owner_source if r.owner_source in ("registry", "inferred") else None,
-            owner_matched=bool(r.owner_matched), inhouse_share=_f(r.inhouse_share), n_orgs=int(r.n_orgs),
-            effective_orgs=_f(r.effective_orgs, 2), foreign_share=_f(r.foreign_share),
-            affiliation_coverage=_f(r.affiliation_coverage), methods_coverage=_f(r.methods_coverage)))
+            owner_matched=bool(r.owner_matched), inhouse_share=json_float(r.inhouse_share), n_orgs=int(r.n_orgs),
+            effective_orgs=json_float(r.effective_orgs, 2), foreign_share=json_float(r.foreign_share),
+            affiliation_coverage=json_float(r.affiliation_coverage), methods_coverage=json_float(r.methods_coverage)))
         g = {k: v.get(jk) for k, v in groups.items()}
         topics = g["mix"].head(int(jcfg["top_topics"])) if g["mix"] is not None else None
         shifts = g["shifts"]
@@ -108,23 +92,23 @@ def journal_files(cfg: dict, work: Path, code: dict[int, str], topic_group: dict
             id=r.code,
             years=[C.JournalYear(year=int(y.year), articles=int(y.articles)) for y in g["years"].itertuples()]
             if g["years"] is not None else [],
-            topics=[C.TopicShare(topic=code[int(t.topic_id)], count=int(t.count), share=_f(t.share) or 0.0)
+            topics=[C.TopicShare(topic=code[int(t.topic_id)], count=int(t.count), share=json_float(t.share) or 0.0)
                     for t in topics.itertuples()] if topics is not None else [],
-            drift=[C.DriftPoint(year=int(d.year), articles=int(d.articles), distance=_f(d.distance))
+            drift=[C.DriftPoint(year=int(d.year), articles=int(d.articles), distance=json_float(d.distance))
                    for d in g["drift"].itertuples()] if g["drift"] is not None else [],
-            gained=[C.TopicShift(topic=code[int(s.topic_id)], share_before=_f(s.share_before) or 0.0,
-                                 share_after=_f(s.share_after) or 0.0)
+            gained=[C.TopicShift(topic=code[int(s.topic_id)], share_before=json_float(s.share_before) or 0.0,
+                                 share_after=json_float(s.share_after) or 0.0)
                     for s in shifts.itertuples() if s.kind == "gained" and int(s.topic_id) in code]
             if shifts is not None else [],
-            lost=[C.TopicShift(topic=code[int(s.topic_id)], share_before=_f(s.share_before) or 0.0,
-                               share_after=_f(s.share_after) or 0.0)
+            lost=[C.TopicShift(topic=code[int(s.topic_id)], share_before=json_float(s.share_before) or 0.0,
+                               share_after=json_float(s.share_after) or 0.0)
                   for s in shifts.itertuples() if s.kind == "lost" and int(s.topic_id) in code]
             if shifts is not None else [],
-            peers=[C.Peer(id=jid[p.peer_key], similarity=_f(p.similarity) or 0.0) for p in g["peers"].itertuples()]
+            peers=[C.Peer(id=jid[p.peer_key], similarity=json_float(p.similarity) or 0.0) for p in g["peers"].itertuples()]
             if g["peers"] is not None else [],
-            completeness=[C.CompletenessItem(key=c.component, rate=_f(c.rate), n=int(c.n))
+            completeness=[C.CompletenessItem(key=c.component, rate=json_float(c.rate), n=int(c.n))
                           for c in g["comp"].itertuples()] if g["comp"] is not None else [],
-            methods=[C.MethodShare(method=m.method, count=int(m.count), share=_f(m.share) or 0.0)
+            methods=[C.MethodShare(method=m.method, count=int(m.count), share=json_float(m.share) or 0.0)
                      for m in g["methods"].sort_values(["count", "method"], ascending=[False, True]).itertuples()]
             if g["methods"] is not None else [],
             opportunities=[C.JournalOpportunity(topic=code[int(o.topic_id)], reason=o.reason,
@@ -141,18 +125,18 @@ def journal_files(cfg: dict, work: Path, code: dict[int, str], topic_group: dict
         special_issue_min_host_articles=int(jcfg["special_issue_min_host_articles"]),
         drift_reference_years=int(jcfg["drift_reference_years"]), journals=rows,
         special_issue=[C.SpecialIssueTopic(topic=code[int(s.topic_id)], hosts=int(s.hosts),
-                                           top_host_share=_f(s.top_host_share) or 0.0, articles_recent=int(s.articles_R))
+                                           top_host_share=json_float(s.top_host_share) or 0.0, articles_recent=int(s.articles_R))
                        for s in si.itertuples() if int(s.topic_id) in code])
     return files, jid, names
 
 
 def methods_file(cfg: dict, work: Path, code: dict[int, str]) -> C.MethodsFile | None:
-    topics = _opt(work / "12_methods_topics.parquet")
+    topics = read_optional(work / "12_methods_topics.parquet")
     if topics is None or not (work / "12_methods_meta.json").exists():
         return None
     mcfg = cfg["methods"]
     meta = json.loads((work / "12_methods_meta.json").read_text(encoding="utf-8"))
-    notes = _opt(work / "12_methods_notes.parquet")
+    notes = read_optional(work / "12_methods_notes.parquet")
     note = ({int(n.topic_id): C.Narrative(th=str(n.th), en=str(n.en), source=str(n.source)) for n in notes.itertuples()}
             if notes is not None else {})
 
@@ -164,15 +148,15 @@ def methods_file(cfg: dict, work: Path, code: dict[int, str]) -> C.MethodsFile |
     return C.MethodsFile(
         lexicon_version=meta["lexicon_version"], window=_window(meta["window"]), articles=int(meta["articles"]),
         with_methods=int(meta["with_methods"]), monoculture_methods=list(mcfg["monoculture_methods"]),
-        monoculture_min_share=float(mcfg["monoculture_min_share"]), monoculture_share=_f(meta.get("monoculture_share")),
+        monoculture_min_share=float(mcfg["monoculture_min_share"]), monoculture_share=json_float(meta.get("monoculture_share")),
         min_articles=int(mcfg["min_articles"]), methods=[C.MethodInfo(key=m.key, th=m.th, en=m.en) for m in METHODS],
         corpus=shares(meta["counts"], int(meta["with_methods"])),
         by_year=C.MethodYears(years=by["years"], articles=by["articles"], shares=by["shares"]),
         topics=[C.TopicMethods(
             topic=code[int(t.topic_id)], articles=int(t.articles), with_methods=int(t.with_methods),
-            coverage=_f(t.coverage) or 0.0, methods=shares(json.loads(t.counts), int(t.with_methods)),
-            sample_size_n=int(t.ss_n), sample_size_median=_f(t.ss_median, 1), sample_size_q1=_f(t.ss_q1, 1),
-            sample_size_q3=_f(t.ss_q3, 1), monoculture_share=_f(t.monoculture_share), monoculture=bool(t.monoculture),
+            coverage=json_float(t.coverage) or 0.0, methods=shares(json.loads(t.counts), int(t.with_methods)),
+            sample_size_n=int(t.ss_n), sample_size_median=json_float(t.ss_median, 1), sample_size_q1=json_float(t.ss_q1, 1),
+            sample_size_q3=json_float(t.ss_q3, 1), monoculture_share=json_float(t.monoculture_share), monoculture=bool(t.monoculture),
             note=note.get(int(t.topic_id)))
             for t in topics.itertuples() if int(t.topic_id) in code])
 

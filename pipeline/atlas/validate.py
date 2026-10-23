@@ -328,7 +328,7 @@ def validate_release(release_dir: str | Path, previous_dir: str | Path | None, v
     _check_editors(models, rep)
     _check_executives(models, rep)
     _check_research(models, root, rep)
-    rep.errors += scan_release(root, work_dir)
+    rep.errors += scan_release(root, work_dir, allow=vcfg.get("privacy_allow") or ())
     manifest = models.get("manifest.json")
     _check_llm(manifest, rep)
     if manifest is not None and manifest.release != root.name:

@@ -211,12 +211,17 @@ def default_release(config: Path | None, runs_dir: Path) -> str:
     from atlas.state import recorded_release
 
     try:
-        started = recorded_release(load_config(config))
+        cfg = load_config(config)
+        started = recorded_release(cfg)
     except (FileNotFoundError, ValueError):
-        started = None
-    if started and not (runs_dir / started / "summary.md").is_file():
+        return release_from_date(today())
+    now = release_from_date(today())
+    exported = started and (Path(cfg["pipeline"]["output_dir"]) / "data" / started / "manifest.json").exists()
+    if started and started != now and not exported and not (runs_dir / started / "summary.md").is_file():
+        _say(f"NOTICE: work_dir holds the unfinished round {started} — resuming it (pass --release {now} to start "
+             f"the new quarter instead)")
         return started
-    return release_from_date(today())
+    return now
 
 
 def run_round(config: Path | None, corpus: Path | None, release: str | None, yes: bool, strict: bool,

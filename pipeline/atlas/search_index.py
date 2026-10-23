@@ -46,8 +46,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from atlas.checkpoints import analysed_window, article_topics
-from atlas.io_utils import read_table, write_table
+from atlas.checkpoints import analysed_window, article_topics_or_empty
+from atlas.io_utils import read_table, text_column, write_table
 
 TOKENIZER_VERSION = 1
 FIELDS = ("title_th", "title_en", "keywords_th", "keywords_en")
@@ -179,10 +179,6 @@ def fnv1a32(s: str) -> int:
     return h
 
 
-def _text(df: pd.DataFrame, col: str) -> pd.Series:
-    return df[col].fillna("").astype(str) if col in df.columns else pd.Series("", index=df.index, dtype=str)
-
-
 def doc_order(work: str | Path) -> pd.DataFrame:
     """ordinal, article_id, year, journal_name, doi, url + the indexed fields — the published articles in
     article_id order (dated in the analysed window, with a Thai or English title)."""
@@ -191,7 +187,7 @@ def doc_order(work: str | Path) -> pd.DataFrame:
     out = pd.DataFrame({"article_id": arts["article_id"].astype(str),
                         "year": pd.to_numeric(arts["year"], errors="coerce")})
     for col in (*FIELDS, "journal_name", "doi", "url"):
-        out[col] = _text(arts, col).str.strip()
+        out[col] = text_column(arts, col).str.strip()
     keep = out["year"].notna() & ((out["title_th"] != "") | (out["title_en"] != ""))
     win = analysed_window(work)
     if win:
@@ -204,9 +200,9 @@ def doc_order(work: str | Path) -> pd.DataFrame:
 
 def build_postings(docs: pd.DataFrame, max_token_chars: int, min_df: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     """(postings [token, ordinal] unique and sorted, vocab [token, df] sorted) of `docs` (ordinal + FIELDS)."""
-    text = _text(docs, FIELDS[0])
+    text = text_column(docs, FIELDS[0])
     for col in FIELDS[1:]:
-        text = text + "\n" + _text(docs, col)
+        text = text + "\n" + text_column(docs, col)
     toks = [tokens(t) for t in text]                 # the only per-article loop: tokenisation (Thai runs cached)
     lens = np.fromiter((len(t) for t in toks), dtype=np.int64, count=len(toks))
     p = pd.DataFrame({"token": pd.Series(list(chain.from_iterable(toks)), dtype=str),
@@ -240,13 +236,6 @@ def galaxy_points(docs: pd.DataFrame, galaxy: pd.DataFrame, topic_of: pd.Series,
                          "year": docs["year"].to_numpy(dtype=np.int64)})
 
 
-def _topics(work: Path) -> pd.Series:
-    try:
-        return article_topics(work)
-    except FileNotFoundError:
-        return pd.Series(dtype=np.int64)
-
-
 def search(cfg: dict) -> dict:
     work = Path(cfg["pipeline"]["work_dir"])
     scfg = cfg["search"]
@@ -262,7 +251,7 @@ def search(cfg: dict) -> dict:
         return meta
     t0 = time.time()
     docs = doc_order(work)
-    topic_of = _topics(work)
+    topic_of = article_topics_or_empty(work)
     journals = sorted(set(docs["journal_name"]))
     jindex = {j: i for i, j in enumerate(journals)}
     out = docs[["ordinal", "article_id", "title_th", "title_en", "year"]].assign(

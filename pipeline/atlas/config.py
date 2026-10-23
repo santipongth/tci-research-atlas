@@ -527,6 +527,7 @@ class ValidateCfg(_Strict):
     size_swing_min_articles: int = Field(50, ge=1)
     max_article_drop: float = Field(0.02, ge=0.0, le=1.0)
     max_file_bytes: int = Field(50_000_000, ge=1)
+    privacy_allow: list[str] = Field(default_factory=list)   # organisation strings a person checked: not an author's name
 
 
 class BakeoffCandidate(_Strict):

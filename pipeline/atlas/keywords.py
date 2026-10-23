@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from atlas.config import KeywordsCfg
-from atlas.emerging import share_growth
+from atlas.emerging import definition_windows, share_growth
 from atlas.io_utils import read_table, write_table
 from atlas.registry import journal_keys
 from atlas.thai import norm_key
@@ -54,10 +54,7 @@ def keyword_rows(docs: pd.DataFrame, min_key_length: int = KeywordsCfg().min_key
 def emerging_keywords(kw: pd.DataFrame, totals: pd.Series, last_year: int, ecfg: dict, kcfg: dict,
                       orgs: pd.DataFrame, jfirst: pd.DataFrame, topics: pd.DataFrame | None = None) -> pd.DataFrame:
     """kw: keyword_rows() · totals: dated articles per year · orgs: article_id, org_key · jfirst: journal, first_year."""
-    wR, wB, wW = int(ecfg["recent_window"]), int(ecfg["baseline_window"]), int(ecfg["trend_window"])
-    R = list(range(last_year - wR + 1, last_year + 1))
-    B = list(range(last_year - wR - wB + 1, last_year - wR + 1))
-    W = list(range(last_year - wW + 1, last_year + 1))
+    R, B, W = definition_windows(ecfg, last_year)
     ci, max_log = float(ecfg["ci_level"]), float(ecfg["max_abs_log_growth"])
     kw = kw[kw["year"] <= last_year]
     n_docs = float(totals[totals.index <= last_year].sum())

@@ -16,6 +16,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from atlas.io_utils import read_table
+from atlas.orgs import has_org_word
 from atlas.thai import clean_text, norm_key
 
 EMAIL = re.compile(rb"[\w.+\-]+@[\w\-]+\.[\w.\-]+")
@@ -26,6 +27,16 @@ ORG_FILES = ("institutions.json",)
 ORG_GLOBS = ("institutions/*.json", "journals.json", "journals/*.json")
 OWNER_KEYS = ("owner", "publisher")
 _SPLIT = re.compile(r"[\s,;()\[\]/|]+")
+# Academic and courtesy titles kept in front of names by the sources ("ผศ.ดร.สมชาย ใจดี", "Asst. Prof. Dr. …")
+_TITLES = re.compile(r"^(?:(?:ศ|รศ|ผศ|ดร|นพ|พญ|ทพ|ทพญ|ภก|ภญ|อ|พ\.?ต\.?อ|ร\.?ต\.?อ)\.|นาย|นางสาว|นาง|ว่าที่ร้อยตรี"
+                     r"|(?:Asst|Assoc|Prof|Dr|Mr|Mrs|Ms|Miss)\.?|Professor|Assistant|Associate)\s*", re.I)
+
+
+def _untitled(name: str) -> str:
+    prev = None
+    while prev != name:
+        prev, name = name, _TITLES.sub("", name).strip()
+    return name
 
 
 def author_name_keys(work_dir: str | Path) -> set[str]:
@@ -34,7 +45,7 @@ def author_name_keys(work_dir: str | Path) -> set[str]:
     if not path.exists():
         return set()
     try:
-        df = read_table(path)
+        df = read_table(path, ["name", "name_en"])
     except Exception:  # noqa: BLE001 — an unreadable checkpoint must not hide the other checks
         return set()
     keys: set[str] = set()
@@ -42,8 +53,10 @@ def author_name_keys(work_dir: str | Path) -> set[str]:
         if col not in df.columns:
             continue
         for raw in df[col].dropna().astype(str).unique():
-            name = clean_text(raw)
-            if len(name.split()) >= 2 and len(norm_key(name)) >= MIN_NAME_KEY:
+            name = _untitled(clean_text(raw))
+            # a "name" that holds an organisation word is a parsing slip (the affiliation in the name field), not a
+            # person: matching it would flag the institution itself
+            if len(name.split()) >= 2 and len(norm_key(name)) >= MIN_NAME_KEY and not has_org_word(name):
                 keys.add(norm_key(name))
     return keys
 
@@ -60,6 +73,24 @@ def _strings(obj, only: tuple[str, ...] | None = None, under: bool = False) -> I
     elif isinstance(obj, list):
         for v in obj:
             yield from _strings(v, only, under)
+
+
+def curated_names(root: Path) -> set[str]:
+    """Organisation names that people chose: institutions from the curated alias table or from ROR, and journal
+    publishers from the registry. An author who shares their wording ("Rattana Bundit" / Rattana Bundit University)
+    must not block the release."""
+    out: set[str] = set()
+    f = root / "institutions.json"
+    if f.is_file():
+        for inst in json.loads(f.read_text(encoding="utf-8")).get("institutions", []):
+            if inst.get("source") in ("alias", "ror"):
+                out.update(n for n in (inst.get("name_th"), inst.get("name_en")) if n)
+    f = root / "journals.json"
+    if f.is_file():
+        for j in json.loads(f.read_text(encoding="utf-8")).get("journals", []):
+            if j.get("publisher"):
+                out.add(j["publisher"])
+    return out
 
 
 def _org_strings(root: Path) -> Iterator[tuple[str, str]]:
@@ -91,8 +122,10 @@ def contains_name(text: str, names: set[str]) -> bool:
     return False
 
 
-def scan_release(release_dir: str | Path, work_dir: str | Path | None = None, max_report: int = 10) -> list[str]:
-    """Errors (empty = clean) for a release folder; the name check runs when the work_dir holds 01_authors."""
+def scan_release(release_dir: str | Path, work_dir: str | Path | None = None, max_report: int = 10,
+                 allow: tuple[str, ...] | list[str] = ()) -> list[str]:
+    """Errors (empty = clean) for a release folder; the name check runs when the work_dir holds 01_authors.
+    `allow` (validation.privacy_allow) lists organisation strings a person checked and accepted."""
     root = Path(release_dir)
     errors: list[str] = []
     for f in sorted(p for p in root.rglob("*") if p.is_file() and p.suffix in (".json", ".xml", ".html")):
@@ -104,11 +137,14 @@ def scan_release(release_dir: str | Path, work_dir: str | Path | None = None, ma
     names = author_name_keys(work_dir) if work_dir else set()
     if names:
         seen = 0
+        skip = curated_names(root) | set(allow)
         for rel, s in _org_strings(root):
-            if contains_name(s, names):
+            if s not in skip and contains_name(s, names):
                 seen += 1
                 if seen <= max_report:
-                    errors.append(f"privacy: an organisation string in {rel} contains an author's full name: {s[:60]!r}")
+                    errors.append(f"privacy: an organisation string in {rel} contains an author's full name: {s[:60]!r} "
+                                  "— map it in institutions_aliases.csv, or after checking it is an organisation add it "
+                                  "to validation.privacy_allow")
         if seen > max_report:
             errors.append(f"privacy: {seen - max_report} more organisation strings contain an author's full name")
     return errors
