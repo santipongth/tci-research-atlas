@@ -1,0 +1,43 @@
+import { defineStrings } from './define'
+
+/** "งานวิจัยในจังหวัดของฉัน" (/province, /province/:code). Lazy page only (read with useStrings). */
+export const province = defineStrings({
+  'pv.title': { th: 'งานวิจัยในจังหวัดของฉัน', en: 'Research in my province' },
+  'pv.lede': {
+    th: 'เลือกจังหวัด แล้วดูว่าคนในจังหวัดนั้นทำวิจัยเรื่องอะไรมากที่สุด มีสถาบันไหนบ้าง และงานวิจัยในจังหวัดนี้มีมากแค่ไหนเมื่อเทียบกับทั้งประเทศ',
+    en: 'Pick a province to see what its researchers work on most, which institutions are there, and how much research it has compared with the whole country.',
+  },
+  'pv.pick': { th: 'เลือกจังหวัด', en: 'Choose a province' },
+  'pv.pickNone': { th: '— เลือกจังหวัด —', en: '— choose a province —' },
+  'pv.byRegion': { th: 'ทุกจังหวัด แยกตามภาค', en: 'Every province by region' },
+  'pv.byRegion.intro': { th: 'ตัวเลขคือจำนวนบทความปี {a}–{b} ที่มีผู้เขียนจากสถาบันในจังหวัดนั้น', en: 'The number is the articles in {a}–{b} with an author from an institution in that province.' },
+
+  'pv.p.title': { th: 'งานวิจัยใน{name}', en: 'Research in {name}' },
+  'pv.p.lede': { th: 'ปี {a}–{b} มีบทความที่ผู้เขียนอยู่ใน{name} {n} เรื่อง เรื่องที่ทำมากที่สุดคือ “{topic}”', en: 'In {a}–{b}, {n} articles had an author in {name}. The topic worked on most is “{topic}”.' },
+  'pv.p.ledePlain': { th: 'ปี {a}–{b} มีบทความที่ผู้เขียนอยู่ใน{name} {n} เรื่อง', en: 'In {a}–{b}, {n} articles had an author in {name}.' },
+  'pv.p.other': { th: 'ดูจังหวัดอื่น', en: 'See another province' },
+  'pv.p.unknown': { th: 'ไม่พบจังหวัดนี้ในข้อมูลรอบนี้', en: 'This province is not in this release' },
+  'pv.p.unknownBody': { th: 'รหัส “{code}” ไม่ตรงกับจังหวัดใดที่มีงานวิจัยในรอบข้อมูลนี้ ลองเลือกจากรายการด้านล่าง', en: 'Code “{code}” matches no province with research in this release. Pick one from the list below.' },
+  'pv.f.h': { th: '{name}ในตัวเลข', en: '{name} in numbers' },
+  'pv.f.articles': { th: 'บทความปี {a}–{b}', en: 'Articles {a}–{b}' },
+  'pv.f.articlesSub': { th: 'นับบทความละครั้ง แม้มีผู้เขียนหลายคนในจังหวัดนี้', en: 'Each article counted once, however many of its authors are here' },
+  'pv.f.recent': { th: 'บทความปี {a}–{b}', en: 'Articles {a}–{b}' },
+  'pv.f.recentSub': { th: 'ช่วง 3 ปีหลัง', en: 'The last three years' },
+  'pv.f.share': { th: 'สัดส่วนของประเทศ', en: 'Share of the country' },
+  'pv.f.shareSub': { th: 'ของบทความที่ระบุจังหวัดของผู้เขียนได้', en: 'of the articles whose authors could be placed' },
+  'pv.f.rank': { th: 'อันดับในประเทศ', en: 'Rank in the country' },
+  'pv.f.rankV': { th: 'ที่ {r} จาก {n} จังหวัด', en: '{r} of {n} provinces' },
+  'pv.f.rankSub': { th: 'เรียงตามจำนวนบทความ', en: 'By number of articles' },
+  'pv.f.per100k': { th: 'บทความต่อประชากรแสนคน', en: 'Articles per 100,000 people' },
+  'pv.f.per100kSub': { th: 'ใช้ประชากรปี {y}', en: 'Population of {y}' },
+  'pv.t.h': { th: 'คนใน{name}ทำวิจัยเรื่องอะไรมากที่สุด', en: 'What researchers in {name} work on most' },
+  'pv.t.intro': { th: 'เช่น “{topic}” คิดเป็น {p} ของงานวิจัยในจังหวัดนี้ที่จัดเข้าหัวข้อได้ กดชื่อหัวข้อเพื่อดูรายละเอียดทั้งประเทศ', en: 'For example, “{topic}” is {p} of the province’s research that fits a topic. Open a topic for its national picture.' },
+  'pv.t.table': { th: 'หัวข้อที่ทำมากที่สุดใน{name}', en: 'Topics worked on most in {name}' },
+  'pv.t.share': { th: 'สัดส่วนในจังหวัด', en: 'Share in the province' },
+  'pv.t.none': { th: 'รอบข้อมูลนี้ยังไม่มีรายชื่อหัวข้อรายจังหวัด', en: 'This release has no topic list per province yet.' },
+  'pv.i.h': { th: 'สถาบันใน{name}', en: 'Institutions in {name}' },
+  'pv.i.intro': { th: 'สถาบันที่มีบทความมากที่สุดในจังหวัดนี้ (แสดงเฉพาะสถาบันที่มีบทความอย่างน้อย {k} เรื่องในช่วงนี้)', en: 'The institutions here with the most articles (only those with at least {k} articles in the period are listed).' },
+  'pv.i.none': { th: 'ยังไม่มีสถาบันในจังหวัดนี้ที่มีบทความมากพอจะแสดงรายชื่อ', en: 'No institution here has enough articles to be listed yet.' },
+  'pv.i.articles': { th: '{k} บทความ', en: '{k} articles' },
+  'pv.back': { th: 'ดูแผนที่ทุกจังหวัด', en: 'See the map of every province' },
+})

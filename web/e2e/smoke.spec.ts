@@ -34,6 +34,9 @@ const ROUTES = [
   { name: 'galaxy', path: '/galaxy' },
   { name: 'keywords', path: '/keywords' },
   { name: 'references', path: '/references' },
+  { name: 'story', path: '/story' },
+  { name: 'ideas', path: '/ideas' },
+  { name: 'province', path: '/province/TH-50' },
   { name: 'embedTopic', path: '/embed/topic/T000201' },
   { name: 'embedEmerging', path: '/embed/emerging' },
 ] as const
@@ -271,6 +274,23 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#fig-comp-panel tbody tr')).toHaveCount(7)
     await page.goto(`${EXAMPLE}#/journals/so02.nowhere`)
     await expect(page.locator('h1')).toContainText('so02.nowhere')
+  },
+  story: async (page) => {
+    await expect(page.locator('.fact')).toHaveCount(5)
+    await expect(page.locator('.fact-big').first()).toHaveText('2.1 เท่า')
+    await expect(page.getByRole('button', { name: 'ดาวน์โหลดภาพสำหรับแชร์' })).toHaveCount(5)
+  },
+  ideas: async (page) => {
+    await expect(page.locator('.idea')).toHaveCount(8)
+    await page.getByLabel('สาขา').selectOption({ index: 1 })
+    await expect(page).toHaveURL(/g=/)
+    await expect(page.locator('#bridges, .empty-state, .idea').first()).toBeVisible()
+  },
+  province: async (page) => {
+    await expect(page.locator('h1')).toHaveText('งานวิจัยในเชียงใหม่')
+    await expect(page.locator('#topics tbody tr')).toHaveCount(5)
+    await page.getByLabel('ดูจังหวัดอื่น').selectOption('TH-10')
+    await expect(page).toHaveURL(/#\/province\/TH-10$/)
   },
   methods: async (page) => {
     await expect(page.locator('svg.ml path.ml-line')).toHaveCount(4)
@@ -701,7 +721,7 @@ test('the question navigation opens with the keyboard, closes with Escape and ma
   await coming.focus()
   await page.keyboard.press('Enter')
   await expect(coming).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#nav-coming-menu a')).toHaveCount(4)
+  await expect(page.locator('#nav-coming-menu a')).toHaveCount(6)
   // the page name stays the link's name; the question it answers is its description
   await expect(page.locator('#nav-coming-menu').getByRole('link', { name: 'สถานะหัวข้อ', exact: true })).toHaveAccessibleDescription('เรื่องไหนกำลังโต เรื่องไหนลดลง')
   await page.keyboard.press('Escape')
@@ -714,7 +734,7 @@ test('the question navigation opens with the keyboard, closes with Escape and ma
   await expect(page.getByRole('button', { name: 'ใครทำเรื่องอะไร' })).toHaveClass(/is-active/)
   await expect(page.locator('#nav-who-menu')).toBeHidden()
   // the row wraps differently at each width: no menu may leave the screen on either side
-  for (const [width, group, count] of [[1280, 'ไทยอยู่ตรงไหน', 3], [1280, 'หางานวิจัย', 5], [900, 'หางานวิจัย', 5], [1000, 'ไทยอยู่ตรงไหน', 3]] as const) {
+  for (const [width, group, count] of [[1280, 'ไทยอยู่ตรงไหน', 4], [1280, 'หางานวิจัย', 5], [900, 'หางานวิจัย', 5], [1000, 'ไทยอยู่ตรงไหน', 4]] as const) {
     await page.setViewportSize({ width, height: 800 })
     await page.getByRole('button', { name: group }).click()
     const menu = page.locator('.nav-menu:not([hidden])')

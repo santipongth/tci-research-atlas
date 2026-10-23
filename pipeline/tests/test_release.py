@@ -503,7 +503,7 @@ def test_editor_modules_are_published_and_valid(two_releases):
     root, _ = two_releases
     rel = root / "out" / "data" / "2026Q2"
     man = Manifest.model_validate_json((rel / "manifest.json").read_text(encoding="utf-8"))
-    assert man.schema_version == "2.4.0"
+    assert man.schema_version == "2.5.0"
     assert {"journals", "journal_detail", "methods", "match", "diff"} <= set(man.modules)
     paths = {f.path for f in man.files}
     assert {"journals.json", "journals/so02.BECJournal.json", "methods.json", "match.json", "diff.json"} <= paths

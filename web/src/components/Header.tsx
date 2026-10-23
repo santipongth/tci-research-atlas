@@ -26,10 +26,12 @@ const GROUPS: readonly { id: string; key: StrKey; items: readonly Item[] }[] = [
     id: 'nav-coming',
     key: 'nav.q.coming',
     items: [
+      { to: '/story', key: 'nav.story', hint: 'nav.hint.story' },
       { to: '/emerging', key: 'nav.emerging', hint: 'nav.hint.emerging' },
       { to: '/keywords', key: 'nav.keywords', hint: 'nav.hint.keywords' },
       { to: '/changes', key: 'nav.changes', hint: 'nav.hint.changes' },
       { to: '/gaps', key: 'nav.gaps', hint: 'nav.hint.gaps' },
+      { to: '/ideas', key: 'nav.ideas', hint: 'nav.hint.ideas' },
     ],
   },
   {
@@ -46,6 +48,7 @@ const GROUPS: readonly { id: string; key: StrKey; items: readonly Item[] }[] = [
     id: 'nav-where',
     key: 'nav.q.where',
     items: [
+      { to: '/province', key: 'nav.province', hint: 'nav.hint.province' },
       { to: '/regions', key: 'nav.regions', hint: 'nav.hint.regions' },
       { to: '/global', key: 'nav.global', hint: 'nav.hint.global' },
       { to: '/sdg', key: 'nav.sdg', hint: 'nav.hint.sdg' },

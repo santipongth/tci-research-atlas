@@ -64,6 +64,7 @@ function Overview({ release }: { release: AtlasRelease }) {
             </svg>
             {t('ov.brief.btn')}
           </Link>
+          <Link className="btn-secondary" to="/story">{t('nav.story')}</Link>
         </p>
       </StoryHero>
       <div className="layout">

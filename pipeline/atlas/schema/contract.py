@@ -19,7 +19,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "2.4.0"                  # 2.1: editors' modules; 2.2: executives' modules; 2.3: researchers' modules; 2.4: journal topic mix by year
+SCHEMA_VERSION = "2.5.0"                  # 2.1: editors' modules; 2.2: executives' modules; 2.3: researchers' modules; 2.4: journal topic mix by year; 2.5: topics per province
 Status = Literal["EMERGING", "WATCH", "HOT", "DECLINING", "STABLE", "LOW_DATA"]
 TOPIC_ID = r"^T\d{6}$"
 GROUP_ID = r"^[FG]\d{2,}$"                # F = OpenAlex field id, G = agglomerative fallback group
@@ -744,6 +744,8 @@ class ProvinceStat(_Model):
     institutions: int = 0
     per_100k: float | None = None
     top: list[str] = Field(default_factory=list, description="ids of its largest published institutions")
+    topics: list[TopicShare] = Field(default_factory=list,
+                                     description="2.5: its largest topics in the window (share of its articles in a topic)")
 
 
 class RegionStat(_Model):

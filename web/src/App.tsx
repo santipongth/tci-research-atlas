@@ -26,6 +26,9 @@ const MatchPage = lazy(() => import('./pages/MatchPage'))
 const InstitutionsPage = lazy(() => import('./pages/InstitutionsPage'))
 const InstitutionPage = lazy(() => import('./pages/InstitutionPage'))
 const RegionsPage = lazy(() => import('./pages/RegionsPage'))
+const ProvincePage = lazy(() => import('./pages/ProvincePage'))
+const IdeasPage = lazy(() => import('./pages/IdeasPage'))
+const StoryPage = lazy(() => import('./pages/StoryPage'))
 const SdgPage = lazy(() => import('./pages/SdgPage'))
 const GlobalPage = lazy(() => import('./pages/GlobalPage'))
 const GapsPage = lazy(() => import('./pages/GapsPage'))
@@ -49,6 +52,7 @@ export default function App() {
         <Route index element={<Navigate to="/overview" replace />} />
         <Route path="overview" element={<OverviewPage />} />
         <Route path="brief" element={<Lazy><BriefPage /></Lazy>} />
+        <Route path="story" element={<Lazy><StoryPage /></Lazy>} />
         <Route path="atlas" element={<Lazy><AtlasPage /></Lazy>} />
         <Route path="topics/:id" element={<TopicPage />} />
         <Route path="emerging" element={<EmergingPage />} />
@@ -60,9 +64,12 @@ export default function App() {
         <Route path="institutions" element={<Lazy><InstitutionsPage /></Lazy>} />
         <Route path="institutions/:id" element={<Lazy><InstitutionPage /></Lazy>} />
         <Route path="regions" element={<Lazy><RegionsPage /></Lazy>} />
+        <Route path="province" element={<Lazy><ProvincePage /></Lazy>} />
+        <Route path="province/:code" element={<Lazy><ProvincePage /></Lazy>} />
         <Route path="sdg" element={<Lazy><SdgPage /></Lazy>} />
         <Route path="global" element={<Lazy><GlobalPage /></Lazy>} />
         <Route path="gaps" element={<Lazy><GapsPage /></Lazy>} />
+        <Route path="ideas" element={<Lazy><IdeasPage /></Lazy>} />
         <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
         <Route path="galaxy" element={<Lazy><GalaxyPage /></Lazy>} />
         <Route path="keywords" element={<Lazy><KeywordsPage /></Lazy>} />

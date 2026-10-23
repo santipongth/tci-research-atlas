@@ -298,3 +298,7 @@ PDPA: ตัวเลขของวารสารเป็นยอดรว�
 | `other` | สัดส่วนของหัวข้ออื่นทั้งหมดรวมกัน ต่อปี — ปีที่มีค่า: `sum(topics[].shares[k]) + other[k] = 1` |
 
 ทุกอาร์เรย์ยาวเท่า `years` (validator ตรวจ). Checkpoint: `13_journal_topic_years` (journal_key, year, topic_id (-1 = อื่น ๆ), articles, share) จาก `journal_topics.topic_years`. เว็บ: หน้า `/journals/:id` ส่วน "ตีพิมพ์เรื่องอะไรบ้าง" แสดงเป็น small multiples (ช่องละหัวข้อ แกนตั้งเดียวกัน) + แท็บตาราง (ปี × หัวข้อ + เรื่องอื่น) + ประโยคตัวอย่าง และบอกปีที่เว้นว่างใต้กราฟ
+
+## 11. หัวข้อรายจังหวัด (contract 2.5, เพิ่มอย่างเดียว)
+
+`SCHEMA_VERSION = "2.5.0"` — `ProvinceStat.topics` (ใน `regions.json`) = `TopicShare[]` ของ `institutions.province_topics` หัวข้อที่ใหญ่ที่สุดของจังหวัดในช่วง W (มากไปน้อย, เสมอกันเรียงตาม id; `share` = สัดส่วนของบทความในจังหวัดที่จัดเข้าหัวข้อได้; บทความนับครั้งเดียวต่อจังหวัดของผู้เขียน) — `[]` เมื่อไม่มีหรือรอบเก่า. Checkpoint `15_province_topics` (province, topic_id, count, share) จาก `institutions.province_topics()`. เว็บ: `/province` (ทุกจังหวัดแยกตามภาค) และ `/province/:code` ("งานวิจัยในจังหวัดของฉัน")

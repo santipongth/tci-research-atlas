@@ -8,7 +8,7 @@
 // the quarter diff and the match index — the empty release has none of them (pages explain the missing module).
 // P3 (contract 2.2): institutions, regions, SDG/BCG, global benchmark, gaps. P4 (contract 2.3): references, the sharded
 // article search (600 synthetic articles), galaxy points, keyword trends, topic glossaries and cited-in-TCI counts.
-// Contract 2.4: each journal's topic mix by year (one journal has a thin year → null shares).
+// Contract 2.4: each journal's topic mix by year (one journal has a thin year → null shares). 2.5: topics per province.
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures')
 const GENERATED_AT = '2026-10-01T00:00:00+00:00'
-const SCHEMA = '2.4.0'
+const SCHEMA = '2.5.0'
 const RELEASE = '2026Q4'
 const PREVIOUS = '2026Q3'
 const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
@@ -638,12 +638,20 @@ function buildExecutives(files) {
 
   // regions.json — an article with authors in two provinces counts in both, so shares add up to more than 1
   const located = 14200
+  // each province's five largest topics: a deterministic rotation over the topic list, largest first
+  const topicIds = [...byId.keys()].sort()
+  const provinceTopics = (k, articles) => {
+    const w = [0, 1, 2, 3, 4].map((i) => 1 / (i + 1.4))
+    const ws = sum(w) / 0.62
+    return w.map((x, i) => ({ topic: topicIds[(k * 7 + i * 3) % topicIds.length], count: Math.max(1, Math.round((articles * 0.8 * x) / ws)), share: r4(x / ws) }))
+  }
   files['regions.json'] = {
     schema_version: SCHEMA, window: { start: 2020, end: 2024 }, articles_with_org: 16900, articles_located: located, coverage: r4(located / 16900), population_year: 2024,
-    provinces: PROVINCES.map(([code, articles, recent, pop]) => ({
+    provinces: PROVINCES.map(([code, articles, recent, pop], k) => ({
       code, name_th: PROVINCE_NAMES[code][0], name_en: PROVINCE_NAMES[code][1], region: regionOf(code), articles, articles_recent: recent,
       share: r4(articles / located), institutions: summaries.filter((s) => s.province === code).length,
       per_100k: pop ? Number(((100000 * articles) / pop).toFixed(2)) : null, top: summaries.filter((s) => s.province === code).map((s) => s.id).slice(0, 3),
+      topics: provinceTopics(k, articles),
     })),
     regions: ['bangkok', 'central', 'northeast', 'north', 'south'].map((key) => {
       const a = sum(PROVINCES.filter(([c]) => regionOf(c) === key).map(([, n]) => n))

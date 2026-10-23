@@ -466,7 +466,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -561,7 +561,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -813,7 +813,7 @@
           "type": "integer"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -922,7 +922,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -993,7 +993,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1192,7 +1192,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1432,7 +1432,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1582,7 +1582,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2144,7 +2144,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2246,7 +2246,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -2407,7 +2407,7 @@
           "type": "integer"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2529,7 +2529,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -2713,7 +2713,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2811,7 +2811,7 @@
           "type": "number"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3040,7 +3040,7 @@
           "title": "Monoculture Share"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3260,7 +3260,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3421,6 +3421,14 @@
           },
           "title": "Top",
           "type": "array"
+        },
+        "topics": {
+          "description": "2.5: its largest topics in the window (share of its articles in a topic)",
+          "items": {
+            "$ref": "#/definitions/TopicShare"
+          },
+          "title": "Topics",
+          "type": "array"
         }
       },
       "required": [
@@ -3498,7 +3506,7 @@
           "type": "integer"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3608,7 +3616,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3798,7 +3806,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3881,7 +3889,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3918,7 +3926,7 @@
           "type": "object"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3998,7 +4006,7 @@
           "type": "integer"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -4054,7 +4062,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -4084,7 +4092,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -4380,7 +4388,7 @@
           "title": "Holdout Accuracy Subfield"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -4691,7 +4699,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -5175,7 +5183,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "2.4.0",
+          "default": "2.5.0",
           "title": "Schema Version",
           "type": "string"
         },

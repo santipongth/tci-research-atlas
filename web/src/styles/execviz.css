@@ -211,4 +211,43 @@
   details.fold[open] > summary::after { transform: rotate(-135deg); }
   details.fold > summary > h2 { margin: 0; }
   @media (prefers-reduced-motion: reduce) { details.fold > summary::after { transition: none; } }
+
+  /* "งานวิจัยในจังหวัดของฉัน": the province picker, provinces by region, a province's institutions */
+  .pv-pick { margin-top: 22px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .pv-pick label { font-weight: 600; }
+  .pv-pick select { min-height: 44px; min-width: 16rem; padding: 0 12px; border: 1px solid var(--field-border); border-radius: var(--radius); background: var(--bg); color: var(--ink); font: inherit; font-size: var(--fs-meta); }
+  .pv-region + .pv-region { margin-top: var(--sp-block); }
+  .pv-region h3 { font-size: var(--fs-lead); font-weight: 700; }
+  .pv-list { margin: 12px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: 0 32px; }
+  .pv-list li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border-2); }
+  .pv-list a { font-weight: 600; text-decoration: none; }
+  .pv-list a:hover { text-decoration: underline; }
+  .pv-list span, .pv-insts span { color: var(--ink-2); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+  .pv-insts { margin: 14px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: 0 40px; }
+  .pv-insts li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border-2); }
+
+  /* "หัวข้อน่าทำ": a list of ideas on hairlines (not cards), and topic pairs */
+  .ideas { margin: 16px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr)); gap: 0 48px; }
+  .idea { padding: 18px 0 20px; border-top: 1px solid var(--border-2); }
+  .idea h3 { font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; }
+  .idea h3 .topic-link { font-weight: 700; }
+  .idea-k { margin-top: 6px; line-height: 1.65; }
+  .idea-k .chip { margin-right: 4px; vertical-align: 1px; }
+  .idea-f { margin-top: 6px; font-size: var(--fs-meta); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .idea-go { margin-top: 8px; font-size: var(--fs-meta); font-weight: 600; }
+  .ideas-pairs { margin: 14px 0 0; padding: 0; list-style: none; }
+  .ideas-pairs li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 24px; padding: 14px 0; border-top: 1px solid var(--border-2); }
+  .idea-pair { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+
+  /* "5 เรื่องน่ารู้": one fact per row, a big number in TCI blue over an orange rule, then the line and the share button */
+  .facts { margin: var(--sp-block) 0 0; padding: 0; list-style: none; counter-reset: none; }
+  .fact { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 24px; padding: 32px 0 36px; border-top: 1px solid var(--border-2); }
+  .fact-n { font-size: var(--fs-lead); font-weight: 700; color: var(--ink-3); font-variant-numeric: tabular-nums; line-height: 1.5; }
+  .fact-big { font-size: var(--fs-hero); font-weight: 700; line-height: 1.45; color: var(--brand); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .fact-big::after { content: ""; display: block; width: 72px; height: 6px; margin-top: 10px; border-radius: 3px; background: var(--accent-mark); }
+  .fact-line { margin-top: 18px; font-size: var(--fs-h2); font-weight: 700; line-height: 1.5; max-width: var(--measure-body); }
+  .fact-sub { margin-top: 6px; color: var(--ink-2); max-width: var(--measure-body); }
+  .fact-acts { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; font-weight: 600; }
+  .btn:disabled { opacity: 0.7; cursor: progress; }
+  @media (max-width: 640px) { .fact { grid-template-columns: 1fr; } .fact-n { display: none; } }
 }

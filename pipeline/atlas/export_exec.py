@@ -138,7 +138,7 @@ def institution_files(cfg: dict, work: Path, code: dict[int, str], topic_group: 
     return files, iid, kpis
 
 
-def regions_file(cfg: dict, work: Path, iid: dict[str, str]) -> C.RegionsFile | None:
+def regions_file(cfg: dict, work: Path, iid: dict[str, str], code: dict[int, str] | None = None) -> C.RegionsFile | None:
     prov = _opt(work / "15_provinces.parquet")
     meta = _meta(work / "15_institutions_meta.json")
     if prov is None or not meta:
@@ -153,12 +153,20 @@ def regions_file(cfg: dict, work: Path, iid: dict[str, str]) -> C.RegionsFile | 
         placed = inst[inst["inst_key"].isin(list(iid)) & inst["province"].map(_given)]
         for p, g in placed.groupby("province"):
             top[str(p)] = [iid[k] for k in g.sort_values(["articles", "inst_key"], ascending=[False, True])["inst_key"].head(3)]
+    ptop = _opt(work / "15_province_topics.parquet")
+    by_prov: dict[str, list[C.TopicShare]] = {}
+    if ptop is not None and code:
+        for t in ptop.itertuples():
+            if int(t.topic_id) in code:
+                by_prov.setdefault(str(t.province), []).append(
+                    C.TopicShare(topic=code[int(t.topic_id)], count=int(t.count), share=_f(t.share) or 0.0))
     P = provinces()
     rows = [C.ProvinceStat(
         code=r.code, name_th=P[r.code].name_th, name_en=P[r.code].name_en, region=P[r.code].region,
         articles=int(r.articles), articles_recent=int(r.articles_recent),
         share=_f(r.articles / located) if located else None, institutions=int(r.institutions),
-        per_100k=_f(100_000 * r.articles / pop[r.code], 2) if r.code in pop else None, top=top.get(r.code, []))
+        per_100k=_f(100_000 * r.articles / pop[r.code], 2) if r.code in pop else None, top=top.get(r.code, []),
+        topics=by_prov.get(r.code, []))
         for r in prov.itertuples() if r.code in P]
     regions = [C.RegionStat(key=x.region, articles=int(x.articles), share=_f(x.articles / located) if located else None)
                for x in reg.itertuples() if x.region in REGIONS] if reg is not None else []

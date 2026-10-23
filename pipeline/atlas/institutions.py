@@ -20,6 +20,9 @@ last_complete_year), R = the emerging recent window.
   15_provinces              code, articles, articles_recent, institutions — articles with ≥ 1 author placed in the
                             province (once per province), published institutions placed there
   15_regions                region, articles
+  15_province_topics        province, topic_id, count, share — the province's institutions.province_topics largest
+                            topics in W (an article counts once per province of its authors; share of the province's
+                            articles that are in a topic)
   15_institutions_meta.json windows, coverage, KPI shares, sources, population
 Author rows are read for their affiliations only — the name columns are dropped on read (PDPA).
 """
@@ -156,6 +159,19 @@ def load_population(path: str | Path | None) -> dict | None:
     return {"year": max(years) if years else None, "by_code": by} if by else None
 
 
+def province_topics(placed: pd.DataFrame, topic_of: pd.DataFrame, n: int) -> pd.DataFrame:
+    """province, topic_id, count, share — each province's n largest topics (ties by topic id). `placed` holds
+    (article_id, province) once per province; share = count / the province's articles that are in a topic."""
+    cols = ["province", "topic_id", "count", "share"]
+    if n == 0 or placed.empty:
+        return pd.DataFrame(columns=cols)
+    pt = placed.merge(topic_of[["article_id", "topic_id"]], on="article_id")
+    c = pt.groupby(["province", "topic_id"]).size().rename("count").reset_index()
+    c["share"] = c["count"] / c.groupby("province")["count"].transform("sum")
+    c = c.sort_values(["province", "count", "topic_id"], ascending=[True, False, True]).groupby("province").head(n)
+    return c.reset_index(drop=True)[cols]
+
+
 def institutions(cfg: dict) -> pd.DataFrame:
     work = Path(cfg["pipeline"]["work_dir"])
     icfg = cfg["institutions"]
@@ -242,6 +258,7 @@ def institutions(cfg: dict) -> pd.DataFrame:
     prov = prov.rename_axis("code").reset_index().sort_values("code")
     regions = (pwy.assign(region=pwy["province"].map(region_of))[["article_id", "region"]].drop_duplicates()
                .groupby("region").size().rename("articles").reset_index())
+    ptop = province_topics(pwy, topic_of, int(icfg["province_topics"]))
 
     # ---- the institutions table
     intl_share = lw.groupby("inst_key")["intl"].mean()
@@ -263,6 +280,7 @@ def institutions(cfg: dict) -> pd.DataFrame:
     write_table(sugg, work / "15_inst_suggest.parquet")
     write_table(prov, work / "15_provinces.parquet")
     write_table(regions, work / "15_regions.parquet")
+    write_table(ptop, work / "15_province_topics.parquet")
     meta = {
         "windows": {k: list(v) for k, v in win.items()}, "articles_window": int(_in(arts["year"], W).sum()),
         "with_org": with_org, "located": int(pwy["article_id"].nunique()),

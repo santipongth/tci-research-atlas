@@ -257,3 +257,6 @@ export const keywordsCodec = makeCodec<KeywordsUrlState>({
   view: oneOf('view', VIEWS, 'chart'),
   gq: text('gq', 80),
 })
+
+/** /ideas: the chosen field (a taxonomy group id; '' = all fields). */
+export const ideasCodec = makeCodec<{ g: string }>({ g: text('g', 40) })

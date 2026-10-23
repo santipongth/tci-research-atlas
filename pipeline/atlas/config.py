@@ -417,6 +417,7 @@ class InstitutionsCfg(_Strict):
     network_min_articles: int = Field(3, ge=1)
     network_max_edges: int = Field(300, ge=0)
     top_topics: int = Field(15, ge=1)
+    province_topics: int = Field(5, ge=0)   # the largest topics published per province ("งานวิจัยในจังหวัดของฉัน")
     max_partners: int = Field(15, ge=0)
     suggest_k: int = Field(5, ge=0)
     suggest_min_similarity: float = Field(0.3, ge=0.0, le=1.0)

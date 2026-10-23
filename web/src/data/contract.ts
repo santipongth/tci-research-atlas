@@ -678,6 +678,10 @@ export type Share2 = number | null;
  * ids of its largest published institutions
  */
 export type Top1 = string[];
+/**
+ * 2.5: its largest topics in the window (share of its articles in a topic)
+ */
+export type Topics13 = TopicShare[];
 export type Provinces1 = ProvinceStat[];
 export type Articles17 = number;
 export type Key4 = "bangkok" | "central" | "northeast" | "north" | "south";
@@ -696,7 +700,7 @@ export type Number = number;
 export type ShareRatio1 = number | null;
 export type ShareRecent1 = number;
 export type Th5 = string;
-export type Topics13 = string[];
+export type Topics14 = string[];
 export type Goals = GoalStat[];
 export type Method1 = "embedding" | "lexical";
 export type SchemaVersion18 = string;
@@ -873,7 +877,7 @@ export type TaxonomyVote = number | null;
 export type Th7 = string;
 export type X3 = number;
 export type Y3 = number;
-export type Topics15 = Topic15[];
+export type Topics16 = Topic15[];
 
 export interface AtlasContract {
   diff?: DiffFile;
@@ -1580,6 +1584,7 @@ export interface ProvinceStat {
   region: Region;
   share?: Share2;
   top?: Top1;
+  topics?: Topics13;
 }
 export interface RegionStat {
   articles: Articles17;
@@ -1607,7 +1612,7 @@ export interface GoalStat {
   share_ratio?: ShareRatio1;
   share_recent?: ShareRecent1;
   th: Th5;
-  topics?: Topics13;
+  topics?: Topics14;
 }
 /**
  * search/docs-<NNN>.json — the article rows of ordinals start … start + len(docs) − 1.
@@ -1661,10 +1666,10 @@ export interface SearchVocab {
 export interface SeriesFile {
   corpus_total: CorpusTotal;
   schema_version?: SchemaVersion23;
-  topics: Topics14;
+  topics: Topics15;
   years: Years6;
 }
-export interface Topics14 {
+export interface Topics15 {
   [k: string]: number[];
 }
 export interface TaxonomyFile {
@@ -1724,7 +1729,7 @@ export interface CountItem {
 }
 export interface TopicsFile {
   schema_version?: SchemaVersion26;
-  topics: Topics15;
+  topics: Topics16;
 }
 export interface Topic15 {
   cross_field?: CrossField;

@@ -7,6 +7,9 @@ import { galaxy } from '../strings/galaxy'
 import { glossaryDefs } from '../strings/glossaryDefs'
 import { keywords } from '../strings/keywords'
 import { openViz } from '../strings/openViz'
+import { province } from '../strings/province'
+import { ideas } from '../strings/ideas'
+import { story } from '../strings/story'
 import { references } from '../strings/references'
 import { search } from '../strings/search'
 import { topicExtra } from '../strings/topicExtra'
@@ -14,7 +17,7 @@ import { translate } from './i18n'
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
 /** Strings files of lazy pages: not in STR (entry budget), read with useStrings. */
-const LAZY = { search, galaxy, keywords, references, topicExtra, embed, glossaryDefs, execViz, editorViz, openViz } as const
+const LAZY = { search, galaxy, keywords, references, topicExtra, embed, glossaryDefs, execViz, editorViz, openViz, province, ideas, story } as const
 const ALL = { ...STR, ...Object.fromEntries(Object.entries(LAZY).flatMap(([file, d]) => Object.entries(d).map(([k, e]) => [`${file}:${k}`, e]))) }
 
 describe('i18n strings', () => {

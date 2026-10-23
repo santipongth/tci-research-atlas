@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from atlas.institutions import institutions, suggest
+from atlas.institutions import institutions, province_topics, suggest
 from atlas.io_utils import read_table, write_table
 from atlas.orgs import org_key
 from atlas.pipeline import STEPS
@@ -49,6 +49,9 @@ def test_institutions_resolve_publish_pair_and_place(tmp_path):
     assert meta["institutions_total"] == len(inst) and meta["windows"]["W"] == [2020, 2024]
     prov = read_table(work / "15_provinces.parquet").set_index("code")
     assert prov.loc["TH-65", "articles"] == nu["articles"] and "TH-10" not in prov.index
+    ptop = read_table(work / "15_province_topics.parquet")
+    assert set(ptop["province"]) <= set(prov.index) and len(ptop) <= 5 * len(prov)
+    assert ptop.groupby("province")["share"].sum().le(1 + 1e-9).all()
     countries = read_table(work / "15_inst_countries.parquet")
     assert countries[countries["inst_key"] == ""].set_index("country")["articles"].to_dict() == {"JP": 1}
     assert STEPS.index("match") < STEPS.index("institutions") < STEPS.index("export")
@@ -77,3 +80,15 @@ def test_suggestions_skip_partners_and_need_similar_topics():
     got = {(r.inst_key, r.other_key) for r in out.itertuples()}
     assert ("a", "b") not in got and ("a", "c") in got and ("a", "d") not in got   # partners and unrelated skipped
     assert out.set_index(["inst_key", "other_key"]).loc[("a", "c"), "topics"] == "1"
+
+
+def test_province_topics_keep_the_largest_per_province_with_ties_by_id():
+    placed = pd.DataFrame({"article_id": ["a1", "a2", "a3", "a4", "a5", "a1"],
+                           "province": ["TH-10", "TH-10", "TH-10", "TH-10", "TH-50", "TH-50"]})
+    topic_of = pd.DataFrame({"article_id": ["a1", "a2", "a3", "a4", "a5"], "topic_id": [7, 7, 3, 9, 3]})
+    t = province_topics(placed, topic_of, 2)
+    bkk = t[t["province"] == "TH-10"]
+    assert bkk["topic_id"].tolist() == [7, 3] and bkk["count"].tolist() == [2, 1]   # 3 and 9 tie at 1: lower id
+    assert bkk["share"].tolist() == pytest.approx([0.5, 0.25])
+    assert t[t["province"] == "TH-50"]["topic_id"].tolist() == [3, 7]               # a1 counts for both provinces
+    assert province_topics(placed, topic_of, 0).empty

@@ -244,7 +244,7 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     exec_files, iid, inst_kpis = institution_files(cfg, work, code, topic_group)
     files.update(exec_files)
     gcode = lambda gid: group_code(gid, source)  # noqa: E731
-    for name, model in (("regions.json", regions_file(cfg, work, iid)), ("sdg.json", sdg_file(cfg, work, code)),
+    for name, model in (("regions.json", regions_file(cfg, work, iid, code)), ("sdg.json", sdg_file(cfg, work, code)),
                         ("global.json", global_file(cfg, work, code, gcode)),
                         ("gaps.json", gaps_file(cfg, work, code, iid, jid, jname, gcode))):
         if model is not None:
