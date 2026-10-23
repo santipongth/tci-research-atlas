@@ -173,7 +173,8 @@ def references(cfg: dict) -> dict:
     win = analysed_window(work)
     dated = arts["year"].notna()
     in_win = dated & (arts["year"].between(*win) if win else True)
-    w = arts.loc[in_win, ["article_id", "year", "journal_name"]].rename(columns={"journal_name": "journal"})
+    w = arts.loc[in_win, [c for c in ("article_id", "year", "journal_name", "journal_key") if c in arts.columns]
+                 ].rename(columns={"journal_name": "journal"})
     w = w.assign(journal_key=journal_keys(w.rename(columns={"journal": "journal_name"})).to_numpy(),
                  journal=_text(w, "journal"))
     wrefs = refs[refs["article_id"].isin(set(w["article_id"]))]

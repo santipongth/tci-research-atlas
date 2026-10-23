@@ -212,13 +212,43 @@ def rejoin_references(lines: list[str]) -> list[dict]:
             cur["text"] = f"{cur['text']} {line}"
         last = refs[-1]
         if last["year"] is None:
-            y = _PAREN_YEAR.search(last["text"])
-            if y:
-                year = int(y.group(1))
-                last["year"] = year - 543 if year > 2400 else year
+            last["year"] = reference_year(last["text"])
     for r in refs:
-        r["lang"] = "th" if thai_ratio(r["text"]) > 0.3 else "latin"
+        r["lang"] = reference_lang(r["text"])
     return refs
+
+
+def reference_year(text: str) -> int | None:
+    """The first parenthesised year of a reference, Common Era (Buddhist Era years are converted)."""
+    y = _PAREN_YEAR.search(text)
+    if not y:
+        return None
+    year = int(y.group(1))
+    return year - 543 if year > 2400 else year
+
+
+def reference_lang(text: str) -> str:
+    return "th" if thai_ratio(text) > 0.3 else "latin"
+
+
+def mark_self_citations(refs: list[dict], title_th: str, title_en: str) -> list[dict]:
+    """Set r["self_citation"] (the reference quotes the article's own title) → the references that count:
+    neither self-citations nor the romanised copies of Thai references."""
+    keys = [norm_key(t)[:40] for t in (title_th, title_en) if len(norm_key(t)) >= 12]
+    for r in refs:
+        r["self_citation"] = any(k in norm_key(r["text"]) for k in keys)
+    return [r for r in refs if not r["self_citation"] and not r["translated"]]
+
+
+def quality_flags(raw: str, abstract_th: str, abstract_en: str) -> list[str]:
+    """text_quality flags: PUA glyphs in the raw text, Thai abstract without tone marks, lost statistics symbols."""
+    flags = ["thai_pua_repaired"] if has_pua(raw) else []
+    th_letters = len(THAI_LETTER.findall(abstract_th))
+    if th_letters >= 200 and abstract_th.count(MAI_THO) / th_letters < 0.005:
+        flags.append("tone_marks_missing")
+    if _STAT_SYMBOL_LOSS.search(abstract_th + " " + abstract_en):
+        flags.append("stat_symbols_missing")
+    return flags
 
 
 # ------------------------------------------------------------------ year
@@ -264,17 +294,8 @@ def parse_markdown(text: str, source_path: str = "") -> dict:
 
     ref_lines = [ln for ln in sec.get("references", "").split("\n") if ln.strip()]
     refs = rejoin_references(ref_lines)
-    keys = [norm_key(t)[:40] for t in (title_th, title_en) if len(norm_key(t)) >= 12]
-    for r in refs:
-        r["self_citation"] = any(k in norm_key(r["text"]) for k in keys)
-    counted = [r for r in refs if not r["self_citation"] and not r["translated"]]
-
-    flags = ["thai_pua_repaired"] if has_pua(text) else []
-    th_letters = len(THAI_LETTER.findall(ab["abstract_th"]))
-    if th_letters >= 200 and ab["abstract_th"].count(MAI_THO) / th_letters < 0.005:
-        flags.append("tone_marks_missing")
-    if _STAT_SYMBOL_LOSS.search(ab["abstract_th"] + " " + ab["abstract_en"]):
-        flags.append("stat_symbols_missing")
+    counted = mark_self_citations(refs, title_th, title_en)
+    flags = quality_flags(text, ab["abstract_th"], ab["abstract_en"])
 
     return {
         "article_id": article_id,

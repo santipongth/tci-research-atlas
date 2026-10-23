@@ -1,0 +1,651 @@
+{
+  "$defs": {
+    "Affiliation": {
+      "additionalProperties": false,
+      "properties": {
+        "country": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Country"
+        },
+        "name": {
+          "$ref": "#/$defs/LangText"
+        },
+        "province": {
+          "anyOf": [
+            {
+              "pattern": "^TH-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Province"
+        },
+        "ror": {
+          "anyOf": [
+            {
+              "pattern": "^https://ror\\.org/0[a-z0-9]{6}\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ror"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Affiliation",
+      "type": "object"
+    },
+    "Author": {
+      "additionalProperties": false,
+      "properties": {
+        "affiliations": {
+          "items": {
+            "$ref": "#/$defs/Affiliation"
+          },
+          "title": "Affiliations",
+          "type": "array"
+        },
+        "corresponding": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Corresponding"
+        },
+        "name": {
+          "$ref": "#/$defs/LangText"
+        },
+        "orcid": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Orcid"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "lecturer",
+                "researcher",
+                "student-master",
+                "student-doctoral",
+                "student",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Author",
+      "type": "object"
+    },
+    "Funding": {
+      "additionalProperties": false,
+      "properties": {
+        "funder": {
+          "minLength": 1,
+          "title": "Funder",
+          "type": "string"
+        },
+        "grant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grant Id"
+        }
+      },
+      "required": [
+        "funder"
+      ],
+      "title": "Funding",
+      "type": "object"
+    },
+    "Keywords": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "items": {
+            "type": "string"
+          },
+          "title": "En",
+          "type": "array"
+        },
+        "th": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Th",
+          "type": "array"
+        }
+      },
+      "title": "Keywords",
+      "type": "object"
+    },
+    "LangText": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "En"
+        },
+        "th": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Th"
+        }
+      },
+      "title": "LangText",
+      "type": "object"
+    },
+    "Pages": {
+      "additionalProperties": false,
+      "properties": {
+        "first": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First"
+        },
+        "last": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last"
+        }
+      },
+      "title": "Pages",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "extracted_from": {
+          "anyOf": [
+            {
+              "enum": [
+                "html",
+                "pdf",
+                "oai-pmh",
+                "api",
+                "manual",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extracted From"
+        },
+        "ocr": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ocr"
+        },
+        "retrieved": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieved"
+        }
+      },
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Reference": {
+      "additionalProperties": false,
+      "properties": {
+        "doi": {
+          "anyOf": [
+            {
+              "pattern": "^10\\.\\d{4,9}/\\S+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "translated": {
+          "default": false,
+          "title": "Translated",
+          "type": "boolean"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "maximum": 2400,
+              "minimum": 1500,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "Reference",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/santipongth/tci-research-atlas/docs/corpus/corpus.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "abstract": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LangText"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "article_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "research-article",
+            "review-article",
+            "academic-article",
+            "case-report",
+            "short-communication",
+            "book-review",
+            "editorial",
+            "erratum",
+            "other"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Article Type"
+    },
+    "authors": {
+      "items": {
+        "$ref": "#/$defs/Author"
+      },
+      "title": "Authors",
+      "type": "array"
+    },
+    "doi": {
+      "anyOf": [
+        {
+          "pattern": "^10\\.\\d{4,9}/\\S+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Doi"
+    },
+    "eissn": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{3}[\\dX]$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Eissn"
+    },
+    "extra": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Extra"
+    },
+    "funding": {
+      "items": {
+        "$ref": "#/$defs/Funding"
+      },
+      "title": "Funding",
+      "type": "array"
+    },
+    "id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Id"
+    },
+    "issn": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{3}[\\dX]$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Issn"
+    },
+    "issue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Issue"
+    },
+    "issue_url": {
+      "anyOf": [
+        {
+          "pattern": "^https?://\\S+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Issue Url"
+    },
+    "journal_key": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$",
+      "title": "Journal Key",
+      "type": "string"
+    },
+    "journal_title": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LangText"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "keywords": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Keywords"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "language": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z]{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Language"
+    },
+    "license": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "License"
+    },
+    "pages": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Pages"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "published": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Published"
+    },
+    "references": {
+      "items": {
+        "$ref": "#/$defs/Reference"
+      },
+      "title": "References",
+      "type": "array"
+    },
+    "schema": {
+      "const": "tci-atlas-corpus/1.0",
+      "title": "Schema",
+      "type": "string"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "enum": [
+            "thaijo",
+            "tci",
+            "other"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source"
+    },
+    "title": {
+      "$ref": "#/$defs/LangText"
+    },
+    "url": {
+      "anyOf": [
+        {
+          "pattern": "^https?://\\S+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Url"
+    },
+    "volume": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Volume"
+    },
+    "year": {
+      "anyOf": [
+        {
+          "maximum": 2600,
+          "minimum": 1900,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Year"
+    }
+  },
+  "required": [
+    "schema",
+    "journal_key",
+    "title"
+  ],
+  "title": "TCI Research Atlas corpus article (tci-atlas-corpus/1.0)",
+  "type": "object"
+}

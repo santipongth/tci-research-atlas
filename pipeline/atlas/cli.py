@@ -45,26 +45,31 @@ def synth(
 
 @app.command()
 def profile(
-    path: Path = typer.Argument(..., help="folder of ThaiJO .md files"),
+    path: Path = typer.Argument(..., help="corpus folder: articles/*.jsonl[.gz] (corpus format 1.0) or ThaiJO .md files"),
     out: Path = typer.Option(None, help="write the JSON report here"),
     md: Path = typer.Option(None, help="write a Markdown report here"),
-    pattern: str = typer.Option("**/*.md"),
+    fmt: str = typer.Option("auto", "--format", help="auto | corpus_jsonl | thaijo_md"),
+    pattern: str = typer.Option(None, help="file pattern (default articles/**/*.jsonl* or **/*.md)"),
     workers: int = typer.Option(1),
-    max_error_ratio: float = typer.Option(0.01, help="warn when more files than this share fail to parse "
+    max_error_ratio: float = typer.Option(0.01, help="exit 1 when more files/lines than this share fail to parse "
                                                      "(same as input.max_error_ratio)"),
 ) -> None:
-    """Corpus quality report — run before the pipeline on every new corpus."""
+    """Corpus quality report — run before the pipeline on every new corpus (exit 1 above the error ceiling)."""
     import json
 
     from atlas.profile import profile_corpus, render_markdown
 
-    report = profile_corpus(path, pattern, workers, max_error_ratio)
+    if fmt not in ("auto", "corpus_jsonl", "thaijo_md"):
+        raise typer.BadParameter("--format must be auto, corpus_jsonl or thaijo_md")
+    report = profile_corpus(path, pattern, workers, max_error_ratio, fmt)
     if out:
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     text = render_markdown(report)
     if md:
         md.write_text(text, encoding="utf-8")
     typer.echo(text)
+    if report["files_with_errors"]["ratio"] > max_error_ratio:
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -512,6 +517,67 @@ def llm_stop_cmd(
         typer.echo(f"[llm-stop] stop requested ({flag}); no LLM job is running now — a pipeline that is still at an "
                    f"earlier step stops when its LLM step starts")
     typer.echo(f"  status: uv run atlas status -c {_cfg_arg(config)}")
+
+
+@app.command("quarterly")
+def quarterly_cmd(
+    config: Path = typer.Option(None, "--config", "-c", help="config.yaml (default: pipeline/config.yaml if it exists)"),
+    corpus: Path = typer.Option(None, "--corpus", help="this round's corpus folder (default: input.path of the config)"),
+    release: str = typer.Option(None, "--release", "-r", help="YYYYQn (default: the quarter of today)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="do not ask before paying for LLM calls"),
+    strict: bool = typer.Option(False, help="stop on validate warnings (exit 1) too"),
+    build_web: bool = typer.Option(False, "--build-web", help="rebuild web/dist even when it exists"),
+    prepare: bool = typer.Option(False, help="stop after the corpus profile (before the first big embedding)"),
+    runs_dir: Path = typer.Option(None, help="where rounds are archived (default: <repo>/runs)"),
+    deploy_dir: Path = typer.Option(None, help="where the upload-ready site goes (default: <repo>/deploy)"),
+    site: Path = typer.Option(None, help="the built web site (default: <repo>/web/dist)"),
+) -> None:
+    """The whole quarterly round in one command: corpus → pipeline → validate → publish → upload-ready site."""
+    from atlas.quarterly import ROOT, RoundError, run_round
+
+    if config is None and (ROOT / "pipeline" / "config.yaml").is_file():
+        config = ROOT / "pipeline" / "config.yaml"
+    try:
+        code = run_round(config, corpus, release, yes, strict, build_web, prepare,
+                         runs_dir or ROOT / "runs", deploy_dir or ROOT / "deploy", site or ROOT / "web" / "dist",
+                         confirm=lambda q: typer.confirm(q, default=False))
+    except (RoundError, ValueError) as e:
+        typer.echo(f"[quarterly] STOPPED: {e}", err=True)
+        raise typer.Exit(getattr(e, "code", 2)) from e
+    raise typer.Exit(code)
+
+
+corpus_app = typer.Typer(help="Corpus format 1.0 (JSON Lines): schema file and conversion from Markdown "
+                              "(docs/corpus/README.md).", no_args_is_help=True)
+app.add_typer(corpus_app, name="corpus")
+
+
+@corpus_app.command("schema")
+def corpus_schema_cmd(
+    out: Path = typer.Option(Path("../docs/corpus/corpus.schema.json"), help="where to write the JSON Schema"),
+) -> None:
+    """Write the corpus JSON Schema (CI checks it is up to date)."""
+    from atlas.schema.corpus import write_corpus_schema
+
+    typer.echo(f"wrote {write_corpus_schema(out)}")
+
+
+@corpus_app.command("convert")
+def corpus_convert_cmd(
+    src: Path = typer.Argument(..., help="folder of ThaiJO .md files"),
+    out: Path = typer.Option(..., "--out", "-o", help="new corpus folder (articles/ + journals.csv are written here)"),
+    pattern: str = typer.Option("**/*.md"),
+    per_file: int = typer.Option(50_000, min=1, help="articles per articles/part-NNNN.jsonl.gz"),
+    workers: int = typer.Option(4, min=1),
+) -> None:
+    """Convert the Markdown corpus to corpus format 1.0 — same ids, same ingest tables."""
+    from atlas.corpus_convert import convert_markdown
+
+    r = convert_markdown(src, out, pattern, per_file, workers)
+    typer.echo(f"[corpus] {r['articles']:,} articles → {r['files']} file(s) in {out / 'articles'}; "
+               f"journals: {r['journals_csv']}")
+    if r["skipped"]:
+        typer.echo(f"[corpus] skipped {len(r['skipped']):,} (first: {r['skipped'][0]})")
 
 
 review_app = typer.Typer(help="Editors' spot check of topic names (export a CSV, import the corrections).",

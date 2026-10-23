@@ -12,7 +12,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from atlas.ingest import doi_key, read_thaijo_corpus, records_to_tables, title_key
+from atlas.ingest import doi_key, read_corpus_tables, read_thaijo_corpus, records_to_tables, title_key
+from atlas.sources.corpus_jsonl import DEFAULT_GLOB, corpus_files
+
+DEFAULT_EXCLUDE = ("editorial", "erratum", "book-review")
 
 
 def _pct(mask: pd.Series) -> float:
@@ -32,12 +35,39 @@ def doi_title_collisions(arts: pd.DataFrame, max_examples: int = 10) -> dict:
     return {"count": int(len(colliding)), "examples": examples}
 
 
-def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1,
-                   max_error_ratio: float = 0.01) -> dict:
-    recs, errors = read_thaijo_corpus(root, pattern, workers)
-    arts, auths, _ = records_to_tables(recs)
+def detect_format(root: str | Path) -> str:
+    """corpus_jsonl when the folder holds corpus data files (articles/*.jsonl[.gz]), else thaijo_md."""
+    return "corpus_jsonl" if Path(root).is_dir() and corpus_files(root) else "thaijo_md"
+
+
+def _corpus_section(arts: pd.DataFrame, auths: pd.DataFrame, stats: dict) -> dict:
+    """Coverage of the corpus-format fields the Markdown corpus never had."""
+    def given(df: pd.DataFrame, c: str) -> pd.Series:
+        return df[c].fillna("").astype(str).str.len() > 0
+    per_article = {c: _pct(given(arts, c)) for c in ("article_type", "language", "issn", "eissn", "volume", "issue")}
+    per_article["abstract_any"] = _pct(given(arts, "abstract_th") | given(arts, "abstract_en"))
+    per_article["url"] = _pct(given(arts, "url"))
+    first = auths[auths["affiliation_index"] == 0] if len(auths) else auths
+    per_author = {c: _pct(given(first if c == "orcid" else auths, c)) for c in ("orcid", "ror", "country", "province")}
+    return {"id_source": stats["id_source"], "excluded_article_types": stats["excluded"],
+            "lines": stats["lines"], "coverage_pct": per_article, "affiliation_hints_pct": per_author,
+            "article_types": {str(k): int(v) for k, v in arts["article_type"].replace("", "none").value_counts().items()}}
+
+
+def profile_corpus(root: str | Path, pattern: str | None = None, workers: int = 1,
+                   max_error_ratio: float = 0.01, fmt: str = "auto",
+                   exclude: tuple[str, ...] = DEFAULT_EXCLUDE) -> dict:
+    fmt = detect_format(root) if fmt == "auto" else fmt
+    corpus = None
+    if fmt == "corpus_jsonl":
+        arts, auths, _, errors, stats = read_corpus_tables(root, pattern or DEFAULT_GLOB, workers, exclude)
+        corpus = _corpus_section(arts, auths, stats)
+        n_files = stats["lines"]
+    else:
+        recs, errors = read_thaijo_corpus(root, pattern or "**/*.md", workers)
+        arts, auths, _ = records_to_tables(recs)
+        n_files = len(arts) + len(errors)
     n = len(arts)
-    n_files = n + len(errors)
     years = pd.to_numeric(arts["year"], errors="coerce")
     nonempty = {c: arts[c].fillna("").astype(str).str.len() > 0
                 for c in ("title_th", "title_en", "abstract_th", "abstract_en", "keywords_th", "keywords_en", "doi")}
@@ -61,13 +91,16 @@ def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1,
                     "vs_prev": round(int(c) / int(by_year[y - 1]), 3) if (y - 1) in by_year.index else None}
                    for y, c in by_year.items()]
     return {
-        "files": n,                                  # files parsed into a record
+        "format": fmt,
+        "corpus": corpus,                            # corpus_jsonl only: id sources, exclusions, field coverage
+        "files": n,                                  # files (Markdown) or lines (JSONL) parsed into a record
         "files_with_errors": {"count": len(errors), "examples": errors[:20],     # unreadable/unparsable: skipped
                               "ratio": round(len(errors) / n_files, 6) if n_files else 0.0,
                               "threshold": max_error_ratio},     # profile never raises; ingest does above it
         "unique_articles": int(arts["article_id"].nunique()),
         "duplicate_files": int(n - arts["article_id"].nunique()),
-        "missing_article_url": int(arts["article_id"].str.startswith("file:").sum()),
+        "missing_article_url": int(arts["article_id"].str.startswith("file:").sum() if fmt == "thaijo_md"
+                                   else (arts["url"].fillna("").astype(str) == "").sum()),
         "doi_title_collisions": doi_title_collisions(arts),
         "years": {
             "min": int(years.min()) if years.notna().any() else None,
@@ -89,6 +122,29 @@ def profile_corpus(root: str | Path, pattern: str = "**/*.md", workers: int = 1,
                     "pct_student_authors": _pct(auths["is_student"].astype(bool))},
         "text_quality": dict(flags),
     }
+
+
+def _render_corpus(r: dict) -> list[str]:
+    c = r.get("corpus")
+    if not c:
+        return []
+    return [
+        "## Corpus format 1.0 (JSONL)",
+        "",
+        f"- lines {c['lines']:,} · article id from: " + ", ".join(f"{k} {v:,}" for k, v in sorted(c["id_source"].items())),
+        "- left out by input.exclude_article_types: "
+        + (", ".join(f"{k} {v:,}" for k, v in sorted(c["excluded_article_types"].items())) or "none"),
+        "- article types: " + ", ".join(f"{k} {v:,}" for k, v in c["article_types"].items()),
+        "",
+        "| field (articles) | % |",
+        "|---|---|",
+        *[f"| {k} | {v} |" for k, v in c["coverage_pct"].items()],
+        "",
+        "| affiliation hint (orcid per author) | % |",
+        "|---|---|",
+        *[f"| {k} | {v} |" for k, v in c["affiliation_hints_pct"].items()],
+        "",
+    ]
 
 
 def render_markdown(r: dict) -> str:
@@ -124,6 +180,7 @@ def render_markdown(r: dict) -> str:
         "",
         *([f"- {k}: {v:,}" for k, v in r["text_quality"].items()] or ["- ไม่พบ"]),
         "",
+        *_render_corpus(r),
         "## Files with errors (could not be read or parsed — skipped by ingest)",
         "",
         f"- files: {r['files_with_errors']['count']:,} (ratio {r['files_with_errors']['ratio']:.4f}, "

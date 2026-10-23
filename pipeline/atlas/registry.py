@@ -42,11 +42,14 @@ def journal_key(article_id: str, journal_name: str) -> str:
 
 
 def journal_keys(articles: pd.DataFrame) -> pd.Series:
-    """journal_key of every row of a table with article_id and journal_name."""
+    """journal_key of every row of a table with article_id and journal_name; a journal_key column (corpus format
+    1.0 gives it) wins where it is not empty."""
     ids = articles["article_id"].fillna("").astype(str)
     names = articles["journal_name"].fillna("").astype(str) if "journal_name" in articles else pd.Series(
         "", index=articles.index)
-    return pd.Series([journal_key(a, j) for a, j in zip(ids, names)], index=articles.index, dtype=str)
+    given = articles["journal_key"].fillna("").astype(str) if "journal_key" in articles else pd.Series(
+        "", index=articles.index)
+    return pd.Series([g or journal_key(a, j) for g, a, j in zip(given, ids, names)], index=articles.index, dtype=str)
 
 
 def journal_code(key: str) -> str:

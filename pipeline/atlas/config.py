@@ -11,6 +11,8 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from atlas.schema.corpus import ArticleType
+
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -30,9 +32,12 @@ class DedupCfg(_Strict):
 
 
 class InputCfg(_Strict):
-    format: Literal["thaijo_md", "table"] = "thaijo_md"
+    format: Literal["thaijo_md", "corpus_jsonl", "table"] = "thaijo_md"
     path: str = "../corpus"
-    glob: str = "**/*.md"
+    glob: str = "**/*.md"                                   # thaijo_md only
+    corpus_glob: str = "articles/**/*.jsonl*"              # corpus_jsonl only: data files under path (.jsonl / .jsonl.gz)
+    exclude_article_types: list[ArticleType] = Field(      # corpus_jsonl only: not research output → left out, counted
+        default_factory=lambda: ["editorial", "erratum", "book-review"])
     workers: int = Field(4, ge=1)
     batch_files: int = Field(20_000, ge=1)
     max_error_ratio: float = Field(0.01, ge=0, le=1)   # unreadable/unparsable files / files found; above it ingest stops

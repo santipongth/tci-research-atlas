@@ -12,6 +12,9 @@ Resolver.resolve(affiliation_th, affiliation_en, org_key) — the first rule tha
               equals the organisation part of the affiliation (atlas.orgs.org_name), folded.
   4. name     the organisation as written (P1 org_key), its type from its name, the province named in the
               affiliation (atlas.places) and country TH when the text is Thai or names a Thai province.
+Corpus format 1.0 may give hints per affiliation (ror, country, province); they never override an alias:
+  a ROR id found in the dump -> that record; a ROR id not in the dump -> key "ror:<id>" (every spelling of the
+  organisation is one institution); a country other than TH -> foreign; a province -> used instead of the guess.
 Published ids (inst_code) are stable: the alias inst_id, "ror-<id>", or "o" + 10 hex of sha1(org_key).
 Institution level only — author names are never read here (PDPA).
 """
@@ -201,7 +204,9 @@ class Resolver:
         self._alias_rx = (re.compile("|".join(re.escape(a) for a in sorted(self.alias_to_id, key=len, reverse=True)))
                           if self.alias_to_id else None)
         self.ror: dict[str, dict] = {}
+        self.ror_by_id: dict[str, dict] = {}
         for r in ror:
+            self.ror_by_id.setdefault(str(r["id"]).lower(), r)
             for name in r["names"]:
                 self.ror.setdefault(norm_key(name), r)
         self.find_province = find_province
@@ -213,7 +218,13 @@ class Resolver:
             iid = self.alias_to_id[m.group(0)] if m else None
         return self.insts[iid] if iid is not None else None
 
-    def resolve(self, affiliation_th: str | None, affiliation_en: str | None, org_key: str | None) -> Institution | None:
+    @staticmethod
+    def _ror_inst(r: dict) -> Institution:
+        return Institution(key=f"ror:{r['id']}", name_th=r["name_th"], name_en=r["name_en"], type=r["type"],
+                           province=r["province"], country="TH", source="ror", ror=r["id"])
+
+    def resolve(self, affiliation_th: str | None, affiliation_en: str | None, org_key: str | None,
+                ror: str | None = None, country: str | None = None, province: str | None = None) -> Institution | None:
         th, en, key = clean_text(affiliation_th), clean_text(affiliation_en), str(org_key or "")
         if not (th or en or key):
             return None
@@ -224,15 +235,25 @@ class Resolver:
             return None
         name = org_name(th, en)
         names = {"name_th": name, "name_en": ""} if thai_ratio(name) > 0.5 else {"name_th": "", "name_en": name}
-        country = country_of(th, en)
+        country = (country or "").upper() or country_of(th, en)
+        province = province or None
+        rid = short_id(ror).lower() if ror else ""
+        if rid and rid in self.ror_by_id:
+            return self._ror_inst(self.ror_by_id[rid])
         if country and country != "TH":
-            return Institution(key=f"org:{key}", type=type_from_name(name), country=country, **names)
+            return Institution(key=f"ror:{rid}" if rid else f"org:{key}", type=type_from_name(name), country=country,
+                               ror=rid, **names)
+        if rid:
+            if province is None and self.find_province:
+                province = province_finder().find(th, en)
+            return Institution(key=f"ror:{rid}", type=type_from_name(name), ror=rid, country="TH", province=province,
+                               **names)
         for cand in (org_name(th, ""), org_name("", en)):
             r = self.ror.get(norm_key(cand)) if cand else None
             if r is not None:
-                return Institution(key=f"ror:{r['id']}", name_th=r["name_th"], name_en=r["name_en"], type=r["type"],
-                                   province=r["province"], country="TH", source="ror", ror=r["id"])
-        province = province_finder().find(th, en) if self.find_province else None
+                return self._ror_inst(r)
+        if province is None and self.find_province:
+            province = province_finder().find(th, en)
         thai = country == "TH" or thai_ratio(th) > 0 or province is not None
         return Institution(key=f"org:{key}", type=type_from_name(name), province=province,
                            country="TH" if thai else None, **names)

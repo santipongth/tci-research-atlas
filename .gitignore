@@ -20,7 +20,7 @@ web/dist/
 web/public/data/atlas_data.json
 
 # corpus จริง (>250K ไฟล์ .md) ไม่เข้า git — ตัวอย่างสำหรับเทสต์อยู่ใน pipeline/tests/fixtures/
-corpus/
+/corpus/
 
 # persistent pipeline state + generated synthetic corpus + data releases
 pipeline/state/
@@ -50,3 +50,4 @@ web/test-results/
 .impeccable/review/
 .impeccable/questions/
 .impeccable/hook.cache.json
+deploy/

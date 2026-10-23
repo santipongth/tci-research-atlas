@@ -12,9 +12,11 @@ pipeline:
   release: null               # ชื่อรอบข้อมูล เช่น 2026Q4 — null = ไตรมาสของวันที่รัน (YYYYQn); state แยกตามรอบ
 
 input:
-  format: thaijo_md           # thaijo_md = โฟลเดอร์ไฟล์ .md จาก ThaiJO | table = csv/json/jsonl/parquet ไฟล์เดียว
-  path: ../corpus             # โฟลเดอร์ .md (หรือไฟล์ตารางถ้า format: table)
-  glob: "**/*.md"
+  format: corpus_jsonl        # corpus_jsonl = คลังรูปแบบ 1.0 (แนะนำ — docs/corpus/README.md) | thaijo_md = โฟลเดอร์ไฟล์ .md จาก ThaiJO | table = csv/json/jsonl/parquet ไฟล์เดียว (ไม่ใส่ = thaijo_md)
+  path: ../corpus             # โฟลเดอร์คลัง (มี articles/ + journals.csv) หรือโฟลเดอร์ .md (หรือไฟล์ตารางถ้า format: table)
+  glob: "**/*.md"             # ใช้เฉพาะ thaijo_md
+  corpus_glob: "articles/**/*.jsonl*"   # ใช้เฉพาะ corpus_jsonl: ไฟล์ข้อมูลใต้ path (.jsonl หรือ .jsonl.gz)
+  exclude_article_types: [editorial, erratum, book-review]   # ใช้เฉพาะ corpus_jsonl: ประเภทที่ไม่ใช่ผลงานวิจัย — ตัดออกและนับไว้ในรายงาน
   workers: 4                  # จำนวน process ตอน parse (ใช้เมื่อไฟล์ > 2,000)
   batch_files: 20000          # parse ทีละกี่ไฟล์แล้วแปลงเป็นตารางทันที (คุม RAM ที่ 500K ไฟล์)
   max_error_ratio: 0.01       # สัดส่วนไฟล์ที่อ่าน/parse ไม่ได้ที่ยอมรับได้ (เกินนี้ ingest หยุดด้วย error — ดู work/01_ingest_errors); 0 = ห้ามพลาดแม้แต่ไฟล์เดียว
@@ -298,7 +300,7 @@ layout:
 
 # ---------- P2 บรรณาธิการ: วารสาร (ระดับวารสาร/สถาบันเท่านั้น — ไม่มีข้อมูลรายบุคคล) ----------
 journals:
-  registry_path: ./registry/journals.csv   # ไม่บังคับ: ชื่อเต็ม/ISSN/tier/สถาบันเจ้าของ (คอลัมน์ดู registry/journals.example.csv) — ไม่มีไฟล์ = แสดงชื่อ OJS
+  registry_path: ../corpus/journals.csv   # ไม่บังคับ: ชื่อเต็ม/ISSN/tier/สถาบันเจ้าของ (คอลัมน์ดู registry/journals.example.csv) — คลังรูปแบบ 1.0 ส่ง journals.csv มาพร้อมกัน; คลัง .md ใช้ ./registry/journals.csv — ไม่มีไฟล์ = แสดงชื่อ OJS
   window_years: 5             # ตัวชี้วัดวารสารคิดจาก 5 ปีล่าสุดที่ข้อมูลครบ
   min_articles: 20            # วารสารที่มีบทความในช่วงนั้น < 20 เรื่อง → ไม่คำนวณสัดส่วน (ข้อมูลน้อย)
   completeness_weights:       # D2 คะแนนความครบถ้วน metadata 0–100 = ค่าเฉลี่ยถ่วงน้ำหนักของอัตราต่อองค์ประกอบ (ไม่ใช่ผลประเมิน TCI ทางการ)

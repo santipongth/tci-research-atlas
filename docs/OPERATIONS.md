@@ -1,81 +1,197 @@
 # OPERATIONS — คู่มือปฏิบัติการรายไตรมาส
 
-> สำหรับผู้ดูแลระบบ: รอบรันปกติทำ 4 ขั้น — รับไฟล์ → รัน pipeline → นำเข้าเว็บ → ตรวจหน้าเว็บ
-> เวลารวมโดยประมาณ (corpus ~200K): API mode 30–60 นาที / local mode 2–4 ชั่วโมง
+> **รอบปกติใช้คำสั่งเดียว:** `atlas quarterly` (หรือดับเบิลคลิก `scripts\quarterly_run.cmd` บน Windows)
+> คำสั่งนี้ทำงานตั้งแต่รับคลังบทความไปจนได้โฟลเดอร์เว็บที่อัปโหลดขึ้น host ได้ทันที และเก็บทุกอย่างของรอบไว้ใน `runs/<รอบ>/`
+> คนต้องทำเองแค่ 3 จุด: วางคลัง → ตอบ "y" ยืนยันค่า LLM → อ่านสรุปแล้วอัปโหลด
 
-## 0. สิ่งที่ต้องมี (ครั้งแรกครั้งเดียว)
+## 0. เตรียมเครื่อง (ครั้งแรกครั้งเดียว)
 
-- เครื่องที่รัน pipeline: Python 3.11+ (ใช้ `uv`; dev/CI ใช้ 3.12), RAM ≥ 16 GB (local mode อยากได้ GPU)
-- เครื่อง build เว็บ: Node.js 24 (ตรงกับ CI) (เครื่องเดียวกันก็ได้)
-- API key (env var เท่านั้น — ห้ามใส่ในไฟล์ใด ๆ): embedding แบบ api ใช้ `ATLAS_EMBED_API_KEY` (ดู §1A), LLM ใช้ `ATLAS_LLM_API_KEY` (ดู §6; ใช้ key เดียวกันได้), OpenAlex ใช้ `OPENALEX_API_KEY` (ทางเลือก ดู §9) — ตั้งใน crontab env ถ้ารันอัตโนมัติ
-- `pipeline/config.yaml` (คัดลอกจาก `config.example.yaml` แล้วแก้ `input.path`)
+1. **ติดตั้งโปรแกรม:**
+   - [uv](https://docs.astral.sh/uv/) (จัดการ Python ให้เอง)
+   - Node.js 24 (ใช้ build เว็บ)
+   - Git
+2. **เครื่อง:** RAM ≥ 16 GB และพื้นที่ว่าง ≥ 50 GB สำหรับคลัง 500,000 เรื่อง (store embedding ใช้ราว 2–4 GB)
+3. **ติดตั้ง pipeline:**
+   ```bash
+   cd pipeline
+   uv sync --extra api            # embedding ผ่าน API (แนะนำ) — หรือ --extra local ถ้ามี GPU
+   cp config.example.yaml config.yaml
+   ```
+4. **แก้ `pipeline/config.yaml`** เฉพาะค่าเหล่านี้ ค่าอื่นใช้ค่าเริ่มต้นได้:
 
-## 1. รอบรันรายไตรมาส (runbook)
+   | ค่า | ใส่อะไร |
+   |---|---|
+   | `input.path` | โฟลเดอร์คลังปัจจุบัน เช่น `D:/atlas-data/corpus/current` (ใส่ `--corpus` ตอนรันแทนก็ได้) |
+   | `pipeline.state_dir` | โฟลเดอร์ถาวร **ห้ามลบ** เช่น `D:/atlas-data/state` (เก็บ embedding และ cache LLM ที่จ่ายเงินไปแล้ว ควร backup) |
+   | `pipeline.work_dir`, `pipeline.output_dir` | โฟลเดอร์ทำงาน เช่น `D:/atlas-data/work` และ `D:/atlas-data/output` |
+   | `embedding.provider` + `embedding.api.*` | `api` + ปลายทางและโมเดล (ดู §1A) |
+   | `labeling.provider`, `narrative.provider` | `llm` เมื่อต้องการชื่อหัวข้อและคำอธิบายจาก LLM (ดู §6) ไม่ใช้ใส่ `"off"` หรือ `template` |
+   | `publish.site_url` | ที่อยู่เว็บจริง เช่น `https://atlas.tci-thailand.org/` (ใช้กับฟีดและ SEO) |
 
-### ขั้น 1 — รับและวางคลังบทความ
+5. **ตั้ง API key ใน env var เท่านั้น** ห้ามเขียนลงไฟล์ใด ๆ:
+   ```powershell
+   setx ATLAS_EMBED_API_KEY "..."   # embedding
+   setx ATLAS_LLM_API_KEY "..."     # LLM (ใช้ key เดียวกันได้)
+   ```
+   ตั้งแล้วเปิดหน้าต่างใหม่ เพราะหน้าต่างเดิมยังไม่เห็นค่า
+6. **ครั้งแรก:** ทำ embedding ครั้งใหญ่ทั้งคลังตาม §1.2 ก่อน
 
-ได้โฟลเดอร์ไฟล์ .md จาก ThaiJO ชุดใหม่ (หนึ่งไฟล์ต่อบทความ) → วางนอก git (เช่น `../corpus`; ข้อมูลจริงห้ามเข้า repo)
-→ แก้ `config.yaml: input.path` ชี้โฟลเดอร์นั้น
+## 1. รอบรันรายไตรมาส (step-by-step)
 
-### ขั้น 2 — รัน pipeline
+### 1.1 รับและวางคลังบทความ
+
+1. **ตรวจไฟล์ที่ได้รับ:** ทีมข้อมูลส่งคลังรูปแบบ 1.0 ตามคู่มือ [`docs/corpus/README.md`](corpus/README.md) คือโฟลเดอร์ `articles/*.jsonl.gz` + `journals.csv`
+2. **วางคลังแยกโฟลเดอร์ตามรอบ นอก git** และห้ามแก้คลังของรอบเก่า:
+   ```
+   D:/atlas-data/corpus/2026Q4/articles/…
+   D:/atlas-data/corpus/2026Q4/journals.csv
+   ```
+3. **ตรวจคุณภาพก่อน:** ใช้เวลาไม่กี่นาที ไม่เสียเงิน
+   ```bash
+   cd pipeline
+   uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4 --prepare
+   ```
+   - เปิด `runs/2026Q4/profile.md` ดูดังนี้:
+     - **บรรทัดที่ผิด:** ต้องน้อยกว่า 1% ถ้าเกิน คำสั่งจะหยุดเอง ให้ส่งรายการ `ไฟล์:บรรทัด` กลับทีมข้อมูล
+     - **ช่วงปีและยอดต่อปี:** เทียบรอบก่อนแล้วต้องสมเหตุสมผล
+     - **วารสารที่อัปโหลดย้อนหลังในปีเดียว**
+     - **% ความครบ:** โดยเฉพาะ abstract และสังกัด
+   - คลังเดิมเป็นไฟล์ `.md` ของ ThaiJO ใช้ต่อได้เลย (ระบบดูรูปแบบจากโฟลเดอร์เอง) หรือแปลงเป็นรูปแบบใหม่ด้วย `uv run atlas corpus convert <โฟลเดอร์ .md> --out <โฟลเดอร์ใหม่>`
+
+### 1.2 Embedding ครั้งใหญ่ (ครั้งแรกครั้งเดียว — หรือเมื่อเปลี่ยนโมเดล)
+
+คลัง 500,000 เรื่องต้องแปลงเป็นเวกเตอร์ครั้งเดียว ใช้เวลาหลายชั่วโมง รอบต่อ ๆ ไปจ่ายเฉพาะบทความใหม่หรือบทความที่ข้อความเปลี่ยน รายละเอียดเต็มอยู่ใน §1A
 
 ```bash
 cd pipeline
-uv sync --extra local                      # หรือ --extra api (ครั้งแรก/เมื่อ lock เปลี่ยน)
-uv run atlas profile /path/to/corpus --md ../logs/profile.md   # อ่านรายงานคุณภาพคลังก่อนเสมอ
-uv run atlas run --config config.yaml      # ทั้งสาย (หรือ bash ../scripts/quarterly_run.sh ซึ่ง profile ให้ด้วย)
+uv run atlas embed -c ../runs/2026Q4/config.yaml --check        # ยิง 1 request: key / URL / โมเดลถูกไหม
+uv run atlas embed -c ../runs/2026Q4/config.yaml --dry-run      # จำนวนเรื่อง ตัวอักษร token และ request ที่ต้องจ่าย (ไม่ยิง API)
+uv run atlas embed -c ../runs/2026Q4/config.yaml --background   # เริ่มงาน แล้วปิดหน้าต่างได้เลย
+uv run atlas status -c ../runs/2026Q4/config.yaml               # ดูความคืบหน้าและเวลาที่เหลือ (เปิดดูได้เรื่อย ๆ)
 ```
 
-(`python -m atlas.pipeline` ยังใช้ได้เป็น alias ของ `atlas run` แต่เอกสารนี้ใช้ `atlas` CLI)
+- `runs/2026Q4/config.yaml` ได้มาจาก `--prepare` ในข้อ 1.1 คือ config ของคุณ + คลังและชื่อรอบนี้
+- **เน็ตหลุด / server ล่ม / ปิดเครื่อง:** สั่งคำสั่ง `--background` เดิมอีกครั้ง ระบบทำต่อจากจุดเดิมโดยไม่จ่ายซ้ำ
+- **หยุดเอง:** `uv run atlas embed-stop -c ../runs/2026Q4/config.yaml`
+- เมื่อ `atlas status` ขึ้น `done` ไปข้อ 1.3 ได้เลย
 
-ถ้าใช้ LLM (`labeling.provider: llm` / `narrative.provider: llm`): ก่อนรันจริง `uv run atlas llm -c config.yaml --check` (ปลายทางตอบ JSON + ภาษาไทยไม่เพี้ยน) และ `--dry-run` (จำนวน call, token, ค่าใช้จ่ายโดยประมาณ, งบที่เหลือ) — ดูหัวข้อ 6
-หลังรัน: `uv run atlas validate -c config.yaml` ต้องได้ exit 0 (1 = มีคำเตือน อ่านก่อนเผยแพร่, 2 = ห้ามเผยแพร่)
-
-สิ่งที่ต้องดูตอนจบ:
-- `[export] -> output/atlas_data.json` ขึ้นโดยไม่มี error
-- เปิด `output/manifest.json` ดู `counts.total_articles` ว่าเพิ่มขึ้นสมเหตุสมผลจากรอบก่อน และตรวจ `ingest_errors` (ควรเป็น 0), `embedding_provider` (ต้องเป็น `local` หรือ `api` — ห้ามเผยแพร่ผลจาก `lite`), `n_labels_fallback`, `trimmed_years` / `as_of_year` (ปีที่ไม่ถูกนับในแนวโน้ม), `n_orgs_unverified`
-- เปิด `output/emerging.csv` sort ตาม `emerging_score` — ลองอ่าน top 10 ว่า "มีเหตุผล" ไหม (sanity check ด้วยความรู้โดเมน)
-
-### ขั้น 3 — นำเข้าเว็บ
+### 1.3 รันรอบ: คำสั่งเดียว
 
 ```bash
 cd pipeline
-uv run atlas validate -c config.yaml                         # 0 = ผ่าน
-uv run atlas publish  -c config.yaml --site ../web/dist      # วาง data/<release>/ + data/latest.json + atlas-offline.html
+uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4
 ```
 
-- เว็บ v2 อ่าน `data/latest.json` ตอนเปิดหน้า → **ไม่ต้อง build เว็บใหม่ทุกไตรมาส** แค่คัดลอกโฟลเดอร์ `data/` ใหม่ขึ้น host (รอบเก่ายังอยู่ใน `data/` ให้เทียบได้)
-- **รอบข้อมูลผูกกับ work_dir**: ขั้น `cluster` เลือกรอบ (`pipeline.release` หรือไตรมาสของวันที่รันเมื่อเป็น null) แล้วบันทึกรอบ + เวลา snapshot ไว้ใน `work/04_topics_meta.json`; ทุกขั้นหลังจากนั้น (label, narrate, layout, export) เขียนได้เฉพาะรอบนั้น — ถ้าแก้ `pipeline.release` เป็นรอบอื่นแล้วรันต่อ จะถูกปฏิเสธ (exit 2: "work_dir was clustered for 2026Q4 but pipeline.release is 2027Q1 — re-run from cluster, or set pipeline.release: 2026Q4") จึงไม่มีรอบผี/การเขียนทับรอบเก่า; ถ้า `pipeline.release: null` การรันต่อภายหลัง (แม้ข้ามไตรมาส) รวมถึง `atlas validate` / `atlas publish` จะใช้รอบที่บันทึกไว้ ไม่ใช่ไตรมาสของวันนี้ · `as_of_year` (เมื่อเป็น null), เพดานเดือนของ nowcast และ `generated_at` ใช้เวลา snapshot เดียวกัน — export รอบเดิมซ้ำได้ไฟล์เหมือนเดิมทุกไบต์
-- **รอบก่อนหน้าตามมาด้วย**: publish คัดลอกรอบก่อนหน้าตามสาย `previous_release` (รอบก่อน → รอบก่อนนั้น …) ที่ site ยังไม่มี จาก `output/data/` ให้เอง (เช่น หลัง `npm run build` ล้าง `dist/data`) เพื่อให้เว็บแสดงการเปลี่ยนแปลง (Δ) ได้ — ไม่เขียนทับโฟลเดอร์รอบที่มีอยู่บน site แล้ว; ถ้าหารอบก่อนหน้าไม่พบทั้งในเครื่องและบน site จะเตือน (publish ต่อได้ แต่เว็บไม่มี Δ เทียบกับรอบนั้น)
-- **`latest.json` ชี้รอบใหม่สุดเสมอ**: publish รอบที่เก่ากว่ารอบที่มีอยู่บน site (เช่น แก้แล้ว publish 2026Q3 ซ้ำหลัง 2026Q4) จะวางโฟลเดอร์ให้แต่ไม่ย้าย `latest.json`/`atlas-offline.html` (มีคำเตือน) — ต้องการย้ายจริงใช้ `--set-latest`; export ก็ไม่ย้าย `output/data/latest.json` ไปรอบที่เก่ากว่า
-- **โฟลเดอร์รอบต้องคงชื่อเดิม**: `atlas validate` เป็น error เมื่อ `manifest.release` ไม่ตรงกับชื่อโฟลเดอร์ (ห้ามเปลี่ยนชื่อ/ก๊อปปี้เป็นชื่ออื่น) และเตือน (ข้าม diff) เมื่อไม่พบโฟลเดอร์ของรอบก่อนหน้าที่ manifest อ้างถึง; ชื่อรอบต้องเป็นรูป YYYYQn (เช่น `2026Q4`) — ชื่อแปลก ๆ อย่าง `../x` ถูกปฏิเสธ
-- `atlas-offline.html` = เว็บทั้งหน้าในไฟล์เดียว (ส่งอีเมล/เปิดโดยไม่ต่อเน็ตได้) — สร้างด้วย Python จาก `offline-template.html` ของ web build; ถ้าโฟลเดอร์เว็บยังไม่มีไฟล์นี้ publish จะเตือนแล้วข้ามไป
-- ต้องการไฟล์แนบ GitHub Release ด้วย: เติม `--tarball` (ได้ tar.gz ที่ทำซ้ำได้ + sha256 + release notes และคำสั่ง `gh release create` ให้คนรันเอง — โปรแกรมไม่อัปโหลดเอง)
-- ทางลัด (จาก root): `bash scripts/import_atlas.sh` = `npm run build` ใน web แล้ว `atlas publish --site web/dist`
-- **ฟีด Atom (P4)**: ตั้ง `publish.site_url` (ที่อยู่สาธารณะของเว็บ เช่น `https://<user>.github.io/<repo>/`) แล้ว publish จะเขียน `data/feeds/releases.xml` + `data/feeds/topics/<รหัสหัวข้อ>.xml` และ `latest.json.feeds: true` (เว็บจึงแสดงลิงก์ฟีด) — ไม่ตั้ง = publish พิมพ์ `feeds: none (publish.site_url not set)` และไม่เขียนฟีด (ดู §19)
+ถ้าตั้ง `input.path` ใน config ไว้แล้ว ดับเบิลคลิก `scripts\quarterly_run.cmd` ได้เลย (ใช้ไตรมาสของวันนี้เป็นชื่อรอบ)
 
-### ขั้น 4 — ตรวจหน้าเว็บ + เผยแพร่
+คำสั่งนี้ทำทีละขั้นและหยุดทันทีเมื่อมีปัญหา พร้อมบอกวิธีแก้:
 
-- วางรอบใหม่ลงโฟลเดอร์เว็บด้วย `uv run atlas publish --site web/dist` (หรือ `bash scripts/import_atlas.sh`) แล้วเปิด preview (`npm run preview` ใน `web/`)
-- หน้า `/overview` ต้องแสดงชื่อรอบใหม่ ข้อความ "ข้อมูลถึงปี YYYY" ตรงกับ `last_complete_year` และตัวเลข Δ เทียบรอบก่อน (ถ้าโฟลเดอร์รอบก่อนยังอยู่บน site; ถ้าไม่อยู่จะมีบรรทัด "ไม่พบข้อมูลรอบก่อนหน้า")
-- เปิด `/changes` — ตรวจก่อนเผยแพร่: หัวข้อใหม่/ยุติ/รวม/แยก ตรงกับที่คาด, ตัวเลขรวมไม่กระโดดผิดปกติ, หัวข้อที่เปลี่ยนสถานะอธิบายได้ (ผู้บริหารจะใช้หน้านี้ตอบว่า "อะไรเปลี่ยน") · ถ้ารอบก่อนสร้างก่อน P2 หน้านี้จะบอกว่าเทียบกับไฟล์ที่เผยแพร่ของรอบก่อน
-- เปิด `/emerging` → แท็บ EMERGING ต้องมีรายการ คลิก 1 หัวข้อ → หน้าหัวข้อต้องมีชิปสถานะ (สัญลักษณ์ + สี + ข้อความ) และกราฟแนวโน้มพร้อมตาราง
-- สลับภาษา TH/EN และเปิดโหมดมืดดูคร่าว ๆ; ถ้าเป็นข้อมูลสังเคราะห์ ต้องเห็นป้าย "ข้อมูลตัวอย่าง" ทุกหน้า
-- เผยแพร่ข้อมูลจริง: `uv run atlas publish --site web/dist` แล้ว deploy โฟลเดอร์ `web/dist` ขึ้น host ของหน่วยงาน (static host ใดก็ได้) — การ push ขึ้น GitHub **ไม่** deploy อะไรเอง
-- workflow `.github/workflows/pages.yml` ใช้สำหรับ **เว็บสาธิต** เท่านั้น: ผู้ดูแลกดรันเอง (Actions → Pages → Run workflow) ระบบจะ build เว็บพร้อม **ข้อมูลตัวอย่าง (สังเคราะห์)** ที่มีป้าย "ข้อมูลตัวอย่าง" ทุกหน้าและตั้ง noindex — สคริปต์ `stage:demo` ปฏิเสธการเขียนทับโฟลเดอร์ที่มี release จริง
+| ขั้น | ทำอะไร | ผลอยู่ที่ |
+|---|---|---|
+| config | รวม config ของคุณกับคลัง ชื่อรอบ และ `journals.csv` ของรอบนี้ | `runs/<รอบ>/config.yaml` |
+| corpus | จดรายชื่อไฟล์ ขนาด และ sha256 ของคลังที่อ่าน | `runs/<รอบ>/corpus_manifest.json` |
+| profile | ตรวจคุณภาพคลัง หยุดถ้าบรรทัดที่ผิดเกินเพดาน | `runs/<รอบ>/profile.md` |
+| embed | (เฉพาะ `provider: api`) ประมาณค่าใช้จ่าย แล้ว embed เฉพาะเรื่องที่ยังไม่มี | `embed_dryrun.txt`, `embed.log` |
+| llm | (เมื่อเปิด LLM) **แสดงค่าใช้จ่ายโดยประมาณและถามยืนยันก่อนจ่าย** ตอบ `y` เพื่อไปต่อ | `llm_dryrun.txt` |
+| run | pipeline ครบทุกขั้น | `pipeline.log` |
+| validate | ตรวจรอบก่อนเผยแพร่: exit 2 = หยุด, exit 1 = มีคำเตือน (ไปต่อ เว้นแต่ใส่ `--strict`) | `validate.txt` |
+| web | build เว็บเมื่อยังไม่มี `web/dist` (หรือใส่ `--build-web`) | `web_build.log` |
+| publish | วางข้อมูลรอบใหม่ + รอบก่อน ๆ + ไฟล์ออฟไลน์ลงเว็บ | `publish.log` |
+| deploy | ทำโฟลเดอร์และ zip พร้อมอัปโหลด (ปฏิเสธข้อมูลทดสอบ) | `deploy/<รอบ>/site/`, `deploy/atlas-site-<รอบ>.zip`, `deploy/atlas-data-<รอบ>.zip` |
+| summary | ตัวเลขสำคัญ เวลาแต่ละขั้น คำเตือน และขั้นต่อไป | `runs/<รอบ>/summary.md` |
 
-### ขั้น 5 — เก็บรอบรัน
+**ถ้าหยุดกลางทาง:** แก้ตามข้อความที่ขึ้น แล้ว **สั่งคำสั่งเดิมอีกครั้ง** ส่วนที่จ่ายเงินไปแล้ว (embedding, คำตอบ LLM) ไม่ถูกจ่ายซ้ำ
+
+**ตัวเลือกที่ใช้บ่อย:**
+
+| ตัวเลือก | ผล |
+|---|---|
+| `--yes` | ไม่ถามก่อนจ่ายค่า LLM (ใช้กับงานตั้งเวลา) งบสูงสุดยังคุมด้วย `llm.budget_usd` |
+| `--strict` | หยุดเมื่อ validate มีคำเตือนด้วย |
+| `--build-web` | build เว็บใหม่ (หลังอัปเดตโค้ดเว็บ) |
+| `--prepare` | หยุดหลังตรวจคลัง |
+
+### 1.4 ตรวจผลก่อนเผยแพร่ (10 นาที)
+
+1. **อ่าน `runs/<รอบ>/summary.md` และ `validate.txt`:**
+   - จำนวนบทความต้องเพิ่มขึ้นสมเหตุสมผล
+   - อ่านคำเตือนให้ครบ
+2. **เปิดเว็บในเครื่อง:**
+   ```bash
+   cd web && node scripts/serve.mjs --site ../deploy/<รอบ>/site
+   ```
+   แล้วเปิด <http://127.0.0.1:4173/>
+3. **ตรวจหน้าเว็บ:**
+   - **หน้าแรก:** ต้องแสดงชื่อรอบใหม่ และต้อง **ไม่มี** ป้าย "ข้อมูลตัวอย่าง"
+   - **"อะไรเปลี่ยน" (`/changes`):** หัวข้อใหม่ หัวข้อที่ยุติ และหัวข้อที่เปลี่ยนสถานะต้องอธิบายได้ (ผู้บริหารใช้หน้านี้)
+   - **"กำลังมา" (`/emerging`):** ลองคลิก 1 หัวข้อ ต้องมีกราฟและตาราง
+4. **ตรวจชื่อหัวข้อที่ LLM ตั้ง (ทุกรอบ ประมาณ 50 หัวข้อ):**
+   - ส่งออกไฟล์ให้บรรณาธิการแก้: `uv run atlas review export -c ../runs/<รอบ>/config.yaml`
+   - นำไฟล์ที่แก้แล้วกลับเข้า: `uv run atlas review import <csv> -c ../runs/<รอบ>/config.yaml`
+   - จากนั้นรัน `atlas quarterly` เดิมอีกครั้ง เพื่อให้ชื่อใหม่ขึ้นเว็บ (§7)
+
+### 1.5 ขึ้นเว็บ (copy แล้วเสร็จ)
+
+- **ครั้งแรก หรือเมื่อโค้ดเว็บเปลี่ยน:** อัปโหลดทุกไฟล์ใน `deploy/<รอบ>/site/` ขึ้นโฟลเดอร์รากของ host หรือแตก `atlas-site-<รอบ>.zip` ที่นั่น
+  - host อะไรก็ได้ที่ให้ไฟล์ static: IIS, Apache, Nginx, S3 หรือ GitHub Pages
+  - ไม่ต้องมีฐานข้อมูลหรือเซิร์ฟเวอร์โปรแกรม
+- **รอบถัดไป (โค้ดเว็บเดิม):** แตก `atlas-data-<รอบ>.zip` ทับโฟลเดอร์เว็บบน host
+  - zip มีแค่ `data/` + `atlas-offline.html`
+  - รอบเก่ายังอยู่ใน `data/` เว็บจึงเทียบกับรอบก่อนได้
+- **GitHub Pages:** `bash scripts/package_release.sh --upload` แล้วไปที่ Actions → Pages → Run workflow → ใส่ `data_release` (§21)
+- **หลังขึ้นเว็บ:** เปิดเว็บจริงแล้วกด refresh หน้าแรกต้องแสดงรอบใหม่ ถ้าไม่ขึ้น ดูหัวข้อ "หน้าเว็บยังเป็นข้อมูลเก่า" ใน §3
+- **ย้อนกลับ:** แก้ `data/latest.json` บน host ให้ชี้รอบก่อน (§5)
+
+### 1.6 เก็บรอบรัน
+
+- `runs/<รอบ>/` เก็บไว้ครบแล้ว: config ที่ใช้จริง, รายการไฟล์คลัง (sha256), profile, log, validate, summary และไฟล์ใน `output/`
+- **backup ทุกรอบ:**
+  - `runs/<รอบ>/`
+  - `deploy/atlas-data-<รอบ>.zip`
+  - **`state_dir` ทั้งโฟลเดอร์** ซึ่งมี embedding, cache LLM และ ID หัวข้อของทุกรอบ ถ้าหาย ต้องจ่ายใหม่และประวัติหัวข้อขาด
+- เก็บคลังของแต่ละรอบไว้อย่างน้อย 2 รอบล่าสุด เผื่อต้องรันซ้ำ
+
+### 1.7 ทำเองทีละคำสั่ง (เมื่อต้องการคุมแต่ละขั้น)
+
+คำสั่งเดียวกับที่ `atlas quarterly` เรียกให้:
 
 ```bash
-mkdir -p runs/2026Q4 && cp pipeline/output/* runs/2026Q4/
+cd pipeline
+uv run atlas profile <คลัง> --md ../logs/profile.md
+uv run atlas embed -c config.yaml --dry-run && uv run atlas embed -c config.yaml
+uv run atlas llm -c config.yaml --dry-run          # ดูค่าใช้จ่ายก่อนทุกครั้ง
+uv run atlas run -c config.yaml
+uv run atlas validate -c config.yaml               # 0 = ผ่าน, 1 = มีคำเตือน, 2 = ห้ามเผยแพร่
+cd ../web && npm ci && npm run build && cd ../pipeline
+uv run atlas publish -c config.yaml --site ../web/dist
 ```
 
-เก็บ `output/` ทุกรอบไว้ — ใช้ทำ "diff รอบรัน" ในอนาคต และย้อนดู manifest ว่ารอบนั้นใช้นิยามแบบไหน
+สิ่งที่ควรรู้ตอนทำเอง:
+
+- **ผลลัพธ์ที่ต้องดูตอนจบ:**
+  - `output/manifest.json` → `counts.total_articles` และ `ingest_errors` (ควรเป็น 0)
+  - `embedding_provider` ต้องเป็น `local` หรือ `api` **ห้ามเผยแพร่ผลจาก `lite`**
+  - `n_labels_fallback`, `trimmed_years` / `as_of_year` และ `n_orgs_unverified`
+- **รอบข้อมูลผูกกับ work_dir:**
+  - ขั้น `cluster` บันทึกชื่อรอบไว้ใน `work/04_topics_meta.json` ขั้นหลังจากนั้นเขียนได้เฉพาะรอบนั้น
+  - ถ้าแก้ `pipeline.release` กลางทาง ระบบปฏิเสธ (exit 2) ไม่มีรอบผีหรือการเขียนทับรอบเก่า
+  - export รอบเดิมซ้ำได้ไฟล์เหมือนเดิมทุกไบต์
+- **รอบก่อนหน้าตามมาด้วย:**
+  - publish คัดลอกรอบก่อน ๆ ตามสาย `previous_release` จาก `output/data/` ให้เอง เช่น หลัง `npm run build` ล้าง `dist/data` เว็บจึงเทียบ Δ ได้
+  - publish ไม่เขียนทับโฟลเดอร์รอบที่มีบน site แล้ว
+- **`latest.json` ชี้รอบใหม่สุดเสมอ:** publish รอบที่เก่ากว่าจะวางโฟลเดอร์ให้ แต่ไม่ย้าย `latest.json` (ต้องการย้ายจริงใช้ `--set-latest`)
+- **ห้ามเปลี่ยนชื่อโฟลเดอร์รอบ:** `atlas validate` เป็น error เมื่อ `manifest.release` ไม่ตรงกับชื่อโฟลเดอร์ ชื่อรอบต้องเป็นรูป YYYYQn
+- **`atlas-offline.html`:** เว็บทั้งหน้าในไฟล์เดียว เปิดได้โดยไม่ต่อเน็ต
+- **ไฟล์แนบ GitHub Release:** `--tarball` ได้ tar.gz + sha256 + release notes
+- **ฟีด Atom:** ต้องตั้ง `publish.site_url` (§19)
+- **workflow `.github/workflows/pages.yml`:** ไม่ใส่ `data_release` = เว็บสาธิตที่ใช้ข้อมูลสังเคราะห์ มีป้าย "ข้อมูลตัวอย่าง" ทุกหน้า และตั้ง noindex (§21)
 
 ## 1A. รัน embedding ครั้งใหญ่ผ่าน API (ลงทุนครั้งเดียว)
 
 ใช้ตอน embed คลังทั้งหมด (250K–500K เรื่อง) ครั้งแรกด้วย BGE-M3 (หรือโมเดลอื่น) ผ่าน endpoint แบบ OpenAI-compatible (`POST {base_url}/embeddings`)
 เวกเตอร์เก็บถาวรใน `state/embeddings/<store>/` — รอบไตรมาสถัดไปจ่ายเฉพาะบทความใหม่/ที่ข้อความเปลี่ยน
+
+ลำดับที่ใช้จริง: `atlas quarterly --corpus <คลัง> --release <รอบ> --prepare` (ได้ `runs/<รอบ>/config.yaml`) → ทำข้อ 1–7 ด้านล่างด้วย `-c ../runs/<รอบ>/config.yaml` → `atlas quarterly` เดิม (ขั้น embed จะขึ้น `0 to embed`) — ข้อความที่ถูกทำความสะอาดใหม่ (เช่น ย้ายจาก .md มาเป็นรูปแบบ 1.0) นับเป็นข้อความใหม่และถูก embed ใหม่ เพราะ store ใช้ hash ของข้อความเป็น key — `--dry-run` บอกจำนวนที่ต้องจ่ายจริงเสมอ
 
 **1) ตั้ง key — env var เท่านั้น ห้ามใส่ใน config หรือไฟล์ใด ๆ**
 
@@ -161,12 +277,16 @@ uv run atlas embed -c config.yaml
 
 **exit codes**: 0 เสร็จ · 1 ล้ม (เช่น ตั้ง `max_retries` แล้ว retry หมด; หรือบันทึกลง store ตอนจบไม่ได้ เช่น ดิสก์เต็ม หรือมีโปรแกรมเปิด `index.parquet` ค้าง — ผลอยู่ใน `journal.bin` ครบ รันคำสั่งเดิมอีกครั้ง) · 2 config/error ถาวร (key, URL, redirect, โมเดล, โควตาหมด, มิติไม่ตรง, ระบบไฟล์ล็อกไฟล์ไม่ได้) · 3 มี process อื่นถือ store นี้อยู่ (กำลังรัน หรือ hung) · 130 ถูกหยุด (ทำต่อได้)
 
-## 2. ตั้ง cron (ตัวเลือก — ยังต้องมีคนกดตรวจขั้น 3–4)
+## 2. ตั้งเวลารันอัตโนมัติ (ไม่บังคับ — คนยังต้องตรวจผลตาม §1.4 ก่อนอัปโหลด)
+
+ทีมข้อมูลต้องวางคลังของรอบนั้นไว้ที่ `input.path` ก่อนถึงเวลารัน และงานตั้งเวลาต้องใส่ `--yes` เพราะไม่มีคนตอบคำถามยืนยันค่า LLM (งบยังคุมด้วย `llm.budget_usd`)
 
 ```cron
-# 01:00 วันที่ 1 ของ เดือน 1,4,7,10
-0 1 1 1,4,7,10 * cd /path/to/tci-research-atlas && bash scripts/quarterly_run.sh pipeline/config.yaml >> logs/quarterly.log 2>&1
+# 01:00 วันที่ 1 ของเดือน 1,4,7,10
+0 1 1 1,4,7,10 * cd /path/to/tci-research-atlas && bash scripts/quarterly_run.sh --yes >> logs/quarterly.log 2>&1
 ```
+
+Windows Task Scheduler: ให้โปรแกรมเป็น `scripts\quarterly_run.cmd` อาร์กิวเมนต์ `--yes` และเริ่มใน (Start in) `<repo>\scripts`
 
 ## 3. Troubleshooting
 
@@ -209,7 +329,7 @@ uv run atlas embed -c config.yaml
 | Windows แสดงภาษาไทยเพี้ยนใน console | console เป็น cp1252 | ทั้ง `uv run atlas …` และ `python -m atlas.pipeline` ตั้ง stdout/stderr เป็น UTF-8 ให้แล้ว (รวมตอน redirect ลงไฟล์) |
 | อยากปรับนิยาม emerging | — | แก้ `config.yaml → emerging:` + `docs/EMERGING_SPEC.md` + `tests/test_emerging.py` พร้อมกัน แล้วรัน `uv run atlas run -c config.yaml -s emerging -s forecast -s export` (ฟรี ไม่แตะ API) |
 
-## 4. งบประมาณโดยประมาณต่อรอบ (corpus ~200K เรื่อง)
+## 4. งบประมาณโดยประมาณต่อรอบ (corpus ~200K เรื่อง — 500K เรื่อง คูณประมาณ 2.5)
 
 | รายการ | API mode | Local mode |
 |---|---|---|

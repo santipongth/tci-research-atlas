@@ -43,7 +43,7 @@ from atlas.thai import thai_ratio
 
 INST_COLUMNS = ["inst_key", "code", "name_th", "name_en", "type", "province", "country", "source", "ror",
                 "articles", "articles_total", "articles_recent", "intl_share", "partners", "topics", "published"]
-AUTHOR_COLUMNS = ["article_id", "affiliation_th", "affiliation_en", "org_key"]
+AUTHOR_COLUMNS = ["article_id", "affiliation_th", "affiliation_en", "org_key", "ror", "country", "province"]
 IDENT_COLUMNS = ["name_th", "name_en", "type", "province", "country", "source", "ror"]
 
 
@@ -79,12 +79,16 @@ def resolve_authors(authors: pd.DataFrame, resolver: Resolver, display: dict[str
     an institution's province and country are the most frequent among its author rows; an institution known only as
     written takes the P1 display name of its org_key (most frequent written form)."""
     a = pd.DataFrame({"article_id": authors["article_id"], "th": _text(authors, "affiliation_th"),
-                      "en": _text(authors, "affiliation_en"), "org_key": _text(authors, "org_key")})
-    trip = a[["th", "en", "org_key"]].drop_duplicates().reset_index(drop=True)
-    found: list[Institution | None] = [resolver.resolve(t, e, k) for t, e, k in zip(trip["th"], trip["en"], trip["org_key"])]
+                      "en": _text(authors, "affiliation_en"), "org_key": _text(authors, "org_key"),
+                      "h_ror": _text(authors, "ror"), "h_country": _text(authors, "country"),
+                      "h_province": _text(authors, "province")})        # hints given by corpus format 1.0
+    keys = ["th", "en", "org_key", "h_ror", "h_country", "h_province"]
+    trip = a[keys].drop_duplicates().reset_index(drop=True)
+    found: list[Institution | None] = [resolver.resolve(t, e, k, ror=r, country=c, province=p)
+                                       for t, e, k, r, c, p in trip.itertuples(index=False)]
     res = pd.DataFrame([asdict(f) if f is not None else {"key": ""} for f in found],
                        columns=["key", *IDENT_COLUMNS]).rename(columns={"key": "inst_key"})
-    rows = a.merge(pd.concat([trip, res], axis=1), on=["th", "en", "org_key"], how="left")
+    rows = a.merge(pd.concat([trip, res], axis=1), on=keys, how="left")
     rows = rows[rows["inst_key"].map(_given)]
     links = rows[["article_id", "inst_key"]].drop_duplicates().reset_index(drop=True)
     ident = rows.groupby("inst_key").agg(

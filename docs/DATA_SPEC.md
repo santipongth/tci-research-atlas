@@ -1,5 +1,27 @@
 # DATA_SPEC — สเปกข้อมูลเข้า/ออก
 
+## 0. Input ที่แนะนำ: คลังรูปแบบ 1.0 (`input.format: corpus_jsonl`)
+
+- **รูปแบบ:** JSON Lines หนึ่งบรรทัดต่อบทความ อยู่ใน `<คลัง>/articles/*.jsonl` หรือ `*.jsonl.gz` พร้อม `<คลัง>/journals.csv`
+- **คู่มือสำหรับทีมข้อมูล:** `docs/corpus/README.md`
+- **ตัวอย่าง:** `docs/corpus/example/`
+- **schema:** `docs/corpus/corpus.schema.json` สร้างจาก `pipeline/atlas/schema/corpus.py` ด้วย `atlas corpus schema` (test ตรวจ drift)
+- **ตัวอ่าน:** `atlas/sources/corpus_jsonl.py`
+  - ตรวจทุกบรรทัดกับ model แล้วแปลงเป็น record แบบเดียวกับ `parse_markdown` ทุก step หลัง ingest จึงไม่ต้องแก้
+  - บรรทัดที่ผิดบันทึกเป็น `01_ingest_errors` ในรูป `ไฟล์:บรรทัด` และใช้เพดาน `input.max_error_ratio` เดิม
+  - `input.exclude_article_types` ตัดประเภทที่ไม่ใช่ผลงานวิจัยออก
+- **รหัสบทความ:**
+  - ใช้ `id` ที่ทีมใส่มาก่อน
+  - ไม่มี → ถ้ามี URL ของ ThaiJO ใช้ `<server>:<journal>:<เลข>` (ตรงกับคลัง .md)
+  - ไม่มี URL → ใช้ `doi:<doi>`
+  - ไม่มี DOI → ใช้ `tci:<sha1(journal_key|ชื่อเรื่อง|ปี)[:16]>`
+- **คอลัมน์ใหม่ใน checkpoint:** ทางอื่นเป็นค่าว่าง
+  - `01_articles`: `journal_key`, `article_type`, `language`, `issn`, `eissn`, `volume`, `issue`
+  - `01_authors`: `orcid`, `ror`, `country`, `province` และ `affiliation_index` (หนึ่งแถวต่อผู้แต่งต่อสังกัด)
+  - `registry.journal_keys` ใช้ `journal_key` ที่ทีมใส่มาก่อน
+  - `institutions_ref.Resolver` ใช้ `ror` / `country` / `province` เป็นค่าบอกใบ้ แต่ไม่ทับ alias
+- **ย้ายคลังเดิม:** `atlas corpus convert <โฟลเดอร์ .md> --out <โฟลเดอร์>` ได้ตาราง ingest เท่าเดิม (test parity) และรหัสบทความเดิม
+
 ## 1. Input: ThaiJO Markdown (ค่าดีฟอลต์ `input.format: thaijo_md`)
 หนึ่งไฟล์ .md ต่อบทความ (ตัวอย่างจริงใน `pipeline/tests/fixtures/thaijo_md/`):
 | ส่วน | รูปแบบ | ที่ pipeline ทำ |

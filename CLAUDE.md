@@ -26,7 +26,8 @@ tci-research-atlas/
 │   ├── DATA_SPEC.md        ← สเปก input (ThaiJO Markdown) และ output (atlas_data.json)
 │   ├── EMERGING_SPEC.md    ← นิยาม "emerging" ของ TCI ฉบับเต็ม + สูตรคะแนน
 │   ├── ROADMAP.md          ← ฟีเจอร์ทั้ง 5 phase + ของที่ควรทำต่อ
-│   ├── OPERATIONS.md       ← วิธีรัน batch รายไตรมาส + import เข้าเว็บ + troubleshoot
+│   ├── OPERATIONS.md       ← รอบไตรมาสด้วยคำสั่งเดียว (`atlas quarterly`) step-by-step + embedding ครั้งใหญ่ + troubleshoot
+│   ├── corpus/             ← คู่มือเตรียมคลังรูปแบบ 1.0 สำหรับทีมข้อมูล (README.md) + corpus.schema.json (generated) + validate_jsonl.py + example/ (สังเคราะห์)
 │   └── superpowers/        ← specs + plans ของ v2 (แผนหลัก: specs/2026-10-18-tci-atlas-v2-design.md)
 ├── pipeline/               ← Python batch pipeline (Phase 1,2,4,5)
 │   ├── atlas/              ← โมดูล pipeline: ingest→preprocess→embed→cluster→taxonomy→label
@@ -35,8 +36,9 @@ tci-research-atlas/
 │   │                         →export (P2: journals.py, journal_metrics.py, journal_topics.py, registry.py, methods.py, matcher.py, diff.py;
 │   │                         P3: places.py, institutions_ref.py, institutions.py, sdg.py, global_bench.py, gaps.py, export_exec.py;
 │   │                         P4: references.py, search_index.py, kwtrends.py, export_research.py, feeds.py (ฟีด Atom ตอน publish))
-│   │   ├── sources/        ← parser ข้อมูลเข้า (thaijo_md.py)
-│   │   └── schema/         ← data contract v2 (contract.py → JSON Schema)
+│   │   ├── sources/        ← parser ข้อมูลเข้า (corpus_jsonl.py = คลังรูปแบบ 1.0 ที่แนะนำ · thaijo_md.py)
+│   │   └── schema/         ← data contract v2 (contract.py → JSON Schema) · corpus.py (คลังรูปแบบ 1.0 → docs/corpus/corpus.schema.json)
+│   │   (quarterly.py = `atlas quarterly` · corpus_convert.py = `atlas corpus convert`)
 │   ├── configs/ci.yaml     ← config สำหรับ CI
 │   ├── atlas/data/         ← ข้อมูลอ้างอิงสาธารณะที่ commit: th_provinces.csv (77 จังหวัด ISO 3166-2:TH), frameworks.yaml (SDG/BCG/แผน ววน./หมุดหมายแผนฯ 13 + คำสำคัญ)
 │   ├── registry/           ← ไฟล์ที่ผู้ดูแลคัดเอง (journals.csv, institutions_aliases.csv, province_population.csv — git-ignored) — repo มีแต่ *.example.csv
@@ -58,7 +60,7 @@ tci-research-atlas/
 │   └── fixtures/           ← รอบข้อมูลสังเคราะห์ (example + empty) สำหรับ dev/test — ไม่ใช่ข้อมูลจริง
 ├── prompts/                ← LLM prompts ทั้งหมด (ฉบับเดียว — โค้ดอ่านไฟล์ตอนรัน)
 └── scripts/
-    ├── quarterly_run.sh    ← สคริปต์รัน batch รายไตรมาส (เรียกจาก cron)
+    ├── quarterly_run.sh    ← = uv run atlas quarterly (cron) · quarterly_run.cmd = ดับเบิลคลิกบน Windows
     └── import_atlas.sh     ← build เว็บ + atlas publish --site web/dist (วาง data/ + ไฟล์ออฟไลน์)
 ```
 
@@ -92,7 +94,10 @@ tci-research-atlas/
 cd pipeline
 uv sync                                    # + --extra api / --extra local
 cp config.example.yaml config.yaml         # แก้ input.path → โฟลเดอร์ .md
-uv run atlas profile ../corpus             # ตรวจคุณภาพคลังก่อนเสมอ
+uv run atlas quarterly --corpus <คลัง> --release 2026Q4   # รอบไตรมาสครบในคำสั่งเดียว → runs/<รอบ>/ + deploy/<รอบ>/site (ถามก่อนจ่ายค่า LLM; --prepare = หยุดหลังตรวจคลัง)
+uv run atlas profile ../corpus             # ตรวจคุณภาพคลังก่อนเสมอ (ดูรูปแบบจากโฟลเดอร์เอง: articles/*.jsonl → corpus_jsonl, ไม่งั้น .md; exit 1 เมื่อบรรทัดผิดเกินเพดาน)
+uv run atlas corpus schema                 # docs/corpus/corpus.schema.json (หลังแก้ atlas/schema/corpus.py)
+uv run atlas corpus convert <โฟลเดอร์ .md> --out <คลังใหม่>   # คลัง .md → รูปแบบ 1.0 (รหัสบทความเดิม)
 uv run atlas run --config config.yaml      # ทั้งสาย
 uv run atlas run -c config.yaml -s emerging -s forecast -s export
 uv run atlas embed -c config.yaml [--check | --dry-run | --background]   # embedding ครั้งใหญ่: retry ไม่จำกัด, resume ได้
@@ -125,8 +130,8 @@ npm run brief:pdf -- --data fixtures/example/data   # brief-th.pdf / brief-en.pd
 ### รอบรันรายไตรมาส (จาก root)
 
 ```bash
-bash scripts/quarterly_run.sh [pipeline/config.yaml]      # profile คลัง + รัน pipeline ครบ
-bash scripts/import_atlas.sh                              # build เว็บ + atlas publish --site web/dist
+bash scripts/quarterly_run.sh --corpus <คลัง> --release 2026Q4   # = atlas quarterly (Windows: scripts\quarterly_run.cmd)
+bash scripts/import_atlas.sh                              # (ทำเอง) build เว็บ + atlas publish --site web/dist
 ```
 
 รายละเอียดเชิงปฏิบัติการทั้งหมดอยู่ใน `docs/OPERATIONS.md`
@@ -173,6 +178,7 @@ bash scripts/import_atlas.sh                              # build เว็บ +
 - **DO** แก้การตัดคำของ `atlas.search_index` (normalisation, stopword, กฎ token) = รัน `scripts/make_search_parity.py` ใหม่ + แก้ `web/src/lib/searchTokens.ts` ให้ได้ผลเดียวกัน + เพิ่ม `TOKENIZER_VERSION` ทั้งสองฝั่ง — `search_parity.json` ตรึงทั้ง pytest และ vitest
 - **DON'T** ลดเกณฑ์ `references.min_coverage` / `min_internal_matches` เพียงเพื่อให้หน้าแสดงผล — คลังที่รายการอ้างอิงครอบคลุมต่ำทำให้ตัวเลขรายวารสารหลอกตา (ถามเจ้าของข้อมูล)
 - **DO** ประโยคที่ pipeline เขียนให้สาธารณะ (brief, `overview.executive`, คำอธิบายหัวข้อแบบแม่แบบ, เหตุผลความกว้าง, บันทึกวิธีวิจัย, สรุปในฟีด) ใช้ภาษาง่าย: เขียนปีแทน "ช่วงฐาน/ช่วงล่าสุด", มีหน่วยทุกตัวเลข, ชื่อสถานะไทย/อังกฤษจาก `narrative.STATUS_TH/STATUS_EN` (ไม่ใช่รหัส) และต้องผ่าน `narrative.jargon_in` (คำต้องห้าม `JARGON_TH/JARGON_EN` + รหัสสถานะ; `test_release.py::test_published_template_sentences_are_plain_language` ตรวจทุกไฟล์ที่เผยแพร่) — ตัวเลขและข้อเท็จจริง "(x เท่า)" ห้ามเปลี่ยน
+- **DO** คลังรูปแบบ 1.0: แก้ช่องข้อมูล = แก้ `atlas/schema/corpus.py` + `atlas corpus schema` + `docs/corpus/README.md` + ตัวอย่างใน `docs/corpus/example/` พร้อมกัน (`test_corpus_jsonl` ตรวจ drift และอ่านตัวอย่าง); เพิ่มได้อย่างเดียวภายใน 1.x — รหัสบทความที่ได้จากกฎ id ห้ามเปลี่ยน (ประวัติหัวข้อและ store embedding ผูกกับมัน)
 - **DON'T** ใช้ชื่อรอบ (release) นอกรูป YYYYQn, ใช้ ID หัวข้อซ้ำ หรือรันรอบที่เก่ากว่ารอบที่มีอยู่ — โค้ดปฏิเสธอยู่แล้ว อย่าเลี่ยง
 
 ### Web

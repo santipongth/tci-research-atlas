@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from datetime import date
 from pathlib import Path
@@ -15,6 +16,7 @@ from tqdm import tqdm
 
 from atlas.io_utils import read_table, write_table
 from atlas.orgs import org_key
+from atlas.sources import corpus_jsonl
 from atlas.sources.thaijo_md import fill_years_from_issue, parse_markdown
 from atlas.thai import clean_text, norm_key
 
@@ -23,13 +25,18 @@ ARTICLE_COLUMNS = [
     "pages", "doi", "title_th", "title_en", "abstract_th", "abstract_en", "keywords_th", "keywords_en",
     "authors", "affiliations", "n_authors", "n_student_authors", "n_references", "has_references",
     "self_citation_only", "text_quality",
+    # corpus format 1.0 only (empty for the Markdown and table inputs)
+    "journal_key", "article_type", "language", "issn", "eissn", "volume", "issue",
 ]
-AUTHOR_COLUMNS = ["article_id", "position", "name", "name_en", "affiliation_th", "affiliation_en",
-                  "role", "is_student", "org_key"]
+CORPUS_ARTICLE_COLUMNS = ["journal_key", "article_type", "language", "issn", "eissn", "volume", "issue"]
+# one row per author and affiliation: position = author order, affiliation_index = the author's n-th affiliation
+AUTHOR_COLUMNS = ["article_id", "position", "affiliation_index", "name", "name_en", "affiliation_th", "affiliation_en",
+                  "role", "is_student", "org_key", "orcid", "ror", "country", "province"]
+CORPUS_AUTHOR_COLUMNS = ["orcid", "ror", "country", "province"]
 REFERENCE_COLUMNS = ["article_id", "position", "text", "year", "lang", "translated", "self_citation"]
 _TEXT = ["source_path", "url", "issue_url", "journal_name", "published", "year_source", "pages", "doi",
          "title_th", "title_en", "abstract_th", "abstract_en", "keywords_th", "keywords_en",
-         "authors", "affiliations", "text_quality"]
+         "authors", "affiliations", "text_quality", *CORPUS_ARTICLE_COLUMNS]
 
 
 # ------------------------------------------------------------------ markdown corpus
@@ -76,24 +83,32 @@ def read_thaijo_corpus(root: str | Path, pattern: str = "**/*.md",
 
 
 def records_to_tables(records: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Records of thaijo_md.parse_markdown or sources.corpus_jsonl → (articles, authors, references).
+    A corpus record lists one author row per affiliation (author_index, affiliation_index)."""
     arts, auths, refs = [], [], []
     for r in records:
-        a = r["authors"]
+        rows = r["authors"]
+        first = [x for x in rows if x.get("affiliation_index", 0) == 0]     # one row per author
         arts.append({
             **{k: r[k] for k in ("article_id", "source_path", "url", "issue_url", "journal_name", "published",
                                  "year", "year_source", "pages", "doi", "title_th", "title_en",
                                  "abstract_th", "abstract_en", "n_references", "has_references",
                                  "self_citation_only")},
+            **{k: r.get(k, "") for k in CORPUS_ARTICLE_COLUMNS},
             "keywords_th": "; ".join(r["keywords_th"]),
             "keywords_en": "; ".join(r["keywords_en"]),
-            "authors": "; ".join(x["name"] for x in a),
-            "affiliations": "; ".join(x["affiliation_th"] or x["affiliation_en"] for x in a),
-            "n_authors": len(a),
-            "n_student_authors": sum(bool(x["is_student"]) for x in a),
+            "authors": "; ".join(x["name"] for x in first),
+            "affiliations": "; ".join(x["affiliation_th"] or x["affiliation_en"] for x in rows),
+            "n_authors": len(first),
+            "n_student_authors": sum(bool(x["is_student"]) for x in first),
             "text_quality": "; ".join(r["text_quality"]),
         })
-        for i, x in enumerate(a):
-            auths.append({"article_id": r["article_id"], "position": i, **x,
+        for i, x in enumerate(rows):
+            auths.append({"article_id": r["article_id"], "position": x.get("author_index", i),
+                          "affiliation_index": x.get("affiliation_index", 0),
+                          **{k: x[k] for k in ("name", "name_en", "affiliation_th", "affiliation_en", "role",
+                                               "is_student")},
+                          **{k: x.get(k, "") for k in CORPUS_AUTHOR_COLUMNS},
                           "org_key": org_key(x["affiliation_th"], x["affiliation_en"])})
         for i, x in enumerate(r["references"]):
             refs.append({"article_id": r["article_id"], "position": i, **{k: x[k] for k in REFERENCE_COLUMNS[2:]}})
@@ -144,6 +159,42 @@ def read_thaijo_tables(root: str | Path, pattern: str = "**/*.md", workers: int 
     return fill_years_from_issue_df(arts), auths, refs, errors
 
 
+# ------------------------------------------------------------------ corpus format 1.0 (JSON Lines)
+def _corpus_file_tables(args: tuple[str, tuple[str, ...]]) -> tuple:
+    """One data file → (articles, authors, references, errors, excluded types, id sources) — top-level so worker
+    processes can pickle it; tables are built in the worker so records never cross the process boundary."""
+    path, exclude = args
+    try:
+        recs, errors, excluded = corpus_jsonl.read_corpus_file(path, exclude)
+    except OSError as e:                          # unreadable / corrupt .gz: the whole file is one error row
+        return (*records_to_tables([]), [{"path": path, "error": f"{type(e).__name__}: {e}"}], Counter(), Counter())
+    sources = Counter(r["id_source"] for r in recs)
+    return (*records_to_tables(recs), errors, excluded, sources)
+
+
+def read_corpus_tables(root: str | Path, pattern: str = corpus_jsonl.DEFAULT_GLOB, workers: int = 1,
+                       exclude: tuple[str, ...] = ()) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[dict], dict]:
+    """Corpus folder → (articles, authors, references, errors, stats{excluded, id_source, lines}).
+    Errors are per line ("file:line"); a corpus without data files is an error, not an empty run."""
+    files = corpus_jsonl.corpus_files(root, pattern)
+    if not files:
+        raise FileNotFoundError(f"no corpus data files matching {pattern!r} under {root} "
+                                f"(expected articles/*.jsonl or *.jsonl.gz — docs/corpus/README.md)")
+    jobs = [(f, tuple(exclude)) for f in files]
+    if workers > 1 and len(files) > 1:
+        with ProcessPoolExecutor(max_workers=min(workers, len(files))) as ex:
+            parts = list(tqdm(ex.map(_corpus_file_tables, jobs), total=len(jobs), desc="corpus files"))
+    else:
+        parts = [_corpus_file_tables(j) for j in tqdm(jobs, desc="corpus files", disable=len(jobs) < 2)]
+    arts, auths, refs = (pd.concat([p[k] for p in parts], ignore_index=True) for k in range(3))
+    errors = [e for p in parts for e in p[3]]
+    excluded = sum((p[4] for p in parts), Counter())
+    sources = sum((p[5] for p in parts), Counter())
+    stats = {"excluded": dict(excluded), "id_source": dict(sources),
+             "lines": len(arts) + len(errors) + sum(excluded.values())}
+    return fill_years_from_issue_df(arts), auths, refs, errors, stats
+
+
 # ------------------------------------------------------------------ table input
 def _read_any(path: str) -> pd.DataFrame:
     p = Path(path)
@@ -187,9 +238,9 @@ def read_table_input(cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFram
         aff_list = [x.strip() for x in affs.split(";")]
         for i, name in enumerate(x.strip() for x in names.split(";") if x.strip()):
             aff = aff_list[i] if i < len(aff_list) else ""
-            auth_rows.append({"article_id": aid, "position": i, "name": name, "name_en": "",
+            auth_rows.append({"article_id": aid, "position": i, "affiliation_index": 0, "name": name, "name_en": "",
                               "affiliation_th": aff, "affiliation_en": "", "role": "", "is_student": False,
-                              "org_key": org_key(aff, "")})
+                              "org_key": org_key(aff, ""), **dict.fromkeys(CORPUS_AUTHOR_COLUMNS, "")})
     return df, pd.DataFrame(auth_rows, columns=AUTHOR_COLUMNS), pd.DataFrame(columns=REFERENCE_COLUMNS)
 
 
@@ -304,6 +355,13 @@ def ingest(cfg: dict) -> pd.DataFrame:
         articles, authors, refs, errors = read_thaijo_tables(icfg["path"], icfg["glob"], int(icfg["workers"]),
                                                              int(icfg["batch_files"]))
         n_files = len(articles) + len(errors)            # one article or one error per file
+    elif icfg["format"] == "corpus_jsonl":
+        articles, authors, refs, errors, cstats = read_corpus_tables(
+            icfg["path"], icfg["corpus_glob"], int(icfg["workers"]), tuple(icfg["exclude_article_types"]))
+        n_files = cstats["lines"]                        # one article, one error or one excluded article per line
+        if cstats["excluded"]:
+            print("[ingest] left out by input.exclude_article_types: "
+                  + ", ".join(f"{k} {v:,}" for k, v in sorted(cstats["excluded"].items())))
     else:
         articles, authors, refs = read_table_input(cfg)
     n_raw = len(articles)
@@ -319,7 +377,7 @@ def ingest(cfg: dict) -> pd.DataFrame:
     else:
         articles, n_dup = drop_duplicate_ids(articles)
     keep = set(articles["article_id"])
-    authors = authors[authors["article_id"].isin(keep)].drop_duplicates(["article_id", "position"])
+    authors = authors[authors["article_id"].isin(keep)].drop_duplicates(["article_id", "position", "affiliation_index"])
     refs = refs[refs["article_id"].isin(keep)].drop_duplicates(["article_id", "position"])
 
     work = Path(cfg["pipeline"]["work_dir"])

@@ -1,0 +1,4 @@
+journal_key,name_th,name_en,issn,eissn,tci_tier,tci_field,publisher_org,url
+so02:SampleJournal,วารสารตัวอย่างบริหารธุรกิจ,Sample Journal of Business,1905-9566,2651-1371,1,สังคมศาสตร์,มหาวิทยาลัยตัวอย่าง,https://so02.tci-thaijo.org/index.php/SampleJournal
+tci:sample-medical-journal,วารสารตัวอย่างการแพทย์,Sample Medical Journal,0125-0000,,1,วิทยาศาสตร์สุขภาพ,สมาคมตัวอย่างการแพทย์,
+tci:sample-education-journal,วารสารตัวอย่างครุศาสตร์,Sample Journal of Education,,,2,มนุษยศาสตร์และสังคมศาสตร์,,

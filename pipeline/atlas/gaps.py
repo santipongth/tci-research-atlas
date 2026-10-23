@@ -101,7 +101,8 @@ def gaps(cfg: dict) -> dict:
     R = (last - int(cfg["emerging"]["recent_window"]) + 1, last)
     limit = int(gcfg["max_items"])
 
-    arts = read_table(work / "01_articles.parquet")[["article_id", "journal_name", "year"]]
+    arts = read_table(work / "01_articles.parquet")
+    arts = arts[[c for c in ("article_id", "journal_name", "journal_key", "year") if c in arts.columns]]
     arts = arts.assign(journal_key=journal_keys(arts), year=pd.to_numeric(arts["year"], errors="coerce"))
     in_r = arts[arts["year"].between(*R).fillna(False).astype(bool)]
     docs = read_table(work / "02_docs.parquet")[["article_id"]]
