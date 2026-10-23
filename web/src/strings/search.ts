@@ -3,7 +3,7 @@ import { defineStrings } from './define'
 /** /search (R2 whole-corpus article search, R9 RIS/BibTeX). Imported only by the lazy SearchPage (entry budget). */
 export const search = defineStrings({
   title: { th: 'ค้นหาบทความ', en: 'Search articles' },
-  lede: { th: 'ค้นจากชื่อเรื่องและคำสำคัญของบทความ {n} เรื่องในคลัง ทั้งภาษาไทยและภาษาอังกฤษ', en: 'Search the titles and keywords of {n} articles in the collection, in Thai or English.' },
+  lede: { th: 'ค้นจากชื่อเรื่องและคำสำคัญของบทความ {n} เรื่อง ทั้งภาษาไทยและภาษาอังกฤษ', en: 'Search the titles and keywords of {n} articles, in Thai or English.' },
   label: { th: 'คำค้น', en: 'Search words' },
   placeholder: { th: 'เช่น ผู้สูงอายุ หรือ digital marketing', en: 'e.g. ageing or digital marketing' },
   submit: { th: 'ค้นหา', en: 'Search' },
@@ -45,7 +45,7 @@ export const search = defineStrings({
   'x.ris': { th: 'RIS', en: 'RIS' },
   'x.bib': { th: 'BibTeX', en: 'BibTeX' },
   'x.label': { th: 'ดาวน์โหลด {n} รายการเป็น {format}', en: 'Download {n} results as {format}' },
-  'x.note': { th: 'RIS และ BibTeX ใช้นำเข้าโปรแกรมจัดการอ้างอิง ไฟล์ไม่มีชื่อผู้แต่ง ใช้ DOI หรือลิงก์ ThaiJO เพื่อดึงข้อมูลฉบับเต็ม', en: 'RIS and BibTeX import into reference managers. They carry no author names; use the DOI or ThaiJO link for the full record.' },
+  'x.note': { th: 'RIS และ BibTeX ใช้นำเข้าโปรแกรมจัดการอ้างอิง เช่น Zotero หรือ EndNote ไฟล์ไม่มีชื่อผู้แต่ง ใช้ DOI หรือลิงก์ ThaiJO เพื่อดึงข้อมูลฉบับเต็ม', en: 'RIS and BibTeX import into reference managers such as Zotero or EndNote. They carry no author names; use the DOI or ThaiJO link for the full record.' },
 
   'r.cited': { th: 'ถูกอ้างใน TCI {n} ครั้ง', en: 'Cited {n} times in TCI' },
   'r.noTopic': { th: 'ยังไม่จัดหัวข้อ', en: 'No topic' },

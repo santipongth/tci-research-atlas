@@ -1,4 +1,5 @@
 import { DataTable, type Column } from '../components/DataTable'
+import { HowNote } from '../components/HowNote'
 import { JournalLink } from '../components/JournalLink'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
@@ -104,6 +105,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
           empty={t('jr.none')}
           footnote={flagAt != null ? t('jr.foot', { p: fmtPct(flagAt, 0), n: fmtInt(file.min_articles) }) : t('jr.footNoFlag', { n: fmtInt(file.min_articles) })}
         />
+        <HowNote><p>{t('jr.how')}</p></HowNote>
       </Section>
       <SpecialIssues release={release} file={file} />
     </div>
@@ -111,7 +113,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
 }
 
 function SpecialIssues({ release, file }: { release: AtlasRelease; file: JournalsFile }) {
-  const { t, lang } = useI18n()
+  const { t, lang, name } = useI18n()
   const rows = (file.special_issue ?? []).filter((s) => release.topicById.has(s.topic))
   if (rows.length === 0) return null
   const topicOf = (s: SpecialIssueTopic) => release.topicById.get(s.topic) as Topic
@@ -119,16 +121,19 @@ function SpecialIssues({ release, file }: { release: AtlasRelease; file: Journal
     { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s)} showStatus />, sortValue: (s) => s.topic, csv: (s) => s.topic },
     { key: 'hosts', csvHeader: 'hosts', header: t('col.hosts'), numeric: true, firstDir: 'asc', cell: (s) => fmtInt(s.hosts), sortValue: (s) => s.hosts },
     { key: 'top', csvHeader: 'top_host_share', header: t('col.topHost'), numeric: true, cell: (s) => fmtPct(s.top_host_share, 0), sortValue: (s) => s.top_host_share },
-    { key: 'articles', csvHeader: 'articles_recent', header: t('col.articlesR'), numeric: true, cell: (s) => fmtInt(s.articles_recent), sortValue: (s) => s.articles_recent },
+    { key: 'articles', csvHeader: 'articles_recent', header: t('col.articlesR', { r: `${file.recent.start}–${file.recent.end}` }), numeric: true, cell: (s) => fmtInt(s.articles_recent), sortValue: (s) => s.articles_recent },
   ]
   const r = file.recent
+  // the example in the intro: the topic the fewest journals publish
+  const example = rows.reduce((a, b) => (b.hosts < a.hosts ? b : a))
   return (
     <Section
       id="special-issues"
       title={t('jr.si.h')}
       intro={t('jr.si.intro', {
+        topic: name(topicOf(example)), h: fmtInt(example.hosts),
         statuses: (file.special_issue_statuses ?? []).map((s) => statusName(t, s)).join(lang === 'en' ? ' or ' : 'หรือ'),
-        max: fmtInt(file.special_issue_max_hosts ?? 0), min: fmtInt(file.special_issue_min_host_articles ?? 0), a: r.start, b: r.end,
+        max: fmtInt(file.special_issue_max_hosts ?? 0), a: r.start, b: r.end,
       })}
     >
       <DataTable
@@ -139,6 +144,7 @@ function SpecialIssues({ release, file }: { release: AtlasRelease; file: Journal
         defaultSort={{ key: 'hosts', dir: 'asc' }}
         csvFilename={`atlas-${release.overview.release}-special-issues.csv`}
       />
+      <HowNote><p>{t('jr.si.how', { min: fmtInt(file.special_issue_min_host_articles ?? 0) })}</p></HowNote>
     </Section>
   )
 }

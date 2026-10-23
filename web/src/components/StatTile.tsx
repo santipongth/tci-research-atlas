@@ -51,7 +51,7 @@ export function Sparkline({ values }: { values: readonly (number | null)[] }) {
 /**
  * One key figure: a plain label, the big number (`--fs-tile`), an optional change vs the previous release, an optional
  * ink-only sparkline, a short line of context and an optional "เช่น …" example. Must sit inside a `StatGrid`.
- * A long text value (e.g. "ใหม่ — ไม่มีในช่วงฐาน") is set at the lead size instead of the tile size.
+ * A long text value (e.g. "ใหม่ — ปี 2016–2020 ยังไม่มีงานเรื่องนี้") is set at the lead size instead of the tile size.
  */
 export function StatTile({ label, value, sub, delta, trend, trendText, example, wide = false, children }: {
   label: ReactNode

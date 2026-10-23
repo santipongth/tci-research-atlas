@@ -5,8 +5,10 @@ import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { hasModule, type AtlasRelease } from '../data/release'
-import { DEFINITION, largeShareThreshold, quadrantOf } from '../lib/definition'
-import { ciPct, fmtDate, fmtInt, fmtSignedPct } from '../lib/format'
+import { largeShareThreshold, quadrantOf } from '../lib/definition'
+import { fmtDate, fmtInt, fmtSignedPct, releaseQuarter } from '../lib/format'
+import { sortBy } from '../lib/sort'
+import { statusName } from '../lib/topicText'
 import { useI18n } from '../lib/i18n'
 import { Findings } from './overview/Findings'
 import { Headline } from './overview/Headline'
@@ -20,7 +22,7 @@ export default function OverviewPage() {
 }
 
 function Overview({ release }: { release: AtlasRelease }) {
-  const { t, lang } = useI18n()
+  const { t, lang, name } = useI18n()
   const ov = release.overview
   const brief = ov.brief
   const bullets = brief ? ((lang === 'en' ? brief.bullets_en : brief.bullets_th) ?? []) : []
@@ -29,6 +31,16 @@ function Overview({ release }: { release: AtlasRelease }) {
   const threshold = largeShareThreshold(release.topics)
   const plotted = threshold === null ? [] : release.topics.filter((tp) => tp.metrics.share_recent > 0 && quadrantOf(tp, threshold) !== null)
   const trimmed = release.manifest.trimmed_years ?? []
+  const quarter = releaseQuarter(ov.release)
+  // layer 1 leads with an example from the data: the strongest emerging topic (else the fastest hot one)
+  const example =
+    sortBy(release.topics.filter((tp) => tp.status === 'EMERGING'), (tp) => tp.score, 'desc')[0] ??
+    sortBy(release.topics.filter((tp) => tp.status === 'HOT' && tp.metrics.share_growth != null), (tp) => tp.metrics.share_growth, 'desc')[0]
+  const statusIntro = example
+    ? t('ov.status.intro', { topic: name(example), g: fmtSignedPct(example.metrics.share_growth, 0), status: statusName(t, example.status) })
+    : t('ov.status.introPlain')
+  const star = threshold === null ? undefined : sortBy(plotted.filter((tp) => quadrantOf(tp, threshold) === 'stars'), (tp) => tp.metrics.share_recent, 'desc')[0]
+  const pfIntro = star ? t('ov.pf.intro', { topic: name(star) }) : t('ov.pf.introPlain')
   const toc = [
     { id: 'kpi', label: t('ov.kpi.h') },
     ...(bullets.length ? [{ id: 'findings', label: t('ov.findings.h') }] : []),
@@ -54,7 +66,7 @@ function Overview({ release }: { release: AtlasRelease }) {
         }
         meta={[
           { label: t('ov.meta.through'), value: t('ov.meta.throughV', { year: ov.last_complete_year }) },
-          { label: t('ov.meta.release'), value: ov.release },
+          { label: t('ov.meta.release'), value: quarter ? t('release.long', { release: ov.release, q: quarter.q, y: quarter.y }) : ov.release },
           { label: t('ov.meta.generated'), value: fmtDate(ov.generated_at, lang) },
           { label: t('ov.meta.definition'), value: t('ov.meta.definitionV', { v: release.definitionVersion }) },
         ]}
@@ -85,14 +97,14 @@ function Overview({ release }: { release: AtlasRelease }) {
             </Section>
           ) : null}
           {hasTopics ? (
-            <Section id="status" title={t('ov.status.h')} intro={t('ov.status.intro', { v: release.definitionVersion, level: ciPct(release.ciLevel), bar: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0) })}>
+            <Section id="status" title={t('ov.status.h')} intro={statusIntro}>
               <StatusOverview release={release} />
             </Section>
           ) : (
             <EmptyState title={t('empty.topics')} />
           )}
           {plotted.length && threshold !== null ? (
-            <Section id="portfolio" title={t('ov.pf.h')} intro={t('ov.pf.intro')}>
+            <Section id="portfolio" title={t('ov.pf.h')} intro={pfIntro}>
               <Portfolio release={release} topics={plotted} threshold={threshold} />
             </Section>
           ) : null}

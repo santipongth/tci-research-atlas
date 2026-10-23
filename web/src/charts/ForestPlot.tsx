@@ -32,13 +32,15 @@ const CAP: readonly [number, number] = [-1, 3]
  * grouped by status, with a dashed line at the EMERGING bar and a solid line at zero. Rows are links.
  * The axis covers every interval shown (plus zero and the bar) unless a `domain` is given.
  */
-export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, domain, refValue = DEFINITION.emergingMinGrowthLo }: {
+export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base, domain, refValue = DEFINITION.emergingMinGrowthLo }: {
   groups: readonly ForestGroup[]
   axisLabel: string
   refLabel: string
   subtitle: (t: Topic) => string
   /** interval level in percent (90), for the row's spoken name */
   level: number
+  /** the baseline years ("2016–2020"), for "new — none in …" */
+  base: string
   domain?: readonly [number, number]
   refValue?: number
 }) {
@@ -85,11 +87,11 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, domai
                   <Link
                     className="fr-row"
                     to={`/topics/${tp.id}`}
-                    aria-label={[name(tp), subtitle(tp), `${fmtSignedPct(tp.metrics.share_growth)}${tp.metrics.no_baseline ? ` (${t('noBaseline')})` : ''}`, ci ? t('ciRange', { level, lo: fmtSignedPct(tp.metrics.share_growth_lo), hi: fmtSignedPct(tp.metrics.share_growth_hi) }) : t('noCi')].join(', ')}
+                    aria-label={[name(tp), subtitle(tp), `${fmtSignedPct(tp.metrics.share_growth)}${tp.metrics.no_baseline ? ` (${t('noBaseline', { base })})` : ''}`, ci ? t('ciRange', { level, lo: fmtSignedPct(tp.metrics.share_growth_lo), hi: fmtSignedPct(tp.metrics.share_growth_hi) }) : t('noCi')].join(', ')}
                   >
                     <span className="fr-name">
                       <b><TopicName topic={tp} /></b>
-                      {tp.metrics.no_baseline ? <span className="fr-new">{t('noBaseline')}</span> : null}
+                      {tp.metrics.no_baseline ? <span className="fr-new">{t('noBaseline', { base })}</span> : null}
                       <span>{subtitle(tp)}</span>
                     </span>
                     <span className="fr-plot">

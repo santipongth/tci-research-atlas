@@ -22,10 +22,10 @@ describe('breadthReasons', () => {
   })
   it('says it in both languages with the numbers', () => {
     const t = topic({ n_journals_R: 2, new_journal_share: 0.62 })
-    expect(breadthText(tr('th') as never, t)).toBe('มาจาก 2 วารสาร (เกณฑ์ ≥ 3) · 62% ของบทความล่าสุดมาจากวารสารที่เพิ่งเข้าระบบ (เกณฑ์ < 50%)')
-    expect(breadthText(tr('en') as never, t)).toContain('From 2 journals (needs ≥ 3)')
+    expect(breadthText(tr('th') as never, t)).toBe('มาจาก 2 วารสาร (ต้องมีอย่างน้อย 3) · 62% ของบทความล่าสุดมาจากวารสารที่เพิ่งเข้าระบบ (ต้องต่ำกว่า 50%)')
+    expect(breadthText(tr('en') as never, t)).toContain('From 2 journals (needs at least 3)')
   })
   it('falls back to a generic sentence when no test shows as failed', () => {
-    expect(breadthText(tr('en') as never, topic({}))).toContain('Did not pass the breadth test')
+    expect(breadthText(tr('en') as never, topic({}))).toContain('Not yet from enough different sources')
   })
 })

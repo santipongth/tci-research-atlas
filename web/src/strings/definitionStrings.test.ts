@@ -22,10 +22,11 @@ describe('strings that state a definition threshold', () => {
   })
 
 describe('about.def.intro', () => {
-  it('states the real checking order: LOW_DATA first, then EMERGING, WATCH, HOT, DECLINING, STABLE', () => {
+  it('states the real checking order by status name: low data first, then emerging, watch, hot, declining, stable', () => {
     for (const lang of ['th', 'en'] as const) {
-      const text = STR['about.def.intro'][lang]
-      const order = ['LOW_DATA', 'EMERGING', 'WATCH', 'HOT', 'DECLINING', 'STABLE'].map((k) => text.indexOf(k))
+      const text = STR['about.def.intro'][lang].toLowerCase()
+      expect(text, lang).not.toMatch(/LOW_DATA|EMERGING|WATCH|HOT|DECLINING|STABLE/)
+      const order = (['LOW_DATA', 'EMERGING', 'WATCH', 'HOT', 'DECLINING', 'STABLE'] as const).map((k) => text.indexOf(translate(lang, `status.${k}`).toLowerCase()))
       expect(order.every((n) => n >= 0), lang).toBe(true)
       expect([...order].sort((a, b) => a - b), lang).toEqual(order)
     }

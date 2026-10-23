@@ -5,7 +5,7 @@ export const glossary = defineStrings({
   'g.ci.term': { th: 'ช่วงเชื่อมั่น', en: 'confidence interval' },
   'g.baseline.term': { th: 'ช่วงฐาน', en: 'baseline window' },
   'g.recent.term': { th: 'ช่วงล่าสุด', en: 'recent window' },
-  'g.shareGrowth.term': { th: 'อัตราโตของสัดส่วน', en: 'share growth' },
+  'g.shareGrowth.term': { th: 'สัดส่วนเพิ่ม/ลดต่อปี', en: 'change in share' },
   'g.score.term': { th: 'คะแนนสัญญาณ', en: 'signal score' },
   'g.hhi.term': { th: 'HHI', en: 'HHI' },
   'g.jaccard.term': { th: 'Jaccard', en: 'Jaccard' },

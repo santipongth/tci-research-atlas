@@ -13,12 +13,14 @@ const ctxFor = (lang: Lang): ColumnContext => ({
   t: ((k, v) => translate(lang, k, v)) as ColumnContext['t'],
   name: ((tp: Topic) => (lang === 'en' ? tp.en || tp.th : tp.th)) as ColumnContext['name'],
   groupName: (g) => g,
+  base: '2016–2020',
+  recent: '2021–2023',
 })
 
 /** The exact column set of the /emerging table for a signal status. */
 const emergingColumns = (lang: Lang) => {
   const ctx = ctxFor(lang)
-  return [idColumn(), topicColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx, 90), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx), scoreColumn(ctx)]
+  return [idColumn(), topicColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx), scoreColumn(ctx)]
 }
 
 describe('emerging table CSV', () => {

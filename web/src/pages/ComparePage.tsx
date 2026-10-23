@@ -12,15 +12,15 @@ import { TopicSearch } from '../components/TopicSearch'
 import { MultiLineChart, type LineSeries } from '../charts/MultiLineChart'
 import { tickDecimals } from '../charts/scale'
 import { assignSlots, SERIES_DASHES } from '../charts/series'
-import { groupName, seriesOf, type AtlasRelease } from '../data/release'
+import { seriesOf, type AtlasRelease } from '../data/release'
 import type { Topic } from '../data/types'
-import { ciPct, fmtCompact, fmtInt, fmtPct } from '../lib/format'
+import { fmtCompact, fmtInt, fmtPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { sortBy } from '../lib/sort'
 import { compareCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
-import { ciColumn, growthColumn, idColumn, journalsColumn, orgsColumn, shareColumn, statusColumn, topicColumn, type ColumnContext } from './topicColumns'
+import { ciColumn, growthColumn, idColumn, journalsColumn, orgsColumn, shareColumn, statusColumn, topicColumn, type ColumnContext, columnContext } from './topicColumns'
 
 export default function ComparePage() {
   const { t } = useI18n()
@@ -91,7 +91,7 @@ function Compare({ release }: { release: AtlasRelease }) {
     else listRef.current?.querySelectorAll<HTMLButtonElement>('.cmp-remove')[target]?.focus()
   }, [idsKey])
   const suggestions = sortBy(release.topics.filter((tp) => (tp.status === 'EMERGING' || tp.status === 'HOT') && !state.ids.includes(tp.id)), (tp) => tp.score, 'desc').slice(0, 3)
-  const ctx: ColumnContext = { t, name, groupName: (g) => groupName(release, g, lang) }
+  const ctx: ColumnContext = columnContext(release, { t, name, lang })
   const rows: YearRow[] = years.map((year, i) => ({ year, values: series.map((s) => s.values[i] ?? null) }))
   const yearColumns: Column<YearRow>[] = [
     { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => String(r.year), csv: (r) => r.year },
@@ -187,7 +187,7 @@ function Compare({ release }: { release: AtlasRelease }) {
             <DataTable
               caption={t('table.n', { n: 2, title: t('cmp.metrics.table') })}
               rows={chosen}
-              columns={[idColumn(), topicColumn(ctx), statusColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx, ciPct(release.ciLevel)), journalsColumn(ctx), orgsColumn(ctx)]}
+              columns={[idColumn(), topicColumn(ctx), statusColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)]}
               rowKey={(r) => r.id}
               csvFilename={`atlas-${release.overview.release}-compare-figures.csv`}
               footnote={chosen.some((r) => r.metrics.orgs_unverified) ? t('orgsFoot') : undefined}

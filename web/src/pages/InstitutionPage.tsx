@@ -115,9 +115,9 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
                 trend={years.length > 2 ? years.map((y) => y.articles) : undefined}
                 trendText={years.length > 2 ? t('stat.trend', { a: years[0].year, b: years[years.length - 1].year, values: years.map((y) => fmtInt(y.articles)).join(', ') }) : undefined}
               />
-              <StatTile label={t('in.col.recent')} value={fmtInt(inst.articles_recent ?? 0)} sub={t('in.recentSub', { a: r.start, b: r.end })} />
+              <StatTile label={t('in.col.recent', { r: `${r.start}–${r.end}` })} value={fmtInt(inst.articles_recent ?? 0)} sub={t('in.recentSub')} />
               <StatTile label={t('in.col.intl')} value={fmtPct(inst.intl_share ?? null, 0)} sub={t('in.intlSub')} />
-              <StatTile label={t('in.col.partners')} value={fmtInt(inst.partners ?? 0)} sub={t('in.partnersSub')} />
+              <StatTile label={t('in.col.partners')} value={fmtInt(inst.partners ?? 0)} sub={t('in.partnersSub', { a: w.start, b: w.end })} />
               <StatTile label={t('col.topic')} value={fmtInt(inst.topics ?? 0)} sub={t('in.topicsSub')} />
             </StatGrid>
           </Section>
@@ -151,7 +151,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
           ) : null}
 
           {suggested.length ? (
-            <Section id="suggested" title={t('in.suggest.h')} intro={t('in.suggest.intro', { a: w.start, b: w.end })}>
+            <Section id="suggested" title={t('in.suggest.h')} intro={t('in.suggest.intro', { x: instName(byId.get(suggested[0].id) as InstitutionSummary, lang).text, a: w.start, b: w.end })}>
               <ul className="sug-list">
                 {suggested.map((s) => (
                   <li key={s.id}>

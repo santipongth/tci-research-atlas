@@ -2,9 +2,9 @@ import { defineStrings } from './define'
 
 export const compare = defineStrings({
   'cmp.title': { th: 'เปรียบเทียบหัวข้อวิจัย', en: 'Compare research topics' },
-  'cmp.lede': { th: 'เลือก 2–4 หัวข้อเพื่อดูแนวโน้มรายปีซ้อนกัน วัดเป็นสัดส่วนของบทความทั้งหมด (ไม่หลอกตาเพราะจำนวนบทความรวมเพิ่มขึ้นทุกปี) หรือเป็นจำนวนบทความ', en: 'Choose 2–4 topics to overlay their yearly trends, as a share of all articles (not inflated by the growing total) or as article counts.' },
+  'cmp.lede': { th: 'เลือก 2–4 หัวข้อ เพื่อดูว่าเรื่องไหนโตเร็วกว่า เส้นรายปีวัดเป็นสัดส่วนของบทความทั้งหมด จึงไม่โตตามจำนวนบทความรวมที่เพิ่มทุกปี', en: 'Choose 2–4 topics to see which grows faster. The yearly lines show each topic’s share of all articles, so they do not rise just because there are more articles overall.' },
   'cmp.add': { th: 'เพิ่มหัวข้อ', en: 'Add a topic' },
-  'cmp.max': { th: 'เลือกได้สูงสุด 4 หัวข้อ เอาหัวข้อออกก่อนเพื่อเพิ่มหัวข้อใหม่', en: 'Up to 4 topics. Remove one to add another.' },
+  'cmp.max': { th: 'เลือกได้สูงสุด 4 หัวข้อ เอาออกหนึ่งหัวข้อก่อนจึงเพิ่มใหม่ได้', en: 'Up to 4 topics. Remove one to add another.' },
   'cmp.chosen': { th: 'หัวข้อที่เลือก', en: 'Chosen topics' },
   'cmp.remove': { th: 'เอาออก: {n}', en: 'Remove {n}' },
   'cmp.metric': { th: 'วัดเป็น', en: 'Measure' },

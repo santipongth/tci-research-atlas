@@ -14,7 +14,7 @@ import { figureCsv } from '../../lib/tableCsv'
 import { statusMeaning, statusName } from '../../lib/topicText'
 import { overviewCodec } from '../../lib/urlState'
 import { useUrlState } from '../../lib/useUrlState'
-import { ciColumn, ciHighColumn, growthColumn, idColumn, journalsColumn, orgsColumn, ratioColumn, statusColumn, topicColumn, type ColumnContext } from '../topicColumns'
+import { ciColumn, ciHighColumn, growthColumn, idColumn, journalsColumn, orgsColumn, ratioColumn, statusColumn, topicColumn, type ColumnContext, columnContext } from '../topicColumns'
 
 const PER_STATUS = 8
 
@@ -25,7 +25,7 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
   const counts = release.overview.status_counts
   const level = ciPct(release.ciLevel)
   const bar = fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0)
-  const ctx: ColumnContext = { t, name, groupName: (g) => groupName(release, g, lang) }
+  const ctx: ColumnContext = columnContext(release, { t, name, lang })
   const groups: ForestGroup[] = SIGNAL_STATUSES.map((st) => {
     // every topic of the status counts; one without an interval is listed as a text row, never dropped
     const { rows, total, noCi } = forestSelection(release.topics, st, PER_STATUS)
@@ -45,7 +45,7 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
     }
   }).filter((g) => g.rows.length > 0)
   const rows = groups.flatMap((g) => g.rows)
-  const columns = withPrimary([idColumn(), topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx, level), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)], ['status', 'growth', 'lo', 'journals'])
+  const columns = withPrimary([idColumn(), topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)], ['status', 'growth', 'lo', 'journals'])
   const tableTitle = t('table.n', { n: 1, title: t('ov.forest.table', { n: 1 }) })
   const nUnverified = release.manifest.n_orgs_unverified ?? 0
   return (
@@ -88,7 +88,7 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
           source={t('source.line', { release: release.overview.release })}
           view={state.st}
           onView={(st) => update({ st })}
-          chart={<ForestPlot groups={groups} level={level} axisLabel={t('ov.forest.axis')} refLabel={t('ov.forest.bar', { v: bar })} subtitle={(tp) => groupName(release, tp.group, lang)} />}
+          chart={<ForestPlot groups={groups} level={level} base={ctx.base} axisLabel={t('ov.forest.axis')} refLabel={t('ov.forest.bar', { v: bar })} subtitle={(tp) => groupName(release, tp.group, lang)} />}
           table={
             <DataTable
               caption={tableTitle}

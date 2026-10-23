@@ -1,10 +1,12 @@
 import { Link } from 'react-router'
 import { DataTable, type Column } from '../components/DataTable'
+import { HowNote } from '../components/HowNote'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { ShareBar } from '../components/ShareBar'
+import { Term } from '../components/Term'
 import { TopicLink } from '../components/TopicLink'
 import { groupName, hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { Bridge, Concentration, FewInstitutions, GapsFile, Topic, WorldGap } from '../data/types'
@@ -28,13 +30,21 @@ export default function GapsPage() {
 }
 
 function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
-  const { t, lang } = useI18n()
+  const { t, lang, name } = useI18n()
   const [state, update] = useUrlState(gapsCodec)
   const topic = (id: string): Topic | undefined => release.topicById.get(id)
   const few = file.few_institutions.filter((f) => topic(f.topic))
   const bridges = file.bridges.filter((b) => topic(b.a) && topic(b.b))
   const risk = file.concentration.filter((c) => (c.scope === 'topic' ? topic(c.id) : true) && (state.all === 'yes' || c.concentrated))
   const r = file.recent
+  const rw = `${r.start}–${r.end}`
+  const tname = (id: string) => { const tp = topic(id); return tp ? name(tp) : id }
+  // one real row per section is its example: the fastest world growth, the fewest institutions, the closest pair, the most concentrated unit
+  const worldEx = file.world.reduce<WorldGap | null>((m, w) => ((w.world_ratio ?? 0) > (m?.world_ratio ?? -1) ? w : m), null)
+  const fewEx = few.reduce<FewInstitutions | null>((m, f) => (m === null || f.institutions < m.institutions ? f : m), null)
+  const bridgeEx = bridges.reduce<Bridge | null>((m, b) => (m === null || b.similarity > m.similarity ? b : m), null)
+  const riskEx = file.concentration.filter((c) => c.concentrated && c.top_name && (c.scope === 'topic' ? topic(c.id) : release.groupById.has(c.id))).reduce<Concentration | null>((m, c) => (m === null || c.top_share > m.top_share ? c : m), null)
+  const unitName = (c: Concentration) => (c.scope === 'topic' ? tname(c.id) : groupName(release, c.id, lang))
   const rel = release.overview.release
   const topicList = (ids: readonly string[]) => {
     const tl = ids.map(topic).filter((tp): tp is Topic => tp !== undefined).slice(0, 3)
@@ -63,7 +73,7 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
     },
     { key: 'similarity', csvHeader: 'similarity', header: t('in.col.similarity'), numeric: true, cell: (b) => fmtNum(b.similarity, 2), sortValue: (b) => b.similarity },
     { key: 'shared', csvHeader: 'shared', header: t('gp.col.shared'), numeric: true, firstDir: 'asc', cell: (b) => fmtInt(b.shared), sortValue: (b) => b.shared },
-    { key: 'jaccard', csvHeader: 'jaccard', header: 'Jaccard', numeric: true, firstDir: 'asc', cell: (b) => fmtNum(b.jaccard, 2), sortValue: (b) => b.jaccard },
+    { key: 'jaccard', csvHeader: 'jaccard', header: t('gp.col.jaccard'), numeric: true, firstDir: 'asc', cell: (b) => fmtNum(b.jaccard, 2), sortValue: (b) => b.jaccard },
   ]
   const topName = (c: Concentration) => {
     if (!c.top && !c.top_name) return <span className="topic-sub">{t('gp.withheld')}</span>
@@ -88,13 +98,13 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
       ),
     },
     { key: 'hhi', csvHeader: 'hhi', header: t('gp.col.hhi'), numeric: true, cell: (c) => fmtNum(c.hhi, 2), sortValue: (c) => c.hhi },
-    { key: 'articles', csvHeader: 'articles', header: t('col.articlesR'), numeric: true, cell: (c) => fmtInt(c.articles), sortValue: (c) => c.articles },
+    { key: 'articles', csvHeader: 'articles', header: t('col.articlesR', { r: rw }), numeric: true, cell: (c) => fmtInt(c.articles), sortValue: (c) => c.articles },
   ]
   return (
     <div className="container">
       <PageHeader title={t('gp.title')} lede={t('gp.lede', { a: r.start, b: r.end })} />
       {file.world.length ? (
-        <Section id="world" title={t('gp.world.h')} intro={t('gp.world.intro')}>
+        <Section id="world" title={t('gp.world.h')} intro={worldEx ? t('gl.example', { x: worldEx.en, wr: fmtNum(worldEx.world_ratio ?? null, 1), ai: fmtNum(worldEx.activity_index ?? null, 2) }) : undefined}>
           <DataTable caption={t('table.n', { n: 1, title: t('gp.world.table') })} rows={file.world} columns={worldColumns} rowKey={(w) => w.subfield} defaultSort={{ key: 'ratio', dir: 'desc' }} csvFilename={`atlas-${rel}-gaps-world.csv`} />
         </Section>
       ) : null}
@@ -102,18 +112,32 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
         <Section
           id="few"
           title={t('gp.few.h')}
-          intro={t('gp.few.intro', { statuses: file.statuses.map((s) => statusName(t, s)).join(lang === 'en' ? ' or ' : 'หรือ'), n: fmtInt(file.max_institutions) })}
+          intro={t('gp.few.intro', { topic: fewEx ? tname(fewEx.topic) : '', k: fewEx ? fmtInt(fewEx.institutions) : '', r: rw, statuses: file.statuses.map((s) => statusName(t, s)).join(lang === 'en' ? ' or ' : 'หรือ'), n: fmtInt(file.max_institutions) })}
         >
           <DataTable caption={t('table.n', { n: 2, title: t('gp.few.table') })} rows={few} columns={fewColumns} rowKey={(f) => f.topic} stack={false} defaultSort={{ key: 'institutions', dir: 'asc' }} csvFilename={`atlas-${rel}-gaps-few-institutions.csv`} />
         </Section>
       ) : null}
       {bridges.length ? (
-        <Section id="bridges" title={t('gp.bridge.h')} intro={t('gp.bridge.intro', { s: fmtNum(file.bridge_min_similarity, 2), j: fmtNum(file.bridge_max_jaccard, 2) })}>
-          <DataTable caption={t('table.n', { n: 3, title: t('gp.bridge.table') })} rows={bridges} columns={bridgeColumns} rowKey={(b) => `${b.a}~${b.b}`} defaultSort={{ key: 'similarity', dir: 'desc' }} csvFilename={`atlas-${rel}-gaps-bridges.csv`} />
+        <Section id="bridges" title={t('gp.bridge.h')} intro={bridgeEx ? t('gp.bridge.intro', { x: tname(bridgeEx.a), y: tname(bridgeEx.b), k: fmtInt(bridgeEx.shared) }) : undefined}>
+          <HowNote>
+            <p>{t('gp.bridge.how', { s: fmtNum(file.bridge_min_similarity, 2), j: fmtNum(file.bridge_max_jaccard, 2) })}</p>
+            <p className="how-terms">
+              <span>{t('glossary.terms')}:</span>
+              <Term term="jaccard" />
+            </p>
+          </HowNote>
+          <DataTable caption={t('table.n', { n: 3, title: t('gp.bridge.h') })} rows={bridges} columns={bridgeColumns} rowKey={(b) => `${b.a}~${b.b}`} defaultSort={{ key: 'similarity', dir: 'desc' }} csvFilename={`atlas-${rel}-gaps-bridges.csv`} />
         </Section>
       ) : null}
       {file.concentration.length ? (
-        <Section id="risk" title={t('gp.risk.h')} intro={t('gp.risk.intro', { m: fmtInt(file.min_articles), p: fmtPct(file.max_top_share, 0), h: fmtNum(file.max_hhi, 2) })}>
+        <Section id="risk" title={t('gp.risk.h')} intro={riskEx ? t('gp.risk.ex', { p: fmtPct(riskEx.top_share, 0), x: unitName(riskEx), top: riskEx.top_name ?? '' }) : undefined}>
+          <HowNote>
+            <p>{t('gp.risk.how', { r: rw, m: fmtInt(file.min_articles), p: fmtPct(file.max_top_share, 0), h: fmtNum(file.max_hhi, 2) })}</p>
+            <p className="how-terms">
+              <span>{t('glossary.terms')}:</span>
+              <Term term="hhi" />
+            </p>
+          </HowNote>
           <label className="check">
             <input type="checkbox" checked={state.all === 'yes'} onChange={(e) => update({ all: e.target.checked ? 'yes' : 'no' })} />
             {t('gp.risk.all')}

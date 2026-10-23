@@ -42,7 +42,7 @@ export const keywords = defineStrings({
   'col.share': { th: '{k} (สัดส่วน)', en: '{k} (share)' },
   'col.count': { th: '{k} (บทความ)', en: '{k} (articles)' },
 
-  'gl.h': { th: 'อภิธานศัพท์ไทย–อังกฤษ', en: 'Thai–English glossary' },
+  'gl.h': { th: 'คู่คำไทย–อังกฤษ', en: 'Thai–English word pairs' },
   'gl.intro': {
     th: 'คู่คำที่ผู้เขียนใช้แทนกัน: บทความที่ใส่คำสำคัญไทยและอังกฤษจำนวนเท่ากัน จับคู่ตามลำดับ นับเฉพาะคู่ที่พบอย่างน้อย {n} บทความ',
     en: 'Word pairs authors use for each other: when an article lists the same number of Thai and English keywords, they are paired in order. Only pairs seen in at least {n} articles.',

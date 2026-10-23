@@ -1,4 +1,5 @@
 import { DataTable, type Column } from '../components/DataTable'
+import { HowNote } from '../components/HowNote'
 import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
@@ -168,7 +169,7 @@ function OpenData({ release }: { release: AtlasRelease }) {
       <PageHeader title={t('data.title')} lede={t('data.lede', { release: rel })} />
       <div className="layout">
         <div className="main-col">
-          <Section id="downloads" title={t('data.dl.h')} intro={t(release.source === 'http' ? 'data.dl.introHttp' : 'data.dl.introOffline')}>
+          <Section id="downloads" title={t('data.dl.h')} intro={t('data.dl.intro')}>
             <ul className="dl-list">
               {Object.entries(files).map(([path, value]) => (
                 <li key={path}>
@@ -188,6 +189,7 @@ function OpenData({ release }: { release: AtlasRelease }) {
                 </li>
               ))}
             </ul>
+            <HowNote><p>{t(release.source === 'http' ? 'data.dl.devHttp' : 'data.dl.devOffline')}</p></HowNote>
           </Section>
           <ModuleDownloads release={release} />
           <Section id="csv" title={t('data.csv.h')} intro={t('data.csv.intro')}>

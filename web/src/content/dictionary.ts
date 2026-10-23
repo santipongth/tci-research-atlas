@@ -25,7 +25,7 @@ export const DICTIONARY: readonly DictEntry[] = [
   { file: 'topics.json', field: 'forecast', th: 'คาดการณ์ 2 ปี (mean, lo80/hi80, lo95/hi95) แสดงเมื่อ show = true คือโมเดลแม่นกว่าการใช้ค่าปีล่าสุด', en: 'Two-year forecast (mean, lo80/hi80, lo95/hi95), shown when show = true, i.e. the model beats repeating last year' },
   { file: 'topics.json', field: 'nowcast', th: 'ประมาณการปีปัจจุบันจากข้อมูลถึงเดือนล่าสุด', en: 'Current-year estimate from data up to the latest month' },
   { file: 'topics.json', field: 'x, y, r', th: 'ตำแหน่งบนแผนที่ (คงที่ข้ามรอบ) และขนาด', en: 'Map position (kept stable across releases) and size' },
-  { file: 'series.json', field: 'years, corpus_total, topics', th: 'จำนวนบทความรายปีของทั้งคลังและของแต่ละหัวข้อ (ค่าดิบ)', en: 'Articles a year for the whole corpus and for each topic (raw counts)' },
+  { file: 'series.json', field: 'years, corpus_total, topics', th: 'จำนวนบทความรายปีของทั้งชุดข้อมูลและของแต่ละหัวข้อ (ค่าดิบ)', en: 'Articles a year for the whole corpus and for each topic (raw counts)' },
   { file: 'edges.json', field: 's, t, w', th: 'คู่หัวข้อที่ใกล้กันและน้ำหนักความใกล้', en: 'Pairs of related topics and their similarity weight' },
   { file: 'keywords.json', field: 'term, emerging, journal_driven', th: 'คำสำคัญเกิดใหม่ วัดจากคำสำคัญของผู้แต่ง', en: 'Emerging keywords, measured on author keywords' },
   { file: 'topics/<id>.json', field: 'articles[]', th: 'บทความตัวแทน: ชื่อเรื่อง วารสาร ปี ลิงก์ ThaiJO และ DOI (ไม่มีบทคัดย่อ)', en: 'Representative articles: title, journal, year, ThaiJO link and DOI (no abstracts)' },

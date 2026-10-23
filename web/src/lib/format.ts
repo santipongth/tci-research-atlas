@@ -100,3 +100,9 @@ export function kpiDelta(value: number, prev: number | null | undefined, unit: '
   const d = value - prev
   return prev > 0 ? `${fmtSignedInt(d)} (${fmtSignedPct(d / prev, 1)})` : fmtSignedInt(d)
 }
+
+/** "2026Q4" → { y: 2026, q: 4 }; null for any other shape. */
+export function releaseQuarter(release: string): { y: number; q: number } | null {
+  const m = /^(\d{4})Q([1-4])$/.exec(release)
+  return m ? { y: Number(m[1]), q: Number(m[2]) } : null
+}

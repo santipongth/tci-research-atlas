@@ -24,9 +24,9 @@ export function ciText(t: T, m: TopicMetrics, ciLevel: number): string | null {
   return t('ciRange', { level: ciPct(ciLevel), lo: fmtSignedPct(m.share_growth_lo), hi: fmtSignedPct(m.share_growth_hi) })
 }
 
-/** share_recent / share_baseline, or "new — no baseline" when the baseline window had no articles. */
-export function ratioText(t: T, m: TopicMetrics): string {
-  if (m.no_baseline || m.share_ratio === null || m.share_ratio === undefined) return t('noBaseline')
+/** share_recent / share_baseline, or "new — none in {base}" when the baseline window (its years: `base`) had no articles. */
+export function ratioText(t: T, m: TopicMetrics, base: string): string {
+  if (m.no_baseline || m.share_ratio === null || m.share_ratio === undefined) return t('noBaseline', { base })
   return fmtRatio(m.share_ratio)
 }
 

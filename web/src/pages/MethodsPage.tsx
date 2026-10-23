@@ -2,6 +2,7 @@ import { MultiLineChart, type LineSeries } from '../charts/MultiLineChart'
 import { tickDecimals } from '../charts/scale'
 import { DataTable, type Column } from '../components/DataTable'
 import { Figure } from '../components/Figure'
+import { HowNote } from '../components/HowNote'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
@@ -81,10 +82,13 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
       ),
     },
   ], ['articles', 'top', 'mono'])
+  const topMethod = [...file.corpus].sort((a, b) => b.count - a.count)[0]
   const notes = file.topics.filter((r) => r.note && release.topicById.has(r.topic))
   return (
     <div className="container">
-      <PageHeader title={t('me.title')} lede={t('me.lede', { a: w.start, b: w.end })} />
+      <PageHeader title={t('me.title')} lede={t('me.lede', { a: w.start, b: w.end, m: topMethod ? mName(topMethod.method) : DASH })}>
+        <HowNote><p>{t('me.how')}</p></HowNote>
+      </PageHeader>
       <StatGrid cols={2}>
         <StatTile
           label={t('me.kpi.coverage')}

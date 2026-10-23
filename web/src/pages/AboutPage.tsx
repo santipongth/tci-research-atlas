@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BRAND } from '../brand/brand'
+import { HowNote } from '../components/HowNote'
 import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { Section } from '../components/Section'
@@ -45,6 +46,7 @@ export default function AboutPage() {
               {m.body.map((p, i) => (
                 <p key={i}>{fill(lang === 'en' ? p.en : p.th)}</p>
               ))}
+              {m.how ? <HowNote><p>{fill(lang === 'en' ? m.how.en : m.how.th)}</p></HowNote> : null}
             </Section>
           ))}
           <Section id="definition" title={t('about.def.h')} intro={t('about.def.intro', { v: version, level })}>
@@ -60,6 +62,7 @@ export default function AboutPage() {
                 </div>
               ))}
             </dl>
+            <p className="note">{t('rule.how', { level })}</p>
             <p className="note">{t('about.def.order')}</p>
           </Section>
           <Section id="privacy" title={t('about.privacy.h')}>

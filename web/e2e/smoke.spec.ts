@@ -52,7 +52,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#kpi .stat-d').first()).toContainText('2026Q3')
     await expect(page.locator('.fr-row').first()).toBeVisible()
     // a topic new since the baseline is marked as such; the axis reaches its +129% upper bound instead of clipping it
-    await expect(page.locator('.fr-row', { hasText: 'โมเดลภาษาขนาดใหญ่' }).first()).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
+    await expect(page.locator('.fr-row', { hasText: 'โมเดลภาษาขนาดใหญ่' }).first()).toContainText('ใหม่ — ปี')
     await expect(page.locator('.fr-axis').first()).toContainText('+120%')
     // portfolio labels sit beside the markers, never on one
     await page.evaluate(() => document.fonts.ready)
@@ -69,7 +69,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     expect(onMarkers).toEqual([])
     await page.getByRole('tab', { name: 'ตาราง' }).first().click()
     await expect(page.getByRole('table').first()).toBeVisible()
-    await expect(page.getByRole('table').first()).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
+    await expect(page.getByRole('table').first()).toContainText('ใหม่ — ปี')
     await expect(page).toHaveURL(/st=table/)
   },
   emerging: async (page) => {
@@ -92,7 +92,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     // P4: glossary, cited-in-TCI figure (0 is a value, not a missing one), SDG goal chips, RIS export of the articles
     await expect(page.locator('#glossary tbody tr')).toHaveCount(2)
     await expect(page.locator('#glossary')).toContainText('generative AI')
-    await expect(page.locator('#numbers .stats')).toContainText('ถูกอ้างใน TCI')
+    await expect(page.locator('#numbers .stats')).toContainText('บทความอื่นอ้างถึง')
     await expect(page.locator('.tp-sdg-chip')).toContainText('SDG 4')
     const ris = page.waitForEvent('download')
     await page.getByRole('button', { name: /บทความตัวแทน 4 เรื่องเป็น RIS/ }).click()
@@ -105,7 +105,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.uncertain')).toContainText('แนวโน้มไม่แน่นอน')
     await expect(page.locator('.uncertain')).not.toContainText('บทความยังน้อย')
     await expect(page.locator('.tr-band')).toHaveCount(0)
-    await expect(page.locator('#numbers .stats')).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
+    await expect(page.locator('#numbers .stats')).toContainText('ใหม่ — ปี')
     await page.goto(`${EXAMPLE}#/topics/T123456`)
     await expect(page.locator('h1')).toContainText('T123456')
   },
@@ -177,10 +177,10 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(rows).toHaveCount(6)
     await expect(page.locator('#journals')).toContainText('example2')          // no registry name → the OJS name
     await expect(page.locator('#journals .flag', { hasText: 'อนุมาน' }).first()).toBeVisible()
-    await page.getByLabel('ค้นหาวารสาร (ชื่อ, ชื่อ OJS หรือ ISSN)').fill('example5')
+    await page.getByLabel('ค้นหาวารสาร (ชื่อหรือ ISSN)').fill('example5')
     await expect(rows).toHaveCount(1)
     await expect(page).toHaveURL(/q=example5/)
-    await page.getByLabel('ค้นหาวารสาร (ชื่อ, ชื่อ OJS หรือ ISSN)').fill('')
+    await page.getByLabel('ค้นหาวารสาร (ชื่อหรือ ISSN)').fill('')
     await page.getByLabel('กลุ่มวารสาร TCI').selectOption('1')
     await expect(rows).toHaveCount(2)
     await expect(page.locator('#special-issues')).toContainText('ไมโครพลาสติก')
@@ -201,7 +201,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   methods: async (page) => {
     await expect(page.locator('svg.ml path.ml-line')).toHaveCount(4)
     await expect(page.locator('#lexicon li')).toHaveCount(16)
-    await page.getByLabel('แสดงเฉพาะหัวข้อที่วิธีกระจุก').check()
+    await page.getByLabel('แสดงเฉพาะหัวข้อที่ใช้วิธีเดียวเป็นหลัก').check()
     await expect(page).toHaveURL(/mono=only/)
     await expect(page.locator('#topics tbody tr')).toHaveCount(2)
   },
@@ -281,7 +281,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#bridges tbody tr')).toHaveCount(2)
     const risk = page.locator('#risk tbody tr')
     await expect(risk).toHaveCount(2)
-    await page.getByLabel('แสดงหน่วยที่ไม่กระจุกตัวด้วย').check()
+    await page.getByLabel('แสดงทุกรายการ รวมที่ไม่ได้พึ่งแหล่งเดียว').check()
     await expect(risk).toHaveCount(4)
     await expect(page).toHaveURL(/all=yes/)
     await expect(page.locator('#risk')).toContainText('มหาวิทยาลัยราชภัฏตัวอย่าง')
@@ -305,7 +305,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   galaxy: async (page) => {
     // headless Chromium normally has WebGL2 (SwiftShader); without it the page explains itself — either is fine
     const canvas = page.locator('canvas.gx-canvas')
-    await expect(canvas.or(page.getByText('เบราว์เซอร์นี้วาดภาพกาแล็กซีไม่ได้'))).toBeVisible()
+    await expect(canvas.or(page.getByText('เบราว์เซอร์นี้วาดแผนที่บทความไม่ได้'))).toBeVisible()
     if (!(await canvas.isVisible())) return
     await expect(page.locator('.lede')).toContainText('600')
     await expect(page.locator('.gx-keys li').first()).toBeVisible()
@@ -600,7 +600,7 @@ test('a module the pipeline skipped says why', async ({ page }) => {
 
 test('the article galaxy explains itself on a release without it and in the offline file', async ({ page }, info) => {
   await page.goto(`${EMPTY}#/galaxy`)
-  await expect(page.locator('h1')).toHaveText('กาแล็กซีบทความ')
+  await expect(page.locator('h1')).toHaveText('แผนที่บทความทุกเรื่อง')
   await expect(page.locator('.empty-state')).toContainText('รอบข้อมูลนี้ไม่มีส่วนนี้')
   const template = readFileSync('dist/offline-template.html', 'utf8')
   const slot = '<script type="application/json" id="atlas-data">null</script>'
@@ -610,7 +610,7 @@ test('the article galaxy explains itself on a release without it and in the offl
   mkdirSync(dirname(file), { recursive: true })
   writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
   await page.goto(`${pathToFileURL(file).href}#/galaxy`)
-  await expect(page.locator('h1')).toHaveText('กาแล็กซีบทความ')
+  await expect(page.locator('h1')).toHaveText('แผนที่บทความทุกเรื่อง')
   await expect(page.locator('.empty-state')).toContainText('ฉบับออฟไลน์ไม่มีส่วนนี้')
 })
 

@@ -25,7 +25,7 @@ import { sortBy } from '../lib/sort'
 import { useUrlState } from '../lib/useUrlState'
 import {
   articlesColumn, ciColumn, ciHighColumn, growthColumn, idColumn, journalsColumn, orgsColumn, ratioColumn, reasonColumn, scoreColumn, shareColumn, topicColumn,
-  type ColumnContext,
+  type ColumnContext, columnContext,
 } from './topicColumns'
 
 // The embed code for the top-10 widget loads on demand (this page is in the entry chunk).
@@ -46,7 +46,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
   const { t, name, lang } = useI18n()
   const [state, update] = useUrlState(emergingCodec)
   const level = ciPct(release.ciLevel)
-  const ctx: ColumnContext = { t, name, groupName: (g) => groupName(release, g, lang) }
+  const ctx: ColumnContext = columnContext(release, { t, name, lang })
   const st = state.status
   const label = statusName(t, st)
   const counts = Object.fromEntries(STATUSES.map((s) => [s, release.topics.filter((tp) => tp.status === s).length])) as Record<StatusId, number>
@@ -54,7 +54,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
   const columns: Column<Topic>[] =
     st === 'LOW_DATA'
       ? [idColumn(), topicColumn(ctx), articlesColumn(ctx), reasonColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)]
-      : withPrimary([idColumn(), topicColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx, level), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx), scoreColumn(ctx)], ['growth', 'lo', 'journals', 'score'])
+      : withPrimary([idColumn(), topicColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx), scoreColumn(ctx)], ['growth', 'lo', 'journals', 'score'])
   const valid = columns.some((c) => c.key === state.sort && c.sortValue)
   const sort = valid ? { key: state.sort, dir: state.dir } : { key: st === 'LOW_DATA' ? 'articles' : 'growth', dir: 'desc' as const }
   const source = t('source.line', { release: release.overview.release })
@@ -76,9 +76,12 @@ function Emerging({ release }: { release: AtlasRelease }) {
   )
   // every topic of the status, strongest first; topics without an interval are listed as text rows, never dropped
   const forest = isSignal(st) ? forestSelection(release.topics, st) : null
+  const example = sortBy(release.topics.filter((tp) => tp.status === 'EMERGING'), (tp) => tp.score, 'desc')[0]
+  const lede = example ? t('em.lede', { n: fmtInt(counts.EMERGING), topic: name(example) }) : t('em.ledePlain')
+  const bar = fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0)
   return (
     <div className="container">
-      <PageHeader title={t('em.title')} lede={t('em.lede', { level })} />
+      <PageHeader title={t('em.title')} lede={lede} />
       {release.topics.length === 0 ? (
         <EmptyState title={t('empty.topics')} />
       ) : (
@@ -110,6 +113,12 @@ function Emerging({ release }: { release: AtlasRelease }) {
               tableTitle={tableTitle}
               csv={figureCsv(csvName, sortCol?.sortValue ? sortBy(rows, sortCol.sortValue, sort.dir) : rows, columns)}
               toggle="buttons"
+              how={
+                <>
+                  <p>{t('em.how', { level, bar })}</p>
+                  <p>{t('rule.how', { level })}</p>
+                </>
+              }
               source={source}
               view={state.view}
               onView={(view) => update({ view })}
@@ -117,8 +126,9 @@ function Emerging({ release }: { release: AtlasRelease }) {
                 <ForestPlot
                   groups={[{ status: st, title: label, rows: forest.rows, total: forest.total, noCi: forest.noCi }]}
                   level={level}
+                  base={ctx.base}
                   axisLabel={t('ov.forest.axis')}
-                  refLabel={t('ov.forest.bar', { v: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0) })}
+                  refLabel={t('ov.forest.bar', { v: bar })}
                   subtitle={(tp) => groupName(release, tp.group, lang)}
                 />
               }
@@ -151,12 +161,14 @@ function Keywords({ release }: { release: AtlasRelease }) {
   if (rows.length === 0) return null
   const excluded = all.filter((k) => !k.emerging && k.journal_driven).length
   const w = windows(release.overview.last_complete_year)
+  const base = fmtWindow(w.B)
+  const top = sortBy(rows, (k) => k.growth, 'desc')[0]
   const columns: Column<EmergingKeyword>[] = [
     { key: 'term', csvHeader: 'term', header: t('col.term'), rowHeader: true, cell: (k) => k.term, sortValue: (k) => k.term },
-    { key: 'count', csvHeader: 'count_recent', header: t('col.articlesR'), numeric: true, cell: (k) => fmtInt(k.count_recent), sortValue: (k) => k.count_recent },
+    { key: 'count', csvHeader: 'count_recent', header: t('col.articlesR', { r: fmtWindow(w.R) }), numeric: true, cell: (k) => fmtInt(k.count_recent), sortValue: (k) => k.count_recent },
     { key: 'growth', csvHeader: 'growth', header: t('col.growth'), numeric: true, cell: (k) => fmtSignedPct(k.growth), sortValue: (k) => k.growth },
     { key: 'lo', csvHeader: 'growth_lo', header: t('col.growthLo'), numeric: true, cell: (k) => fmtSignedPct(k.growth_lo), sortValue: (k) => k.growth_lo },
-    { key: 'ratio', csvHeader: 'share_ratio', header: t('col.ratio'), numeric: true, cell: (k) => (k.no_baseline || k.share_ratio === null ? t('noBaseline') : fmtRatio(k.share_ratio)), sortValue: (k) => (k.no_baseline ? 1e9 : k.share_ratio), csv: (k) => k.share_ratio },
+    { key: 'ratio', csvHeader: 'share_ratio', header: t('col.ratio', { base }), numeric: true, cell: (k) => (k.no_baseline || k.share_ratio === null ? t('noBaseline', { base }) : fmtRatio(k.share_ratio)), sortValue: (k) => (k.no_baseline ? 1e9 : k.share_ratio), csv: (k) => k.share_ratio },
     { key: 'years', csvHeader: 'n_active_years', header: t('col.years'), numeric: true, cell: (k) => fmtInt(k.n_active_years), sortValue: (k) => k.n_active_years },
     { key: 'orgs', csvHeader: 'n_orgs_R', header: t('col.orgs'), numeric: true, cell: (k) => fmtInt(k.n_orgs_R), sortValue: (k) => k.n_orgs_R },
     { key: 'journals', csvHeader: 'n_journals_R', header: t('col.journals'), numeric: true, cell: (k) => fmtInt(k.n_journals_R), sortValue: (k) => k.n_journals_R },
@@ -172,7 +184,7 @@ function Keywords({ release }: { release: AtlasRelease }) {
     },
   ]
   return (
-    <Section id="keywords" title={t('em.kw.h')} intro={t('em.kw.intro', { b: fmtWindow(w.B), o: DEFINITION.minOrgs, ky: DEFINITION.keywordMinActiveYears })}>
+    <Section id="keywords" title={t('em.kw.h')} intro={t('em.kw.intro', { k: top.term, b: base, o: DEFINITION.minOrgs, ky: DEFINITION.keywordMinActiveYears })}>
       <DataTable
         caption={t('table.n', { n: 2, title: t('em.kw.table', { n: fmtInt(rows.length) }) })}
         rows={rows}

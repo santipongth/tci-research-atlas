@@ -2,7 +2,7 @@ import { DataTable } from '../../components/DataTable'
 import { Figure } from '../../components/Figure'
 import { StatusLegend } from '../../components/StatusLegend'
 import { PortfolioMatrix } from '../../charts/PortfolioMatrix'
-import { groupName, type AtlasRelease } from '../../data/release'
+import type { AtlasRelease } from '../../data/release'
 import type { Topic } from '../../data/types'
 import { DEFINITION, fmtWindow, QUADRANTS, quadrantOf, windows, type Quadrant } from '../../lib/definition'
 import { fmtInt, fmtPct } from '../../lib/format'
@@ -10,7 +10,7 @@ import { useI18n } from '../../lib/i18n'
 import { STATUSES } from '../../lib/status'
 import { overviewCodec } from '../../lib/urlState'
 import { useUrlState } from '../../lib/useUrlState'
-import { growthColumn, idColumn, shareColumn, statusColumn, topicColumn, type ColumnContext } from '../topicColumns'
+import { growthColumn, idColumn, shareColumn, statusColumn, topicColumn, type ColumnContext, columnContext } from '../topicColumns'
 
 /** E2: size × growth with the four portfolio groups. */
 export function Portfolio({ release, topics, threshold }: { release: AtlasRelease; topics: readonly Topic[]; threshold: number }) {
@@ -19,7 +19,7 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
   const w = fmtWindow(windows(release.overview.last_complete_year).R)
   const counts = Object.fromEntries(QUADRANTS.map((q) => [q, topics.filter((tp) => quadrantOf(tp, threshold) === q).length])) as Record<Quadrant, number>
   const quadName = (q: Quadrant) => t(`quad.${q}` as const)
-  const ctx: ColumnContext = { t, name, groupName: (g) => groupName(release, g, lang) }
+  const ctx: ColumnContext = columnContext(release, { t, name, lang })
   const quadRows = QUADRANTS.map((q) => ({ q, count: counts[q] }))
   return (
     <Figure

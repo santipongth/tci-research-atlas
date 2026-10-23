@@ -3,6 +3,7 @@ import { MultiLineChart } from '../charts/MultiLineChart'
 import { tickDecimals } from '../charts/scale'
 import { DataTable, type Column } from '../components/DataTable'
 import { Figure } from '../components/Figure'
+import { HowNote } from '../components/HowNote'
 import { JournalLink } from '../components/JournalLink'
 import { ModuleFile } from '../components/ModuleFile'
 import { OnThisPage } from '../components/OnThisPage'
@@ -54,7 +55,7 @@ function JournalView({ release, file, id }: { release: AtlasRelease; file: Journ
 }
 
 function JournalContent({ release, file, journal }: { release: AtlasRelease; file: JournalsFile; journal: JournalSummary }) {
-  const { t, lang } = useI18n()
+  const { t, lang, name } = useI18n()
   const detailFile = useReleaseFile<JournalDetail>(`journals/${journal.id}.json`)
   const detail = detailFile.status === 'ready' ? detailFile.data : null
   const [state, update] = useUrlState(journalCodec)
@@ -90,6 +91,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
     ...(opps.length ? [{ id: 'opportunities', label: t('jr.opp.h') }] : []),
   ]
   const share = (s: TopicShare) => s.share
+  const topTopic = topics.length ? topicOf(topics.reduce((a, b) => (b.count > a.count ? b : a)).topic) : undefined
   const topicColumns: Column<TopicShare>[] = [
     { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s.topic) as Topic} showStatus />, sortValue: (s) => s.topic, csv: (s) => s.topic },
     { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (s) => fmtInt(s.count), sortValue: (s) => s.count },
@@ -166,7 +168,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
           </Section>
 
           {topics.length ? (
-            <Section id="topics" title={t('jr.topics.h')} intro={t('jr.topics.intro', { a: w.start, b: w.end })}>
+            <Section id="topics" title={t('jr.topics.h')} intro={t('jr.topics.intro', { a: w.start, b: w.end, topic: topTopic ? name(topTopic) : DASH })}>
               <DataTable caption={t('table.n', { n: 1, title: t('jr.topics.table') })} rows={topics} columns={topicColumns} rowKey={(s) => s.topic} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${rel}-${journal.id}-topics.csv`} />
               {gained.length ? <Shifts title={t('jr.gained', { r: `${file.recent.start}–${file.recent.end}`, b: `${file.baseline.start}–${file.baseline.end}` })} rows={gained} release={release} /> : null}
               {lost.length ? <Shifts title={t('jr.lost', { r: `${file.recent.start}–${file.recent.end}`, b: `${file.baseline.start}–${file.baseline.end}` })} rows={lost} release={release} /> : null}
@@ -179,19 +181,22 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
                 id="fig-drift"
                 number={1}
                 title={t('jr.drift.fig')}
-                tableTitle={t('table.n', { n: 2, title: t('jr.drift.table') })}
+                tableTitle={t('table.n', { n: 2, title: t('jr.drift.fig') })}
                 csv={figureCsv(`atlas-${rel}-${journal.id}-drift.csv`, drift, driftColumns)}
                 how={
-                  <p className="how-terms">
-                    <span>{t('glossary.terms')}:</span>
-                    <Term term="jsd" />
-                  </p>
+                  <>
+                    <p>{t('jr.drift.how', { n: fmtInt(file.drift_reference_years ?? 0) })}</p>
+                    <p className="how-terms">
+                      <span>{t('glossary.terms')}:</span>
+                      <Term term="jsd" />
+                    </p>
+                  </>
                 }
                 source={source}
                 view={state.drift}
                 onView={(v) => update({ drift: v })}
                 chart={<MultiLineChart years={drift.map((d) => d.year)} series={[{ id: 'drift', label: t('jr.drift.series'), values: drift.map((d) => d.distance ?? null) }]} format={(v) => fmtNum(v, 2)} axisFormat={(v, step) => fmtNum(v, tickDecimals(step))} label={t('jr.drift.fig')} />}
-                table={<DataTable caption={t('table.n', { n: 2, title: t('jr.drift.table') })} rows={drift} columns={driftColumns} rowKey={(d) => String(d.year)} stack={false} />}
+                table={<DataTable caption={t('table.n', { n: 2, title: t('jr.drift.fig') })} rows={drift} columns={driftColumns} rowKey={(d) => String(d.year)} stack={false} />}
               />
             </Section>
           ) : null}
@@ -205,6 +210,12 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
           {peers.length ? (
             <Section id="peers" title={t('jr.peers.h')} intro={t('jr.peers.intro')}>
               <DataTable caption={t('table.n', { n: 4, title: t('jr.peers.table') })} rows={peerRows} columns={peerColumns} rowKey={(r) => r.journal.id} csvFilename={`atlas-${rel}-${journal.id}-peers.csv`} />
+              <HowNote>
+                <p className="how-terms">
+                  <span>{t('glossary.terms')}:</span>
+                  <Term term="cosine" />
+                </p>
+              </HowNote>
             </Section>
           ) : null}
 

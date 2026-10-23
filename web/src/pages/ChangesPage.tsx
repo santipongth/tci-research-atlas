@@ -41,7 +41,7 @@ export default function ChangesPage() {
 }
 
 function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
-  const { t, lang } = useI18n()
+  const { t, lang, name } = useI18n()
   const rel = release.overview.release
   const topicOf = (id: string) => release.topicById.get(id)
   const known = (id: string): boolean => release.topicById.has(id)
@@ -84,6 +84,9 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
     { key: 'current', csvHeader: 'share_current', header: t('col.current'), numeric: true, cell: (m) => fmtPct(m.share_current, 2), sortValue: (m) => m.share_current },
     { key: 'change', header: t('col.change'), numeric: true, cell: (m) => fmtPp((m.share_current - m.share_previous) * 100, lang), sortValue: (m) => Math.abs(m.share_current - m.share_previous) },
   ]
+  // examples for the intros: the first status change listed, and the biggest mover
+  const firstChange = statusRows[0]
+  const bigMover = movers.length ? movers.reduce((a, b) => (Math.abs(b.share_current - b.share_previous) > Math.abs(a.share_current - a.share_previous) ? b : a)) : null
   const fresh = diff.new_topics.filter((n) => known(n.topic))
   const restructured = (diff.restructured ?? []).filter((n) => known(n.topic))
   const journalsLinked = hasModule(release, 'journals')
@@ -100,7 +103,11 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
           <DataTable caption={t('table.n', { n: 1, title: t('ch.kpi.table') })} rows={diff.kpis} columns={kpiColumns} rowKey={(k) => k.key} stack={false} csvFilename={`atlas-${rel}-changes-totals.csv`} />
         </Section>
       ) : null}
-      <Section id="status" title={t('ch.status.h')}>
+      <Section
+        id="status"
+        title={t('ch.status.h')}
+        intro={firstChange ? t('ch.status.intro', { topic: name(topicOf(firstChange.topic) as Topic), from: statusName(t, firstChange.previous), to: statusName(t, firstChange.current) }) : undefined}
+      >
         <DataTable caption={t('table.n', { n: 2, title: t('ch.status.table') })} rows={statusRows} columns={statusColumns} rowKey={(c) => c.topic} defaultSort={{ key: 'change', dir: 'asc' }} empty={t('ch.status.none')} csvFilename={`atlas-${rel}-status-changes.csv`} />
       </Section>
       {fresh.length ? (
@@ -154,7 +161,7 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
         </Section>
       ) : null}
       {movers.length ? (
-        <Section id="movers" title={t('ch.movers.h')} intro={t('ch.movers.intro')}>
+        <Section id="movers" title={t('ch.movers.h')} intro={bigMover ? t('ch.movers.intro', { topic: name(topicOf(bigMover.topic) as Topic), a: fmtPct(bigMover.share_previous, 2), b: fmtPct(bigMover.share_current, 2) }) : undefined}>
           <DataTable caption={t('table.n', { n: 3, title: t('ch.movers.table') })} rows={movers} columns={moverColumns} rowKey={(m) => m.topic} defaultSort={{ key: 'change', dir: 'desc' }} csvFilename={`atlas-${rel}-movers.csv`} />
         </Section>
       ) : null}

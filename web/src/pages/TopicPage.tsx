@@ -22,7 +22,7 @@ import type { CountItem, Topic } from '../data/types'
 import { DEFINITION, fmtWindow, ruleVars, windows } from '../lib/definition'
 import { breadthText } from '../lib/breadth'
 import { forecastView } from '../lib/forecast'
-import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
+import { ciPct, DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { ciText, growthText, lowDataText, ratioText, statusName } from '../lib/topicText'
 import { figureCsv } from '../lib/tableCsv'
@@ -97,6 +97,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
   const institutions = ready?.institutions ?? []
   // null / absent = the module is not in this release (hidden); [] = none found (hidden too)
   const glossary = ready?.glossary ?? []
+  const glossaryTop = [...glossary].sort((a, b) => b.n - a.n)[0] ?? { th: '', en: '', n: 0 }
   const cited = ready?.cited_in_tci ?? null
   const sdgGoals = topic.sdg ?? []
   // tables are numbered in page order; sections without data are not rendered and take no number
@@ -217,7 +218,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 trend={shareTrend}
                 trendText={t('stat.trend', { a: years[0], b: years[years.length - 1], values: shareTrend.map((v) => (v === null ? DASH : fmtPct(v, 2))).join(', ') })}
               />
-              <StatTile label={t('col.ratio')} value={ratioText(t, m)} sub={t('tp.ratioSub', { r: fmtWindow(w.R), b: fmtWindow(w.B) })} />
+              <StatTile label={t('col.ratio', { base: fmtWindow(w.B) })} value={ratioText(t, m, fmtWindow(w.B))} sub={t('tp.ratioSub', { r: fmtWindow(w.R), b: fmtWindow(w.B) })} />
               <StatTile label={t('col.journals')} value={fmtInt(m.n_journals_R)} sub={t('tp.inWindow', { w: fmtWindow(w.R) })} />
               <StatTile label={t('col.orgs')} value={fmtInt(m.n_orgs_R)} sub={m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })} />
               {cited !== null ? (
@@ -246,6 +247,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 tableTitle={t('table.n', { n: 1, title: t('tp.trend.table') })}
                 csv={figureCsv(`atlas-${release.overview.release}-${topic.id}-trend.csv`, trendRows, trendColumns)}
                 source={source}
+                how={showFc && fc ? <p>{t('tp.fc.how', { m: fc.model, mase: fmtNum(fc.mase, 2) })}</p> : undefined}
                 view={state.trend}
                 onView={(trend) => update({ trend })}
                 legend={
@@ -283,7 +285,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 note={
                   <>
                     {showFc && fc ? (
-                      <p className="note">{t('tp.fc.model', { m: fc.model, mase: fmtNum(fc.mase, 2), skill: fmtSignedPct(fc.skill_vs_naive, 0) })}</p>
+                      <p className="note">{t('tp.fc.skill', { skill: fmtPct(fc.skill_vs_naive, 0) })}</p>
                     ) : (
                       <div className="uncertain">
                         <b>{t('fc.uncertain')}</b>
@@ -313,7 +315,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
           ) : null}
 
           {glossary.length ? (
-            <Section id="glossary" title={t('tp.glossary.h')} intro={t('tp.glossary.intro')}>
+            <Section id="glossary" title={t('tp.glossary.h')} intro={t('tp.glossary.intro', { th: glossaryTop.th, en: glossaryTop.en })}>
               <DataTable
                 caption={t('table.n', { n: tableNo.glossary, title: t('tp.glossary.table') })}
                 rows={glossary}
@@ -394,7 +396,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
           <p className="mt-6">
             <Link className="btn-secondary" to={`/compare?ids=${topic.id}`}>{t('addToCompare')}</Link>
           </p>
-          <p className="mt-2 hint">{level}% · {topic.id}</p>
+          <p className="mt-2 hint">{t('tp.id', { id: topic.id })}</p>
           {release.latest.feeds === true ? (
             <Suspense fallback={null}>
               <FeedLink release={release} kind="topic" topicId={topic.id} />

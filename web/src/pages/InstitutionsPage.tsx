@@ -1,4 +1,5 @@
 import { DataTable, type Column } from '../components/DataTable'
+import { HowNote } from '../components/HowNote'
 import { InstitutionLink } from '../components/InstitutionLink'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
@@ -33,6 +34,7 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
   const { t, lang } = useI18n()
   const [state, update] = useUrlState(institutionsCodec)
   const w = file.window
+  const rw = `${file.recent.start}–${file.recent.end}`
   const rows = filterInstitutions(file.institutions, state.q, state.type)
   const byId = new Map(file.institutions.map((i) => [i.id, i]))
   const provinces = new Map((file.province_names ?? []).map((p) => [p.code, p]))
@@ -52,7 +54,7 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
     { key: 'type', csvHeader: 'type', header: t('in.col.type'), cell: (i) => t(`in.type.${i.type ?? 'other'}` as StrKey), csv: (i) => i.type ?? 'other' },
     { key: 'province', csvHeader: 'province', header: t('in.col.province'), cell: place, sortValue: place, csv: (i) => i.province ?? '' },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (i) => fmtInt(i.articles), sortValue: (i) => i.articles },
-    { key: 'recent', csvHeader: 'articles_recent', header: t('in.col.recent'), numeric: true, cell: (i) => fmtInt(i.articles_recent ?? 0), sortValue: (i) => i.articles_recent ?? 0 },
+    { key: 'recent', csvHeader: 'articles_recent', header: t('in.col.recent', { r: rw }), numeric: true, cell: (i) => fmtInt(i.articles_recent ?? 0), sortValue: (i) => i.articles_recent ?? 0 },
     { key: 'intl', csvHeader: 'intl_share', header: t('in.col.intl'), numeric: true, cell: (i) => <ShareBar value={i.intl_share} />, sortValue: (i) => i.intl_share ?? null },
     { key: 'partners', csvHeader: 'partners', header: t('in.col.partners'), numeric: true, cell: (i) => fmtInt(i.partners ?? 0), sortValue: (i) => i.partners ?? 0 },
     { key: 'group', csvHeader: 'group', header: t('col.field'), cell: (i) => (i.group ? groupName(release, i.group, lang) : DASH), csv: (i) => i.group ?? '' },
@@ -73,6 +75,11 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (e) => fmtInt(e.articles), sortValue: (e) => e.articles },
   ]
   const countries = file.countries ?? []
+  // the examples: the largest institution, the strongest partnership, the main partner country
+  const topInst = file.institutions.reduce<InstitutionSummary | null>((m, i) => (m === null || i.articles > m.articles ? i : m), null)
+  const topEdge = edges.reduce<CollabEdge | null>((m, e) => (m === null || e.articles > m.articles ? e : m), null)
+  const topCountry = countries.reduce<CountryCount | null>((m, c) => (m === null || c.articles > m.articles ? c : m), null)
+  const iname = (id: string) => instName(byId.get(id) as InstitutionSummary, lang).text
   const countryColumns: Column<CountryCount>[] = [
     { key: 'name', csvHeader: 'country', header: t('in.col.country'), rowHeader: true, cell: (c) => (lang === 'en' ? c.name_en : c.name_th), sortValue: (c) => (lang === 'en' ? c.name_en : c.name_th), csv: (c) => c.code },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (c) => fmtInt(c.articles), sortValue: (c) => c.articles },
@@ -81,7 +88,7 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
   return (
     <div className="container">
       <PageHeader title={t('in.title')} lede={t('in.lede', { n: fmtInt(file.min_articles), a: w.start, b: w.end })} />
-      <Section id="glance" title={t('in.kpi.h')}>
+      <Section id="glance" title={t('in.kpi.h')} intro={topInst ? t('ex.most', { x: instName(topInst, lang).text, k: fmtInt(topInst.articles) }) : undefined}>
         <dl className="summary">
           <div>
             <dt>{t('in.kpi.shown')}</dt>
@@ -122,16 +129,18 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
           onSort={(s) => update({ sort: isSort(s.key) ? s.key : 'articles', dir: s.dir })}
           csvFilename={`atlas-${rel}-institutions.csv`}
           empty={t('in.none')}
-          footnote={t('in.foot')}
         />
+        <HowNote>
+          <p>{t('in.foot')}</p>
+        </HowNote>
       </Section>
       {edges.length ? (
-        <Section id="partnerships" title={t('in.pairs.h')} intro={t('in.pairs.intro', { a: w.start, b: w.end, n: fmtInt(file.network_min_articles) })}>
+        <Section id="partnerships" title={t('in.pairs.h')} intro={topEdge ? t('in.pairs.intro', { x: iname(topEdge.a), y: iname(topEdge.b), k: fmtInt(topEdge.articles), a: w.start, b: w.end, n: fmtInt(file.network_min_articles) }) : undefined}>
           <DataTable caption={t('table.n', { n: 2, title: t('in.pairs.table') })} rows={edges} columns={edgeColumns} rowKey={(e) => `${e.a}~${e.b}`} defaultSort={{ key: 'articles', dir: 'desc' }} csvFilename={`atlas-${rel}-partnerships.csv`} />
         </Section>
       ) : null}
       {countries.length ? (
-        <Section id="countries" title={t('in.countries.h')} intro={t('in.countries.intro', { a: w.start, b: w.end })}>
+        <Section id="countries" title={t('in.countries.h')} intro={topCountry ? t('in.countries.intro', { c: lang === 'en' ? topCountry.name_en : topCountry.name_th, k: fmtInt(topCountry.articles), a: w.start, b: w.end }) : undefined}>
           <DataTable caption={t('table.n', { n: 3, title: t('in.countries.table') })} rows={countries} columns={countryColumns} rowKey={(c) => c.code} defaultSort={{ key: 'articles', dir: 'desc' }} csvFilename={`atlas-${rel}-partner-countries.csv`} />
         </Section>
       ) : null}

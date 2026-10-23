@@ -10,5 +10,5 @@ export const topicExtra = defineStrings({
   'x.ris': { th: 'RIS', en: 'RIS' },
   'x.bib': { th: 'BibTeX', en: 'BibTeX' },
   'x.label': { th: 'บันทึกบทความตัวแทน {n} เรื่องเป็น {format}', en: 'Save {n} representative articles as {format}' },
-  'x.note': { th: 'สำหรับโปรแกรมจัดการบรรณานุกรม ไฟล์ไม่มีชื่อผู้แต่ง ใช้ DOI หรือลิงก์ ThaiJO เพื่อดูการอ้างอิงฉบับเต็ม', en: 'For reference managers. Files carry no author names; use the DOI or ThaiJO link for the full citation.' },
+  'x.note': { th: 'สำหรับโปรแกรมจัดการบรรณานุกรม เช่น Zotero หรือ EndNote ไฟล์ไม่มีชื่อผู้แต่ง ใช้ DOI หรือลิงก์ ThaiJO เพื่อดูการอ้างอิงฉบับเต็ม', en: 'For reference managers such as Zotero or EndNote. Files carry no author names; use the DOI or ThaiJO link for the full citation.' },
 })
