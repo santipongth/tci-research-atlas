@@ -112,12 +112,13 @@ export function StoryLines({ years, series, initial, format, label, note }: {
                     tabIndex={0}
                     role="button"
                     aria-pressed={s.id === on?.id}
-                    aria-label={name !== s.label ? `${s.label}${value}` : undefined}
                     onMouseEnter={() => setFocus(s.id)}
                     onFocus={() => setFocus(s.id)}
                     onClick={() => setFocus(s.id)}
                   >
-                    {name !== s.label ? <title>{s.label}</title> : null}
+                    {/* the full name reaches readers through <title>, not aria-label: an aria-label that does not
+                        start with the visible (cut) text breaks WCAG 2.5.3 "label in name" */}
+                    {name !== s.label ? <title>{`${s.label}${value}`}</title> : null}
                     <line x1={x(e.i) + 9} x2={x(e.i) + 18} y1={y(e.v)} y2={labelY[k]} className="sl-leader" />
                     <text x={x(e.i) + 24} y={labelY[k]} dy="0.35em">
                       <tspan className="sl-name">{name}</tspan>

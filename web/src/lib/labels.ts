@@ -15,11 +15,12 @@ export function overlaps(a: Box, b: Box, pad = 0): boolean {
 export const THAI_ASCENT = 1.0
 export const THAI_LINE = 1.3
 /**
- * Room kept on each side (left and right) of a measured label for its outline halo: the box is the text width plus
- * 2 × LABEL_PAD. Vertically the Thai line box (THAI_ASCENT, THAI_LINE) already holds the halo. Used by every label
- * layout (placeLabels here, the terrain map in features/atlas/mapSpace.ts).
+ * Room kept on each side (left and right) of a measured label: the box is the text width plus 2 × LABEL_PAD.
+ * Vertically the Thai line box (THAI_ASCENT, THAI_LINE) already holds the halo. 1 px a side, not the halo's full 2 px:
+ * two halos may touch but never the glyphs, and the wider box left a 390 px phone map with a single name once the
+ * text is measured with Linux font metrics. Used by every label layout (placeLabels here, features/atlas/mapSpace.ts).
  */
-export const LABEL_PAD = 2
+export const LABEL_PAD = 1
 
 export interface LabelCandidate {
   id: string
