@@ -59,7 +59,7 @@ describe('design tokens', () => {
         const textPairs: [string, string][] = [
           ['ink', 'bg'], ['ink', 'surface'], ['ink-2', 'bg'], ['ink-2', 'surface'], ['link', 'bg'], ['link', 'surface'],
           ['brand-ink', 'brand'], ['brand-ink-2', 'brand'], ['btn-ink', 'btn'], ['up', 'bg'], ['ink-2', 'map-sheet'],
-          ['brand', 'bg'], ['brand', 'brand-soft'], ['accent-ink', 'bg'], ['ink-3', 'bg'],
+          ['brand', 'bg'], ['brand', 'brand-soft'], ['accent-ink', 'bg'], ['ink-3', 'bg'], ['tag-sample-ink', 'tag-sample-bg'],
         ]
         for (const [fg, bg] of textPairs) {
           expect(isHex(t[fg]) && isHex(t[bg]), `${fg}/${bg} are hex`).toBe(true)

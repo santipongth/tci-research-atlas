@@ -8,8 +8,8 @@ const byId = new Map(file.institutions.map((i) => [i.id, i]))
 
 describe('executive helpers', () => {
   it('names an institution in the UI language, else in the other language with its lang', () => {
-    expect(instName(byId.get('o1a2b3c4d5e')!, 'en')).toEqual({ text: 'โรงพยาบาลตัวอย่าง', lang: 'th' })
-    expect(instName(byId.get('mu-a')!, 'en')).toEqual({ text: 'Example University A', lang: null })
+    expect(instName(byId.get('o1a2b3c4d5e')!, 'en')).toEqual({ text: 'โรงพยาบาลตัวอย่าง', lang: 'th', fallback: false })
+    expect(instName(byId.get('mu-a')!, 'en')).toEqual({ text: 'Example University A', lang: null, fallback: false })
     expect(otherInstName(byId.get('mu-a')!, 'th')).toBe('Example University A')
   })
 

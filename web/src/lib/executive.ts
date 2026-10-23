@@ -1,29 +1,18 @@
 import type { InstitutionSummary } from '../data/types'
 import type { Lang } from './i18n'
+import { otherName, shownName, type ShownName } from './names'
 import { foldText } from './search'
-
-export interface ShownName {
-  text: string
-  /** language of `text` when it differs from the UI language (for a lang attribute) */
-  lang: Lang | null
-}
 
 type Named = Pick<InstitutionSummary, 'id' | 'name_th' | 'name_en'>
 
 /** The institution's name in the UI language, else in the other language, else its id (never an empty title). */
 export function instName(i: Named, lang: Lang): ShownName {
-  const own = lang === 'en' ? i.name_en : i.name_th
-  const other = lang === 'en' ? i.name_th : i.name_en
-  if (own) return { text: own, lang: null }
-  if (other) return { text: other, lang: lang === 'en' ? 'th' : 'en' }
-  return { text: i.id, lang: null }
+  return shownName(i.name_th, i.name_en, lang, i.id)
 }
 
 /** The name in the other language when both exist and differ. */
 export function otherInstName(i: Named, lang: Lang): string {
-  const own = lang === 'en' ? i.name_en : i.name_th
-  const other = lang === 'en' ? i.name_th : i.name_en
-  return own && other && own !== other ? other : ''
+  return otherName(i.name_th, i.name_en, lang)
 }
 
 export const INST_TYPES = ['university', 'rajabhat', 'rajamangala', 'hospital', 'government', 'research', 'company', 'other'] as const

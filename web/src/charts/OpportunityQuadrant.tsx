@@ -3,7 +3,7 @@ import { useElementSize } from '../lib/useElementSize'
 import { useFontsVersion } from '../lib/useFontsVersion'
 import { textWidth as measureText } from '../lib/measure'
 import { LABEL_PX } from '../lib/labelSizes'
-import { placeLabels, quadrantLayout, textWidth, type Box, type QuadPoint } from './execLayout'
+import { placeLabels, quadrantLayout, type Box, type QuadPoint } from './execLayout'
 import { tickDecimals } from './scale'
 
 const graphemes = typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter('en', { granularity: 'grapheme' }) : null
@@ -50,9 +50,9 @@ export function OpportunityQuadrant({ points, xMax, yMin, text, label, describe,
   const avoid: Box[] = []
   const zone = L.zone
   const zoneLabel = zone && zone.w > 40 && zone.h > 24 ? { x: zone.x + 8, y: zone.y + 8 + LABEL_PX.strong * 0.8 } : null
-  if (zone && zoneLabel) avoid.push({ x: zone.x, y: zone.y, w: textWidth(text.zone, LABEL_PX.strong) + 18, h: LABEL_PX.strong * 1.6 + 8 })
-  if (inX) avoid.push({ x: x1 + 2, y: L.plot.y, w: textWidth(text.same, LABEL_PX.label) + 8, h: LABEL_PX.label * 1.4 })
-  if (inY) avoid.push({ x: L.plot.x + L.plot.w - textWidth(text.flat, LABEL_PX.label) - 8, y: y1 - LABEL_PX.label * 1.5, w: textWidth(text.flat, LABEL_PX.label) + 8, h: LABEL_PX.label * 1.4 })
+  if (zone && zoneLabel) avoid.push({ x: zone.x, y: zone.y, w: measureText(text.zone, LABEL_PX.strong, 700) + 18, h: LABEL_PX.strong * 1.6 + 8 })
+  if (inX) avoid.push({ x: x1 + 2, y: L.plot.y, w: measureText(text.same, LABEL_PX.label, 400) + 8, h: LABEL_PX.label * 1.4 })
+  if (inY) avoid.push({ x: L.plot.x + L.plot.w - measureText(text.flat, LABEL_PX.label, 400) - 8, y: y1 - LABEL_PX.label * 1.5, w: measureText(text.flat, LABEL_PX.label, 400) + 8, h: LABEL_PX.label * 1.4 })
   const order = [...points].sort((p, q) => Number(q.hot) - Number(p.hot) || q.y - p.y)
   // on phones only the opportunities are named; the rest are context (named in the tooltip and the table)
   const labels = placeLabels(

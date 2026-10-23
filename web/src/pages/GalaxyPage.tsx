@@ -1,4 +1,4 @@
-import { THAI } from '../lib/script'
+import { langOf } from '../lib/script'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Link } from 'react-router'
 import { galaxyPicks } from '../charts/editorLayout'
@@ -31,8 +31,6 @@ import { figureCsv } from '../lib/tableCsv'
 import { useUrlState } from '../lib/useUrlState'
 import { galaxy } from '../strings/galaxy'
 
-/** Thai script (U+0E00–U+0E7F), built from code points: the codebase never writes a backslash-u escape. */
-const langOf = (text: string) => (THAI.test(text) ? 'th' : 'en')
 const PAN: Record<string, [number, number]> = { ArrowLeft: [60, 0], ArrowRight: [-60, 0], ArrowUp: [0, 60], ArrowDown: [0, -60] }
 /** hover / tap reach around the pointer (CSS px); Enter looks a little further around the centre */
 const PICK_PX = 12

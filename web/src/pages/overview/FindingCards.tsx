@@ -24,11 +24,12 @@ export function FindingCards({ release, findings, links = true }: { release: Atl
         const big = kind === 'large' ? fmtPct(m.share_recent, 1) : fmtSignedPct(g, 0)
         const unit = kind === 'large' ? t('ov.fc.unit.share', { w }) : t('ov.fc.unit.growth')
         const ci = kind === 'large' ? null : ciText(t, m, release.ciLevel)
+        const per = kind === 'large' ? perVars(m.share_recent) : null
         const sentence =
           kind === 'emerging'
             ? t('ov.fc.emerging.s', { g: fmtSignedPct(g, 0) })
             : kind === 'large'
-              ? t('ov.fc.large.s', { ...perVars(m.share_recent), g: fmtSignedPct(g, 0) })
+              ? per && t('ov.fc.large.s', { ...per, g: fmtSignedPct(g, 0) })
               : t('ov.fc.decline.s', { g: fmtPct(Math.abs(g), 0) })
         return (
           <li className="find" key={topic.id}>
@@ -43,7 +44,7 @@ export function FindingCards({ release, findings, links = true }: { release: Atl
               <span className="find-unit">{unit}</span>
             </p>
             <p className="find-ci">{ci ?? ""}</p>
-            <p className="find-s">{sentence}</p>
+            {sentence ? <p className="find-s">{sentence}</p> : null}
           </li>
         )
       })}

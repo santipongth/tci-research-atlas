@@ -10,7 +10,8 @@ export const SUPPORTED_SCHEMA_MAJOR = 2
 /** Embedding providers that never produce a real release (fixtures, the CPU fallback). */
 const SAMPLE_PROVIDERS = new Set(['fixture', 'lite'])
 
-export type PreviousProblem = 'missing' | 'offline' | 'failed'
+/** missing: not on this site · offline: the one-release offline file · failed: the request failed · damaged: the file is there but unusable */
+export type PreviousProblem = 'missing' | 'offline' | 'failed' | 'damaged'
 
 export interface AtlasRelease {
   source: DataSource['kind']
@@ -90,7 +91,8 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
       const found = await source.file<Overview>(previous, 'overview.json')
       previousOverview = usableOverview(found)
       // null = no such file (the offline file only ever holds its own release); anything else unusable = a damaged file
-      if (!previousOverview) previousProblem = found !== null ? 'failed' : source.kind === 'embedded' ? 'offline' : 'missing'
+      // (reloading would not help, so it does not get the "try again" wording)
+      if (!previousOverview) previousProblem = found !== null ? 'damaged' : source.kind === 'embedded' ? 'offline' : 'missing'
     } catch {
       previousProblem = 'failed' // the request itself failed: not the same as "not on this site"
     }

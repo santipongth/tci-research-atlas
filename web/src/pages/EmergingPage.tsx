@@ -136,7 +136,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
               onView={(view) => update({ view })}
               chart={
                 <ForestPlot
-                  groups={[{ status: st, title: label, rows: forest.rows, total: forest.total, noCi: forest.noCi, more: forest.total > FOREST_ROWS ? { onClick: flipAll, label: showAll ? t('em.forest.fewer', { n: FOREST_ROWS }) : t('seeAll', { n: fmtInt(forest.total) }) } : undefined }]}
+                  groups={[{ status: st, title: label, rows: forest.rows, total: forest.total, noCi: forest.noCi, more: forest.total > FOREST_ROWS ? { onClick: flipAll, expanded: showAll, label: showAll ? t('em.forest.fewer', { n: FOREST_ROWS }) : t('seeAll', { n: fmtInt(forest.total) }) } : undefined }]}
                   level={level}
                   base={ctx.base}
                   axisLabel={t('ov.forest.axis')}

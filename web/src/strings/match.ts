@@ -1,8 +1,10 @@
 import { defineStrings } from './define'
 
-/** /match (R3 "match my abstract", R4 "where to publish"). */
+/**
+ * /match (R3 "match my abstract", R4 "where to publish").
+ * Lazy pages only (read with useStrings) — kept out of the entry chunk.
+ */
 export const match = defineStrings({
-  'nav.match': { th: 'วางบทคัดย่อ', en: 'Match an abstract' },
   'mt.title': { th: 'วางบทคัดย่อของคุณ', en: 'Match your abstract' },
   'mt.lede': { th: 'เช่น วางบทคัดย่อเรื่องการดูแลผู้สูงอายุ แล้วดูว่าใกล้กับหัวข้อไหน มีใครทำอะไรไปแล้วบ้าง และวารสารไหนลงเรื่องแบบนี้ ใช้ได้ทั้งภาษาไทยและอังกฤษ', en: 'For example, paste an abstract on elderly care to see the closest topics, existing work and the journals that publish it. Thai or English.' },
   'mt.privacy': { th: 'ข้อความที่คุณวางจะอยู่ในเบราว์เซอร์นี้เท่านั้น ระบบไม่ส่งไปที่ไหน ไม่เก็บไว้ และไม่ใส่ไว้ในลิงก์ของหน้า', en: 'Your text stays in this browser. It is not sent anywhere, not stored, and not put in the page link.' },

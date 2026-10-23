@@ -12,7 +12,6 @@
   .j-tools input[type="search"], .j-tools select { min-height: 44px; padding: 0 12px; border: 1px solid var(--field-border); border-radius: var(--radius); background: var(--bg); color: var(--ink); font: inherit; }
   .j-tools input[type="search"] { width: min(100%, 22rem); }
   .j-tags { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: var(--fs-meta); }
-  .shift-list { margin: 10px 0 0; padding-left: 1.2em; display: grid; gap: 6px; }
   .opp-list, .new-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
   .opp-list li, .new-list li { display: grid; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--border-2); }
   .st-change { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }

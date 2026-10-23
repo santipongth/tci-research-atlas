@@ -1,8 +1,10 @@
 import { defineStrings } from './define'
 
-/** /methods (E11, D7). */
+/**
+ * /methods (E11, D7).
+ * Lazy pages only (read with useStrings) — kept out of the entry chunk.
+ */
 export const methods = defineStrings({
-  'nav.methods': { th: 'วิธีวิจัย', en: 'Methods' },
   'me.title': { th: 'วิธีวิจัย', en: 'Research methods' },
   'me.lede': { th: 'งานวิจัยไทยปี {a}–{b} ใช้วิธีวิจัยอะไรกันบ้าง วิธีที่ใช้กันมากที่สุดคือ{m}', en: 'Which research methods Thai articles use, {a}–{b}. The most common is {m}.' },
   'me.how': { th: 'ระบบหาชื่อวิธีวิจัยจากชื่อเรื่องและบทคัดย่อ โดยเทียบกับรายการคำไทยและอังกฤษ ตัวเลขนี้ใช้ดูภาพรวม ไม่ได้ใช้ตัดสินคุณภาพของบทความ', en: 'Method names are read from titles and abstracts with a Thai and English word list. Use it for the overall mix, not to judge any article.' },

@@ -1,8 +1,10 @@
 import { defineStrings } from './define'
 
-/** /journals and /journals/:id (D1–D5, D7). */
+/**
+ * /journals and /journals/:id (D1–D5, D7), plus the journal columns /methods and /references reuse.
+ * Lazy pages only (read with useStrings) — kept out of the entry chunk.
+ */
 export const journals = defineStrings({
-  'nav.journals': { th: 'วารสาร', en: 'Journals' },
   'jr.title': { th: 'วารสาร', en: 'Journals' },
   'jr.lede': { th: 'ข้อมูลรอบ {release} ดูได้ {n} วารสาร ว่าแต่ละฉบับตีพิมพ์เรื่องอะไร ผู้เขียนมาจากไหน และข้อมูลบทความครบแค่ไหน คิดจากบทความปี {a}–{b}', en: 'Release {release} covers {n} journals: what each publishes, where its authors come from and how complete its article records are, from articles published {a}–{b}.' },
   'jr.how': { th: 'หน้านี้ดูเฉพาะระดับวารสารและสถาบัน ไม่มีข้อมูลรายบุคคล คะแนน “ข้อมูลบทความครบ” นับจาก 7 รายการตามเกณฑ์ TCI แต่ไม่ใช่ผลประเมินอย่างเป็นทางการ', en: 'Journal and institution level only, nothing about individuals. The complete-records score counts 7 items from the TCI assessment but is not the official result.' },
@@ -12,6 +14,8 @@ export const journals = defineStrings({
   'jr.tier.n': { th: 'กลุ่ม {n}', en: 'Tier {n}' },
   'jr.tier.none': { th: 'ไม่ทราบกลุ่ม', en: 'Tier unknown' },
   'jr.count': { th: 'แสดง {n} จาก {total} วารสาร', en: 'Showing {n} of {total} journals' },
+  'jr.countCut': { th: 'ตรงเงื่อนไข {n} จาก {total} วารสาร · ตารางแสดง {k} แรก', en: '{n} of {total} journals match · the table shows the first {k}' },
+  'jr.countAllCut': { th: 'ทั้งหมด {n} วารสาร · ตารางแสดง {k} แรก', en: '{n} journals · the table shows the first {k}' },
   'jr.table': { th: 'วารสารทั้งหมด ปี {a}–{b}', en: 'All journals, {a}–{b}' },
   'jr.none': { th: 'ไม่พบวารสารที่ตรงกับที่เลือก', en: 'No journal matches' },
   'col.tier': { th: 'กลุ่ม TCI', en: 'TCI tier' },

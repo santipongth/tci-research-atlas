@@ -4,12 +4,15 @@ import { ErrorFailure } from './ErrorFailure'
 
 interface Props {
   children: ReactNode
-  /** when this changes (the visitor went to another page) a failure is forgotten and the page is tried again */
-  resetKey: string
+  /** when this changes (the visitor went to another page or changed its query) a failure is forgotten and the page is tried again */
+  resetKey?: string
+  /** what replaces the failed part; default: the page-area failure (header and menu stay) */
+  fallback?: (chunk: boolean) => ReactNode
 }
 
 /** No white page, whatever throws while rendering: a stale lazy chunk after a redeploy (reloads once), a data file
- *  in an unexpected shape, a missing string. The header and menu stay; only the page area is replaced. */
+ *  in an unexpected shape, a missing string. Layout wraps the page area (header and menu stay); main.tsx wraps the
+ *  whole app (the site chrome itself); App.tsx wraps the embeddable widgets with a compact failure. */
 export class ErrorBoundary extends Component<Props, { error: unknown; failed: boolean }> {
   state = { error: null as unknown, failed: false }
 
@@ -35,6 +38,8 @@ export class ErrorBoundary extends Component<Props, { error: unknown; failed: bo
   }
 
   render() {
-    return this.state.failed ? <ErrorFailure chunk={isChunkLoadError(this.state.error)} /> : this.props.children
+    if (!this.state.failed) return this.props.children
+    const chunk = isChunkLoadError(this.state.error)
+    return this.props.fallback ? this.props.fallback(chunk) : <ErrorFailure chunk={chunk} />
   }
 }

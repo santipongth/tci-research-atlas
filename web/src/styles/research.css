@@ -112,7 +112,6 @@
   /* /references */
   .ref-lead { margin-top: 14px; max-width: var(--measure-body); font-size: var(--fs-body); line-height: 1.65; }
   .ref-kpis { margin-top: 20px; }
-  .ref-sub { display: block; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5; }
   .ref-of { color: var(--ink-2); font-size: var(--fs-caption); white-space: nowrap; }
   .ref-top { margin-top: 4px; }
   .ref-source { margin-top: 40px; }

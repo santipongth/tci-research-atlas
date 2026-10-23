@@ -50,4 +50,10 @@ describe('topicsForWords', () => {
     expect(topicsForWords(index, 'learning water', ['learning', 'water'], 1).map((h) => h.id)).toHaveLength(1)
     expect(topicsForWords(index, '', [])).toEqual([])
   })
+
+  it('does not match topics through words the article search ignored as too common', () => {
+    expect(topicsForWords(index, 'การ', []).length).toBeGreaterThan(0)
+    expect(topicsForWords(index, 'การ', [], 5, ['การ'])).toEqual([])
+    expect(topicsForWords(index, 'การ ผู้สูงอายุ', ['ผู้สูงอายุ'], 5, ['การ']).map((h) => h.id)).toEqual(['T1'])
+  })
 })

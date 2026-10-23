@@ -13,7 +13,7 @@ import { DEFINITION } from '../lib/definition'
 import { pickFindings } from '../lib/findings'
 import { ciPct, fmtDate, fmtInt, fmtSignedPct } from '../lib/format'
 import { segmentHeadline } from '../lib/highlight'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStrings } from '../lib/i18n'
 import { previousNote } from '../lib/previous'
 import { hasCi } from '../lib/forest'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
@@ -22,6 +22,7 @@ import { FindingCards } from './overview/FindingCards'
 import { KpiGrid } from './overview/KpiGrid'
 import { StatusMix } from './overview/StatusMix'
 import { ciColumn, growthColumn, statusColumn, topicColumn, columnContext } from './topicColumns'
+import { brief as BRIEF } from '../strings/brief'
 
 const UP = 4
 const DOWN = 3
@@ -47,6 +48,7 @@ export default function BriefPage() {
 
 function Brief({ release }: { release: AtlasRelease }) {
   const { t, lang, name } = useI18n()
+  const sb = useStrings(BRIEF)
   const [views, setViews] = useState<{ wf: View; mv: View }>({ wf: 'chart', mv: 'chart' })
   const ov = release.overview
   const level = ciPct(release.ciLevel)
@@ -61,7 +63,7 @@ function Brief({ release }: { release: AtlasRelease }) {
   const watch = ov.status_counts.WATCH ?? 0
   const ctx = columnContext(release, { t, name, lang })
   const moverCols = [topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx)]
-  const moversTable = t('table.n', { n: 2, title: t('brief.movers.table') })
+  const moversTable = t('table.n', { n: 2, title: sb('brief.movers.table') })
   const source = t('source.line', { release: ov.release })
   return (
     <div className="container brief" data-brief-ready="true">
@@ -70,15 +72,15 @@ function Brief({ release }: { release: AtlasRelease }) {
       </header>
       <div className="brief-top">
         <div>
-          <h1><KeepTogether text={t('brief.title', { release: ov.release })} phrase="งานวิจัยไทย" /></h1>
-          <p className="brief-meta brief-byline">{t('brief.sub', { year: ov.last_complete_year, date: fmtDate(ov.generated_at, lang) })}</p>
+          <h1><KeepTogether text={sb('brief.title', { release: ov.release })} phrase="งานวิจัยไทย" /></h1>
+          <p className="brief-meta brief-byline">{sb('brief.sub', { year: ov.last_complete_year, date: fmtDate(ov.generated_at, lang) })}</p>
         </div>
         <p className="brief-acts no-print">
           <button type="button" className="btn-secondary" onClick={() => window.print()}>
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
               <path d="M4 6V1.5h8V6 M4 12H2.5V6h11v6H12 M4 9.5h8v5H4z" fill="none" stroke="currentColor" strokeWidth="1.4" />
             </svg>
-            {t('brief.print')}
+            {sb('brief.print')}
           </button>
           <Link className="btn-secondary" to="/story">{t('nav.story')}</Link>
         </p>
@@ -94,7 +96,7 @@ function Brief({ release }: { release: AtlasRelease }) {
         </p>
       ) : null}
       <section aria-labelledby="brief-kpi">
-        <h2 id="brief-kpi">{t('brief.kpi')}</h2>
+        <h2 id="brief-kpi">{sb('brief.kpi')}</h2>
         {previousNote(t, release) ? <p className="note">{previousNote(t, release)}</p> : null}
         <KpiGrid release={release} more={false} />
       </section>
@@ -107,15 +109,15 @@ function Brief({ release }: { release: AtlasRelease }) {
       <div className="brief-two">
         {release.topics.length ? (
           <section aria-labelledby="brief-status">
-            <h2 id="brief-status">{t('brief.status')}</h2>
+            <h2 id="brief-status">{sb('brief.status')}</h2>
             <StatusMix release={release} number={1} tableNo={1} view={views.wf} onView={(wf) => setViews((v) => ({ ...v, wf }))} compact />
             {/* print: the key points beside it already say this; one line less keeps the brief on two pages */}
-            {watch > 0 ? <p className="note no-print">{t('brief.watch', { n: fmtInt(watch) })}</p> : null}
+            {watch > 0 ? <p className="note no-print">{sb('brief.watch', { n: fmtInt(watch) })}</p> : null}
           </section>
         ) : null}
         {bullets.length ? (
           <section aria-labelledby="brief-points">
-            <h2 id="brief-points">{t('brief.points')}</h2>
+            <h2 id="brief-points">{sb('brief.points')}</h2>
             <ul className="brief-points">
               {bullets.map((b, i) => (
                 <li key={i}><SegmentText segments={segmentHeadline(b, release.topics, { figures: false })} mark={false} links={false} /></li>
@@ -126,13 +128,13 @@ function Brief({ release }: { release: AtlasRelease }) {
       </div>
       {movers.length ? (
         <section aria-labelledby="brief-movers" className="brief-p2">
-          <h2 id="brief-movers">{t('brief.movers.h')}</h2>
+          <h2 id="brief-movers">{sb('brief.movers.h')}</h2>
           <Figure
             id="fig-movers"
             number={2}
-            title={t('brief.movers.title', { up: nUp, down: movers.length - nUp })}
+            title={sb('brief.movers.title', { up: nUp, down: movers.length - nUp })}
             tableTitle={moversTable}
-            how={<p>{t('brief.movers.how', { bar, level })}</p>}
+            how={<p>{sb('brief.movers.how', { bar, level })}</p>}
             source={source}
             view={views.mv}
             onView={(mv) => setViews((v) => ({ ...v, mv }))}
@@ -160,7 +162,7 @@ function Brief({ release }: { release: AtlasRelease }) {
       ) : null}
       {exec.length ? (
         <section aria-labelledby="brief-exec">
-          <h2 id="brief-exec">{t('brief.exec')}</h2>
+          <h2 id="brief-exec">{sb('brief.exec')}</h2>
           <ol className="policy-list">
             {exec.map((b, i) => (
               <li key={i}>{b}</li>
@@ -170,18 +172,18 @@ function Brief({ release }: { release: AtlasRelease }) {
         </section>
       ) : null}
       <section aria-labelledby="brief-use" className="brief-use no-print">
-        <h2 id="brief-use">{t('brief.use.h')}</h2>
+        <h2 id="brief-use">{sb('brief.use.h')}</h2>
         <ul>
-          <li><Link to="/emerging">{t('brief.use.grow')}</Link><span>{t('brief.use.growHint')}</span></li>
-          <li><Link to="/gaps">{t('brief.use.gaps')}</Link><span>{t('brief.use.gapsHint')}</span></li>
-          <li><Link to="/province">{t('brief.use.province')}</Link><span>{t('brief.use.provinceHint')}</span></li>
-          <li><Link to="/story">{t('brief.use.share')}</Link><span>{t('brief.use.shareHint')}</span></li>
+          <li><Link to="/emerging">{sb('brief.use.grow')}</Link><span>{sb('brief.use.growHint')}</span></li>
+          <li><Link to="/gaps">{sb('brief.use.gaps')}</Link><span>{sb('brief.use.gapsHint')}</span></li>
+          <li><Link to="/province">{sb('brief.use.province')}</Link><span>{sb('brief.use.provinceHint')}</span></li>
+          <li><Link to="/story">{sb('brief.use.share')}</Link><span>{sb('brief.use.shareHint')}</span></li>
         </ul>
       </section>
       <footer className="brief-foot">
-        <p>{t('brief.def', { v: release.definitionVersion, level, bar })}</p>
+        <p>{sb('brief.def', { v: release.definitionVersion, level, bar })}</p>
         <p>{source} · {t('source.def', { v: release.definitionVersion })}</p>
-        <p>{t('brief.more')} · {t('footer.licence')}</p>
+        <p>{sb('brief.more')} · {t('footer.licence')}</p>
       </footer>
     </div>
   )

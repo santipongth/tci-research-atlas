@@ -1,4 +1,4 @@
-import { THAI } from '../lib/script'
+import { langOf, THAI } from '../lib/script'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
@@ -25,7 +25,6 @@ import { search } from '../strings/search'
 const PAGE = 50
 /** Topic cards above the articles. */
 const TOPIC_CARDS = 5
-/** Thai script (U+0E00–U+0E7F), built from code points: the codebase never writes a backslash-u escape. */
 
 export default function SearchPage() {
   const s = useStrings(search)
@@ -59,7 +58,7 @@ function Search({ release, meta }: { release: AtlasRelease; meta: SearchMeta }) 
         src.status === 'ready' ? <Tips vocab={src.vocab} /> : <p className="loading" role="status">{s('index.loading')}</p>
       ) : (
         <>
-        <TopicMatches release={release} q={q} words={result.status === 'ready' ? result.outcome.known : []} />
+        <TopicMatches release={release} q={q} words={result.status === 'ready' ? result.outcome.known : []} ignored={result.status === 'ready' ? result.outcome.ignored : []} />
         <section className="sec srch-results" aria-labelledby="srch-results-h">
           <h2 id="srch-results-h">{s('res.h')}</h2>
           {result.status === 'ready' ? (
@@ -77,11 +76,11 @@ function Search({ release, meta }: { release: AtlasRelease; meta: SearchMeta }) 
 }
 
 /** Topics whose names or keywords match the query or its known words (the header box's search), as up to five cards. */
-function TopicMatches({ release, q, words }: { release: AtlasRelease; q: string; words: readonly string[] }) {
+function TopicMatches({ release, q, words, ignored }: { release: AtlasRelease; q: string; words: readonly string[]; ignored: readonly string[] }) {
   const s = useStrings(search)
   const { t, other, otherLang } = useI18n()
   const index = useMemo(() => buildSearchIndex(release.topics.map((tp) => ({ id: tp.id, th: tp.th, en: tp.en, keywords: tp.keywords ?? [], size: tp.size }))), [release])
-  const hits = topicsForWords(index, q, words, TOPIC_CARDS).map((h) => release.topicById.get(h.id)).filter((tp) => tp !== undefined)
+  const hits = topicsForWords(index, q, words, TOPIC_CARDS, ignored).map((h) => release.topicById.get(h.id)).filter((tp) => tp !== undefined)
   if (hits.length === 0) return null
   return (
     <section className="sec srch-topics" aria-labelledby="srch-topics-h">
@@ -166,7 +165,7 @@ function Tips({ vocab }: { vocab: SearchVocab }) {
         <p className="srch-try">
           <span>{s('tips.try')}</span>
           {tries.map((w) => (
-            <Link key={w} to={`/search?q=${encodeURIComponent(w)}`} lang={THAI.test(w) ? 'th' : 'en'}>{w}</Link>
+            <Link key={w} to={`/search?q=${encodeURIComponent(w)}`} lang={langOf(w)}>{w}</Link>
           ))}
         </p>
       ) : null}
@@ -205,10 +204,14 @@ function Results({ release, meta, outcome, state, update }: {
     <>
       <div className="srch-summary">
         <p className="srch-count" role="status">
-          {filtering ? s('res.countFiltered', { n: fmtInt(filtered.length), all: fmtInt(outcome.complete ? outcome.total : outcome.examined) }) : s('res.count', { n: fmtInt(outcome.total) })}
+          {filtering
+            ? outcome.complete
+              ? s('res.countFiltered', { n: fmtInt(filtered.length), all: fmtInt(outcome.total) })
+              : s('res.countFilteredPartial', { n: fmtInt(filtered.length), examined: fmtInt(outcome.examined) })
+            : s('res.count', { n: fmtInt(outcome.total) })}
         </p>
         <p className="hint">
-          {s('res.words')}: {outcome.known.map((w, i) => <span key={w}>{i ? ' · ' : ''}<strong lang={THAI.test(w) ? 'th' : 'en'}>{w}</strong></span>)}
+          {s('res.words')}: {outcome.known.map((w, i) => <span key={w}>{i ? ' · ' : ''}<strong lang={langOf(w)}>{w}</strong></span>)}
         </p>
         {outcome.ignored.length ? <p className="srch-unknown">{s('res.ignored', { words: quoted(outcome.ignored) })}</p> : null}
         {outcome.unknown.length ? <p className="srch-unknown">{s('res.unknown', { words: quoted(outcome.unknown) })}</p> : null}
@@ -340,7 +343,6 @@ function Hit({ hit, release }: { hit: SearchHit; release: AtlasRelease }) {
   const s = useStrings(search)
   const { t, lang } = useI18n()
   const [main, sub] = lang === 'en' ? [hit.titleEn || hit.titleTh, hit.titleEn ? hit.titleTh : ''] : [hit.titleTh || hit.titleEn, hit.titleTh ? hit.titleEn : '']
-  const langOf = (text: string) => (THAI.test(text) ? 'th' : 'en')
   const topic = hit.topic ? release.topicById.get(hit.topic) : undefined
   return (
     <li className="srch-hit">

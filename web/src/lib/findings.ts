@@ -34,16 +34,20 @@ export function pickFindings(topics: readonly Topic[]): Finding[] {
 }
 
 /**
- * "About k in every N articles" for a topic's share: per 100 for a large share, per 1,000 below 1.5 % (so 0.4 % reads
- * "4 in every 1,000", not "1 in every 100" — rounding a small share to whole percents overstates it).
+ * "About k in every N articles" for a topic's share, with N chosen so k has two significant digits or more: per 100
+ * from 10 %, per 1,000 from 0.15 %, per 10,000 below (0.04 % reads "4 in every 10,000", not "1 in every 1,000";
+ * rounding a small share to a coarse base overstates it). A real share never prints 0 (k ≥ 1); a share that is not a
+ * number or is negative has no sentence (null).
  */
-export function articlesPer(share: number): { k: number; per: 100 | 1000 } {
-  const per = share < 0.015 ? 1000 : 100
-  return { k: Math.max(1, Math.round(share * per)), per }
+export function articlesPer(share: number | null | undefined): { k: number; per: 100 | 1000 | 10000 } | null {
+  if (share === null || share === undefined || !Number.isFinite(share) || share < 0) return null
+  const per = share < 0.0015 ? 10000 : share < 0.1 ? 1000 : 100
+  const k = Math.round(share * per)
+  return { k: share > 0 ? Math.max(1, k) : 0, per }
 }
 
-/** {k} and {per} for the sentences, printed with thousands separators. */
-export function perVars(share: number): { k: string; per: string } {
-  const { k, per } = articlesPer(share)
-  return { k: fmtInt(k), per: fmtInt(per) }
+/** {k} and {per} for the sentences, printed with thousands separators; null = leave the sentence out. */
+export function perVars(share: number | null | undefined): { k: string; per: string } | null {
+  const r = articlesPer(share)
+  return r && { k: fmtInt(r.k), per: fmtInt(r.per) }
 }

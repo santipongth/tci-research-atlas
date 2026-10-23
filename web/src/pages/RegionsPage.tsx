@@ -18,18 +18,18 @@ import { useI18n, useStrings } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { REGION_METRICS, regionsCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
-import type { StrKey } from '../strings'
 import { execViz } from '../strings/execViz'
+import { execPages } from '../strings/execPages'
 
 /** Provinces listed beside the map. */
 const TOP_N = 10
 
 export default function RegionsPage() {
-  const { t } = useI18n()
+  const sx = useStrings(execPages)
   return (
-    <RequireRelease title={t('rg.title')}>
+    <RequireRelease title={sx('rg.title')}>
       {(release) => (
-        <ModuleFile<RegionsFile> release={release} module="regions" path={MODULE_FILES.regions} title={t('rg.title')}>
+        <ModuleFile<RegionsFile> release={release} module="regions" path={MODULE_FILES.regions} title={sx('rg.title')}>
           {(file) => <Regions release={release} file={file} />}
         </ModuleFile>
       )}
@@ -39,6 +39,7 @@ export default function RegionsPage() {
 
 function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }) {
   const { t, lang } = useI18n()
+  const sx = useStrings(execPages)
   const x = useStrings(execViz)
   const [state, update] = useUrlState(regionsCodec)
   const instFile = useReleaseFile<InstitutionsFile>(hasModule(release, 'institutions') ? MODULE_FILES.institutions : null)
@@ -47,22 +48,22 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
   const metric = hasPop ? state.m : 'articles'
   const valueOf = (p: ProvinceStat): number | null => (metric === 'per100k' ? (p.per_100k ?? null) : p.articles)
   const format = (v: number) => (metric === 'per100k' ? fmtNum(v, 1) : fmtInt(v))
-  const measure = t(metric === 'per100k' ? 'rg.metric.per100k' : 'rg.metric.articles')
+  const measure = sx(metric === 'per100k' ? 'rg.metric.per100k' : 'rg.metric.articles')
   const pname = (p: ProvinceStat) => (lang === 'en' ? p.name_en : p.name_th)
   const maxShare = Math.max(0.0001, ...file.provinces.map((p) => p.share ?? 0))
   const w = file.window
   const topProv = file.provinces.reduce<ProvinceStat | null>((m, p) => (m === null || p.articles > m.articles ? p : m), null)
   const rel = release.overview.release
   const columns: Column<ProvinceStat>[] = [
-    { key: 'name', csvHeader: 'province', header: t('in.col.province'), rowHeader: true, cell: pname, sortValue: pname, csv: (p) => p.code },
-    { key: 'region', csvHeader: 'region', header: t('rg.col.region'), cell: (p) => t(`rg.region.${p.region}` as StrKey), sortValue: (p) => p.region, csv: (p) => p.region },
+    { key: 'name', csvHeader: 'province', header: sx('in.col.province'), rowHeader: true, cell: pname, sortValue: pname, csv: (p) => p.code },
+    { key: 'region', csvHeader: 'region', header: sx('rg.col.region'), cell: (p) => sx(`rg.region.${p.region}` as keyof typeof execPages), sortValue: (p) => p.region, csv: (p) => p.region },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (p) => fmtInt(p.articles), sortValue: (p) => p.articles },
-    { key: 'share', csvHeader: 'share', header: t('rg.col.share'), numeric: true, cell: (p) => <ShareBar value={p.share} digits={1} max={maxShare} />, sortValue: (p) => p.share ?? null },
-    { key: 'recent', csvHeader: 'articles_recent', header: t('in.col.recent', { r: fmtWindow(windows(release.overview.last_complete_year).R) }), numeric: true, cell: (p) => fmtInt(p.articles_recent ?? null), sortValue: (p) => p.articles_recent ?? null },
-    { key: 'institutions', csvHeader: 'institutions', header: t('rg.col.institutions'), numeric: true, cell: (p) => fmtInt(p.institutions ?? null), sortValue: (p) => p.institutions ?? null },
-    ...(hasPop ? [{ key: 'per100k', csvHeader: 'per_100k', header: t('rg.col.per100k'), numeric: true, cell: (p: ProvinceStat) => fmtNum(p.per_100k ?? null, 1), sortValue: (p: ProvinceStat) => p.per_100k ?? null }] : []),
+    { key: 'share', csvHeader: 'share', header: sx('rg.col.share'), numeric: true, cell: (p) => <ShareBar value={p.share} digits={1} max={maxShare} />, sortValue: (p) => p.share ?? null },
+    { key: 'recent', csvHeader: 'articles_recent', header: sx('in.col.recent', { r: fmtWindow(windows(release.overview.last_complete_year).R) }), numeric: true, cell: (p) => fmtInt(p.articles_recent ?? null), sortValue: (p) => p.articles_recent ?? null },
+    { key: 'institutions', csvHeader: 'institutions', header: sx('rg.col.institutions'), numeric: true, cell: (p) => fmtInt(p.institutions ?? null), sortValue: (p) => p.institutions ?? null },
+    ...(hasPop ? [{ key: 'per100k', csvHeader: 'per_100k', header: sx('rg.col.per100k'), numeric: true, cell: (p: ProvinceStat) => fmtNum(p.per_100k ?? null, 1), sortValue: (p: ProvinceStat) => p.per_100k ?? null }] : []),
     {
-      key: 'top', csvHeader: 'top_institutions', header: t('rg.col.top'),
+      key: 'top', csvHeader: 'top_institutions', header: sx('rg.col.top'),
       cell: (p) => {
         const top = (p.top ?? []).map((id) => insts.get(id)).filter((i) => i !== undefined)
         return top.length ? <span className="pair">{top.map((i) => <InstitutionLink key={i.id} inst={i} />)}</span> : DASH
@@ -71,29 +72,29 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
     },
   ]
   const regionColumns: Column<RegionStat>[] = [
-    { key: 'name', csvHeader: 'region', header: t('rg.col.region'), rowHeader: true, cell: (r) => t(`rg.region.${r.key}` as StrKey), csv: (r) => r.key },
+    { key: 'name', csvHeader: 'region', header: sx('rg.col.region'), rowHeader: true, cell: (r) => sx(`rg.region.${r.key}` as keyof typeof execPages), csv: (r) => r.key },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), sortValue: (r) => r.articles },
-    { key: 'share', csvHeader: 'share', header: t('rg.col.share'), numeric: true, cell: (r) => fmtShare(r.share ?? null, 1), sortValue: (r) => r.share ?? null },
+    { key: 'share', csvHeader: 'share', header: sx('rg.col.share'), numeric: true, cell: (r) => fmtShare(r.share ?? null, 1), sortValue: (r) => r.share ?? null },
   ]
   const top = rankBars(
     file.provinces.map((p) => ({ key: pname(p), id: p.code, count: valueOf(p) ?? Number.NaN })),
     TOP_N,
   )
-  const regionName = (key: string) => t(`rg.region.${key}` as StrKey)
+  const regionName = (key: string) => sx(`rg.region.${key}` as keyof typeof execPages)
   const regionShare = new Map<string, number | null>(file.regions.map((r) => [r.key, r.share ?? null]))
   const regionBars = rankBars(file.regions.map((r) => ({ key: regionName(r.key), id: r.key, count: r.articles })), file.regions.length)
-  const regionsTitle = t('table.n', { n: 2, title: t('rg.regions.table') })
+  const regionsTitle = t('table.n', { n: 2, title: sx('rg.regions.table') })
   return (
     <div className="container">
-      <PageHeader title={x('q.rg')} lede={t('rg.lede', { release: rel, n: fmtInt(file.provinces.filter((p) => p.articles > 0).length), a: w.start, b: w.end })} />
-      <Section id="map" title={t('rg.provinces.h')} intro={topProv && topProv.articles > 0 ? t('ex.most', { x: pname(topProv), k: fmtInt(topProv.articles) }) : undefined}>
+      <PageHeader title={x('q.rg')} lede={sx('rg.lede', { release: rel, n: fmtInt(file.provinces.filter((p) => p.articles > 0).length), a: w.start, b: w.end })} />
+      <Section id="map" title={sx('rg.provinces.h')} intro={topProv && topProv.articles > 0 ? sx('ex.most', { x: pname(topProv), k: fmtInt(topProv.articles) }) : undefined}>
         {hasPop ? (
           <fieldset className="metric-switch">
-            <legend>{t('rg.metric')}</legend>
+            <legend>{sx('rg.metric')}</legend>
             {REGION_METRICS.map((m) => (
               <label key={m}>
                 <input type="radio" name="rg-metric" value={m} checked={metric === m} onChange={() => update({ m })} />
-                {t(m === 'per100k' ? 'rg.metric.per100k' : 'rg.metric.articles')}
+                {sx(m === 'per100k' ? 'rg.metric.per100k' : 'rg.metric.articles')}
               </label>
             ))}
           </fieldset>
@@ -101,10 +102,10 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
         <Figure
           id="fig-regions"
           number={1}
-          title={t('rg.fig', { m: measure })}
-          tableTitle={t('table.n', { n: 1, title: t('rg.table') })}
+          title={sx('rg.fig', { m: measure })}
+          tableTitle={t('table.n', { n: 1, title: sx('rg.table') })}
           csv={figureCsv(`atlas-${rel}-provinces.csv`, file.provinces, columns)}
-          source={t('rg.source', { release: rel })}
+          source={sx('rg.source', { release: rel })}
           view={state.view}
           onView={(v) => update({ view: v })}
           chart={
@@ -113,9 +114,9 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
                 <ProvinceMap
                   values={new Map(file.provinces.map((p) => [p.code, valueOf(p)]))}
                   format={format}
-                  label={t('rg.map', { m: measure, n: fmtInt(file.provinces.filter((p) => valueOf(p) !== null).length) })}
-                  noData={t('rg.noData')}
-                  range={(a, b) => t('rg.range', { a, b })}
+                  label={sx('rg.map', { m: measure, n: fmtInt(file.provinces.filter((p) => valueOf(p) !== null).length) })}
+                  noData={sx('rg.noData')}
+                  range={(a, b) => sx('rg.range', { a, b })}
                 />
               </div>
               {top.rows.length ? (
@@ -128,7 +129,7 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
           }
           table={
             <DataTable
-              caption={t('table.n', { n: 1, title: t('rg.table') })}
+              caption={t('table.n', { n: 1, title: sx('rg.table') })}
               rows={file.provinces}
               columns={columns}
               rowKey={(p) => p.code}
@@ -138,14 +139,14 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
           how={
             <>
               <p>{x('xv.map.how', { n: TOP_N })}</p>
-              <p>{t('rg.how', { p: fmtPct(file.coverage ?? null, 0) })}</p>
-              {hasPop ? <p>{t('rg.popNote', { y: file.population_year ?? DASH })}</p> : null}
+              <p>{sx('rg.how', { p: fmtPct(file.coverage ?? null, 0) })}</p>
+              {hasPop ? <p>{sx('rg.popNote', { y: file.population_year ?? DASH })}</p> : null}
             </>
           }
         />
       </Section>
       {file.regions.length ? (
-        <Section id="by-region" title={t('rg.regions.h')}>
+        <Section id="by-region" title={sx('rg.regions.h')}>
           <Figure
             id="fig-by-region"
             number={2}

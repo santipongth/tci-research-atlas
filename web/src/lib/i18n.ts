@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { STR, type StrKey } from '../strings'
 import type { Entry } from '../strings/define'
+import { DASH, RANGE_DASH } from './format'
 
 export type Lang = 'th' | 'en'
 export type Vars = Record<string, string | number>
@@ -50,15 +51,28 @@ function subscribe(listener: () => void): () => void {
   }
 }
 
-/** {name} placeholders filled from vars; unknown ones stay visible. */
+/**
+ * {name} placeholders filled from vars; unknown ones stay visible. Two placeholders joined by an en dash ("{a}–{b}",
+ * a year range) get a word joiner after the dash, so the range never breaks across lines.
+ */
 export function fillVars(s: string, vars?: Vars): string {
-  return vars ? s.replace(/\{(\w+)\}/g, (m, v: string) => (vars[v] != null ? String(vars[v]) : m)) : s
+  return vars ? s.replace(/\}–\{/g, `}${RANGE_DASH}{`).replace(/\{(\w+)\}/g, (m, v: string) => (vars[v] != null ? String(vars[v]) : m)) : s
+}
+
+/**
+ * What a key missing from its dictionary shows (an enum value the strings do not know yet, e.g. a new institution
+ * type from the pipeline): its last segment ("in.type.foundation" → "foundation") or a dash, never the raw key and
+ * never a white page. Development builds warn so the string gets added.
+ */
+export function missingKey(key: string): string {
+  if (import.meta.env.DEV) console.warn(`[i18n] no string for "${key}"`)
+  const last = key.split('.').pop() ?? ''
+  return last && last !== 'undefined' && last !== 'null' ? last : DASH
 }
 
 export function translate(lang: Lang, key: StrKey, vars?: Vars): string {
-  // a key missing from the dictionary (an enum value the strings do not know) shows the key, never a white page
   const entry = (STR as Record<string, Entry | undefined>)[key]
-  return entry ? fillVars(entry[lang], vars) : key
+  return entry ? fillVars(entry[lang], vars) : missingKey(key)
 }
 
 /** A bilingual name in the UI language, falling back to the other language when one is empty. */
@@ -95,5 +109,5 @@ export function useI18n(): I18n {
 /** A translator over a page's own strings file (lazy pages keep their strings out of the entry chunk). */
 export function useStrings<K extends string>(dict: Record<K, Entry>): (key: K, vars?: Vars) => string {
   const { lang } = useI18n()
-  return useCallback((key: K, vars?: Vars) => (dict[key] ? fillVars(dict[key][lang], vars) : key), [dict, lang])
+  return useCallback((key: K, vars?: Vars) => (dict[key] ? fillVars(dict[key][lang], vars) : missingKey(key)), [dict, lang])
 }

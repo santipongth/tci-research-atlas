@@ -202,7 +202,6 @@
   .pa-dot { fill: var(--ink-2); }
   .pa-base { stroke: var(--ink); stroke-width: 1.5; }
   .pa-trend { fill: none; stroke: var(--link); stroke-width: 2.4; stroke-linejoin: round; }
-  .pa-end { fill: var(--link); stroke: var(--bg); stroke-width: 1.5; }
   .ab-tree { margin-top: var(--sp-group); }
   .ab-tree-h { font-size: var(--fs-body); font-weight: 700; line-height: 1.5; }
   .ab-tree .steps { margin-top: 12px; }

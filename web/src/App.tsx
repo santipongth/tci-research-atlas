@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import { RouteLoading } from './components/RouteLoading'
+import { EmbedBoundary } from './embed/EmbedBoundary'
 import AboutPage from './pages/AboutPage'
 import ComparePage from './pages/ComparePage'
 import DataPage from './pages/DataPage'
@@ -45,9 +46,9 @@ function Lazy({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/embed/topic/:id" element={<Lazy><EmbedTopic /></Lazy>} />
-      <Route path="/embed/emerging" element={<Lazy><EmbedEmerging /></Lazy>} />
-      <Route path="/embed/*" element={<Lazy><EmbedTopic /></Lazy>} />
+      <Route path="/embed/topic/:id" element={<EmbedBoundary><Lazy><EmbedTopic /></Lazy></EmbedBoundary>} />
+      <Route path="/embed/emerging" element={<EmbedBoundary><Lazy><EmbedEmerging /></Lazy></EmbedBoundary>} />
+      <Route path="/embed/*" element={<EmbedBoundary><Lazy><EmbedTopic /></Lazy></EmbedBoundary>} />
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/overview" replace />} />
         <Route path="overview" element={<OverviewPage />} />

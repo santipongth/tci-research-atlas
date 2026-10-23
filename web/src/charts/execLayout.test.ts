@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arcLayout, arcPath, bandPath, columnAxis, flowUnit, goalTiles, mixSegments, overlaps, placeLabels, quadrantLayout, statusFlow, textWidth, type QuadPoint } from './execLayout'
+import { arcLayout, arcPath, bandPath, columnAxis, flowUnit, networkNodes, goalTiles, mixSegments, overlaps, placeLabels, quadrantLayout, statusFlow, textWidth, type QuadPoint } from './execLayout'
 
 describe('arcLayout', () => {
   const nodes = [
@@ -178,6 +178,26 @@ describe('placeLabels', () => {
   })
 })
 
+describe('networkNodes', () => {
+  it('draws the strongest partnership even when its institutions are not among the largest', () => {
+    // a–b are big but write little together; x–y are small but the strongest pair
+    const edges = [
+      { a: 'a', b: 'b', articles: 3 },
+      { a: 'x', b: 'y', articles: 40 },
+      { a: 'a', b: 'c', articles: 10 },
+      { a: 'c', b: 'd', articles: 2 },
+    ]
+    const net = networkNodes(edges, 4)
+    expect(net.ids).toEqual(['x', 'y', 'a', 'c'])
+    expect(net.links.map((e) => `${e.a}-${e.b}`)).toEqual(['x-y', 'a-c'])
+    // a pair that does not fit whole is left to the table
+    expect(networkNodes(edges, 3).ids).toEqual(['x', 'y'])
+    const all = networkNodes(edges, 10)
+    expect(new Set(all.ids)).toEqual(new Set(['a', 'b', 'c', 'd', 'x', 'y']))
+    expect(all.links).toHaveLength(4)
+  })
+})
+
 describe('flowUnit', () => {
   it('keeps 26 px per topic for a few changes and shrinks so the bands stay within 520 px', () => {
     expect(flowUnit(5)).toBe(26)
@@ -211,19 +231,34 @@ describe('statusFlow', () => {
     expect(L.left[1].y).toBe(40)
   })
 
-  it('fills each node exactly with its bands, in order, without gaps', () => {
+  it('stacks each node’s bands in order without gaps, centred in the node', () => {
     for (const n of L.left) {
       const bands = L.links.filter((l) => l.from === n.status).sort((p, q) => p.y0 - q.y0)
-      expect(bands[0].y0).toBeCloseTo(n.y)
-      expect(bands[bands.length - 1].y0b).toBeCloseTo(n.y + n.h)
+      const stack = n.count * 20
+      expect(bands[0].y0).toBeCloseTo(n.y + (n.h - stack) / 2)
+      expect(bands[bands.length - 1].y0b).toBeCloseTo(n.y + (n.h + stack) / 2)
       bands.slice(1).forEach((b, i) => expect(b.y0).toBeCloseTo(bands[i].y0b))
     }
     for (const n of L.right) {
       const bands = L.links.filter((l) => l.to === n.status)
-      expect(bands.reduce((s, b) => s + (b.y1b - b.y1), 0)).toBeCloseTo(n.h)
+      expect(bands.reduce((s, b) => s + (b.y1b - b.y1), 0)).toBeCloseTo(n.count * 20)
     }
     expect(L.height).toBe(Math.max(...[...L.left, ...L.right].map((n) => n.y + n.h)))
     expect(bandPath(L.links[0], 0, 100).startsWith('M0,')).toBe(true)
+  })
+
+  it('keeps a band the same thickness at both ends when the unit shrinks below the node minimum (200 changes)', () => {
+    const many = Array.from({ length: 200 }, (_, i) => ({ topic: `m${i}`, previous: i < 5 ? 'WATCH' : 'STABLE', current: i < 5 ? 'EMERGING' : i < 120 ? 'STABLE' : 'DECLINING' }))
+    const unit = flowUnit(many.length)
+    const F = statusFlow(many, { unit, minH: 48, gap: 10 })
+    for (const l of F.links) {
+      expect(l.y0b - l.y0, `${l.from}>${l.to}`).toBeCloseTo(l.count * unit)
+      expect(l.y1b - l.y1, `${l.from}>${l.to}`).toBeCloseTo(l.count * unit)
+    }
+    const small = F.links.find((l) => l.from === 'WATCH')!
+    const node = F.left.find((n) => n.status === 'WATCH')!
+    expect(node.h).toBe(48)
+    expect(small.y0 - node.y).toBeCloseTo(node.y + node.h - small.y0b)
   })
 
   it('is empty without changes', () => {

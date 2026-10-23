@@ -125,7 +125,7 @@ export function placeCentered(cands: readonly { id: string; text: string; width:
   const placed: PlacedLabel[] = []
   for (const c of cands) {
     const line = c.height * THAI_LINE + 4
-    const at = ([dx, dy]: [number, number]): Box => ({ x: c.x + dx - c.width / 2 - LABEL_PAD, y: c.y + dy - c.height * THAI_ASCENT - LABEL_PAD / 2, w: c.width + 2 * LABEL_PAD, h: c.height * THAI_LINE + LABEL_PAD })
+    const at = ([dx, dy]: [number, number]): Box => ({ x: c.x + dx - c.width / 2 - LABEL_PAD, y: c.y + dy - c.height * THAI_ASCENT, w: c.width + 2 * LABEL_PAD, h: c.height * THAI_LINE })
     const usable = (b: Box) => b.x >= frame.x && b.y >= frame.y && b.x + b.w <= frame.x + frame.w && b.y + b.h <= frame.y + frame.h && !placed.some((p) => overlaps(p.box, b, 2))
     // a name that would touch another field name is dropped; only markers under it move it
     if (placed.some((p) => overlaps(p.box, at([0, 0]), 2))) continue

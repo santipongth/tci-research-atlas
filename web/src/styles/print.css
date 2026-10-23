@@ -25,11 +25,7 @@
   .brief-meta { font-size: var(--fs-caption); color: var(--ink-2); }
   .brief-headline { margin-top: 14px; font-size: var(--fs-lead); max-width: none; }
   .brief-sample { margin-top: 10px; display: none; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-meta); color: var(--ink-2); }
-  .brief-t { margin-top: 10px; font-size: var(--fs-meta); }
-  .brief-t caption { text-align: left; }
   .brief-points { margin: 8px 0 0; padding-left: 1.2em; list-style: disc; display: grid; gap: 6px; max-width: var(--measure-body); }
-  .brief-counts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: var(--fs-meta); }
-  .brief-counts span { display: inline-flex; align-items: center; gap: 4px; }
   .brief .stats, .brief .finds { margin-top: 12px; }
   .brief .fig { margin-top: var(--sp-group); }
   .brief-foot { margin-top: 24px; padding-top: 10px; border-top: 1px solid var(--border); font-size: var(--fs-caption); color: var(--ink-2); display: grid; gap: 4px; }
@@ -47,9 +43,6 @@
   .brief h1 { font-size: 17pt; margin-top: 10px; }
   .brief h2 { font-size: 12pt; margin-top: 12px; }
   .brief-headline { font-size: 15pt; margin-top: 8px; }
-  .brief-t { margin-top: 6px; font-size: 9.5pt; }
-  .brief-t th, .brief-t td { padding: 3px 10px 3px 0; }
-  .brief-t caption { padding-bottom: 2px; font-size: 10pt; }
   .brief-foot { margin-top: 12px; }
   .brief-head, mark, .chip, .wf-cell, .st-icon, .br-bar, .stat-d { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .fig-tools, .fig-how, .source-more, .source-sep { display: none !important; }
@@ -64,7 +57,6 @@
   .brief .find-num { font-size: 20pt; }
   .brief .find-topic { margin-top: 6px; font-size: 11pt; }
   .brief .find-s, .brief .find-k { font-size: 9.5pt; }
-  .brief .find-trend { margin-top: 0; padding-top: 8px; }
   .brief .wf-name, .brief .dp-name, .brief .dp-val b { font-size: 9.5pt; }
   .brief .dp-head, .brief .dp-row { grid-template-columns: minmax(0, 30%) minmax(0, 1fr) 15rem; }
   .brief .dp-row { padding: 3px 0; }

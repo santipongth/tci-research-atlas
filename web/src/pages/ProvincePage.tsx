@@ -19,11 +19,11 @@ import type { InstitutionsFile, ProvinceStat, RegionsFile, Topic } from '../data
 import { windows } from '../lib/definition'
 import { fmtInt, fmtNum, fmtShare } from '../lib/format'
 import { useI18n, useStrings, nameIn } from '../lib/i18n'
-import type { StrKey } from '../strings'
 import { figureCsv } from '../lib/tableCsv'
 import { provinceCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { province as PV } from '../strings/province'
+import { execPages } from '../strings/execPages'
 
 type TopicRow = { topic: Topic; count: number; share: number }
 
@@ -64,7 +64,8 @@ function Picker({ file, current }: { file: RegionsFile; current?: string }) {
 function Province({ release, file }: { release: AtlasRelease; file: RegionsFile }) {
   const { code } = useParams()
   const s = useStrings(PV)
-  const { t, lang } = useI18n()
+  const { lang } = useI18n()
+  const sx = useStrings(execPages)
   const w = file.window
   const span = { a: w.start, b: w.end }
   if (!code) {
@@ -83,7 +84,7 @@ function Province({ release, file }: { release: AtlasRelease; file: RegionsFile 
             <div>
           {byRegion.map((g) => (
             <div className="pv-region" key={g.key}>
-              <h3>{t(`rg.region.${g.key}` as StrKey)}</h3>
+              <h3>{sx(`rg.region.${g.key}` as keyof typeof execPages)}</h3>
               <ul className="pv-list">
                 {g.rows.map((p) => (
                   <li key={p.code}>
@@ -131,7 +132,7 @@ function OneProvince({ release, file, p }: { release: AtlasRelease; file: Region
   const instRows = (insts?.institutions ?? []).filter((i) => i.province === p.code).sort((a, b) => b.articles - a.articles).slice(0, 8)
   const maxShare = Math.max(0.0001, ...rows.map((r) => r.share))
   const [state, update] = useUrlState(provinceCodec)
-  const bars = rankBars(rows.map((r) => ({ key: lang === 'en' ? r.topic.en : r.topic.th, id: r.topic.id, count: r.count })), rows.length)
+  const bars = rankBars(rows.map((r) => ({ key: nameIn(r.topic, lang), id: r.topic.id, count: r.count })), rows.length)
   const columns: Column<TopicRow>[] = [
     { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => <TopicLink topic={r.topic} showStatus />, sortValue: (r) => nameIn(r.topic, lang), csv: (r) => r.topic.id },
     { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
@@ -142,7 +143,7 @@ function OneProvince({ release, file, p }: { release: AtlasRelease; file: Region
       <PageHeader
         title={s('pv.p.title', { name })}
         lede={lead
-          ? s('pv.p.lede', { a: w.start, b: w.end, name, n: fmtInt(p.articles), topic: lang === 'en' ? lead.topic.en : lead.topic.th })
+          ? s('pv.p.lede', { a: w.start, b: w.end, name, n: fmtInt(p.articles), topic: nameIn(lead.topic, lang) })
           : s('pv.p.ledePlain', { a: w.start, b: w.end, name, n: fmtInt(p.articles) })}
       >
         <Picker file={file} current={p.code} />
@@ -162,7 +163,7 @@ function OneProvince({ release, file, p }: { release: AtlasRelease; file: Region
         </StatGrid>
         </div>
       </Section>
-      <Section id="topics" title={s('pv.t.h', { name })} intro={lead ? s('pv.t.intro', { topic: lang === 'en' ? lead.topic.en : lead.topic.th, p: fmtShare(lead.share, 0) }) : undefined}>
+      <Section id="topics" title={s('pv.t.h', { name })} intro={lead ? s('pv.t.intro', { topic: nameIn(lead.topic, lang), p: fmtShare(lead.share, 0) }) : undefined}>
         {rows.length ? (
           <Figure
             id="fig-pv-topics"

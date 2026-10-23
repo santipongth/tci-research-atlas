@@ -1,5 +1,9 @@
 import { defineStrings } from './define'
 
+/**
+ * /atlas, the topic map.
+ * Lazy pages only (read with useStrings) — kept out of the entry chunk.
+ */
 export const atlas = defineStrings({
   'map.title': { th: 'แผนที่หัวข้อวิจัย', en: 'Map of research topics' },
   'map.lede': { th: 'แผนที่นี้วาง {n} หัวข้อวิจัยไว้เหมือนภูมิประเทศ หัวข้อที่อยู่ใกล้กันมีเนื้อหาคล้ายกัน สีพื้นบอกสาขา ส่วนเส้นชั้นบอกว่าตรงไหนมีบทความหนาแน่น', en: 'This map lays out {n} research topics like terrain. Nearby topics have similar content; the tint shows the field and the contour lines show where articles are dense.' },

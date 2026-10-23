@@ -16,6 +16,9 @@
   --brand-ink: #ffffff;
   --brand-ink-2: #dfe3f4;
   --brand-soft: #eef0fa;
+  /* the "ข้อมูลตัวอย่าง" (sample data) tag: neutral ink, never a status colour */
+  --tag-sample-bg: #e4e6ee;
+  --tag-sample-ink: #4d536b;
   --accent: #f89020;
   --accent-mark: #e07000;
   --accent-ink: #a85400;

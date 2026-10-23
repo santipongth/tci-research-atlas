@@ -8,13 +8,14 @@ import { breadthText } from '../../lib/breadth'
 import { DEFINITION } from '../../lib/definition'
 import { ciPct, DASH, fmtInt, fmtSignedPct } from '../../lib/format'
 import { hasCi } from '../../lib/forest'
-import { useI18n } from '../../lib/i18n'
+import { useI18n, useStrings } from '../../lib/i18n'
 import { buildSearchIndex, searchTopics } from '../../lib/search'
 import { sortBy } from '../../lib/sort'
 import { SIGNAL_STATUSES, type SignalStatus } from '../../lib/status'
 import { statusName } from '../../lib/topicText'
-import { useCapped } from '../../lib/useCapped'
+import { keepSelected, useCapped } from '../../lib/useCapped'
 import { gridRef, type MapPoint } from './mapSpace'
+import { atlas } from '../../strings/atlas'
 
 /** The map in text: every signal topic by status with its grid reference and CI, plus a search over all topics. */
 export function Gazetteer({ release, points, query, onQuery, onPick, selected }: {
@@ -26,6 +27,7 @@ export function Gazetteer({ release, points, query, onQuery, onPick, selected }:
   selected: string | null
 }) {
   const { t, lang } = useI18n()
+  const sa = useStrings(atlas)
   const level = ciPct(release.ciLevel)
   const refOf = useMemo(() => new Map(points.map((p) => [p.id, gridRef(p.x, p.y)])), [points])
   const index = useMemo(() => buildSearchIndex(release.topics.map((tp) => ({ id: tp.id, th: tp.th, en: tp.en, keywords: tp.keywords ?? [], size: tp.size }))), [release])
@@ -38,10 +40,10 @@ export function Gazetteer({ release, points, query, onQuery, onPick, selected }:
   return (
     <>
       <div className="gaz-search">
-        <label htmlFor="gaz-q" className="search-label">{t('map.gaz.search')}</label>
+        <label htmlFor="gaz-q" className="search-label">{sa('map.gaz.search')}</label>
         <input id="gaz-q" type="search" className="gaz-input" value={query} autoComplete="off" spellCheck={false} onChange={(e) => onQuery(e.target.value)} />
         <div className="sr-only" role="status" aria-live="polite">
-          {q ? (hits.length ? t('map.gaz.results', { n: hits.length }) : t('map.gaz.none', { q })) : ''}
+          {q ? (hits.length ? sa('map.gaz.results', { n: hits.length }) : sa('map.gaz.none', { q })) : ''}
         </div>
         {q && hits.length ? (
           <ul className="gaz-hits">
@@ -59,14 +61,14 @@ export function Gazetteer({ release, points, query, onQuery, onPick, selected }:
             ))}
           </ul>
         ) : null}
-        {q && !hits.length ? <p className="search-none">{t('map.gaz.none', { q })}</p> : null}
+        {q && !hits.length ? <p className="search-none">{sa('map.gaz.none', { q })}</p> : null}
       </div>
       <div className="gaz">
         {SIGNAL_STATUSES.map((st) => (
           <GazColumn key={st} release={release} status={st} refOf={refOf} onPick={onPick} selected={selected} />
         ))}
       </div>
-      <p className="note">{t('map.gaz.foot', { level, bar: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0) })}</p>
+      <p className="note">{sa('map.gaz.foot', { level, bar: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0) })}</p>
     </>
   )
 }
@@ -93,7 +95,7 @@ function GazColumn({ release, status, refOf, onPick, selected }: {
       </h3>
       {status === 'WATCH' && list.length ? <p className="gcol-note">{t('journalDriven')}</p> : null}
       <ul className="glist">
-        {capped.shown.map((tp) => (
+        {keepSelected(capped.shown, list, (tp) => tp.id === selected).map((tp) => (
           <li key={tp.id}>
             <button type="button" className="grow" aria-pressed={tp.id === selected} onClick={() => onPick(tp.id)}>
               <span className="g-name">{name(tp)}</span>

@@ -9,7 +9,7 @@ import { SkipLink } from './SkipLink'
 
 export function Layout() {
   useRouteFocus()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   return (
     <>
       <SkipLink />
@@ -17,7 +17,8 @@ export function Layout() {
       <PhaseBanner />
       <DataBanner />
       <main id="main" tabIndex={-1}>
-        <ErrorBoundary resetKey={pathname}>
+        {/* the query too: a failure caused by a URL parameter is retried when the parameter changes */}
+        <ErrorBoundary resetKey={pathname + search}>
           <Outlet />
         </ErrorBoundary>
       </main>

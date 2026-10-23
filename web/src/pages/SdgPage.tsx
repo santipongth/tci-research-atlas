@@ -18,16 +18,17 @@ import { figureCsv } from '../lib/tableCsv'
 import { sdgCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { execViz } from '../strings/execViz'
+import { execPages } from '../strings/execPages'
 
 /** Topics listed in an open goal tile (the rest are in the table view). */
 const TILE_TOPICS = 6
 
 export default function SdgPage() {
-  const { t } = useI18n()
+  const sx = useStrings(execPages)
   return (
-    <RequireRelease title={t('sdg.title')}>
+    <RequireRelease title={sx('sdg.title')}>
       {(release) => (
-        <ModuleFile<SdgFile> release={release} module="sdg" path={MODULE_FILES.sdg} title={t('sdg.title')}>
+        <ModuleFile<SdgFile> release={release} module="sdg" path={MODULE_FILES.sdg} title={sx('sdg.title')}>
           {(file) => <Sdg release={release} file={file} />}
         </ModuleFile>
       )}
@@ -37,6 +38,7 @@ export default function SdgPage() {
 
 function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
   const { t, lang } = useI18n()
+  const sx = useStrings(execPages)
   const x = useStrings(execViz)
   const [state, update] = useUrlState(sdgCodec)
   const name = (o: { th: string; en: string }) => (lang === 'en' ? o.en : o.th)
@@ -51,15 +53,15 @@ function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
   const label = (g: GoalStat) => (fw?.key === 'sdg' ? `SDG ${g.number}` : String(g.number))
   const columns: Column<GoalStat>[] = [
     {
-      key: 'goal', csvHeader: 'goal_id', header: t('sdg.col.goal'), rowHeader: true, firstDir: 'asc',
+      key: 'goal', csvHeader: 'goal_id', header: sx('sdg.col.goal'), rowHeader: true, firstDir: 'asc',
       cell: (g) => <span className="goal-name"><strong>{label(g)}</strong> {name(g)}</span>, sortValue: (g) => g.number, csv: (g) => g.id,
     },
-    { key: 'topics', csvHeader: 'topics', header: t('sdg.col.topics'), numeric: true, cell: (g) => (count(g) ? fmtInt(count(g)) : <span className="flag">{t('sdg.gap')}</span>), sortValue: count },
+    { key: 'topics', csvHeader: 'topics', header: sx('sdg.col.topics'), numeric: true, cell: (g) => (count(g) ? fmtInt(count(g)) : <span className="flag">{sx('sdg.gap')}</span>), sortValue: count },
     { key: 'articles', csvHeader: 'articles_recent', header: t('col.articlesR', { r }), numeric: true, cell: (g) => fmtInt(g.articles_recent ?? null), sortValue: (g) => g.articles_recent ?? null },
     { key: 'share', csvHeader: 'share_recent', header: t('col.share'), numeric: true, cell: (g) => <ShareBar value={g.share_recent ?? null} digits={1} max={maxShare} />, sortValue: (g) => g.share_recent ?? null },
-    { key: 'ratio', csvHeader: 'share_ratio', header: t('sdg.col.ratio', { b }), numeric: true, cell: (g) => fmtRatio(g.share_ratio ?? null), sortValue: (g) => g.share_ratio ?? null },
+    { key: 'ratio', csvHeader: 'share_ratio', header: sx('sdg.col.ratio', { b }), numeric: true, cell: (g) => fmtRatio(g.share_ratio ?? null), sortValue: (g) => g.share_ratio ?? null },
     {
-      key: 'examples', csvHeader: 'topic_ids', header: t('sdg.col.examples'),
+      key: 'examples', csvHeader: 'topic_ids', header: sx('sdg.col.examples'),
       cell: (g) => (
         <span className="sdg-ex">
           {(g.topics ?? []).slice(0, 3).map((id) => release.topicById.get(id)).filter((tp): tp is Topic => tp !== undefined).map((tp) => (
@@ -96,15 +98,15 @@ function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
         }
       })
     : []
-  const tableTitle = fw ? t('table.n', { n: 1, title: t('sdg.table', { f: name(fw) }) }) : ''
+  const tableTitle = fw ? t('table.n', { n: 1, title: sx('sdg.table', { f: name(fw) }) }) : ''
   return (
     <div className="container">
-      <PageHeader title={x('q.sdg')} lede={t('sdg.lede', { release: rel, n: fmtInt(release.topics.length) })} />
+      <PageHeader title={x('q.sdg')} lede={sx('sdg.lede', { release: rel, n: fmtInt(release.topics.length) })} />
       {fw ? (
-        <Section id="goals" title={t('sdg.frameworks')}>
-          <Tabs id="sdg-fw" label={t('sdg.frameworks')} items={file.frameworks.map((f) => ({ id: f.key, label: name(f) }))} value={fw.key} onChange={(id) => update({ fw: id })}>
-            {exGoal && exTopic ? <p>{t('sdg.example', { topic: lang === 'en' ? exTopic.en || exTopic.th : exTopic.th, goal: `${label(exGoal)} ${name(exGoal)}` })}</p> : null}
-            <p className="note">{t('sdg.coverage', { n: fmtInt(covered), total: fmtInt(goals.length) })}</p>
+        <Section id="goals" title={sx('sdg.frameworks')}>
+          <Tabs id="sdg-fw" label={sx('sdg.frameworks')} items={file.frameworks.map((f) => ({ id: f.key, label: name(f) }))} value={fw.key} onChange={(id) => update({ fw: id })}>
+            {exGoal && exTopic ? <p>{sx('sdg.example', { topic: lang === 'en' ? exTopic.en || exTopic.th : exTopic.th, goal: `${label(exGoal)} ${name(exGoal)}` })}</p> : null}
+            <p className="note">{sx('sdg.coverage', { n: fmtInt(covered), total: fmtInt(goals.length) })}</p>
             <Figure
               id="fig-goals"
               number={1}
@@ -115,13 +117,13 @@ function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
               how={
                 <>
                   <p>{x('xv.goal.how', { r })}</p>
-                  <p>{t('sdg.how', { method: t(file.method === 'embedding' ? 'sdg.method.embedding' : 'sdg.method.lexical'), b, r })}</p>
+                  <p>{sx('sdg.how', { method: sx(file.method === 'embedding' ? 'sdg.method.embedding' : 'sdg.method.lexical'), b, r })}</p>
                 </>
               }
               source={t('source.line', { release: rel })}
               view={state.view}
               onView={(v) => update({ view: v })}
-              chart={<GoalTiles tiles={tiles} label={x('xv.goal.label', { n: fmtInt(tiles.length) })} countWord={(n) => x(n === 1 ? 'xv.goal.topic1' : 'xv.goal.topics')} emptyText={t('sdg.gap')} />}
+              chart={<GoalTiles tiles={tiles} label={x('xv.goal.label', { n: fmtInt(tiles.length) })} countWord={(n) => x(n === 1 ? 'xv.goal.topic1' : 'xv.goal.topics')} emptyText={sx('sdg.gap')} />}
               table={<DataTable caption={tableTitle} rows={goals} columns={columns} rowKey={(g) => g.id} defaultSort={{ key: 'goal', dir: 'asc' }} />}
             />
           </Tabs>
