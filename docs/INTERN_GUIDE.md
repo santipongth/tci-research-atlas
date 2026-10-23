@@ -277,7 +277,8 @@ uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4 --b
   - `deploy\atlas-data-2026Q4.zip`
   - คลัง `D:\atlas-data\corpus\2026Q4\`
 - **รอบต่อไป (ทุก 3 เดือน)** ทำเฉพาะ: ได้คลังชุดใหม่ → ตรวจด้วย `atlas profile` → `atlas quarterly --corpus … --release <รอบใหม่>` → ตรวจ → ขออนุมัติ → เผยแพร่ โดยไม่ต้องทำ embedding ครั้งใหญ่ซ้ำ (จ่ายเฉพาะบทความใหม่) และรอบใหม่ต้องใช้ชื่อรอบที่ไม่เก่ากว่ารอบก่อน
-- **ถ้าต้องถอนเว็บกลับเป็นรอบก่อน:** ทาง A สั่ง Run workflow ใหม่ด้วย `data_release` ของรอบก่อน (เช่น `data-2026Q3`) ส่วนทาง B รัน `uv run atlas publish -c ..uns6Q3\config.yaml --release 2026Q3 --set-latest --site ..\deploy6Q4\site` แล้วอัปโหลดโฟลเดอร์นั้นใหม่ **ห้ามแก้ `data/latest.json` บนเซิร์ฟเวอร์เอง** เพราะรอบเก่าบนเว็บเก็บไว้ไม่ครบทุกไฟล์
+- **ถ้าต้องถอนเว็บกลับเป็นรอบก่อน:** ทาง A สั่ง Run workflow ใหม่ด้วย `data_release` ของรอบก่อน (เช่น `data-2026Q3`) ส่วนทาง B รัน `uv run atlas publish -c ..
+uns6Q3\config.yaml --release 2026Q3 --set-latest --site ..\deploy6Q4\site` แล้วอัปโหลดโฟลเดอร์นั้นใหม่ **ห้ามแก้ `data/latest.json` บนเซิร์ฟเวอร์เอง** เพราะรอบเก่าบนเว็บเก็บไว้ไม่ครบทุกไฟล์
 
 ---
 
