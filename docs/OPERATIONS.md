@@ -345,7 +345,7 @@ Windows Task Scheduler: ให้โปรแกรมเป็น `scripts\quar
 ## 5. การย้อนกลับ (rollback)
 
 - เว็บ: deploy commit ก่อนหน้าอีกครั้งผ่าน GitHub Pages (re-run workflow ของ commit เก่า) หรือวางโฟลเดอร์ `web/dist` เวอร์ชันเก่ากลับ
-- ข้อมูล: แก้ `data/latest.json` ให้ชี้รอบก่อน (โฟลเดอร์รอบเก่ายังอยู่ใน data/) — ไม่ต้อง build ใหม่
+- ข้อมูล: รอบเก่าบนเว็บถูกตัดเหลือเฉพาะไฟล์ที่ใช้เทียบ (`publish.keep_full_releases`) จึง**ห้ามแก้ `data/latest.json` ให้ชี้รอบเก่าเอง** (หน้าวารสาร/สถาบัน/ค้นหาของรอบนั้นจะไม่มีไฟล์) ให้วางรอบนั้นกลับเต็มรอบแทน: `uv run atlas publish -c config.yaml --release <รอบก่อน> --set-latest --site <โฟลเดอร์เว็บ>` (คัดลอกจาก `output/data/<รอบก่อน>` ทั้งรอบ) แล้วอัปโหลดโฟลเดอร์เว็บใหม่ — GitHub Pages: Run workflow ด้วย `data_release` ของรอบก่อน
 
 ## 6. LLM ผ่าน API (ชื่อหัวข้อ · คู่ที่อาจซ้ำ · คำอธิบาย · บทสรุปผู้บริหาร)
 

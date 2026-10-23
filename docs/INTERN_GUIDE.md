@@ -30,7 +30,7 @@
    ```
 3. **ทำนำร่อง:** บทความประมาณ 1,000 เรื่องจาก 3 วารสาร พร้อมไฟล์ประกอบครบ ตรวจด้วย `atlas profile` จนขึ้น `[profile] OK — nothing to fix` แล้วส่งให้ผู้ดูแลดู
 4. **ทำทั้งคลัง** ด้วยหลักเดียวกัน:
-   - ไฟล์ประกอบ: `journals.csv`, `institutions_aliases.csv`, `province_population.csv`, `ror.zip` (ถ้าทำได้) และ `README.txt` ที่บันทึกการตัดสินใจ
+   - ไฟล์ประกอบ: `journals.csv`, `institutions_aliases.csv`, `province_population.csv` (เริ่มจาก [`docs/corpus/province_population.template.csv`](corpus/province_population.template.csv) ที่มี 77 จังหวัดแล้ว เติมจำนวนประชากรและปี), `ror.zip` (ถ้าทำได้) และ `README.txt` ที่บันทึกการตัดสินใจ
    - `institutions_aliases.csv` ต้องครอบคลุมแถวสังกัดอย่างน้อย 80% (`atlas profile` บอกให้)
 5. **ตรวจรอบสุดท้าย:**
    ```powershell
@@ -184,7 +184,10 @@ uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4 --b
   - `deploy\2026Q4\site\`: เว็บพร้อมอัปโหลด
   - `deploy\atlas-site-2026Q4.zip` และ `deploy\atlas-data-2026Q4.zip`
 
-**ถ้า `validate.txt` มีบรรทัด `ERROR` ที่ขึ้นต้นด้วย `privacy:` ห้ามเผยแพร่เด็ดขาด** แจ้งผู้ดูแลทันทีพร้อมส่งบรรทัดนั้น (หมายถึงมีอีเมล ORCID หรือชื่อคนติดอยู่ในไฟล์ที่จะเผยแพร่)
+**ถ้า `validate.txt` มีบรรทัด `ERROR` ที่ขึ้นต้นด้วย `privacy:` ห้ามเผยแพร่เด็ดขาด** (หมายถึงมีอีเมล ORCID หรือชื่อคนติดอยู่ในไฟล์ที่จะเผยแพร่) แจ้งผู้ดูแลทันทีพร้อมส่งบรรทัดนั้น วิธีแก้ที่มักใช้:
+- **ชื่อสถาบันที่มีชื่อคนติดมา** (เช่น "สมชาย ใจดี มหาวิทยาลัยมหิดล"): เติมแถวใน `institutions_aliases.csv` ของคลัง ให้สังกัดแบบนั้นชี้ไปสถาบันที่ถูก แล้วรัน `atlas quarterly` เดิมซ้ำ
+- **ชื่อหน่วยงานจริงที่บังเอิญตรงกับชื่อผู้แต่ง:** ใส่สตริงนั้นใน `validation.privacy_allow` ของ `config.yaml` **เฉพาะเมื่อผู้ดูแลตรวจแล้วอนุญาต**
+- **อีเมลหรือ ORCID:** หาว่ามาจากช่องไหนของคลัง แก้ที่ต้นทาง แล้วรันซ้ำ
 
 ## 2.6 ตรวจผลบนเครื่อง (ประมาณ 30 นาที)
 
@@ -274,7 +277,7 @@ uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4 --b
   - `deploy\atlas-data-2026Q4.zip`
   - คลัง `D:\atlas-data\corpus\2026Q4\`
 - **รอบต่อไป (ทุก 3 เดือน)** ทำเฉพาะ: ได้คลังชุดใหม่ → ตรวจด้วย `atlas profile` → `atlas quarterly --corpus … --release <รอบใหม่>` → ตรวจ → ขออนุมัติ → เผยแพร่ โดยไม่ต้องทำ embedding ครั้งใหญ่ซ้ำ (จ่ายเฉพาะบทความใหม่) และรอบใหม่ต้องใช้ชื่อรอบที่ไม่เก่ากว่ารอบก่อน
-- **ถ้าต้องถอนเว็บกลับเป็นรอบก่อน:** ทาง A สั่ง Run workflow ใหม่ด้วย `data_release` ของรอบก่อน (เช่น `data-2026Q3`) ทาง B แก้ `data/latest.json` บนเซิร์ฟเวอร์ให้ชี้รอบก่อน
+- **ถ้าต้องถอนเว็บกลับเป็นรอบก่อน:** ทาง A สั่ง Run workflow ใหม่ด้วย `data_release` ของรอบก่อน (เช่น `data-2026Q3`) ส่วนทาง B รัน `uv run atlas publish -c ..uns6Q3\config.yaml --release 2026Q3 --set-latest --site ..\deploy6Q4\site` แล้วอัปโหลดโฟลเดอร์นั้นใหม่ **ห้ามแก้ `data/latest.json` บนเซิร์ฟเวอร์เอง** เพราะรอบเก่าบนเว็บเก็บไว้ไม่ครบทุกไฟล์
 
 ---
 
@@ -286,7 +289,8 @@ uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4 --b
 | `atlas embed --check` ขึ้น error | key, `base_url` หรือ `model` ผิด แจ้งผู้ดูแลและส่งข้อความ error |
 | embedding ค้าง หรือเน็ตหลุด | สั่งคำสั่ง embed เดิมซ้ำ ทำต่อจากเดิมและไม่จ่ายซ้ำ |
 | `atlas quarterly` ขึ้น `STOPPED: …` | อ่านข้อความ แก้ตามนั้น แล้วสั่งคำสั่งเดิมซ้ำ |
-| `validate` มี `ERROR` โดยเฉพาะ `privacy:` | **ห้ามเผยแพร่** แจ้งผู้ดูแลทันที |
+| `validate` มี `ERROR` โดยเฉพาะ `privacy:` | **ห้ามเผยแพร่** แจ้งผู้ดูแลทันที (วิธีแก้ดูข้อ 2.5) |
+| `atlas quarterly` ขึ้น `NOTICE: work_dir holds the unfinished round …` | รอบก่อนยังไม่เสร็จ ระบบกำลังทำรอบนั้นต่อ ถ้าตั้งใจเริ่มรอบใหม่ให้ใส่ `--release <รอบใหม่>` |
 | `STOPPED: … embedding provider 'lite'` | ใช้ embedding ทดสอบอยู่ ตรวจ `embedding.provider` ใน config ต้องเป็น `api` (หรือ `local`) |
 | เว็บยังขึ้น "ข้อมูลตัวอย่าง" หลังเผยแพร่ | Ctrl+F5 / รอ 5 นาที ถ้ายังไม่หายแจ้งผู้ดูแล |
 | รายละเอียดอื่น ๆ | [`docs/OPERATIONS.md` §3 Troubleshooting](OPERATIONS.md) |
