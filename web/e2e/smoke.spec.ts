@@ -230,7 +230,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#flow .afl-st')).toHaveCount(5)
     await expect(page.locator('#definition .ab-tree .sfc-row')).toHaveCount(4)
     await expect(page.locator('.defs > div')).toHaveCount(6)
-    await expect(page.locator('#changelog li')).toHaveCount(2)
+    await expect(page.locator('#changelog')).toHaveCount(0)
     await page.locator('#cite summary').click()
     await expect(page.locator('#cite-apa')).toHaveValue(/ศูนย์ดัชนีการอ้างอิงวารสารไทย \(TCI\)\. \(\d{4}\)\. .*รอบข้อมูล 2026Q4/)
   },

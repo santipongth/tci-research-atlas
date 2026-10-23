@@ -195,7 +195,7 @@
     .qc-value { grid-column: 2; }
   }
 
-  /* /about: the pipeline drawings, the decision path, the folded citation, plain changelog */
+  /* /about: the pipeline drawings, the decision path, the folded citation */
   .pa-sheet { fill: var(--bg); stroke: var(--brand); stroke-width: 1.5; }
   .pa-line { stroke: var(--ink-2); stroke-width: 1.5; }
   .pa-ring { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
@@ -207,7 +207,6 @@
   .ab-tree .steps { margin-top: 12px; }
   .ab-tree + .defs { margin-top: var(--sp-block); }
   .cite-fold { margin-top: 4px; }
-  .log-tech { margin-top: 2px; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
 
   /* /compare: the layout switch and the small multiples */
   .cmp-layout { margin-bottom: 12px; }

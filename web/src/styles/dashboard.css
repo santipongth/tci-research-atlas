@@ -528,3 +528,28 @@
   .prov-reg-sub span { white-space: nowrap; }
   @media (max-width: 760px) { .prov-cols { grid-template-columns: minmax(0, 1fr); } }
 }
+
+/* ── /about: method cards three to a row, the status rules as tiles ─────────────────────────────────────── */
+@layer components {
+  .about .dgrid { margin-block: var(--card-gap); }
+  .about .dgrid .sec p:first-of-type { margin-top: 0; }
+  .about .dgrid .sec p { font-size: var(--fs-body); line-height: 1.7; }
+  .about .defs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin: var(--sp-block) 0 0; border: 0; }
+  .about .defs > div { padding: 12px 14px; border: 0; border-radius: 12px; background: var(--canvas); }
+  .about .defs dt { gap: 8px; font-size: var(--fs-meta); }
+  .about .defs dd { margin-top: 4px; font-size: var(--fs-caption); line-height: 1.6; color: var(--ink-2); }
+  .about #definition > .note { margin-top: 12px; font-size: var(--fs-caption); }
+  .about #privacy p, .about #cite .cite-fold { margin-top: 0; }
+}
+
+/* /about on phones: each pipeline step is one row (drawing beside the words), the steps closer together */
+@layer components {
+  @media (max-width: 760px) {
+    .about .afl { gap: 8px; margin-top: 12px; }
+    .about .afl-st { display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 12px; padding: 12px; }
+    .about .afl-art { grid-row: span 3; align-self: start; }
+    .about .afl-art svg { width: 64px; height: auto; }
+    .about .afl-num { margin-top: 0; font-size: var(--fs-body); }
+    .about .afl-b { font-size: var(--fs-caption); }
+  }
+}

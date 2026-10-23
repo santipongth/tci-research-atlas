@@ -7,6 +7,8 @@ import { fmtNum, fmtPct, fmtSignedPct, yearSpan } from './format'
  * When the manifest gains a `definition` block, read it first and keep these as fallbacks.
  */
 export const DEFINITION = {
+  /** manifest.definition_version of these rules (shown when no release is loaded) */
+  version: 3,
   emergingMinGrowthLo: 0.1,
   emergingMinShareRatio: 1.8,
   decliningMaxShareRatio: 0.8,

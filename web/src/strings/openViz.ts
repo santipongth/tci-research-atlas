@@ -39,7 +39,7 @@ export const openViz = defineStrings({
   'ab.3tTopics': { th: 'ได้หัวข้อวิจัย', en: 'Topics come out' },
   'ab.3bTopics': { th: 'แต่ละกลุ่มได้ชื่อหัวข้อและคำสำคัญ บรรณาธิการตรวจชื่อก่อนเผยแพร่', en: 'Each group gets a topic name and keywords; editors check the names before release' },
   'ab.5t': { th: 'เผยแพร่ทุก 3 เดือน', en: 'Published every three months' },
-  'ab.5b': { th: 'ขึ้นเว็บนี้ พร้อมไฟล์ CSV/JSON และสรุปผู้บริหาร ให้ทุกคนนำไปใช้ต่อได้', en: 'On this site, with CSV/JSON files and the executive brief, free for anyone to reuse' },
+  'ab.5b': { th: 'ขึ้นเว็บนี้ พร้อมไฟล์ข้อมูล (JSON) และสรุปผู้บริหารที่พิมพ์เป็น PDF ได้ ให้ทุกคนนำไปใช้ต่อ', en: 'On this site, with the data files (JSON) and an executive brief you can print to PDF, free for anyone to reuse' },
   'ab.n.articles': { th: '{n} บทความ', en: '{n} articles' },
   'ab.n.assigned': { th: '{n} เรื่องจัดกลุ่มได้', en: '{n} placed in a group' },
   'ab.n.topics': { th: '{n} หัวข้อ', en: '{n} topics' },

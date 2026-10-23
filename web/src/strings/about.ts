@@ -2,7 +2,7 @@ import { defineStrings } from './define'
 
 export const about = defineStrings({
   'about.title': { th: 'อ่านตัวเลขอย่างไร', en: 'How to read the numbers' },
-  'about.lede': { th: 'ตัวเลขในเว็บนี้มาจากไหน สถานะแต่ละแบบแปลว่าอะไร และนิยามเคยเปลี่ยนอย่างไรบ้าง', en: 'Where the figures come from, what each status means and how the definition has changed.' },
+  'about.lede': { th: 'ตัวเลขในเว็บนี้มาจากไหน คำนวณอย่างไร และสถานะแต่ละแบบแปลว่าอะไร', en: 'Where the figures come from, how they are worked out and what each status means.' },
   'about.generic.R': { th: '3 ปีล่าสุดที่ข้อมูลครบ', en: 'the last 3 complete years' },
   'about.generic.B': { th: '5 ปีก่อนหน้านั้น', en: 'the 5 years before' },
   'about.generic.W': { th: '5 ปีล่าสุด', en: 'the last 5 years' },
@@ -14,7 +14,4 @@ export const about = defineStrings({
   'about.cite.h': { th: 'การอ้างอิง Atlas', en: 'Cite this atlas' },
   'about.cite.show': { th: 'แสดงข้อความอ้างอิง (APA และ BibTeX)', en: 'Show the citation (APA and BibTeX)' },
   'about.flow.h': { th: 'Atlas ทำงานอย่างไร: จากบทความถึงเว็บนี้ใน 5 ขั้น', en: 'How the Atlas works: from articles to this site in 5 steps' },
-  'about.log.h': { th: 'นิยามเคยเปลี่ยนอย่างไร', en: 'How the definition has changed' },
-  'about.log.intro': { th: 'ทุกครั้งที่นิยามเปลี่ยน เลขฉบับจะเพิ่มขึ้น ตัวเลขที่ใช้นิยามต่างฉบับกันจึงไม่ควรนำมาเทียบกันตรง ๆ', en: 'Each change to the definition raises its version number, so figures from different versions should not be compared directly.' },
-  'about.log.version': { th: 'ฉบับที่ {v} · {date}', en: 'Version {v} · {date}' },
 })
