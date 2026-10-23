@@ -109,7 +109,7 @@ function StatusList({ release, status, by, onBy }: { release: AtlasRelease; stat
   const s = useStrings(dashPages)
   const level = ciPct(release.ciLevel)
   const all = release.topics.filter((tp) => tp.status === status)
-  const ranked = by === 'growth' ? sortBy(sortBy(all, (tp) => tp.metrics.share_recent, 'desc'), (tp) => tp.metrics.share_growth, 'desc') : sortBy(all, (tp) => tp.metrics.count_recent, 'desc')
+  const ranked = by === 'growth' ? sortBy(sortBy(all, (tp) => tp.metrics.share_recent, 'desc'), (tp) => tp.metrics.share_growth, status === 'DECLINING' ? 'asc' : 'desc') : sortBy(all, (tp) => tp.metrics.count_recent, 'desc')
   const page = usePaged(ranked, STEP, `${status}:${by}`)
   const rows: RankRow[] = page.shown.map((tp) => ({
     key: tp.id,

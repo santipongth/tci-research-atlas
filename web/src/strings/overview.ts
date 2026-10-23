@@ -126,8 +126,9 @@ export const overview = defineStrings({
   'ov.d.provTop': { th: '5 จังหวัดที่มีบทความมากที่สุด', en: 'Top 5 provinces by articles' },
   'ov.d.inst': { th: 'สถาบันที่มีบทความมากที่สุด', en: 'Institutions with the most articles' },
   'ov.d.facts': { th: 'ตัวเลขอื่นของรอบนี้', en: "More of this release's figures" },
+  'ov.d.factsInfo': { th: 'จังหวัดและสัดส่วนบทความที่มีผู้เขียนร่วมจากต่างประเทศ นับเฉพาะบทความปี {w} สาขาหลักและบทคัดย่อภาษาอังกฤษนับจากบทความทุกปี', en: 'Provinces and the share of articles with a co-author abroad count articles {w} only; main fields and English abstracts count every year.' },
   'ov.d.statusHow': { th: 'วงแหวนแบ่งหัวข้อวิจัยทั้งหมดตามสถานะ ยิ่งส่วนใหญ่ ยิ่งมีหัวข้อในสถานะนั้นมาก ตัวเลขข้างวงคือจำนวนหัวข้อและร้อยละของทั้งหมด ส่วน "ข้อมูลน้อย" เป็นลายเส้นทแยง', en: 'The ring splits every research topic by status: the bigger the part, the more topics in that status. The list gives the number of topics and the share of all of them. "Little data" is hatched.' },
   'ov.d.statusLabel': { th: 'วงแหวนแบ่งหัวข้อวิจัย {n} หัวข้อตามสถานะ', en: 'Ring of {n} research topics by status' },
   'ov.d.provSub': { th: 'บทความปี {a}–{b} ตามจังหวัดของสถาบันผู้เขียน มีบทความใน {n} จังหวัด สีเข้มคือมีบทความมาก', en: 'Articles {a}–{b} by the province of the authors\' institutions: {n} provinces have articles. Darker means more articles.' },
-  'ov.d.instSub': { th: 'จำนวนบทความปี {a}–{b} ของสถาบันที่มีบทความมากที่สุด จากทั้งหมด {n} สถาบัน', en: 'Articles {a}–{b} of the institutions with the most, out of {n} institutions' },
+  'ov.d.instSub': { th: 'จำนวนบทความปี {a}–{b} ของสถาบันที่มีบทความมากที่สุด จากทั้งหมด {n} สถาบัน (แสดงชื่อเฉพาะสถาบันที่มีอย่างน้อย {k} เรื่อง)', en: 'Articles {a}–{b} of the institutions with the most, out of {n} institutions (only those with at least {k} articles are named)' },
 })

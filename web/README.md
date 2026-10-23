@@ -87,7 +87,7 @@ src/components/     Layout (เมนูซ้าย / แถบบนมือ�
                     dashboard/ (SideNav · PageBar · Card/DashGrid/DashStack/SeeAll · KpiCard/KpiRow · RankRows/MoreRows · Segmented · Drawer · Icon)
                     Figure (กราฟอย่างเดียว) · Section (= การ์ด) · DataTable (limit) · Term/InfoPop · StatusGlyph/StatusChip · StatusLegend · ProvinceMap …
 src/charts/         SVG เขียนเอง: forest · portfolio · trend · multi-line · StatusDonut · StoryLines + infographic (BarRank · ArcNetwork · ColumnChart · MixBar
-                    · OpportunityQuadrant · GoalTiles · JournalScatter · PeriodMix · ChecklistBars · SmallMultiples)
+                    · JournalScatter · PeriodMix · ChecklistBars · SmallMultiples)
                     คณิตการจัดวางแบบ pure + test: infographic.ts · execLayout.ts · editorLayout.ts · donut.ts · scale.ts · series.ts
 src/features/atlas/ แผนที่หัวข้อ (mapSpace, terrain, TerrainMap, TopicList = รายการหัวข้อข้างแผนที่ในการ์ดเดียวกัน เรียงตามการเติบโตหรือขนาด)
 src/embed/          กราฟฝัง + EmbedBoundary + ลิงก์ฟีด `FeedLink` (แถบหัวของ /topics และหน้าหัวข้อ แสดงเมื่อ latest.feeds === true)

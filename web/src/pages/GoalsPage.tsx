@@ -1,7 +1,7 @@
+import type { ReactNode } from 'react'
 import { goalTiles } from '../charts/execLayout'
-import { GoalTiles } from '../charts/GoalTiles'
-import { OpportunityQuadrant } from '../charts/OpportunityQuadrant'
 import { Card, DashGrid } from '../components/dashboard/Card'
+import { Icon } from '../components/dashboard/Icon'
 import { KpiCard, KpiRow } from '../components/dashboard/KpiCard'
 import { MoreRows, RankRows } from '../components/dashboard/RankRows'
 import { PageBar } from '../components/dashboard/PageBar'
@@ -12,7 +12,7 @@ import { StatusChip } from '../components/StatusGlyph'
 import { TopicLink } from '../components/TopicLink'
 import { useReleaseFile } from '../data/atlasContext'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
-import type { GapsFile, GlobalFile, GoalStat, SdgFile, Topic } from '../data/types'
+import type { Concentration, GapsFile, GlobalFile, GoalStat, SdgFile, SubfieldBench, Topic } from '../data/types'
 import { fmtInt, fmtNum, fmtPct, fmtShare, yearSpan } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { sortBy } from '../lib/sort'
@@ -21,11 +21,9 @@ import { usePaged } from '../lib/usePaged'
 import { goalsCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { dashPages } from '../strings/dashPages'
-import { execPages } from '../strings/execPages'
-import { execViz } from '../strings/execViz'
 
-/** Topics listed in an open goal tile. */
-const TILE_TOPICS = 6
+/** Topics listed under an opened goal. */
+const GOAL_TOPICS = 8
 
 export default function GoalsPage() {
   const s = useStrings(dashPages)
@@ -77,6 +75,11 @@ function GoalsLoad({ release }: { release: AtlasRelease }) {
   )
 }
 
+/**
+ * Three bands: how many goals of each framework have research (KPIs), every goal of the chosen framework as one bar
+ * list (goals with no research yet are dashed rows in the same list), then Thailand against the world and the topics
+ * that lean on one institution or journal, as three short ranked lists.
+ */
 function Goals({ release, sdg, glob, gaps, skipped }: { release: AtlasRelease; sdg: SdgFile | null; glob: GlobalFile | null; gaps: GapsFile | null; skipped: string | null }) {
   const { t, lang } = useI18n()
   const s = useStrings(dashPages)
@@ -87,6 +90,11 @@ function Goals({ release, sdg, glob, gaps, skipped }: { release: AtlasRelease; s
   const goals = sdg && fw ? sdg.goals.filter((g) => g.framework === fw.key) : []
   const covered = (key: string) => (sdg ? sdg.goals.filter((g) => g.framework === key && (g.topics ?? []).some(known)).length : 0)
   const icons = ['goals', 'layers', 'topics', 'places'] as const
+  const opps = glob ? sortBy(glob.subfields.filter((f) => f.opportunity), (f) => f.world_ratio ?? 0, 'desc') : []
+  const strong = glob ? sortBy(glob.subfields.filter((f) => (f.activity_index ?? 0) > 1), (f) => f.activity_index ?? 0, 'desc') : []
+  const risky = gaps ? sortBy(gaps.concentration.filter((c) => c.concentrated && c.scope === 'topic' && known(c.id)), (c) => c.top_share, 'desc') : []
+  const lower = [opps.length > 0, strong.length > 0, risky.length > 0].filter(Boolean).length
+  const span = lower === 3 ? 4 : lower === 2 ? 6 : 12
   return (
     <div className="dash">
       {sdg ? (
@@ -97,10 +105,16 @@ function Goals({ release, sdg, glob, gaps, skipped }: { release: AtlasRelease; s
           })}
         </KpiRow>
       ) : null}
-      {sdg && fw ? (
+      {sdg && fw && goals.length ? (
         <DashGrid>
-          <GoalsCard release={release} file={sdg} fw={fw.key} goals={goals} onFw={(key) => update({ fw: key })} />
-          <GoalListCard release={release} goals={goals} label={(g) => (fw.key === 'sdg' ? `SDG ${g.number}` : String(g.number))} />
+          <Card
+            span={12}
+            title={s('gl.goals')}
+            info={s('gl.goalsInfo')}
+            action={sdg.frameworks.length > 1 ? <Segmented label={s('gl.fw')} value={fw.key} onChange={(key) => update({ fw: key })} options={sdg.frameworks.map((f) => ({ id: f.key, label: name(f) }))} /> : null}
+          >
+            <GoalBars release={release} goals={goals} fw={fw.key} />
+          </Card>
         </DashGrid>
       ) : null}
       {!glob && skipped ? (
@@ -110,167 +124,110 @@ function Goals({ release, sdg, glob, gaps, skipped }: { release: AtlasRelease; s
           </Card>
         </DashGrid>
       ) : null}
-      {glob ? (
+      {lower ? (
         <DashGrid>
-          <WorldCard file={glob} />
-          <OppsCard release={release} file={glob} />
-        </DashGrid>
-      ) : null}
-      {glob || gaps ? (
-        <DashGrid>
-          {glob ? <StrongCard release={release} file={glob} span={gaps ? 6 : 12} /> : null}
-          {gaps ? <RiskCard release={release} file={gaps} span={glob ? 6 : 12} /> : null}
+          {glob && opps.length ? (
+            <Card span={span} title={s('gl.opps')} info={s('gl.oppsInfo', { b: yearSpan(glob.baseline.start, glob.baseline.end), r: yearSpan(glob.recent.start, glob.recent.end) })}>
+              <SubfieldRows release={release} rows={opps} value={(f) => <b className="rise-g">{s('gl.times', { x: fmtNum(f.world_ratio ?? null, 1) })}</b>} label={s('gl.opps')} />
+            </Card>
+          ) : null}
+          {glob && strong.length ? (
+            <Card span={span} title={s('gl.strong')} info={s('gl.strongInfo')}>
+              <SubfieldRows release={release} rows={strong} value={(f) => <b className="rise-a">{s('gl.more', { x: fmtNum(f.activity_index ?? null, 1) })}</b>} label={s('gl.strong')} />
+            </Card>
+          ) : null}
+          {gaps && risky.length ? (
+            <Card span={span} title={s('gl.risk')} info={s('gl.riskInfo', { a: gaps.recent.start, b: gaps.recent.end })}>
+              <RiskRows release={release} rows={risky} />
+            </Card>
+          ) : null}
         </DashGrid>
       ) : null}
     </div>
   )
 }
 
-/** One tile per goal of the chosen framework (SDG, BCG …): topics per goal, hatched when none. */
-function GoalsCard({ release, file, fw, goals, onFw }: { release: AtlasRelease; file: SdgFile; fw: string; goals: readonly GoalStat[]; onFw: (key: string) => void }) {
+/**
+ * Every goal of one framework as a bar list, most research first: the goal's code and name, its topic count, and a bar
+ * for its share of recent articles (one scale for the framework). A goal with research opens to list its topics; a goal
+ * with none is a plain dashed row (nothing to open, so nothing looks clickable).
+ */
+function GoalBars({ release, goals, fw }: { release: AtlasRelease; goals: readonly GoalStat[]; fw: string }) {
   const { lang } = useI18n()
   const s = useStrings(dashPages)
-  const sx = useStrings(execPages)
-  const x = useStrings(execViz)
-  const name = (o: { th: string; en: string }) => (lang === 'en' ? o.en : o.th)
-  const label = (g: GoalStat) => (fw === 'sdg' ? `SDG ${g.number}` : String(g.number))
   const byId = new Map(goals.map((g) => [g.id, g]))
-  const tiles = goalTiles(goals, fw, (id) => release.topicById.has(id)).filter((tile) => tile.topics.length > 0).map((tile) => {
-    const g = byId.get(tile.id) as GoalStat
-    const tl = tile.topics.map((id) => release.topicById.get(id)).filter((tp): tp is Topic => tp !== undefined)
-    return {
-      ...tile,
-      code: label(g),
-      name: name(g),
-      shareText: x('xv.goal.share', { p: fmtShare(tile.share, 1) }),
-      list: (
-        <>
-          <p className="gt-list-h">{x('xv.goal.list')}</p>
-          <ul className="gt-topics">
-            {tl.slice(0, TILE_TOPICS).map((tp) => <li key={tp.id}><TopicLink topic={tp} showStatus /></li>)}
-          </ul>
-          {tl.length > TILE_TOPICS ? <p className="br-more">{x('xv.goal.more', { n: fmtInt(tl.length - TILE_TOPICS) })}</p> : null}
-        </>
-      ),
-    }
-  })
+  const rows = goalTiles(goals, fw, (id) => release.topicById.has(id))
+  const ranked = [...sortBy(rows.filter((r) => r.count > 0), (r) => r.share, 'desc'), ...rows.filter((r) => r.count === 0)]
+  const code = (n: number) => (fw === 'sdg' ? `SDG ${n}` : String(n))
   return (
-    <Card span={8} title={s('gl.goals')} info={s('gl.goalsInfo')}>
-      {file.frameworks.length > 1 ? <Segmented label={s('gl.fw')} value={fw} onChange={onFw} options={file.frameworks.map((f) => ({ id: f.key, label: name(f) }))} /> : null}
-      <GoalTiles tiles={tiles} label={x('xv.goal.label', { n: fmtInt(tiles.length) })} countWord={(n) => x(n === 1 ? 'xv.goal.topic1' : 'xv.goal.topics')} emptyText={sx('sdg.gap')} />
-    </Card>
+    <ul className="gb" aria-label={s('gl.goals')}>
+      {ranked.map((r) => {
+        const g = byId.get(r.id) as GoalStat
+        const title = (
+          <span className="gb-main">
+            <span className="gb-name" title={lang === 'en' ? g.en : g.th}><b className="gb-code">{code(r.number)}</b> {lang === 'en' ? g.en : g.th}</span>
+            <span className="gb-n">{r.count ? s('gl.topicsN', { n: fmtInt(r.count) }) : s('gl.none')}</span>
+          </span>
+        )
+        if (!r.count) {
+          return (
+            <li key={r.id} className="gb-row is-empty">
+              <div className="gb-sum">
+                {title}
+                <span className="gb-bar" aria-hidden="true" />
+                <span className="gb-v" />
+                <span className="gb-chev" />
+              </div>
+            </li>
+          )
+        }
+        const topics = r.topics.map((id) => release.topicById.get(id)).filter((tp): tp is Topic => tp !== undefined)
+        return (
+          <li key={r.id} className="gb-row">
+            <details>
+              <summary className="gb-sum">
+                {title}
+                <span className="gb-bar" aria-hidden="true"><i style={{ width: `${Math.max(2, r.frac * 100)}%` }} /></span>
+                <span className="gb-v">{s('gl.share', { p: fmtShare(r.share, 1) })}</span>
+                <span className="gb-chev"><Icon name="chevron" size={16} /></span>
+              </summary>
+              <ul className="gb-topics">
+                {topics.slice(0, GOAL_TOPICS).map((tp) => <li key={tp.id}><TopicLink topic={tp} showStatus /></li>)}
+                {topics.length > GOAL_TOPICS ? <li className="gb-more">{s('gl.moreTopics', { n: fmtInt(topics.length - GOAL_TOPICS) })}</li> : null}
+              </ul>
+            </details>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
-/** Beside the tiles: the goals with no research yet (or, when every goal has some, the goals with the most). */
-function GoalListCard({ release, goals, label }: { release: AtlasRelease; goals: readonly GoalStat[]; label: (g: GoalStat) => string }) {
-  const { lang } = useI18n()
-  const s = useStrings(dashPages)
-  const count = (g: GoalStat) => (g.topics ?? []).filter((id) => release.topicById.has(id)).length
-  const empty = goals.filter((g) => count(g) === 0).sort((a, b) => a.number - b.number)
-  const most = sortBy(goals.filter((g) => count(g) > 0), count, 'desc')
-  const list = empty.length ? empty : most
-  const page = usePaged(list, 8)
-  if (!goals.length) return null
-  return (
-    <Card span={4} title={empty.length ? s('gl.empty') : s('gl.most')}>
-      {!empty.length ? <p className="card-empty">{s('gl.emptyNone')}</p> : null}
-      <RankRows
-        numbered={false}
-        label={empty.length ? s('gl.empty') : s('gl.most')}
-        rows={page.shown.map((g) => ({
-          key: g.id,
-          name: `${label(g)} ${lang === 'en' ? g.en : g.th}`,
-          value: empty.length ? undefined : <b className="rise-a">{s('gl.topicsN', { n: fmtInt(count(g)) })}</b>,
-        }))}
-      />
-      <MoreRows {...page.more} />
-    </Card>
-  )
-}
-
-/** Thailand's activity against world growth, one dot per subfield; the openings are top left. */
-function WorldCard({ file }: { file: GlobalFile }) {
-  const s = useStrings(dashPages)
-  const sx = useStrings(execPages)
-  const x = useStrings(execViz)
-  const points = file.subfields
-    .filter((f) => typeof f.activity_index === 'number' && typeof f.world_ratio === 'number')
-    .map((f) => ({ id: f.id, label: f.en, x: f.activity_index as number, y: f.world_ratio as number, hot: Boolean(f.opportunity) }))
-  if (!points.length) return null
-  return (
-    <Card span={8} title={s('gl.world')} info={s('gl.worldInfo', { b: yearSpan(file.baseline.start, file.baseline.end), r: yearSpan(file.recent.start, file.recent.end) })}>
-      <OpportunityQuadrant
-        points={points}
-        xMax={file.max_activity_index}
-        yMin={file.min_world_ratio}
-        text={{ x: sx('gl.col.ai'), y: sx('gl.col.ratio'), zone: sx('gl.opp'), same: x('xv.q.same'), flat: x('xv.q.flat'), opp: x('xv.q.key.opp'), other: x('xv.q.key.other') }}
-        label={x('xv.q.label', { n: fmtInt(points.length), k: fmtInt(points.filter((p) => p.hot).length) })}
-        describe={(p) => x('xv.q.point', { x: p.label, wr: fmtNum(p.y, 2), ai: fmtNum(p.x, 2) })}
-        labelLang="en"
-      />
-    </Card>
-  )
-}
-
-/** Subfields growing fast worldwide where Thailand does little: fastest world growth first, with the Thai topics in them. */
-function OppsCard({ release, file }: { release: AtlasRelease; file: GlobalFile }) {
+/** A world subfield (English name from OpenAlex) with the Thai topic in it as the link, 6 at a time. */
+function SubfieldRows({ release, rows, value, label }: { release: AtlasRelease; rows: readonly SubfieldBench[]; value: (f: SubfieldBench) => ReactNode; label: string }) {
   const { name } = useI18n()
-  const s = useStrings(dashPages)
-  const opps = sortBy(file.subfields.filter((f) => f.opportunity), (f) => f.world_ratio ?? 0, 'desc')
-  const page = usePaged(opps, 8)
-  if (!opps.length) return null
+  const page = usePaged(rows, 6)
   return (
-    <Card span={4} title={s('gl.opps')} info={s('gl.oppsInfo')}>
+    <>
       <RankRows
-        label={s('gl.opps')}
+        label={label}
         rows={page.shown.map((f) => {
           const tp = (f.topics ?? []).map((id) => release.topicById.get(id)).find((x): x is Topic => x !== undefined)
-          return {
-            key: f.id,
-            to: tp ? `/topics/${tp.id}` : null,
-            name: f.en,
-            nameLang: 'en',
-            meta: tp ? <span className="rise-sub">{name(tp)}</span> : undefined,
-            value: <b className="rise-g">{s('gl.times', { x: fmtNum(f.world_ratio ?? null, 1) })}</b>,
-          }
+          return { key: f.id, to: tp ? `/topics/${tp.id}` : null, name: f.en, nameLang: 'en', meta: tp ? <span className="rise-sub">{name(tp)}</span> : undefined, value: value(f) }
         })}
       />
       <MoreRows {...page.more} />
-    </Card>
-  )
-}
-
-/** Subfields where Thailand's share is above the world's (activity index > 1), strongest first. */
-function StrongCard({ release, file, span }: { release: AtlasRelease; file: GlobalFile; span: 6 | 12 }) {
-  const { name } = useI18n()
-  const s = useStrings(dashPages)
-  const strong = sortBy(file.subfields.filter((f) => (f.activity_index ?? 0) > 1), (f) => f.activity_index ?? 0, 'desc')
-  const page = usePaged(strong, 6)
-  if (!strong.length) return null
-  return (
-    <Card span={span} title={s('gl.strong')} info={s('gl.strongInfo')}>
-      <RankRows
-        label={s('gl.strong')}
-        rows={page.shown.map((f) => {
-          const tp = (f.topics ?? []).map((id) => release.topicById.get(id)).find((x): x is Topic => x !== undefined)
-          return { key: f.id, to: tp ? `/topics/${tp.id}` : null, name: f.en, nameLang: 'en', meta: tp ? <span className="rise-sub">{name(tp)}</span> : undefined, value: <b className="rise-a">×{fmtNum(f.activity_index ?? null, 1)}</b> }
-        })}
-      />
-      <MoreRows {...page.more} />
-    </Card>
+    </>
   )
 }
 
 /** Topics whose recent articles come mostly from one institution or journal (gaps.json concentration). */
-function RiskCard({ release, file, span }: { release: AtlasRelease; file: GapsFile; span: 6 | 12 }) {
+function RiskRows({ release, rows }: { release: AtlasRelease; rows: readonly Concentration[] }) {
   const { t, name } = useI18n()
   const s = useStrings(dashPages)
-  const risky = sortBy(file.concentration.filter((c) => c.concentrated && c.scope === 'topic' && release.topicById.has(c.id)), (c) => c.top_share, 'desc')
-  const page = usePaged(risky, 6)
-  if (!risky.length) return null
+  const page = usePaged(rows, 6)
   return (
-    <Card span={span} title={s('gl.risk')} info={s('gl.riskInfo', { a: file.recent.start, b: file.recent.end })}>
+    <>
       <RankRows
         label={s('gl.risk')}
         rows={page.shown.map((c) => {
@@ -290,6 +247,6 @@ function RiskCard({ release, file, span }: { release: AtlasRelease; file: GapsFi
         })}
       />
       <MoreRows {...page.more} />
-    </Card>
+    </>
   )
 }

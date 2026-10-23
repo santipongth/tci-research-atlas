@@ -16,6 +16,7 @@ const PATHS = {
   close: 'M6 6l12 12M18 6 6 18',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
   arrow: 'M5 12h14M13 6l6 6-6 6',
+  chevron: 'M6 9l6 6 6-6',
   download: 'M12 4v11M7.5 10.5 12 15l4.5-4.5M4.5 16.5V20h15v-3.5',
   table: 'M4 5h16v14H4zM4 10h16M4 14.5h16M10 10v9',
   chart: 'M4 4v16h16M8 16v-5M12 16V8M16 16v-3',

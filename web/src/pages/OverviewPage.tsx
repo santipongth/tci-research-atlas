@@ -1,3 +1,4 @@
+import { fmtWindow, windows } from '../lib/definition'
 import { lazy, Suspense } from 'react'
 import { Card, DashGrid, type Span } from '../components/dashboard/Card'
 import { Icon } from '../components/dashboard/Icon'
@@ -160,7 +161,7 @@ function Overview({ release }: { release: AtlasRelease }) {
             </Card>
           ) : null}
           {more.length ? (
-            <Card span={points.length ? 4 : 12} title={t('ov.d.facts')} info={trimmed.length ? t('ov.trimmed', { years: trimmed.join(', ') }) : undefined}>
+            <Card span={points.length ? 4 : 12} title={t('ov.d.facts')} info={[t('ov.d.factsInfo', { w: fmtWindow(windows(release.overview.last_complete_year).W) }), trimmed.length ? t('ov.trimmed', { years: trimmed.join(', ') }) : ''].join(' ').trim()}>
               <dl className="facts">
                 {more.map((k) => {
                   const d = delta(k)

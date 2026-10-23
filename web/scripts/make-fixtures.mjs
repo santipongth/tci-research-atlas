@@ -105,6 +105,18 @@ const GROUPS = [
   ]],
 ]
 const HUBS = [[170, 180], [400, 160], [630, 190], [860, 170], [170, 470], [400, 480], [630, 450], [860, 480]]
+/** Articles a year for an institution: the window years (2020–2024) add up to `inWindow`, every year to `total`. */
+function instYears(total, inWindow) {
+  const spread = (years, n) => {
+    const w = years.map((_, i) => 0.7 + 0.06 * i)
+    const k = w.reduce((a, b) => a + b, 0)
+    const out = w.map((x) => Math.floor((n * x) / k))
+    out[out.length - 1] += n - out.reduce((a, b) => a + b, 0)
+    return years.map((year, i) => ({ year, articles: out[i] }))
+  }
+  return [...spread(YEARS.filter((y) => y < 2020), Math.max(0, total - inWindow)), ...spread(YEARS.filter((y) => y >= 2020 && y <= 2024), inWindow), ...YEARS.filter((y) => y > 2024).map((year) => ({ year, articles: 0 }))]
+}
+
 const JOURNALS = ['วารสารวิชาการตัวอย่าง ก', 'วารสารวิชาการตัวอย่าง ข', 'วารสารวิชาการตัวอย่าง ค', 'Example Journal of Science', 'วารสารสังคมศาสตร์ตัวอย่าง', 'Example Review of Education']
 const ORGS = ['มหาวิทยาลัยตัวอย่าง ก', 'มหาวิทยาลัยตัวอย่าง ข', 'มหาวิทยาลัยราชภัฏตัวอย่าง', 'สถาบันวิจัยตัวอย่าง']
 const STATUS_TH = { EMERGING: 'กำลังเกิดใหม่', WATCH: 'จับตา', HOT: 'กำลังมาแรง', DECLINING: 'ลดลง', STABLE: 'คงที่', LOW_DATA: 'ข้อมูลน้อย' }
@@ -269,8 +281,8 @@ function buildExample() {
           }
     return {
       schema_version: SCHEMA, id: t.id, articles,
-      journals: [0, 1, 2].map((k) => ({ key: JOURNALS[(n + k) % JOURNALS.length], count: 40 - 11 * k })),
-      institutions: [0, 1, 2].map((k) => ({ key: ORGS[(n + k) % ORGS.length], count: 25 - 7 * k })),
+      journals: [0.4, 0.25, 0.15].map((f, k) => ({ key: JOURNALS[(n + k) % JOURNALS.length], count: Math.max(1, Math.round(t.size * f)) })),
+      institutions: [0.3, 0.2, 0.1].map((f, k) => ({ key: ORGS[(n + k) % ORGS.length], count: Math.max(1, Math.round(t.size * f)) })),
       keywords: t.keywords, neighbors, narrative,
     }
   })
@@ -296,14 +308,14 @@ function buildExample() {
   const last = totals[totals.length - 1]
   const overview = {
     schema_version: SCHEMA, release: RELEASE, previous_release: PREVIOUS, generated_at: GENERATED_AT, definition_version: 3, last_complete_year: 2024,
-    kpis: { articles, assigned_articles: assigned, topics: topics.length, groups: groups.length, journals: 412, institutions: 187, pct_abstract_en: 74.2, pct_doi: 61.5, pct_keywords: 96.1 },
+    kpis: { articles, assigned_articles: assigned, topics: topics.length, groups: groups.length, journals: JOURNALS.length, institutions: 187, pct_abstract_en: 74.2, pct_doi: 61.5, pct_keywords: 96.1 },
     status_counts: statusCounts,
     corpus_by_year: YEARS.map((year, i) => ({ year, articles: totals[i] })),
     corpus_forecast: [{ year: 2025, articles: r1(last * 1.06) }, { year: 2026, articles: r1(last * 1.12) }],
     nowcast: { year: 2025, as_of_month: 9, ytd: Math.round(last * 0.71), mean: r1(last * 1.06) },
-    lineage_events: { continue: 45, new: 1, split: 1, merge: 1 },
-    retired_topics: ['T000999'],
-    data_quality: { year_missing: yearMissing, unassigned_articles: sum(other), completeness_method: 'median', text_quality: { thai_pua_repaired: 214, tone_marks_missing: 19, decode_replaced: 3 } },
+    lineage_events: topics.reduce((acc, t) => ({ ...acc, [t.lineage.event]: (acc[t.lineage.event] ?? 0) + 1 }), {}),
+    retired_topics: ['T000998', 'T000999'],
+    data_quality: { year_missing: yearMissing, unassigned_articles: sum(other) + yearMissing, completeness_method: 'median', text_quality: { thai_pua_repaired: 214, tone_marks_missing: 19, decode_replaced: 3 } },
     brief,
   }
   const previousOverview = {
@@ -481,14 +493,13 @@ function buildEditors(files, previousOverview) {
   files['diff.json'] = {
     schema_version: SCHEMA, release: RELEASE, previous_release: PREVIOUS, previous_source: 'state',
     kpis: KPI.map((key) => ({ key, previous: previousOverview.kpis[key], current: ov.kpis[key] })),
-    new_topics: [{ topic: 'T000701', event: 'new', parents: [] }, { topic: 'T000106', event: 'split', parents: ['T000105'] }, { topic: 'T000706', event: 'merge', parents: ['T000703', 'T000704'] }],
+    new_topics: [{ topic: 'T000706', event: 'merge', parents: ['T000703', 'T000704'] }],
     retired: [
       { topic: 'T000999', th: 'หนังสือพิมพ์รายวัน', en: 'Daily newspapers', merged_into: null },
       { topic: 'T000998', th: 'การศึกษาทางไกลยุคแรก', en: 'Early distance learning', merged_into: 'T000201' },
     ],
     restructured: [
       { topic: 'T000201', event: 'merge', parents: ['T000998'] },
-      { topic: 'T000105', event: 'split', parents: ['T000106'] },
     ],
     status_changes: Object.entries(prevStatus).map(([topic, previous]) => ({ topic, previous, current: byId.get(topic).status }))
       .sort((a, b) => STATUS_ORDER.indexOf(a.current) - STATUS_ORDER.indexOf(b.current) || a.topic.localeCompare(b.topic)),
@@ -630,7 +641,7 @@ function buildExecutives(files) {
     const ws = sum(w) / 0.8
     files[`institutions/${s.id}.json`] = {
       schema_version: SCHEMA, id: s.id,
-      years: YEARS.map((year, i) => ({ year, articles: Math.round((s.articles_total / 10) * (0.7 + 0.06 * i)) })),
+      years: instYears(s.articles_total, s.articles),
       topics: tl.map((topic, i) => ({ topic, count: Math.round((s.articles * w[i]) / ws), share: r4(w[i] / ws) })),
       partners: partnersOf(s.id), countries: (INST_COUNTRIES[s.id] ?? []).map(([c, n]) => named(c, n)), suggested: SUGGEST[s.id] ?? [],
     }

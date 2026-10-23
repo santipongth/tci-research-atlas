@@ -11,7 +11,7 @@ export const embed = defineStrings({
   'em.title': { th: 'หัวข้อที่กำลังเกิดใหม่และควรจับตา', en: 'Emerging and watch-list topics' },
   'em.sub': { th: '{n} หัวข้อแรก เรียงตามคะแนน', en: 'Top {n}, ordered by score' },
   'em.none': { th: 'รอบนี้ไม่มีหัวข้อที่กำลังเกิดใหม่หรือควรจับตา', en: 'No emerging or watch-list topics in this release.' },
-  'em.more': { th: 'ดูทั้งหมด {n} หัวข้อ', en: 'See all {n} topics' },
+  'em.more': { th: 'ดูหัวข้อทั้งหมดในเว็บ', en: 'See every topic on the site' },
 
   'snip.topic': { th: 'ฝังกราฟ', en: 'Embed this chart' },
   'snip.emerging': { th: 'ฝังรายการ', en: 'Embed this list' },

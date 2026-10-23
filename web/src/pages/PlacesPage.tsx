@@ -76,7 +76,7 @@ function Places({ release, regions, inst }: { release: AtlasRelease; regions: Re
       />
       <div className="dash">
         <KpiRow>
-          {inst ? <KpiCard icon="building" label={s('pl.k.inst')} value={fmtInt(inst.institutions.length)} /> : null}
+          {inst ? <KpiCard icon="building" label={s('pl.k.inst')} value={fmtInt(kpis.institutions ?? inst.institutions.length)} sub={s('pl.k.instSub', { n: fmtInt(inst.institutions.length), k: fmtInt(inst.min_articles) })} /> : null}
           {provincesWith !== null ? <KpiCard icon="places" label={s('pl.k.prov')} value={fmtInt(provincesWith)} /> : null}
           {inst?.pct_multi_institution != null ? <KpiCard icon="layers" label={s('pl.k.multi')} value={fmtPct(inst.pct_multi_institution, 1)} /> : null}
           {inst?.pct_international != null ? <KpiCard icon="goals" label={s('pl.k.intl')} value={fmtPct(inst.pct_international, 1)} /> : null}

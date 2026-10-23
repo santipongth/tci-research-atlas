@@ -119,7 +119,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
           <KpiCard icon="topics" label={t('tp.growth')} value={growthText(t, m)} sub={statusMeaning(t, topic.status)} />
           <KpiCard icon="layers" label={t('tp.share')} value={fmtShare(m.share_recent, 2)} sub={t('dash.years', { w: fmtWindow(w.R) })} />
           <KpiCard icon="articles" label={t('tp.articlesR', { w: fmtWindow(w.R) })} value={fmtInt(m.count_recent)} sub={counts.length ? t('tp.articlesSub', { n: fmtInt(total), a: years[0] }) : undefined} />
-          <KpiCard icon="building" label={t('col.orgs')} value={fmtInt(m.n_orgs_R)} sub={t('tp.kpiJournals', { n: fmtInt(m.n_journals_R) })} />
+          <KpiCard icon="building" label={t('tp.orgsR', { w: fmtWindow(w.R) })} value={fmtInt(m.n_orgs_R)} sub={t('tp.kpiJournals', { n: fmtInt(m.n_journals_R) })} />
         </KpiRow>
         <DashGrid>
           <Card
@@ -247,7 +247,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                   to: `/topics/${r.id}`,
                   name: name(r),
                   meta: <StatusChip status={r.status} label={statusName(t, r.status)} small />,
-                  value: r.metrics.share_growth != null ? <b className={r.metrics.share_growth < 0 ? 'rise-g is-down' : 'rise-g'}>{fmtSignedPct(r.metrics.share_growth, 0)}</b> : undefined,
+                  value: r.metrics.share_growth != null ? <b className={r.metrics.share_growth < 0 ? 'rise-g is-down' : 'rise-g'}>{fmtSignedPct(r.metrics.share_growth, 0)} {t('perYear')}</b> : undefined,
                 }))}
               />
             </Card>

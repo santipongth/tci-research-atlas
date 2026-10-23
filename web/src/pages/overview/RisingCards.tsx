@@ -60,7 +60,7 @@ export function MovesCard({ release, risers, move, onMove }: {
       span={4}
       title={t('ov.d.moves')}
       info={t('ov.d.movesInfo')}
-      action={<SeeAll to="/topics" label={t('dash.seeAll')} />}
+      action={<SeeAll to={move === 'down' ? '/topics?status=DECLINING' : '/topics'} label={t('dash.seeAll')} />}
     >
       <Segmented label={t('ov.d.movesSwitch')} value={move} onChange={onMove} options={[{ id: 'up', label: t('ov.d.up') }, { id: 'down', label: t('ov.d.down') }]} />
       {list.length ? (

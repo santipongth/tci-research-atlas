@@ -2,7 +2,7 @@ import { BarRank } from '../../charts/BarRank'
 import { rankBars } from '../../charts/infographic'
 import { Card, SeeAll, type Span } from '../../components/dashboard/Card'
 import { ProvinceMap } from '../../components/ProvinceMap'
-import { useReleaseFile } from '../../data/atlasContext'
+import { useRelease, useReleaseFile } from '../../data/atlasContext'
 import { MODULE_FILES } from '../../data/release'
 import type { InstitutionsFile, ProvinceStat, RegionsFile } from '../../data/types'
 import { instName } from '../../lib/executive'
@@ -75,9 +75,10 @@ function InstitutionsCard({ span }: { span: Span }) {
 /** Card: the six institutions with the most articles as a bar list (every bar has its number). */
 function Institutions({ file, span }: { file: InstitutionsFile; span: Span }) {
   const { t, lang } = useI18n()
+  const total = useRelease()?.overview.kpis.institutions ?? file.institutions.length
   const top = rankBars(file.institutions.map((i) => ({ key: instName(i, lang).text, id: i.id, count: i.articles })), 6)
   return (
-    <Card span={span} title={t('ov.d.inst')} info={t('ov.d.instSub', { n: fmtInt(file.institutions.length), a: file.window.start, b: file.window.end })} action={<SeeAll to="/places" label={t('dash.seeAll')} />}>
+    <Card span={span} title={t('ov.d.inst')} info={t('ov.d.instSub', { n: fmtInt(total), k: fmtInt(file.min_articles), a: file.window.start, b: file.window.end })} action={<SeeAll to="/places" label={t('dash.seeAll')} />}>
       <BarRank rows={top.rows} href={(r) => (r.id ? `/institutions/${r.id}` : null)} value={(r) => fmtInt(r.count)} label={t('ov.d.inst')} />
     </Card>
   )

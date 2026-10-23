@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router'
+import { Link, NavLink, useLocation } from 'react-router'
 import { Wordmark } from '../../brand/Wordmark'
 import { useI18n } from '../../lib/i18n'
 import type { StrKey } from '../../strings'
@@ -6,6 +6,8 @@ import { Icon, type IconName } from './Icon'
 
 interface Item {
   to: string
+  /** detail pages that belong to this item (it stays marked on them) */
+  also?: readonly string[]
   key: StrKey
   icon: IconName
 }
@@ -18,7 +20,7 @@ const SECTIONS: readonly { key: StrKey; items: readonly Item[] }[] = [
     items: [
       { to: '/overview', key: 'nav.overview', icon: 'overview' },
       { to: '/topics', key: 'nav.topics', icon: 'topics' },
-      { to: '/places', key: 'nav.places', icon: 'places' },
+      { to: '/places', key: 'nav.places', icon: 'places', also: ['/institutions/', '/province/'] },
       { to: '/journals', key: 'nav.journals', icon: 'journals' },
       { to: '/goals', key: 'nav.goals', icon: 'goals' },
     ],
@@ -39,6 +41,7 @@ const SECTIONS: readonly { key: StrKey; items: readonly Item[] }[] = [
 /** The sidebar's content: the TCI logo and the page list (the language switch is in the page bar). */
 export function SideNav({ withLogo = true }: { withLogo?: boolean }) {
   const { t, lang } = useI18n()
+  const { pathname } = useLocation()
   return (
     <div className="side-in">
       {withLogo ? (
@@ -53,7 +56,7 @@ export function SideNav({ withLogo = true }: { withLogo?: boolean }) {
             <ul aria-labelledby={`side-${s.key}`}>
               {s.items.map((i) => (
                 <li key={i.to}>
-                  <NavLink to={i.to} className="side-link">
+                  <NavLink to={i.to} className={({ isActive }) => (!isActive && i.also?.some((p) => pathname.startsWith(p)) ? 'side-link is-here' : 'side-link')}>
                     <Icon name={i.icon} />
                     <span>{t(i.key)}</span>
                   </NavLink>

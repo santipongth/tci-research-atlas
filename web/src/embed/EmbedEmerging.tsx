@@ -58,7 +58,7 @@ function EmergingWidget({ release }: { release: AtlasRelease }) {
           {all.length > rows.length ? (
             <p className="embed-more">
               <Link to={`/topics?lang=${lang}`} target="_blank" rel="noopener noreferrer">
-                {s('em.more', { n: fmtInt(all.length) })}
+                {s('em.more')}
                 <span className="sr-only"> {t('newTab')}</span>
               </Link>
             </p>

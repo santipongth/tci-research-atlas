@@ -16,7 +16,7 @@ export function statusMeaning(t: T, status: StatusId): string {
 }
 
 export function growthText(t: T, m: TopicMetrics): string {
-  return m.share_growth === null || m.share_growth === undefined ? DASH : `${fmtSignedPct(m.share_growth)} ${t('perYear')}`
+  return m.share_growth === null || m.share_growth === undefined ? DASH : `${fmtSignedPct(m.share_growth, 0)} ${t('perYear')}`
 }
 
 export function ciText(t: T, m: TopicMetrics, ciLevel: number): string | null {

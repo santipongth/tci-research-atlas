@@ -179,7 +179,7 @@ function SpecialIssueCard({ release, file }: { release: AtlasRelease; file: Jour
         topic: name(release.topicById.get(rows[0].topic) as Topic), h: fmtInt(rows[0].hosts),
         statuses: (file.special_issue_statuses ?? []).map((st) => statusName(t, st)).join(' / '),
         max: fmtInt(file.special_issue_max_hosts ?? 0), a: r.start, b: r.end,
-      })}
+      }) + ' ' + sj('jr.si.how', { min: fmtInt(file.special_issue_min_host_articles ?? 1) })}
     >
       <RankRows
         label={s('jr.si')}

@@ -112,11 +112,15 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   },
   goals: async (page) => {
     await expect(page.locator('h1')).toHaveText('เป้าหมายชาติและโลก')
-    await expect(page.locator('.gt-tile')).toHaveCount(10)                  // the SDGs with research; the 7 without are listed beside them
-    await expect(page.locator('.gt-tile.is-empty')).toHaveCount(0)
+    // every SDG is one row: 10 with research open to their topics; the 7 without are dashed rows with nothing to open
+    await expect(page.locator('.gb-row')).toHaveCount(17)
+    await expect(page.locator('.gb-row.is-empty')).toHaveCount(7)
+    await expect(page.locator('.gb-row.is-empty summary, .gb-row.is-empty a, .gb-row.is-empty button')).toHaveCount(0)
+    await page.locator('.gb-row:not(.is-empty) summary').first().click()
+    await expect(page.locator('.gb-topics a').first()).toBeVisible()
     await page.locator('.seg').getByRole('button').nth(1).click()
     await expect(page).toHaveURL(/fw=/)
-    await expect(page.locator('svg.oq')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'โลกโตเร็ว แต่ไทยยังทำน้อย' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'เรื่องที่พึ่งสถาบันหรือวารสารเดียว' })).toBeVisible()
   },
   topic: async (page) => {
