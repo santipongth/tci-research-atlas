@@ -752,15 +752,13 @@ test('the question navigation opens with the keyboard, closes with Escape and ma
   }
 })
 
-test('the footer leads to what next: cite opens the About page at its cite section', async ({ page }) => {
+test('the footer is the partner logos and the licence line; no next-steps block', async ({ page }) => {
   await page.goto(`${EXAMPLE}#/overview`)
   const footer = page.locator('footer')
-  await expect(footer.getByRole('link', { name: 'ดาวน์โหลดข้อมูล' })).toHaveAttribute('href', '#/data')
-  await expect(footer.getByRole('link', { name: 'รอบก่อนหน้า' })).toHaveAttribute('href', '#/changes')
-  await footer.getByRole('link', { name: 'อ้างอิง Atlas' }).click()
-  await expect(page).toHaveURL(/#\/about$/)
-  await expect(page.locator('#cite-h')).toBeFocused()
-  await expect(page.locator('#cite-h')).toBeInViewport()
+  await expect(footer.locator('.ftr-logos img')).toHaveCount(3)
+  await expect(footer.getByRole('heading')).toHaveCount(0)
+  await expect(footer.getByRole('link')).toHaveCount(0)
+  await expect(footer.locator('.licence')).toContainText('CC BY 4.0')
 })
 
 test('article search explains itself on a release without it and in the offline file', async ({ page }, info) => {

@@ -99,22 +99,13 @@
   /* a link that stands on its own line: its line box is the 24 px target */
   .go-link { display: inline-block; }
 
-  /* Footer: four plain next steps, the release line, the partner logos, one licence line. White with a hairline. */
-  .ftr { margin-top: var(--sp-section); border-top: 1px solid var(--border-2); padding-block: var(--sp-block) 32px; }
-  .ftr h2 { font-size: var(--fs-lead); font-weight: 700; }
-  .ftr-next { margin: 18px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 40px; }
-  .ftr-next li { display: grid; align-content: start; gap: 2px; }
-  .ftr-next a { display: inline-flex; align-items: center; min-height: 32px; font-weight: 700; font-size: var(--fs-body); text-decoration: none; }
-  .ftr-next a:hover { text-decoration: underline; }
-  .ftr-next span { color: var(--ink-2); font-size: var(--fs-meta); line-height: 1.55; }
-  .ftr-about { margin-top: var(--sp-block); display: grid; gap: 6px; max-width: var(--measure-body); font-size: var(--fs-meta); line-height: 1.7; color: var(--ink-2); }
-  .ftr .small { font-size: var(--fs-meta); color: var(--ink-2); }
-  .ftr-partners { margin-top: var(--sp-block); padding-top: 28px; border-top: 1px solid var(--border-2); display: flex; flex-wrap: wrap; align-items: center; gap: 20px 44px; }
-  .ftr-partners p { flex: 1 0 100%; font-size: var(--fs-meta); color: var(--ink-3); }
-  .ftr-partners img { display: block; height: 48px; width: auto; }
-  .licence { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 4px 24px; font-size: var(--fs-caption); line-height: 1.6; color: var(--ink-3); }
-  @media (max-width: 899px) { .ftr-next { grid-template-columns: 1fr 1fr; gap: 20px 28px; } }
-  @media (max-width: 480px) { .ftr-next { grid-template-columns: 1fr; gap: 14px; } .ftr-partners img { height: 38px; } }
+  /* Footer: who produces the Atlas — the partner logos centred — and one licence line, centred under them. */
+  .ftr { margin-top: var(--sp-section); border-top: 1px solid var(--border-2); padding-block: 40px 32px; text-align: center; }
+  .ftr-partners p { font-size: var(--fs-meta); color: var(--ink-3); }
+  .ftr-logos { margin-top: 16px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px 48px; }
+  .ftr-logos img { display: block; height: 52px; width: auto; }
+  .licence { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border-2); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 24px; font-size: var(--fs-caption); line-height: 1.6; color: var(--ink-3); }
+  @media (max-width: 480px) { .ftr-logos { gap: 16px 28px; } .ftr-logos img { height: 40px; } }
 
   .banner { margin-top: 16px; padding: 14px 18px; border-radius: var(--radius); background: var(--tag-HOT-bg); color: var(--tag-HOT-ink); }
   .banner h2 { font-size: var(--fs-body); }
