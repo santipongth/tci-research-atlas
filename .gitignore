@@ -51,3 +51,6 @@ web/test-results/
 .impeccable/questions/
 .impeccable/hook.cache.json
 deploy/
+.claude/worktrees/
+npmci.log
+web/.capture.mjs
