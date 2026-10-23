@@ -565,6 +565,17 @@ test('the grouped navigation opens with the keyboard, closes with Escape and mar
   await expect(page.locator('#nav-editors-menu')).toBeHidden()
 })
 
+test('the footer leads to what next: cite opens the About page at its cite section', async ({ page }) => {
+  await page.goto(`${EXAMPLE}#/overview`)
+  const footer = page.locator('footer')
+  await expect(footer.getByRole('link', { name: 'ดาวน์โหลดข้อมูล' })).toHaveAttribute('href', '#/data')
+  await expect(footer.getByRole('link', { name: 'รอบก่อนหน้า' })).toHaveAttribute('href', '#/changes')
+  await footer.getByRole('link', { name: 'อ้างอิง Atlas' }).click()
+  await expect(page).toHaveURL(/#\/about$/)
+  await expect(page.locator('#cite-h')).toBeFocused()
+  await expect(page.locator('#cite-h')).toBeInViewport()
+})
+
 test('article search explains itself on a release without it and in the offline file', async ({ page }, info) => {
   await page.goto(`${EMPTY}#/search`)
   await expect(page.locator('h1')).toHaveText('ค้นหาบทความ')

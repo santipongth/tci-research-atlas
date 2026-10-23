@@ -10,8 +10,8 @@
   .st-STABLE .st-mark, .mk-STABLE { fill: var(--st-STABLE); }
   .st-LOW_DATA .st-mark, .mk-LOW_DATA { fill: var(--bg); stroke: var(--st-LOW_DATA); stroke-width: 1.6; stroke-dasharray: 2.2 1.6; }
 
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 1px 6px; font-weight: 700; font-size: 0.875rem; line-height: 1.5; white-space: nowrap; }
-  .chip-sm { font-size: 0.8125rem; padding: 1px 6px 0 5px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 1px 6px; font-weight: 700; font-size: var(--fs-caption); line-height: 1.5; white-space: nowrap; }
+  .chip-sm { font-size: var(--fs-caption); padding: 1px 6px 0 5px; }
   .chip-EMERGING { background: var(--tag-EMERGING-bg); color: var(--tag-EMERGING-ink); }
   .chip-WATCH { background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
   .chip-HOT { background: var(--tag-HOT-bg); color: var(--tag-HOT-ink); }

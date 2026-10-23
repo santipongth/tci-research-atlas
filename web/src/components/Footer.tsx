@@ -2,15 +2,32 @@ import { Link } from 'react-router'
 import { BRAND } from '../brand/brand'
 import { useRelease } from '../data/atlasContext'
 import { useI18n } from '../lib/i18n'
+import type { StrKey } from '../strings'
+
+/** Four plain next steps. "Cite" opens /about and scrolls to its cite section (route state, never href="#id"). */
+const NEXT: readonly { to: string; state?: { section: string }; key: StrKey; hint: StrKey }[] = [
+  { to: '/about', state: { section: 'cite' }, key: 'footer.cite', hint: 'footer.citeHint' },
+  { to: '/data', key: 'footer.download', hint: 'footer.downloadHint' },
+  { to: '/changes', key: 'footer.prev', hint: 'footer.prevHint' },
+  { to: '/about', key: 'footer.read', hint: 'footer.readHint' },
+]
 
 export function Footer() {
   const { t } = useI18n()
   const release = useRelease()
   return (
     <footer className="ftr">
-      <div className="container ftr-grid">
-        <div>
-          <h2>{t('footer.aboutH')}</h2>
+      <div className="container">
+        <h2>{t('footer.nextH')}</h2>
+        <ul className="ftr-next">
+          {NEXT.map((n) => (
+            <li key={n.key}>
+              <Link to={n.to} state={n.state}>{t(n.key)}</Link>
+              <span>{t(n.hint)}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="ftr-about">
           <p>{t('footer.about')}</p>
           {release ? (
             <p className="small">
@@ -18,18 +35,13 @@ export function Footer() {
             </p>
           ) : null}
         </div>
-        <div>
-          <h2>{t('footer.moreH')}</h2>
-          <ul>
-            <li><Link to="/about">{t('nav.about')}</Link></li>
-            <li><Link to="/data">{t('nav.data')}</Link></li>
-          </ul>
-        </div>
       </div>
-      <div className="container licence">
-        <span>{t('footer.licence')}</span>
-        <span>{t('footer.privacy')}</span>
-        {BRAND.temporary ? <span>{t('wordmarkNote')}</span> : null}
+      <div className="container">
+        <div className="licence">
+          <span>{t('footer.licence')}</span>
+          <span>{t('footer.privacy')}</span>
+          {BRAND.temporary ? <span>{t('wordmarkNote')}</span> : null}
+        </div>
       </div>
     </footer>
   )

@@ -51,3 +51,38 @@ test.describe('360 px', () => {
     await page.locator('.sheet').screenshot({ path: 'test-results/atlas-360.png' })
   })
 })
+
+test.describe('390 × 844 phone chrome', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('the overview h1 starts high, and one menu button opens and closes the whole navigation', async ({ page }) => {
+    await page.goto(`${EXAMPLE}#/overview`)
+    await page.evaluate(() => document.fonts.ready)
+    const h1 = page.locator('h1').first()
+    await expect(h1).toBeVisible()
+    expect((await h1.boundingBox())!.y).toBeLessThan(300)
+    await expect(page.locator('.phase-tag.is-sample')).toBeVisible()
+    await expect(page.locator('.toc-d')).not.toHaveAttribute('open')
+
+    const nav = page.locator('#site-nav')
+    const menu = page.getByRole('button', { name: 'เมนู', exact: true })
+    await expect(nav).toBeHidden()
+    await expect(menu).toHaveAttribute('aria-expanded', 'false')
+    await expect(menu).toHaveAttribute('aria-controls', 'site-nav')
+    await menu.click()
+    await expect(menu).toHaveAttribute('aria-expanded', 'true')
+    await expect(nav.getByRole('combobox', { name: 'ค้นหาหัวข้อวิจัย' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'วารสาร', exact: true })).toBeVisible()
+    await expect(nav.getByRole('button', { name: 'English' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveAttribute('aria-expanded', 'false')
+    await expect(menu).toBeFocused()
+    await expect(nav).toBeHidden()
+
+    await menu.click()
+    await nav.getByRole('link', { name: 'วารสาร', exact: true }).click()
+    await expect(page).toHaveURL(/#\/journals$/)
+    await expect(nav).toBeHidden()
+    await expect(menu).toHaveAttribute('aria-expanded', 'false')
+  })
+})

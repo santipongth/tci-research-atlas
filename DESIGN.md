@@ -57,21 +57,21 @@ colors:
   series-3-dark: "#199e70"
   series-4-dark: "#c98500"
 typography:
-  display:
+  h1:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
-    fontSize: "clamp(2rem, 1.4rem + 2.2vw, 3rem)"
+    fontSize: "clamp(2rem, 1.25rem + 2.4vw, 2.875rem)"
     fontWeight: 700
     lineHeight: 1.5
-  headline:
+  h2:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
-    fontSize: "clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem)"
+    fontSize: "clamp(1.5rem, 1.25rem + 0.9vw, 1.875rem)"
     fontWeight: 600
     lineHeight: 1.5
-  title:
+  lead:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
-    fontSize: "clamp(1.5rem, 1.2rem + 1vw, 2.25rem)"
-    fontWeight: 700
-    lineHeight: 1.5
+    fontSize: "clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem)"
+    fontWeight: 400
+    lineHeight: 1.6
   body:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
     fontSize: "1.1875rem"
@@ -79,19 +79,30 @@ typography:
     lineHeight: 1.65
   body-phone:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
-    fontSize: "1rem"
+    fontSize: "1.0625rem"
     fontWeight: 400
     lineHeight: 1.65
-  label:
+  meta:
+    fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 400
+    lineHeight: 1.5
+  caption:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: 1.5
-  numeric:
+  numeric-tile:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
-    fontSize: "clamp(1.75rem, 1.4rem + 1vw, 2.375rem)"
+    fontSize: "clamp(2rem, 1.5rem + 1.2vw, 2.5rem)"
     fontWeight: 700
-    lineHeight: 1.25
+    lineHeight: 1.5
+    fontFeature: "tnum"
+  numeric-hero:
+    fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
+    fontSize: "clamp(2.5rem, 1.6rem + 2.6vw, 3.5rem)"
+    fontWeight: 700
+    lineHeight: 1.5
     fontFeature: "tnum"
 rounded:
   none: "0px"
@@ -100,9 +111,12 @@ spacing:
   xs: "4px"
   sm: "8px"
   md: "16px"
-  lg: "24px"
-  xl: "40px"
-  xxl: "64px"
+  group: "24px"
+  block: "40px"
+  section: "64px"
+  group-phone: "16px"
+  block-phone: "28px"
+  section-phone: "44px"
 components:
   header-band:
     backgroundColor: "{colors.civic-blue}"
@@ -164,7 +178,7 @@ The Atlas reads like a statistics release from a national public body: a civic-b
 Density is moderate and calm. Numbers are large and tabular, prose is short, and uncertainty is always visible (intervals, "แนวโน้มไม่แน่นอน", "ข้อมูลน้อย"). Thai and English are equal citizens; Thai sets the rhythm (Sarabun, generous line height, no italics).
 
 **Key Characteristics:**
-- Civic structure: header band, phase banner, page title + release metadata, "ในหน้านี้" rail, numbered figures/tables with source lines.
+- Civic structure: header band, one compact notice line, page title + release metadata, "ในหน้านี้" rail, numbered figures/tables with source lines, a "what next" footer.
 - Every chart has a Chart/Table tab; tables sort and become label/value cards on phones.
 - Status is always glyph + colour + label (▲ ◆ ● ▼ ■ and a dashed ring).
 - Flat, square-cornered surfaces; depth only for floating layers.
@@ -212,12 +226,18 @@ series-1…4 = #2a78d6, #eb6834, #1baf7a, #eda100 (dark #3987e5, #d95926, #199e7
 **Character:** Sarabun descends from TH Sarabun, the standard face of Thai government documents — familiar, plain and legible in both scripts; one family keeps the release sober.
 
 ### Hierarchy
-- **Display** (700, clamp(2rem, 1.4rem + 2.2vw, 3rem), 1.5): the page `h1`, max 34ch.
-- **Headline** (600, clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem), 1.5): the Overview headline sentence only, max 30ch.
-- **Title** (700, clamp(1.5rem, 1.2rem + 1vw, 2.25rem), 1.5): section `h2`.
-- **Body** (400, 19 px ≥ 641 px wide / 16 px on phones, 1.65): prose, max 40em.
-- **Label** (600, 0.875–1rem, 1.5): table headers, tab labels, chip text, KPI labels.
-- **Numeric** (700, clamp(1.75rem, 1.4rem + 1vw, 2.375rem), 1.25, tabular figures): KPI values and finding stats.
+Six text steps and two numeric display steps — nothing else. Tokens live in `web/src/styles/tokens.css` (`--fs-*`); components never set a raw size.
+- **h1** (700, `--fs-h1` clamp 32 → 46 px): the page `h1`, max 34ch.
+- **h2** (600, `--fs-h2` clamp 24 → 30 px): section headings.
+- **Lead / h3** (400–700, `--fs-lead` clamp 20 → 24 px): the lede under the h1 (max 32em), h3, footer headings.
+- **Body** (400, `--fs-body` 19 px; 17 px under 641 px, 1.65): prose, figure titles, table captions, max 38em.
+- **Meta** (400–700, `--fs-meta` 16 px): secondary text, source lines, table cells, buttons, notes, the notice line. The floor for anything that carries meaning on its own.
+- **Caption** (600–700, `--fs-caption` 14 px): chips and tags, tab counts, CI ranges under a value, field sub-names, stacked-table labels, the licence line. Never smaller.
+- **Numeric tile** (700, `--fs-tile` clamp 32 → 40 px, tabular): KPI values, status counts, and the Overview headline sentence (24 px on phones).
+- **Numeric hero** (700, `--fs-hero` clamp 40 → 56 px, tabular): at most one hero number per page.
+- SVG axis ticks use `--fs-tick` (13 px); chart labels whose layout is measured in code keep their sizes until the chart pass.
+
+Line height: Thai body 1.65, Thai headings ≥ 1.45 (1.5 by default); English headings close up to 1.3 through `:lang(en)` (the stylesheet test allows < 1.5 only for English-only rules). Highlighted figures and topic names in the headline sentence are atomic (`display: inline-block`): the sentence wraps between them, never inside one, unless a single name is longer than a line.
 
 ### Named Rules
 **The Upright Thai Rule.** Thai has no true italic: `em`, `i`, `cite`, `dfn`, `var`, `address` render upright; emphasis is weight 600/700. No letter-spacing and no case transforms on Thai — English-only caps use `[lang="en"]`.
@@ -225,7 +245,11 @@ series-1…4 = #2a78d6, #eb6834, #1baf7a, #eda100 (dark #3987e5, #d95926, #199e7
 
 ## Layout
 
-A 1200 px max container with 16 px gutters on phones and 30 px from 900 px. Reading pages use a two-thirds column plus a 240 px "ในหน้านี้" rail (rail moves above the content under 900 px). `/atlas` uses the full container: map sheet plus a 320 px side column (key, layers, selection) from 1100 px, stacked below on smaller screens. Breakpoints: 640 (phone ↔ tablet; tables stack into label/value cards), 900, 1100. Spacing rhythm 4/8/16/24/40/64; sections are separated by 40 px; the footer starts 64 px below content. No horizontal page scroll at 360 px.
+A 1200 px max container with 16 px gutters on phones and 30 px from 900 px. Reading pages use a two-thirds column plus a 240 px "ในหน้านี้" rail; under 900 px the rail moves above the content and "ในหน้านี้" folds into one closed disclosure row (44 px). `/atlas` uses the full container: map sheet plus a 320 px side column (key, layers, selection) from 1100 px, stacked below on smaller screens. Breakpoints: 640 (phone ↔ tablet; tables stack into label/value cards; body 17 px), 900 (navigation folds into the menu; rail above content), 1100.
+
+**Rhythm** (`--sp-*`): group 24 px (heading to content, related blocks) · block 40 px (figures and sub-blocks; the page header's top) · section 64 px (between sections; above the footer). Phones: 16 / 28 / 44. Section `h2`s have 8 px below them and a full section step above. **Measure** (`--measure-*`): lede 32em, body 38em (about 60–75 characters a line at 1440 px), headline 30ch. No horizontal page scroll at 360 px.
+
+**Targets:** every control is 44 px; standalone links (list items, table links, DOI and journal links, search result titles, footer links) get at least 24 px from their own line box (`inline-block` / `min-height`), never by shrinking text. Links inside a sentence are exempt.
 
 ## Elevation & Depth
 
@@ -241,7 +265,10 @@ Square corners everywhere (0 px): buttons, tabs, chips, panels, inputs. The only
 ## Components
 
 ### Header band and navigation
-Civic Blue band: the wordmark (temporary "TCI" box + name + Thai subtitle; the official logo swaps in at `web/src/brand/brand.ts`), language switch (two pressed-state buttons) and theme toggle (44 px, 2 px white outline). Below it, a white navigation row of text links (current page: 4 px Link Blue underline, `aria-current="page"`) and the topic search. A phase banner ("รุ่นทดลอง") and, for test releases, a "ข้อมูลตัวอย่าง" tag follow.
+Civic Blue band: the wordmark (temporary "TCI" box + name + Thai subtitle; the official logo swaps in at `web/src/brand/brand.ts`), language switch (two pressed-state buttons) and theme toggle (44 px, 2 px white outline). From 900 px, a white navigation row follows: text links (current page: 4 px Link Blue underline, `aria-current="page"`), the three persona disclosure groups, and the topic search. Under 900 px the band holds only the wordmark (subtitle hidden under 421 px) and one **"เมนู / Menu"** button (same outline language; filled while open; drawn three-line / cross icon) with `aria-expanded` + `aria-controls="site-nav"`. It opens the navigation in flow below the band (no overlay, no scroll lock): the topic search first, then every page as a 44 px row — the persona groups become labelled lists (no nested disclosures) — then the language and theme buttons in ink. Escape closes it and returns focus to the button; choosing a page closes it.
+
+### Notice line
+One compact line under the navigation (a `<details>`): the Civic Blue "รุ่นทดลอง" tag, the WATCH-tinted "ข้อมูลตัวอย่าง" tag on test releases (visible on every page), one short sentence and a "รายละเอียด" toggle; the full beta and sample-data texts open beneath with a 4 px rule. The data error banner (`role="alert"`) is separate and never folded.
 
 ### Buttons
 - **Shape:** square, 44 px tall.
@@ -265,16 +292,19 @@ Title "แผนภูมิ n: …", legend (glyph + label), the chart, then "�
 2 px Ink border, square, 44 px; focus = 3 px yellow outline + inset ink ring. The topic search is an ARIA combobox with a floating listbox (shadow) showing glyph, name and the other-language name.
 
 ### Banners and notices
-Phase banner: Civic Blue tag + text. Error banner (`role="alert"`): 4 px left rule in HOT ink on Paper Tint, a bold reason and what to do. Uncertain box ("แนวโน้มไม่แน่นอน"): 4 px left Rule on Paper Tint. WATCH inset: 2 px WATCH border on the WATCH tag background.
+Notice line: see above. Error banner (`role="alert"`): 4 px left rule in HOT ink on Paper Tint, a bold reason and what to do. Uncertain box ("แนวโน้มไม่แน่นอน"): 4 px left Rule on Paper Tint. WATCH inset: 2 px WATCH border on the WATCH tag background.
 
 ### Editors' pages (P2)
 Share bars: 64 × 8 px, `--ink-2` fill on `--surface` with a 1 px inset rule, the number always printed next to the bar (the bar never carries the value alone). Text marks (`.flag`): 1 px ink border, no fill, bold small text: "อนุมาน / inferred", "สูงกว่าเกณฑ์ / above the bar", "วิธีกระจุก / narrow methods" — never colour alone. Journal name rule: registry name; else the other language's name with `lang`; else the OJS name followed by "ยังไม่มีชื่อเต็มในทะเบียนวารสาร". Paste box (`/match`): the privacy note first, set on a Paper Tint strip with the brand rule, one labelled 12 rem textarea, primary + secondary buttons, and the results heading takes focus after a search. A page whose module is not in the release, or was left out of the offline file, shows its h1 and an empty state saying why (never a white page, never `role="alert"`).
 
 ### Executives' pages (P3)
-Grouped navigation: three disclosure buttons (สำหรับผู้บริหาร / บรรณาธิการ / นักวิจัย) between the top-level links — a disclosure pattern, not an ARIA menu. Buttons and menu items are 44 px high; the group holding the current page carries the 4 px link-blue underline (inside the menu, the current item an inset 4 px rule); Enter or Space toggles, Escape closes and returns focus to the button, leaving the group or choosing a page closes it; at 360 px the menu spans the gutters. Sequential ramp `--seq-1…--seq-5` (one blue hue; light and dark values in tokens.css) for the province choropleth: 5 quantile classes, "no data" is `--surface` (never a ramp step), province strokes are `--bg`. Choropleth rule: the table view is complete and the map never carries a number alone — a legend with the range of every class, a title (hover) naming province and value, and chart ⇄ table tabs like every figure; the measure switch (articles / per 100,000 people) is a radio group. `.flag-on` marks a concentrated unit: 2 px ink border, bold small text "กระจุกตัว / Concentrated" beside the share bar. Possible partners (R6) are worded as a suggestion from the data — similarity and shared topics shown, never a ranking and never an endorsement; signals on /gaps are questions to explore, not verdicts.
+Grouped navigation (from 900 px): three disclosure buttons (สำหรับผู้บริหาร / บรรณาธิการ / นักวิจัย) between the top-level links — a disclosure pattern, not an ARIA menu. Buttons and menu items are 44 px high; the group holding the current page carries the 4 px link-blue underline (inside the menu, the current item an inset 4 px rule); Enter or Space toggles, Escape closes and returns focus to the button, leaving the group or choosing a page closes it. Under 900 px the same groups are labelled lists inside the phone menu. Sequential ramp `--seq-1…--seq-5` (one blue hue; light and dark values in tokens.css) for the province choropleth: 5 quantile classes, "no data" is `--surface` (never a ramp step), province strokes are `--bg`. Choropleth rule: the table view is complete and the map never carries a number alone — a legend with the range of every class, a title (hover) naming province and value, and chart ⇄ table tabs like every figure; the measure switch (articles / per 100,000 people) is a radio group. `.flag-on` marks a concentrated unit: 2 px ink border, bold small text "กระจุกตัว / Concentrated" beside the share bar. Possible partners (R6) are worded as a suggestion from the data — similarity and shared topics shown, never a ranking and never an endorsement; signals on /gaps are questions to explore, not verdicts.
+
+### Footer ("what next")
+Paper Tint band, a section step below the content. "ทำอะไรต่อ / What next" (Lead) over four next steps in a row (2 columns under 900 px, 1 under 481 px), each a 2 px ink top rule, a bold Body link and one Meta hint: อ้างอิง Atlas (opens `/about` and scrolls to its cite section through route state — never `href="#id"`), ดาวน์โหลดข้อมูล (`/data`), รอบก่อนหน้า (`/changes`), อ่านตัวเลขอย่างไร (`/about`). Then the one-sentence description of the data with the release line, and one Caption licence line: CC BY 4.0 · ไม่จัดอันดับบุคคล (PDPA) · the temporary-wordmark note.
 
 ### Headline sentence (signature, Overview only)
-The release's brief headline in Headline type, figures and topic names under the turmeric lower-half band (topic names are links), followed by a small note that the sentence was generated automatically from the system's figures (template or AI, numbers checked).
+The release's brief headline at the Numeric-tile size (600; 24 px on phones), figures and topic names under the turmeric lower-half band (topic names are links), followed by a small note that the sentence was generated automatically from the system's figures (template or AI, numbers checked).
 
 ### CI forest plot (signature, Overview and /emerging)
 One row per topic: name (+ field) | whisker on a shared axis | value. The whisker is the interval at `manifest.ci_level`, capped (arrow when clipped), with the status glyph at the estimate; a dashed vertical line marks the +10 %/yr EMERGING bar and a solid line marks zero. Grouped by status with each group's rule in one sentence.
@@ -287,7 +317,7 @@ Canvas terrain on the map sheet: field tints by density, contour brown lines (ev
 ### Do:
 - **Do** pair every chart with a table tab, a numbered caption and a "ที่มา:" source line.
 - **Do** show uncertainty: intervals at `manifest.ci_level`, "แนวโน้มไม่แน่นอน" when a forecast is not shown, "ใหม่ — ไม่มีในช่วงฐาน" when the baseline window had no articles.
-- **Do** keep body line-height at 1.65 and text measure ≤ 40em.
+- **Do** keep body line-height at 1.65 and text measure ≤ 38em; set sizes only from the `--fs-*` steps and spacing from `--sp-*`.
 - **Do** read colours from tokens and group colours from `cat-NN` keys.
 - **Do** keep 44 px controls and the yellow focus treatment on every interactive element.
 

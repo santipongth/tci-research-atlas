@@ -1,17 +1,17 @@
 /* Topic page: title block, key-figure list, trend chart, keyword list, article list, related list. */
 @layer components {
-  .tp-alt { margin-top: 6px; color: var(--ink-2); font-size: 1.0625rem; }
-  .tp-tags { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 0.9375rem; }
+  .tp-alt { margin-top: 6px; color: var(--ink-2); font-size: var(--fs-body); }
+  .tp-tags { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: var(--fs-meta); }
   .tp-sub { color: var(--ink-2); }
-  .tp-badge { display: inline-block; padding: 1px 8px; border: 1px solid var(--ink); font-weight: 600; font-size: 0.875rem; }
-  .tp-lineage { margin-top: 10px; font-size: 0.9375rem; color: var(--ink-2); }
-  .tp-narr { font-size: 1.0625rem; line-height: 1.75; max-width: 42em; }
+  .tp-badge { display: inline-block; padding: 1px 8px; border: 1px solid var(--ink); font-weight: 600; font-size: var(--fs-caption); }
+  .tp-lineage { margin-top: 10px; font-size: var(--fs-meta); color: var(--ink-2); }
+  .tp-narr { font-size: var(--fs-body); line-height: 1.75; max-width: var(--measure-body); }
 
-  .summary { margin: 14px 0 0; border-top: 1px solid var(--border-2); font-size: 1rem; }
+  .summary { margin: 14px 0 0; border-top: 1px solid var(--border-2); font-size: var(--fs-meta); }
   .summary > div { display: grid; grid-template-columns: minmax(0, 13rem) minmax(0, 1fr); gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid var(--border-2); }
   .summary dt { font-weight: 700; line-height: 1.5; }
   .summary dd { margin: 0; line-height: 1.55; font-variant-numeric: tabular-nums; }
-  .summary dd small { display: block; color: var(--ink-2); font-size: 0.875rem; }
+  .summary dd small { display: block; color: var(--ink-2); font-size: var(--fs-meta); }
   .summary .whisker { margin-top: 6px; }
   @media (max-width: 480px) { .summary > div { grid-template-columns: 1fr; } }
 
@@ -20,12 +20,12 @@
   .tr text { font-family: var(--font); }
   .tr-gl { stroke: var(--border-2); stroke-width: 1; }
   .tr-base { stroke: var(--ink); stroke-width: 1; }
-  .tr-tick { font-size: 12.5px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .tr-tick { font-size: var(--fs-tick); fill: var(--ink-2); font-variant-numeric: tabular-nums; }
   .tr-area { fill: var(--link); opacity: 0.08; }
   .tr-line { fill: none; stroke: var(--link); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
   .tr-end { fill: var(--link); stroke: var(--bg); stroke-width: 2; }
   .tr-fzone { fill: var(--surface); }
-  .tr-flabel { font-size: 12.5px; fill: var(--ink-2); font-weight: 600; }
+  .tr-flabel { font-size: var(--fs-tick); fill: var(--ink-2); font-weight: 600; }
   .tr-band95 { fill: var(--link); opacity: 0.1; }
   .tr-band { fill: var(--link); opacity: 0.22; }
   .tr-fline { fill: none; stroke: var(--link); stroke-width: 3; stroke-dasharray: 6 4; }
@@ -39,10 +39,13 @@
   .lg-band { display: inline-block; width: 22px; height: 10px; background: var(--link); opacity: 0.22; }
 
   .kw-list { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
-  .kw-list li { padding: 2px 10px; border: 1px solid var(--border); font-size: 0.9375rem; }
+  .kw-list li { padding: 2px 10px; border: 1px solid var(--border); font-size: var(--fs-meta); }
   .articles { margin: 14px 0 0; padding-left: 1.4em; display: grid; gap: 12px; }
   .articles a { font-weight: 600; }
-  .art-alt { display: block; font-size: 0.9375rem; color: var(--ink-2); }
-  .art-meta { display: block; font-size: 0.875rem; color: var(--ink-2); }
+  /* standalone list links get a 24 px target from their line box, not from smaller text */
+  .articles > li > a { display: inline-block; }
+  .art-meta a, .summary dd a { display: inline-block; min-height: 24px; overflow-wrap: anywhere; }
+  .art-alt { display: block; font-size: var(--fs-meta); color: var(--ink-2); }
+  .art-meta { display: block; font-size: var(--fs-meta); color: var(--ink-2); }
   .related { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 }

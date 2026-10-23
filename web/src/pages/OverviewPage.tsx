@@ -67,7 +67,7 @@ function Overview({ release }: { release: AtlasRelease }) {
           <Section id="kpi" title={t('ov.kpi.h')} intro={kpiIntro}>
             <KpiGrid release={release} />
             {hasModule(release, 'diff') && ov.previous_release ? (
-              <p className="mt-2"><Link to="/changes">{t('ov.changes', { prev: ov.previous_release })}</Link></p>
+              <p className="mt-2"><Link className="go-link" to="/changes">{t('ov.changes', { prev: ov.previous_release })}</Link></p>
             ) : null}
           </Section>
           {bullets.length ? (

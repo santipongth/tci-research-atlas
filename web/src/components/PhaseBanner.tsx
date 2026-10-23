@@ -1,21 +1,30 @@
 import { useRelease } from '../data/atlasContext'
 import { useI18n } from '../lib/i18n'
 
+/** One compact notice line under the navigation: the beta tag, the sample-data tag (test releases) and a short
+ * sentence; the full beta and sample-data texts open under "รายละเอียด". The sample tag stays visible on every page. */
 export function PhaseBanner() {
   const { t } = useI18n()
-  const release = useRelease()
+  const sample = useRelease()?.sample === true
   return (
     <div className="phase">
-      <div className="container phase-row">
-        <strong className="phase-tag">{t('phase.tag')}</strong>
-        <span>{t('phase.text')}</span>
-        {release?.sample ? (
-          <>
-            <strong className="phase-tag is-sample">{t('sample.tag')}</strong>
-            <span>{t('sample.text')}</span>
-          </>
-        ) : null}
-      </div>
+      <details className="container notice">
+        <summary>
+          <strong className="phase-tag">{t('phase.tag')}</strong>
+          {sample ? <strong className="phase-tag is-sample">{t('sample.tag')}</strong> : null}
+          <span>{t(sample ? 'notice.shortSample' : 'notice.short')}</span>
+          <span className="notice-more">
+            {t('notice.more')}
+            <svg viewBox="0 0 10 6" aria-hidden="true" focusable="false">
+              <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            </svg>
+          </span>
+        </summary>
+        <div className="notice-body">
+          <p>{t('phase.text')}</p>
+          {sample ? <p>{t('sample.text')}</p> : null}
+        </div>
+      </details>
     </div>
   )
 }

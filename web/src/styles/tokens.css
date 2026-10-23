@@ -210,3 +210,35 @@
   --seq-4: #4f8fd6;
   --seq-5: #a6caf3;
 }
+
+/* Type, rhythm and measure (theme-independent; kept out of the colour blocks above).
+   Six text steps + two numeric display steps. Nothing that carries meaning is set under --fs-caption;
+   SVG axis ticks use --fs-tick. Phone values come from the clamps and the 640 px override below. */
+:root {
+  --fs-caption: 0.875rem;                                  /* 14: chips, tags, counts, CI ranges, stacked-table labels */
+  --fs-meta: 1rem;                                         /* 16: secondary text, source lines, table cells, nav, buttons */
+  --fs-body: 1.1875rem;                                    /* 19 (17 on phones): prose */
+  --fs-lead: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);       /* 20 → 24: lede, h3, card titles */
+  --fs-h2: clamp(1.5rem, 1.25rem + 0.9vw, 1.875rem);       /* 24 → 30, weight 600 */
+  --fs-h1: clamp(2rem, 1.25rem + 2.4vw, 2.875rem);         /* 32 → 46 */
+  --fs-tile: clamp(2rem, 1.5rem + 1.2vw, 2.5rem);          /* 32 → 40: KPI values, the headline sentence */
+  --fs-hero: clamp(2.5rem, 1.6rem + 2.6vw, 3.5rem);        /* 40 → 56: one hero number per page */
+  --fs-tick: 13px;                                         /* SVG axis ticks only */
+
+  --sp-group: 24px;                                        /* heading → its content, between related blocks */
+  --sp-block: 40px;                                        /* between figures and sub-blocks of a section */
+  --sp-section: 64px;                                      /* between sections; above the footer */
+
+  --measure-lede: 32em;
+  --measure-body: 38em;
+  --measure-head: 30ch;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --fs-body: 1.0625rem;
+    --sp-group: 16px;
+    --sp-block: 28px;
+    --sp-section: 44px;
+  }
+}

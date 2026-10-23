@@ -1,18 +1,18 @@
 /* /brief on screen, and print rules for the whole site (the PDF brief, printed pages). */
 @layer components {
   .brief { max-width: 900px; margin-inline: auto; padding: 28px 24px 40px; }
-  .brief h1 { font-size: 1.75rem; line-height: 1.5; margin-top: 18px; }
-  .brief h2 { font-size: 1.1875rem; margin-top: 22px; }
+  .brief h1 { font-size: var(--fs-h2); margin-top: 18px; }
+  .brief h2 { font-size: var(--fs-body); margin-top: 22px; }
   .brief-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding: 12px 16px; background: var(--brand); color: var(--brand-ink); border-bottom: 6px solid var(--link); }
-  .brief-meta { font-size: 0.875rem; color: var(--brand-ink-2); }
-  .brief-headline { margin-top: 14px; font-size: 1.5rem; max-width: none; }
+  .brief-meta { font-size: var(--fs-caption); color: var(--brand-ink-2); }
+  .brief-headline { margin-top: 14px; font-size: var(--fs-lead); max-width: none; }
   .brief-sample { margin-top: 10px; padding: 8px 12px; border: 2px solid var(--st-WATCH); background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
-  .brief-t { margin-top: 10px; font-size: 0.9375rem; }
+  .brief-t { margin-top: 10px; font-size: var(--fs-meta); }
   .brief-t caption { text-align: left; }
   .brief-points { margin: 8px 0 0; padding-left: 1.2em; display: grid; gap: 6px; }
-  .brief-counts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 0.9375rem; }
+  .brief-counts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: var(--fs-meta); }
   .brief-counts span { display: inline-flex; align-items: center; gap: 4px; }
-  .brief-foot { margin-top: 24px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 0.8125rem; color: var(--ink-2); display: grid; gap: 4px; }
+  .brief-foot { margin-top: 24px; padding-top: 10px; border-top: 1px solid var(--border); font-size: var(--fs-caption); color: var(--ink-2); display: grid; gap: 4px; }
 }
 
 @media print {

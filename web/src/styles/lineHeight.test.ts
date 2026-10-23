@@ -8,6 +8,9 @@ const DIR = fileURLToPath(new URL('.', import.meta.url))
 const DISPLAY_HEADINGS = ['.page-h h1']
 const MIN = 1.5
 const MIN_DISPLAY = 1.45
+/** Latin has no stacked marks: rules scoped to English (`:lang(en)`) may close headings up to 1.3. */
+const MIN_EN = 1.25
+const isEnglishOnly = (selector: string) => selector.split(',').every((s) => s.includes(':lang(en)'))
 
 interface Hit {
   file: string
@@ -34,8 +37,10 @@ describe('line-height in the stylesheets', () => {
     expect(hits.length).toBeGreaterThan(5)
   })
 
-  it('never goes below 1.45, and below 1.5 only for display headings', () => {
-    const bad = hits.filter((h) => h.value < MIN_DISPLAY || (h.value < MIN && !DISPLAY_HEADINGS.some((d) => h.selector.endsWith(d))))
+  it('never goes below 1.45, and below 1.5 only for display headings (English-only rules: 1.25)', () => {
+    const bad = hits.filter((h) =>
+      isEnglishOnly(h.selector) ? h.value < MIN_EN : h.value < MIN_DISPLAY || (h.value < MIN && !DISPLAY_HEADINGS.some((d) => h.selector.endsWith(d))),
+    )
     expect(bad.map((h) => `${h.file}: ${h.selector} { line-height: ${h.value} }`)).toEqual([])
   })
 })
