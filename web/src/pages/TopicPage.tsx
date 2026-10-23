@@ -286,7 +286,8 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
           ) : null}
 
           <Section id="numbers" title={t('tp.numbers.h')}>
-            {m.journal_driven || topic.status === 'WATCH' ? (
+            {/* only WATCH: journal_driven is also true for a LOW_DATA topic that grew from few journals */}
+            {topic.status === 'WATCH' ? (
               <div className="inset">
                 <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
                 <p>{t('journalDrivenBody', ruleVars(level))}</p>

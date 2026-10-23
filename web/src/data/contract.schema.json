@@ -2658,7 +2658,7 @@
             }
           ],
           "default": null,
-          "description": "files that could not be read or parsed; null = not recorded (work_dir from before per-file error recording)",
+          "description": "files (Markdown) or lines (corpus format 1.0) that could not be read or parsed; null = not recorded (work_dir from before per-file error recording)",
           "title": "Ingest Errors"
         },
         "labels": {

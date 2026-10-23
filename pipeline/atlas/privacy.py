@@ -2,7 +2,8 @@
 
 `atlas validate` / `atlas publish` call `scan_release` on the real release (the unit tests only ever saw synthetic
 data). Three checks:
-  1. e-mail addresses and ORCID iDs anywhere in the release files (JSON, search shards, feeds);
+  1. e-mail addresses and ORCID iDs anywhere in the release folder (JSON incl. search shards; the Atom feeds are
+     written later into the site by publish and hold template text only, so they are not scanned);
   2. organisation-name strings (institutions, topic institution lists, journal owners/publishers) that contain the
      full name of an author of the corpus — "Somchai Jaidee Mahidol University" is the typical leak;
   3. (the names come from work/01_authors, read for this check only and never written anywhere).

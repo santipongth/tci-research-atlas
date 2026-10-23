@@ -106,7 +106,7 @@ function GazColumn({ release, status, refOf, onPick, selected }: {
               </span>
               <span className="g-sub">
                 {groupName(release, tp.group, lang)}
-                {tp.metrics.journal_driven ? ` · ${breadthText(t, tp)}` : ''}
+                {tp.status === 'WATCH' && tp.metrics.journal_driven ? ` · ${breadthText(t, tp)}` : ''}
               </span>
             </button>
           </li>

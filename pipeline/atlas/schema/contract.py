@@ -74,7 +74,7 @@ class Manifest(_Model):
     files: list[FileEntry] = Field(default_factory=list)
     previous_release: str | None = None
     n_orgs_unverified: int = 0
-    ingest_errors: int | None = Field(None, description="files that could not be read or parsed; null = not "
+    ingest_errors: int | None = Field(None, description="files (Markdown) or lines (corpus format 1.0) that could not be read or parsed; null = not "
                                                         "recorded (work_dir from before per-file error recording)")
     labels: LabelStats | None = None
     llm: list[LlmTaskStats] = Field(default_factory=list)

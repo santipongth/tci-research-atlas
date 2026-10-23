@@ -422,7 +422,7 @@ export type Sha256 = string;
 export type Files = FileEntry[];
 export type GeneratedAt1 = string;
 /**
- * files that could not be read or parsed; null = not recorded (work_dir from before per-file error recording)
+ * files (Markdown) or lines (corpus format 1.0) that could not be read or parsed; null = not recorded (work_dir from before per-file error recording)
  */
 export type IngestErrors = number | null;
 /**
