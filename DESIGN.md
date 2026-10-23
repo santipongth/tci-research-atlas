@@ -56,6 +56,16 @@ colors:
   series-2-dark: "#d95926"
   series-3-dark: "#199e70"
   series-4-dark: "#c98500"
+  seq-1: "#e4edf6"
+  seq-2: "#b9d0e8"
+  seq-3: "#7ea8d4"
+  seq-4: "#3f74b5"
+  seq-5: "#123f7c"
+  seq-1-dark: "#1b2a3a"
+  seq-2-dark: "#24466d"
+  seq-3-dark: "#2f67a3"
+  seq-4-dark: "#4f8fd6"
+  seq-5-dark: "#a6caf3"
 typography:
   h1:
     fontFamily: "Sarabun, Noto Sans Thai, Leelawadee UI, system-ui, sans-serif"
@@ -213,6 +223,9 @@ Fallback groups (`G…`, in a release that also has OpenAlex fields) take the ne
 ### Series (compare only)
 series-1…4 = #2a78d6, #eb6834, #1baf7a, #eda100 (dark #3987e5, #d95926, #199e70, #c98500) — the dataviz reference order, validated as adjacent pairs; always with a dash pattern and a direct label.
 
+### Sequential (one blue)
+seq-1…5 = #e4edf6, #b9d0e8, #7ea8d4, #3f74b5, #123f7c (dark #1b2a3a → #a6caf3, light to strong reversed for the dark page). One hue for quantities that are not statuses: the province choropleth, the parts of a mix bar (largest = seq-5, "อื่น ๆ" = Paper Tint with a rule ring), the dominant part of a split bar and the shaded zone of the quadrant/scatter charts.
+
 ### Named Rules
 **The Reserved Status Rule.** The six status colours mean status and nothing else; a status is never shown by colour alone — glyph + colour + label, every time.
 **The Yellow Means Focus Rule.** A full yellow background appears only on the focused element. The headline highlighter is a lower-half band, never a full fill.
@@ -265,7 +278,9 @@ Square corners everywhere (0 px): buttons, tabs, chips, panels, inputs. The only
 ## Components
 
 ### Header band and navigation
-Civic Blue band: the wordmark (temporary "TCI" box + name + Thai subtitle; the official logo swaps in at `web/src/brand/brand.ts`), language switch (two pressed-state buttons) and theme toggle (44 px, 2 px white outline). From 900 px, a white navigation row follows: text links (current page: 4 px Link Blue underline, `aria-current="page"`), the three persona disclosure groups, and the topic search — on the same row from 1280 px when it fits (tighter link padding, search at least 180 px), otherwise wrapped under the links. Under 900 px the band holds only the wordmark (subtitle hidden under 421 px) and one **"เมนู / Menu"** button (same outline language; filled while open; drawn three-line / cross icon) with `aria-expanded` + `aria-controls="site-nav"`. It opens the navigation in flow below the band (no overlay, no scroll lock): the topic search first, then every page as a 44 px row — the persona groups become labelled lists (no nested disclosures) — then the language and theme buttons in ink. Escape closes it and returns focus to the button; choosing a page closes it.
+Civic Blue band: the wordmark (temporary "TCI" box + name + Thai subtitle; the official logo swaps in at `web/src/brand/brand.ts`), language switch (two pressed-state buttons) and theme toggle (44 px, 2 px white outline). From 900 px, a white navigation row follows: text links (current page: 4 px Link Blue underline, `aria-current="page"`), the three persona disclosure groups, and the topic search — on the same row from 1280 px when it fits (tighter link padding, search at least 180 px), otherwise wrapped under the links. Under 900 px the band holds only the wordmark (subtitle hidden under 421 px) and one **"เมนู / Menu"** button (same outline language; filled while open; drawn three-line / cross icon) with `aria-expanded` + `aria-controls="site-nav"`. It opens the navigation in flow below the band (no overlay, no scroll lock): the topic search first, then every page as a 44 px row — the persona groups become labelled lists (no nested disclosures) — then the language and theme buttons in ink. Escape closes it and returns focus to the button; choosing a page closes it. Phone chrome budget: the band, the closed menu button and the one notice line together keep the page `h1` and its first number above 400 px at 390 px wide (the e2e test `narrow.spec.ts` holds the overview `h1` under 300 px); "ในหน้านี้" stays a closed row under 900 px and supporting step diagrams fold (`PhoneFold`).
+
+**Page names** are plain words, not method words (`web/src/strings/*` `nav.*`): ภาพรวม · แผนที่หัวข้อ · สถานะหัวข้อ · เปรียบเทียบ · ข้อมูลเปิด · **อ่านตัวเลขอย่างไร** / How to read the numbers (`/about`, was "วิธีการและนิยาม") · สรุปผู้บริหาร; executives: สถาบัน · แผนที่จังหวัด · SDG และแผนชาติ · ไทยเทียบโลก · **โอกาสที่ยังไม่มีใครทำ** / Untapped opportunities (`/gaps`, was "ช่องว่างงานวิจัย"); editors: วารสาร · วิธีวิจัย · อะไรเปลี่ยน · วางบทคัดย่อ; researchers: ค้นหาบทความ · **แผนที่บทความทุกเรื่อง** / Map of every article (`/galaxy`, was "กาแล็กซีบทความ") · แนวโน้มคำสำคัญ · การอ้างอิง. Routes did not change. The persona groups (สำหรับผู้บริหาร / บรรณาธิการ / นักวิจัย) stay — renaming them as questions was offered to the owner, not done.
 
 ### Notice line
 One compact line under the navigation (a `<details>`): the Civic Blue "รุ่นทดลอง" tag, the WATCH-tinted "ข้อมูลตัวอย่าง" tag on test releases (visible on every page), one short sentence and a "รายละเอียด" toggle; the full beta and sample-data texts open beneath with a 4 px rule. The data error banner (`role="alert"`) is separate and never folded.
@@ -283,7 +298,7 @@ Square tag with the status glyph, tinted background and dark ink (≥ 8:1). Smal
 ARIA tabs: Paper Tint inactive tabs, the selected tab joins its bordered panel (Paper, 1 px Rule). Arrow keys, Home and End move between tabs. Status tabs (`/emerging`) stay on one line on phones and scroll sideways, with a paper-coloured fade at the right edge as the overflow hint. A figure's "แผนภูมิ / ตาราง" switch is a segmented pair in its caption row (2 px Ink outline, the selected half Ink-filled); a figure that sits inside another tab panel uses pressed buttons (`aria-pressed`) instead of a nested tablist.
 
 ### Tables
-Caption numbered "ตาราง n:", 2 px Ink header rule, right-aligned tabular numbers, sortable headers as link-blue buttons with an up/down glyph and `aria-sort`; units sit in the header in Ink Secondary ("สัดส่วน (%)"), and headers balance onto at most two lines. A small secondary "ดาวน์โหลด CSV" button (1 px Ink outline, download icon) sits above every data table; what the numbers in the file mean ("0.10 = 10%") is its tooltip and accessible description, never a note under every button. Wide tables mark 3–4 **main columns** (`primary`): the rest hide behind "แสดงทุกคอลัมน์ (n)", the sorted column always shows, and the CSV always has every column. Under 640 px rows become two-column label/value cards (`data-label`) showing the main fields with a "เพิ่มเติม" toggle per row. Interval cells are text first ("+101.4% ถึง +129.4%", Caption, Ink Secondary) with a 128 px whisker under them; a whisker narrower than 96 px is not drawn.
+Caption numbered "ตาราง n:", 2 px Ink header rule, right-aligned tabular numbers, sortable headers as link-blue buttons with an up/down glyph and `aria-sort`; units sit in the header in Ink Secondary ("สัดส่วน (%)"), and headers balance onto at most two lines. A small secondary "ดาวน์โหลด CSV" button (1 px Ink outline, download icon) sits above every data table; what the numbers in the file mean ("0.10 = 10%") is its tooltip and accessible description, never a note under every button. Wide tables mark 3–4 **main columns** (`primary`): the rest hide behind "แสดงทุกคอลัมน์ (n)", the sorted column always shows, and the CSV always has every column. Under 640 px rows become two-column label/value cards (`data-label`) showing the main fields with a "เพิ่มเติม" toggle per row. Long lists pass `limit`: the first n rows in the current order, then "แสดงทั้งหมด (n)" (the CSV still has every row). A table outside a `Figure` ends with `SourceLine` (the same "ที่มา: … · รายละเอียด" line). Interval cells are text first ("+101.4% ถึง +129.4%", Caption, Ink Secondary) with a 128 px whisker under them; a whisker narrower than 96 px is not drawn.
 
 ### Figures
 One caption row over a 2 px Ink rule: "แผนภูมิ n: …" (or the table's "ตาราง n: …" in the table view) on the left; the chart/table switch, a "วิธีอ่าน" disclosure (opens a Paper Tint panel under the row: the encoding in words, then "คำที่ใช้:" glossary terms) and the CSV button on the right. Then the legend (glyph + label; the status legend may add each status's one-line meaning), the chart, and the short source line "ที่มา: TCI Research Atlas · รอบ {release} · รายละเอียด", where "รายละเอียด" opens a popover with where the figures come from and the status definition version (printed inline only in the brief and the embeds).
@@ -316,7 +331,56 @@ The release's brief headline at the Numeric-tile size (600; 24 px on phones), fi
 One row per topic: name (+ field, 24 % of the width) | whisker on a shared axis (at least 55 % of the width) | value with its interval (9 rem). The whisker is the interval at `manifest.ci_level`, capped (arrow when clipped), with the status glyph at the estimate; a dashed vertical line marks the +10 %/yr EMERGING bar and a solid line marks zero. Grouped by status with each group's rule in one sentence.
 
 ### Terrain map (signature, /atlas only)
-Canvas terrain on the map sheet: field tints by density, contour brown lines (every third line heavier), faint 10 × 6 grid with A–J / 1–6 references on the frame edges, unnamed topics as dots. EMERGING/WATCH/HOT/DECLINING topics are focusable SVG glyphs with grid references; labels have a sheet-colour halo and never collide. Layer toggles (statuses, contours, tints, names), zoom buttons (+, −, reset), drag to pan, Ctrl + wheel to zoom; nothing requires dragging. The gazetteer repeats every signal-status topic in text; other topics are found with search.
+Canvas terrain on the map sheet: field tints by density, contour brown lines (every third line heavier), faint 10 × 6 grid with A–J / 1–6 references on the frame edges, unnamed topics as dots. EMERGING/WATCH/HOT/DECLINING topics are focusable SVG glyphs with grid references; labels have a sheet-colour halo and never collide. Layer toggles (statuses, contours, tints, names), zoom buttons (+, −, reset), drag to pan, Ctrl + wheel to zoom; nothing requires dragging. The gazetteer repeats every signal-status topic in text; other topics are found with search. On phones the sheet takes a taller aspect, the top-N names stay visible, and an "อ่านแผนที่นี้ใน 3 ขั้น" `Steps` diagram explains the reading order.
+
+### How notes (layer 2 outside a figure)
+`HowNote` is the section-level twin of a figure's "วิธีอ่าน": a `<details>` with the "วิธีอ่าน" summary holding the method fine print (rules with their numbers, data caveats). Use it when a section has no `Figure` of its own; never put layer-2 text in a lede.
+
+### Finding cards and topic hero
+- **Finding cards** (`pages/overview/FindingCards.tsx`, Overview + brief): "3 เรื่องสำคัญรอบนี้", one card per finding — what it is (Meta 600), one big number at Numeric tile with its likely range under it in Caption, the example topic as a link, one plain sentence, and the topic's articles a year as an ink `Sparkline` with its first and last year. Every number from the release; renders nothing without findings.
+- **Topic hero** (`/topics/:id`): status chip with its one-line meaning, one plain growth sentence, the growth with its likely range (the growth word is a `Term`) and a fitted whisker, beside two `StatTile`s with sparklines (share of articles, articles in the recent years); the top representative article follows as "เช่น …". Journals and institutions below are `BarRank`s with table tabs.
+
+### Steps and phone folds
+`Steps` is a short numbered sequence (3–4) whose order carries meaning: a row joined by a rule on wide screens, a vertical list on phones, square 36 px number boxes (2 px ink), optional small drawing and a `foot` (e.g. the statuses a step decides); `current` marks one step (`aria-current="step"`). Used for "อ่านแผนที่นี้ใน 3 ขั้น" (`/atlas`), the emerging steps (`/emerging`), the pipeline diagram and the status decision path (`/about`), and the three steps of `/match` (current step marked). `PhoneFold` turns a supporting section (a step diagram) into one closed disclosure under 760 px so the page's own content comes first; from 760 px it is an ordinary section with its h2.
+
+### Infographic kit (`web/src/charts/`)
+Quiet, realistic marks built from the tokens — no stock illustration, no emoji, no official SDG colours or icons. Layout maths lives in pure, unit-tested files (`charts/infographic.ts` waffle/dot/rank; `charts/execLayout.ts` arcs, column axis, mix segments, quadrant + label placement, status flow, goal tiles; `charts/editorLayout.ts` journal scatter, then-vs-now mix, checklist states, keyword risers, galaxy picks, weighted mean); the `.tsx` files only draw. Rules for every form:
+- **Table alternative:** each sits inside a `Figure` (or beside a full table) whose table tab has every number; marks are decorative where the numbers are printed next to them (`aria-hidden`), otherwise the SVG has `role="img"` and a sentence `aria-label`.
+- **Labels ≥ 14 px:** names and values at `--fs-caption`/`--fs-meta` (code measures with `LABEL_PX` 14/16); only axis ticks use `--fs-tick` 13 px. Labels never overlap a mark or each other (`placeLabels`); on phones fewer are named, the rest are in the tooltip and table.
+- **Status = glyph + colour + name**, everywhere a status appears (waffle rows, dot plot marks, flow nodes); status colours are used for nothing else.
+- **Ink + one blue** for quantities that are not statuses: bars are `--ink-2`, mixes and zones use the `--seq-*` ramp, SDG/plan tiles are ink with one blue share bar.
+- **No data is a hatch or a dashed outline**, never the lightest ramp step (province map hatch, dashed empty goal tile, dashed checklist box, dashed bridge link).
+- **No hover-only information:** hover/focus only highlights or repeats; every value is printed, in the key or in the table. Placed in percent where possible, so charts reflow and print without measuring.
+
+| Component | Purpose · when to use | Key rules |
+|---|---|---|
+| `StatusWaffle` | Every topic by status, one square per topic (Overview, brief). | One row per status: glyph, name, count, % of all topics in text (+ the plain meaning, not in `compact`). Squares aria-hidden; LOW_DATA squares are a dashed outline; pointing shows the topic, pressing opens it. |
+| `DotPlot` | Top movers on one axis (the printed brief, where a forest plot is too dense). | Name \| status glyph at the estimate joined to zero by a hairline \| value with its range in text. Solid zero line, dashed `refValue` line (the emerging bar) with its label. |
+| `BarRank` | Short ranked lists (a topic's journals and institutions, countries and institutions, methods, top provinces beside the map). | Ink bar scaled to the largest, the number always printed; names link when `href` gives a path; under 640 px bar and number sit under the name. |
+| `ArcNetwork` | Institution collaboration (`/institutions`). | Institutions as HTML rows (wrap, link), each pair as an arc; stroke width and the number at the peak = joint articles. Deterministic, max 10 nodes; pointing or focusing a row highlights its arcs. Table tab lists every pair. |
+| `ColumnChart` | One value per year on a zero baseline (`/institutions/:id`). | `--ink-2` columns, recessive gridlines, numbers on first, latest and largest column; every column's figure in the hover tooltip and in the table; sparse labels under ~40 px per column (latest always kept). |
+| `MixBar` / `SplitBar` | A 100 % split: an institution's topic mix (`/institutions/:id`) / reliance on one source (`/gaps` concentration, `/references`). | Mix: largest first, "อื่น ๆ" last, one blue dark→light, 2 px paper gaps, key repeats every part with its number. Split: dominant part vs the rest with a dashed threshold marker; the share printed beside. |
+| `OpportunityQuadrant` | World growth × Thai activity per subfield (`/global`, `/gaps`). | Linear axes, dashed reference lines at 1 ("เท่าโลก" / "โลกไม่โต"), the shaded top-left zone from the data file's thresholds; dots in the criteria filled blue, the rest hollow ink; opportunities labelled first; key under the chart. |
+| `StatusFlow` | Status transitions since the previous release (`/changes`). | Previous status left, current right (glyph + name + count both sides); one band per transition, thickness = topics, tinted with the new status; pointing names the topics; table tab lists every change. |
+| `LineageKey` | The four ways a topic changes: ใหม่ / รวม / แยก / ไม่มีแล้ว (`/changes`). | Ink-dot before → after drawing, name, one-line meaning, this release's count. |
+| `GoalTiles` | 17 SDGs and each national framework (`/sdg`). | Goal number, Thai name, topic count as the big number, a share bar with the % printed; a tile with topics opens in place (native `<details>`, full row while open) to list them; a goal with no topic is a dashed outline that says so. |
+| `BridgePairs` | Topic pairs close in content but not yet worked on together (`/gaps`); `directed` for citing → cited (`/references`). | Topic — link — topic; the link labelled with institutions working on both (dashed when none) and the closeness under it; side by side wide, stacked on phones. |
+| `JournalScatter` | Complete records × in-house share per journal (`/journals`). | x 0–100, y share; the band above the in-house bar shaded and named; inferred owners hollow; largest journals and those above the bar named; every journal in the tooltip and the table. |
+| `PeriodMix` | A journal's change of course: then vs now (`/journals/:id`). | Two 100 % bars (earlier years over recent years), same topics, same order, same shade; the key repeats both shares and the change ("+9 จุด"). |
+| `ChecklistBars` | Which record fields a journal fills (`/journals/:id`). | Drawn ✓ / partial / ✗ / dashed-unknown box **and its word**, the field, a bar of the share, the share; the table has the counts. |
+| `SmallMultiples` | Compare 2–4 topics without a tangle (`/compare`, lazy). | One panel per topic on the same vertical scale, own line in its series colour + dash, the others as faint grey context, first/last year, latest value printed at the end. |
+
+`ForestPlot`, `PortfolioMatrix`, `TrendChart` and `MultiLineChart` keep their earlier specs; tick decimals follow the step (`tickDecimals`) so no axis repeats a label.
+
+## Copy voice (น้ำเสียงของข้อความ)
+
+The reader is an ordinary citizen first; the researcher and the executive read the same words. Strings live in `web/src/strings/*.ts` (lazy pages: their own file read with `useStrings`), always `th` + `en`.
+- **Two layers.** Layer 1 (headings, ledes, column headers, chart titles, cards, tooltips): one short plain sentence, **example first** ("เช่น …"), numbers filled from the data with a unit on every number. Layer 2 (the exact rule, the method, the statistics word): behind a figure's "วิธีอ่าน", a `HowNote`, or a `Term` popover — never in layer 1.
+- **Banned in layer 1:** ช่วงเชื่อมั่น, ช่วงฐาน, ช่วงล่าสุด, ฐานเปรียบเทียบ, เกณฑ์ความกว้าง, subfield, HHI, Jaccard, Jensen–Shannon, cosine, metadata, embedding, and the status codes (EMERGING, LOW_DATA …) inside Thai prose. Say instead: "น่าจะอยู่ระหว่าง {lo} ถึง {hi}" / "likely between", "สาขาย่อย", "ข้อมูลบทความครบ", "เนื้อหาใกล้กัน (เต็ม 1)". The glossary (`lib/glossary.ts`: ci, baseline, recent, shareGrowth, score, hhi, jaccard, jsd, cosine, activity, metadata, embedding) is where these words are explained.
+- **Years, not windows:** write the years ("ปี 2017–2021 → ปี 2022–2024", "ใหม่ — ปี 2016–2020 ยังไม่มีงานเรื่องนี้"), never "ช่วงฐาน / ช่วงล่าสุด"; the years come from `definition.ts` / the release. A release code is explained where it is shown ("2026Q4 (ออกไตรมาส 4 ปี 2026)").
+- **Thai status names** (web and pipeline): กำลังเกิดใหม่ · จับตา · **กำลังมาแรง** · **ลดลง** · คงที่ · ข้อมูลน้อย (English: Emerging · Watch · Hot · Declining · Stable · Low data), each with its one-line meaning (`stat.mean.*`: เล็กแต่โตเร็ว · โตเร็ว แต่มาจากไม่กี่วารสารหรือสถาบัน · ใหญ่และยังโต · สัดส่วนบทความลดลงชัดเจน · ยังไม่เห็นการเปลี่ยนแปลงชัด · บทความยังน้อยเกินจะสรุป). Definitions and `definition_version` 3 did not change — only the words that explain them; rule texts read their numbers from `definition.ts`.
+- **Signals are questions, not verdicts** (/gaps, /global, possible partners); automatic sentences say so ("ระบบเขียนประโยคนี้จากตัวเลขในหน้านี้").
+- The pipeline follows the same voice for every public sentence (template sentences pass `narrative.jargon_in`; the narrative/brief/method prompts carry the same banned list).
 
 ## Do's and Don'ts
 
@@ -326,6 +390,8 @@ Canvas terrain on the map sheet: field tints by density, contour brown lines (ev
 - **Do** keep body line-height at 1.65 and text measure ≤ 38em; set sizes only from the `--fs-*` steps and spacing from `--sp-*`.
 - **Do** read colours from tokens and group colours from `cat-NN` keys.
 - **Do** keep 44 px controls and the yellow focus treatment on every interactive element.
+- **Do** lead with an example and plain words (Copy voice); put the exact rule behind "วิธีอ่าน", `HowNote` or a `Term`.
+- **Do** build new chart forms from the infographic kit's rules: table tab, labels ≥ 14 px, ink + one blue, hatch or dashed outline for no data.
 
 ### Don't:
 - **Don't** use italics, letter-spacing or uppercase on Thai text.
@@ -334,3 +400,5 @@ Canvas terrain on the map sheet: field tints by density, contour brown lines (ev
 - **Don't** add shadows to cards, tiles or tables, or round their corners.
 - **Don't** load fonts or anything else from a third-party server.
 - **Don't** show abstracts or rank individual people.
+- **Don't** put information only in a hover or only in colour, or jargon and status codes in a heading, lede or column header.
+- **Don't** use the official SDG colours or icons, stock illustration or emoji.

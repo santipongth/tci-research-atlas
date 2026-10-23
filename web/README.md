@@ -35,7 +35,7 @@ pipeline: uv run atlas publish -c config.yaml --site ../web/dist
 
 ## หน้า
 
-`#/overview` ภาพรวม (KPI + Δ, ประโยคสรุป, ประเด็นผู้บริหาร, สถานะ + forest plot, ผัง size × growth) · `#/atlas` แผนที่ + ดัชนีหัวข้อ · `#/topics/:id` หัวข้อ · `#/emerging` ตารางสถานะ · `#/compare` เปรียบเทียบ 2–4 หัวข้อ · `#/data` ข้อมูลเปิด + ความโปร่งใส · `#/about` วิธีการ + นิยาม + changelog · `#/brief` หน้าพิมพ์ PDF · P2 (lazy): `#/institutions` สถาบัน · `#/institutions/:id` · `#/regions` แผนที่จังหวัด · `#/sdg` SDG และแผนชาติ · `#/global` ไทยเทียบโลก · `#/gaps` ช่องว่างงานวิจัย (P3, lazy; เมนูแบ่งกลุ่มผู้บริหาร/บรรณาธิการ/นักวิจัย) · `#/journals` ตัวชี้วัดวารสาร · `#/journals/:id` โปรไฟล์วารสาร · `#/methods` วิธีวิจัย · `#/changes` อะไรเปลี่ยนจากรอบก่อน · `#/match` วางบทคัดย่อ (คำนวณในเบราว์เซอร์; ไม่มีในไฟล์ออฟไลน์) — ไฟล์ข้อมูลของหน้าเหล่านี้เป็น optional และแต่ละหน้าอธิบายตัวเองเมื่อไม่มี
+`#/overview` ภาพรวม (3 เรื่องสำคัญรอบนี้, 4 KPI + ดูตัวเลขเพิ่ม, ประโยคสรุป, ข้อสังเกตสำหรับการวางนโยบาย, waffle สถานะ + forest plot, ผัง size × growth) · `#/atlas` แผนที่หัวข้อ + ดัชนีหัวข้อ · `#/topics/:id` หัวข้อ · `#/emerging` สถานะหัวข้อ · `#/compare` เปรียบเทียบ 2–4 หัวข้อ · `#/data` ข้อมูลเปิด (ดาวน์โหลดง่าย ๆ / สำหรับนักพัฒนา) · `#/about` อ่านตัวเลขอย่างไร (ขั้นตอน + ทางตัดสินสถานะ + นิยาม + changelog + อ้างอิง Atlas) · `#/brief` สรุปผู้บริหาร 1 หน้า (พิมพ์ PDF) · P2 (lazy): `#/journals` วารสาร · `#/journals/:id` โปรไฟล์วารสาร · `#/methods` วิธีวิจัย · `#/changes` อะไรเปลี่ยน · `#/match` วางบทคัดย่อ (คำนวณในเบราว์เซอร์; ไม่มีในไฟล์ออฟไลน์) · P3 (lazy; เมนูแบ่งกลุ่มผู้บริหาร/บรรณาธิการ/นักวิจัย): `#/institutions` สถาบัน · `#/institutions/:id` · `#/regions` แผนที่จังหวัด · `#/sdg` SDG และแผนชาติ · `#/global` ไทยเทียบโลก · `#/gaps` โอกาสที่ยังไม่มีใครทำ · P4 (lazy): `#/search` ค้นหาบทความ · `#/galaxy` แผนที่บทความทุกเรื่อง · `#/keywords` แนวโน้มคำสำคัญ · `#/references` การอ้างอิง — ไฟล์ข้อมูลของหน้า lazy เป็น optional และแต่ละหน้าอธิบายตัวเองเมื่อไม่มี
 สถานะของตัวกรอง/การเลือกอยู่ใน URL เสมอ (เช่น `#/emerging?status=WATCH&sort=journals`) แชร์ลิงก์ได้
 
 ## โครงสร้างโค้ด
@@ -45,19 +45,22 @@ src/brand/       wordmark ชั่วคราว (สลับเป็นโ�
 src/styles/      tokens.css (สีทั้งหมด light/dark) · fonts.css · CSS ของแต่ละส่วน · palette.test.ts (CVD + contrast)
 src/strings/     ข้อความ UI ทุกตัว ไทย + อังกฤษ (i18n.test.ts ตรวจครบคู่)
 src/data/        contract.ts (generated) · types.ts · source.ts (Http | Embedded) · release.ts (loader) · atlasContext.ts
-src/lib/         format · highlight · urlState · csv · search (ตัดวรรณยุกต์ + Intl.Segmenter) · definition · theme · i18n
-src/components/  ชุด UI (tabs, figure, table, whisker, search, tooltip, …)
-src/charts/      forest plot · portfolio · trend · multi-line
+src/lib/         format · highlight · urlState · csv · search (ตัดวรรณยุกต์ + Intl.Segmenter) · definition · glossary · findings · theme · i18n
+src/components/  ชุด UI: Figure (คำบรรยาย · แผนภูมิ/ตาราง · วิธีอ่าน · CSV) · StatTile · DataTable (primary/limit) · Term/InfoPop · HowNote · SourceLine · Steps · PhoneFold · tabs · whisker · search · tooltip …
+src/charts/      forest plot · portfolio · trend · multi-line + infographic: StatusWaffle · DotPlot · BarRank · ArcNetwork · ColumnChart · MixBar/SplitBar · OpportunityQuadrant · StatusFlow · LineageKey · GoalTiles · BridgePairs · JournalScatter · PeriodMix · ChecklistBars · SmallMultiples
+                 (คณิตการจัดวางแบบ pure + test: infographic.ts · execLayout.ts · editorLayout.ts)
 src/features/atlas/  แผนที่ (mapSpace, terrain, TerrainMap, Gazetteer)
 src/pages/       หน้าละไฟล์
 fixtures/        รอบข้อมูลสังเคราะห์สำหรับ dev/test (example + empty) — ไม่ใช่ข้อมูลจริง
-e2e/smoke.spec.ts  Playwright smoke spec เดียว
+e2e/             smoke.spec.ts (ทุกหน้า) · narrow.spec.ts (จอ 360/390 px: เมนูมือถือ, h1 อยู่สูง, แผนที่)
 ```
 
 ## กฎสำคัญ (ฉบับเต็มใน `../CLAUDE.md` §6 และ `../DESIGN.md`)
 
 - สีมาจาก token ใน `src/styles/tokens.css` เท่านั้น · สถานะแสดงด้วยรูปทรง + สี + ชื่อเสมอ (▲ ◆ ● ▼ ■ วงประ)
 - ห้ามตัวเอียงในภาษาไทย · ทุกข้อความต้องมีทั้ง `th` และ `en`
+- ข้อความ 2 ชั้น: ชั้นแรกภาษาง่ายขึ้นด้วยตัวอย่าง ไม่มีศัพท์สถิติ/รหัสสถานะ; รายละเอียดอยู่หลัง "วิธีอ่าน", `HowNote` หรือ `Term` (DESIGN.md "Copy voice")
+- กราฟใหม่: SVG ใน `src/charts/` มีแท็บตาราง ป้าย ≥ 14 px ink + น้ำเงินเดียว (สีสถานะใช้กับสถานะเท่านั้น) ไม่มีข้อมูล = ลายเส้น/เส้นประ และไม่มีข้อมูลที่เห็นเฉพาะตอน hover
 - ไฟล์ `.tsx` export ได้เฉพาะ component — hook/context/helper อยู่ในไฟล์ `.ts`
 - ห้ามใช้ `href="#id"` ในหน้า (HashRouter) — ใช้ `scrollToId()`
 - ห้าม commit ข้อมูลจริง — repo มีแต่ `fixtures/` ที่สังเคราะห์ขึ้น
