@@ -33,11 +33,11 @@
   .more-points > summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--link); font-weight: 600; text-decoration: underline; text-underline-offset: 0.18em; }
   .more-points > .points { margin-top: 4px; }
 
-  /* the policy notes: a numbered list on hairlines, the "written automatically" note under it */
-  .policy-list { list-style: none; counter-reset: policy; margin: var(--sp-group) 0 0; padding: 0; max-width: var(--measure-body); }
-  .policy-list > li { counter-increment: policy; position: relative; padding: 14px 0 14px 3rem; border-top: 1px solid var(--border-2); font-size: var(--fs-body); line-height: 1.65; }
-  .policy-list > li:last-child { border-bottom: 1px solid var(--border-2); }
-  .policy-list > li::before { content: counter(policy); position: absolute; left: 0; top: 12px; font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  /* the policy notes: side by side across the page (one per column, the number in a soft TCI-blue disc), the
+     "written automatically" note under them; one column on phones */
+  .policy-list { list-style: none; counter-reset: policy; margin: var(--sp-group) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 0 40px; }
+  .policy-list > li { counter-increment: policy; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 0 16px; padding: 20px 0 22px; border-top: 1px solid var(--border-2); font-size: var(--fs-body); line-height: 1.7; }
+  .policy-list > li::before { content: counter(policy); display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
   .policy-note { margin-top: 12px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; max-width: var(--measure-body); }
 
   /* status waffle: one row per status, one square per topic */

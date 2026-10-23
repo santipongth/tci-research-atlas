@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Wordmark } from '../brand/Wordmark'
 import { DataTable } from '../components/DataTable'
 import { Figure } from '../components/Figure'
@@ -66,18 +67,21 @@ function Brief({ release }: { release: AtlasRelease }) {
         <Wordmark sub={t('brandSub')} lang={lang} />
         <p className="brief-meta">{t('brief.sub', { year: ov.last_complete_year, date: fmtDate(ov.generated_at, lang) })}</p>
       </header>
-      <h1>{t('brief.title', { release: ov.release })}</h1>
-      <p className="brief-acts no-print">
-        <button type="button" className="btn-secondary" onClick={() => window.print()}>
-          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
-            <path d="M4 6V1.5h8V6 M4 12H2.5V6h11v6H12 M4 9.5h8v5H4z" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          </svg>
-          {t('brief.print')}
-        </button>
-      </p>
+      <div className="brief-top">
+        <h1>{t('brief.title', { release: ov.release })}</h1>
+        <p className="brief-acts no-print">
+          <button type="button" className="btn-secondary" onClick={() => window.print()}>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+              <path d="M4 6V1.5h8V6 M4 12H2.5V6h11v6H12 M4 9.5h8v5H4z" fill="none" stroke="currentColor" strokeWidth="1.4" />
+            </svg>
+            {t('brief.print')}
+          </button>
+          <Link className="btn-secondary" to="/story">{t('nav.story')}</Link>
+        </p>
+      </div>
       {release.sample ? (
         <p className="brief-sample">
-          <strong>{t('sample.tag')}</strong> {t('sample.text')}
+          <strong className="phase-tag is-sample">{t('sample.tag')}</strong> {t('notice.shortSample')}
         </p>
       ) : null}
       {headline ? (
@@ -96,52 +100,58 @@ function Brief({ release }: { release: AtlasRelease }) {
           <FindingCards release={release} findings={findings} />
         </section>
       ) : null}
-      {bullets.length ? (
-        <section aria-labelledby="brief-points">
-          <h2 id="brief-points">{t('brief.points')}</h2>
-          <ul className="brief-points">
-            {bullets.map((b, i) => (
-              <li key={i}><SegmentText segments={segmentHeadline(b, release.topics, { figures: false })} mark={false} links={false} /></li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      {release.topics.length ? (
-        <section aria-labelledby="brief-status" className="brief-p2">
-          <h2 id="brief-status">{t('brief.status')}</h2>
-          <StatusMix release={release} number={1} tableNo={1} view={views.wf} onView={(wf) => setViews((v) => ({ ...v, wf }))} compact />
-          {watch > 0 ? <p className="note">{t('brief.watch', { n: fmtInt(watch) })}</p> : null}
-          {movers.length ? (
-            <Figure
-              id="fig-movers"
-              number={2}
-              title={t('brief.movers.title', { up: nUp, down: movers.length - nUp })}
-              tableTitle={moversTable}
-              how={<p>{t('brief.movers.how', { bar, level })}</p>}
-              source={source}
-              view={views.mv}
-              onView={(mv) => setViews((v) => ({ ...v, mv }))}
-              chart={
-                <DotPlot
-                  rows={movers.map((tp) => ({
-                    id: tp.id,
-                    label: name(tp),
-                    sub: groupName(release, tp.group, lang),
-                    status: tp.status,
-                    value: tp.metrics.share_growth ?? 0,
-                    text: `${fmtSignedPct(tp.metrics.share_growth, 0)} ${t('perYear')}`,
-                    ci: hasCi(tp) ? t('ciRange', { lo: fmtSignedPct(tp.metrics.share_growth_lo, 0), hi: fmtSignedPct(tp.metrics.share_growth_hi, 0) }) : null,
-                    href: `/topics/${tp.id}`,
-                  }))}
-                  axisLabel={t('ov.forest.axis')}
-                  tick={(v) => (v === 0 ? '0%' : fmtSignedPct(v, 0))}
-                  refValue={DEFINITION.emergingMinGrowthLo}
-                  refLabel={t('ov.forest.bar', { v: bar })}
-                />
-              }
-              table={<DataTable caption={moversTable} rows={movers} columns={moverCols} rowKey={(r) => r.id} stack={false} />}
-            />
-          ) : null}
+      <div className="brief-two">
+        {release.topics.length ? (
+          <section aria-labelledby="brief-status">
+            <h2 id="brief-status">{t('brief.status')}</h2>
+            <StatusMix release={release} number={1} tableNo={1} view={views.wf} onView={(wf) => setViews((v) => ({ ...v, wf }))} compact />
+            {/* print: the key points beside it already say this; one line less keeps the brief on two pages */}
+            {watch > 0 ? <p className="note no-print">{t('brief.watch', { n: fmtInt(watch) })}</p> : null}
+          </section>
+        ) : null}
+        {bullets.length ? (
+          <section aria-labelledby="brief-points">
+            <h2 id="brief-points">{t('brief.points')}</h2>
+            <ul className="brief-points">
+              {bullets.map((b, i) => (
+                <li key={i}><SegmentText segments={segmentHeadline(b, release.topics, { figures: false })} mark={false} links={false} /></li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+      </div>
+      {movers.length ? (
+        <section aria-labelledby="brief-movers" className="brief-p2">
+          <h2 id="brief-movers">{t('brief.movers.h')}</h2>
+          <Figure
+            id="fig-movers"
+            number={2}
+            title={t('brief.movers.title', { up: nUp, down: movers.length - nUp })}
+            tableTitle={moversTable}
+            how={<p>{t('brief.movers.how', { bar, level })}</p>}
+            source={source}
+            view={views.mv}
+            onView={(mv) => setViews((v) => ({ ...v, mv }))}
+            chart={
+              <DotPlot
+                rows={movers.map((tp) => ({
+                  id: tp.id,
+                  label: name(tp),
+                  sub: groupName(release, tp.group, lang),
+                  status: tp.status,
+                  value: tp.metrics.share_growth ?? 0,
+                  text: `${fmtSignedPct(tp.metrics.share_growth, 0)} ${t('perYear')}`,
+                  ci: hasCi(tp) ? t('ciRange', { lo: fmtSignedPct(tp.metrics.share_growth_lo, 0), hi: fmtSignedPct(tp.metrics.share_growth_hi, 0) }) : null,
+                  href: `/topics/${tp.id}`,
+                }))}
+                axisLabel={t('ov.forest.axis')}
+                tick={(v) => (v === 0 ? '0%' : fmtSignedPct(v, 0))}
+                refValue={DEFINITION.emergingMinGrowthLo}
+                refLabel={t('ov.forest.bar', { v: bar })}
+              />
+            }
+            table={<DataTable caption={moversTable} rows={movers} columns={moverCols} rowKey={(r) => r.id} stack={false} />}
+          />
         </section>
       ) : null}
       {exec.length ? (
@@ -155,6 +165,15 @@ function Brief({ release }: { release: AtlasRelease }) {
           <p className="policy-note">{t('brief.execNote')}</p>
         </section>
       ) : null}
+      <section aria-labelledby="brief-use" className="brief-use no-print">
+        <h2 id="brief-use">{t('brief.use.h')}</h2>
+        <ul>
+          <li><Link to="/emerging">{t('brief.use.grow')}</Link><span>{t('brief.use.growHint')}</span></li>
+          <li><Link to="/gaps">{t('brief.use.gaps')}</Link><span>{t('brief.use.gapsHint')}</span></li>
+          <li><Link to="/province">{t('brief.use.province')}</Link><span>{t('brief.use.provinceHint')}</span></li>
+          <li><Link to="/story">{t('brief.use.share')}</Link><span>{t('brief.use.shareHint')}</span></li>
+        </ul>
+      </section>
       <footer className="brief-foot">
         <p>{t('brief.def', { v: release.definitionVersion, level, bar })}</p>
         <p>{source} · {t('source.def', { v: release.definitionVersion })}</p>

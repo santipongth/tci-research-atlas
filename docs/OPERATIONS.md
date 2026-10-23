@@ -396,3 +396,18 @@ publish:
 - กราฟฝัง: หน้าหัวข้อและ `/emerging` มีปุ่ม "ฝังกราฟ / Embed" ให้คัดลอก `<iframe>` ที่ชี้ `/embed/topic/<รหัส>` หรือ `/embed/emerging` ของเว็บที่เปิดอยู่ — ใช้ได้เฉพาะเว็บออนไลน์; ข้อมูลสังเคราะห์ยังมีป้าย "ข้อมูลตัวอย่าง" ในกรอบที่ฝัง
 
 **เพิ่มในรายการตรวจรายไตรมาส (P4):** เปิด `/search` ลองค้นคำไทย 1 คำและอังกฤษ 1 คำ; `/galaxy` ว่าจุดแสดงและคลิกแล้วได้บทความ; `/references` ว่ามีข้อมูลหรือบอก coverage ที่ไม่ถึงเกณฑ์; `/keywords` ว่าคำยอดนิยมสมเหตุสมผล; ถ้าตั้ง `site_url` เปิด `data/feeds/releases.xml` ว่ามีรอบใหม่
+
+## 21. ขึ้นเว็บด้วยข้อมูลจริง (เลิกใช้ข้อมูลตัวอย่าง)
+
+เว็บสาธิตบน GitHub Pages ใช้ข้อมูลสังเคราะห์ จึงมีป้าย "ข้อมูลตัวอย่าง" และไม่ให้เครื่องมือค้นหาเก็บหน้า (noindex) เมื่อรอบข้อมูลมาจากคลังจริง ป้ายนี้หายเองทุกหน้า (เว็บดูจาก `manifest.embedding_provider` — `fixture`/`lite` = ตัวอย่าง) และอ้างอิงได้จริง ขั้นตอน (บนเครื่องที่มีคลังบทความ):
+
+1. รันรอบจริงตาม §1: `bash scripts/quarterly_run.sh pipeline/config.yaml` (embedding แบบ `local` หรือ `api` — ห้าม `lite`) แล้วตรวจชื่อหัวข้อตาม §7; ถ้าใช้ LLM ให้ `uv run atlas llm -c config.yaml --dry-run` ดูค่าใช้จ่ายก่อน (§6)
+2. `cd pipeline && uv run atlas validate -c config.yaml` ต้องได้ exit 0 (หรือ 1 ที่อ่านคำเตือนแล้ว)
+3. ตั้ง `publish.site_url` เป็นที่อยู่เว็บจริง (เช่น `https://santipongth.github.io/tci-research-atlas/`) เพื่อให้มีฟีด
+4. `bash scripts/import_atlas.sh pipeline/config.yaml` → web/dist มีข้อมูลรอบจริง + `atlas-offline.html` (เปิดดู local ก่อน: `cd web && node scripts/serve.mjs --site dist`)
+5. `bash scripts/package_release.sh --upload` → สร้าง GitHub Release `data-<รอบ>` แนบ `atlas-site-data-<รอบ>.zip` (มีเฉพาะไฟล์ที่เผยแพร่: ไม่มีชื่อผู้แต่ง/บทคัดย่อ — `atlas validate` ตรวจแล้ว)
+6. GitHub → Actions → Pages → Run workflow → ใส่ `data_release` = `data-<รอบ>` → เว็บจริงขึ้นแทนเว็บสาธิต (workflow ปฏิเสธ zip ที่เป็นข้อมูลตัวอย่าง)
+7. ถ้าต้องการให้ Google เก็บหน้าเว็บจริง: เว็บที่ build ปกติไม่มี noindex — มีเฉพาะเว็บสาธิต (`stage:demo`) และไฟล์ offline template
+
+รอบถัดไป: ทำข้อ 1–6 ซ้ำ (รอบก่อนหน้าถูกคัดลอกตามสาย `previous_release` ให้เองเพื่อเทียบ Δ). ย้อนกลับ: Run workflow อีกครั้งด้วยแท็กรอบก่อน (§5)
+

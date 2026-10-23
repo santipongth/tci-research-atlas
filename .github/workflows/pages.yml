@@ -1,11 +1,17 @@
 name: Pages
 
-# Public demo of web v2 on GitHub Pages with the SYNTHETIC example release (every page shows a "Sample data" banner,
-# and the pages are marked noindex). It runs ONLY when the maintainer starts it by hand: a push must never replace a
-# real release that is live. A real release replaces web/dist/data with `uv run atlas publish --site web/dist`
-# instead of `npm run stage:demo` (the staging script also refuses a site folder that already holds a real release).
+# GitHub Pages. Runs ONLY when the maintainer starts it by hand: a push must never replace a release that is live.
+# - data_release empty: the SYNTHETIC example release (every page shows a "Sample data" tag; pages are noindex).
+# - data_release = the tag of a GitHub Release holding atlas-site-data-<release>.zip (made by
+#   scripts/package_release.sh after `atlas publish --site web/dist`): the REAL release goes live. No data is ever
+#   committed to the repo; a zip that turns out to be sample data is refused. See docs/OPERATIONS.md §21.
 on:
   workflow_dispatch:
+    inputs:
+      data_release:
+        description: "Real data: tag of the GitHub Release with atlas-site-data-*.zip (e.g. data-2026Q4). Empty = synthetic demo."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -34,7 +40,17 @@ jobs:
       - name: Build (Pages site + offline template)
         run: npm run build
       - name: Demo data — synthetic sample release, labelled on every page
+        if: ${{ inputs.data_release == '' }}
         run: npm run stage:demo -- dist
+      - name: Real data — the published release from a GitHub Release asset
+        if: ${{ inputs.data_release != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.data_release }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p 'atlas-site-data-*.zip' -D "$RUNNER_TEMP/rel"
+          unzip -q -o "$RUNNER_TEMP"/rel/atlas-site-data-*.zip -d dist
+          node -e "const p=require('path');const l=require(p.resolve('dist/data/latest.json'));const m=require(p.resolve('dist/data',l.path));if(['fixture','lite'].includes(m.embedding_provider)){console.error('refusing: '+l.release+' is sample data');process.exit(1)}console.log('real release '+l.release)"
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
