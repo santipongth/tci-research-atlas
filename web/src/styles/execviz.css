@@ -250,4 +250,21 @@
   .fact-acts { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; font-weight: 600; }
   .btn:disabled { opacity: 0.7; cursor: progress; }
   @media (max-width: 640px) { .fact { grid-template-columns: 1fr; } .fact-n { display: none; } }
+
+  /* the province locator: every province a quiet ground, research tinted in one blue, the chosen one TCI blue + orange */
+  .plc { display: block; width: 100%; height: auto; }
+  .plc-p { stroke: var(--bg); stroke-width: 0.8; fill: var(--surface); transition: fill 140ms ease-out; }
+  .plc-s1 { fill: var(--seq-1); }
+  .plc-s2 { fill: var(--seq-2); }
+  .plc-s3 { fill: var(--seq-3); }
+  .plc-s4 { fill: var(--seq-4); }
+  .plc-p.plc-s1:hover, .plc-p.plc-s2:hover, .plc-p.plc-s3:hover, .plc-p.plc-s4:hover { fill: var(--brand); }
+  .plc-p.is-on { fill: var(--brand); }
+  .plc-ring { fill: none; stroke: var(--accent-mark); stroke-width: 3; stroke-linejoin: round; pointer-events: none; }
+  .pv-map { margin: 0; }
+  .pv-map figcaption { margin-top: 8px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.55; }
+  .pv-hero { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 24px 48px; align-items: start; margin-top: 18px; }
+  .pv-hero .stats { margin-top: 0; }
+  .pv-index { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px 56px; align-items: start; margin-top: 18px; }
+  @media (max-width: 760px) { .pv-hero, .pv-index { grid-template-columns: minmax(0, 1fr); } .pv-map { max-width: 220px; } }
 }

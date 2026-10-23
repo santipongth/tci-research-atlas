@@ -100,8 +100,10 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   emerging: async (page) => {
     await expect(page.getByRole('tab', { name: /กำลังเกิดใหม่/ })).toHaveAttribute('aria-selected', 'true')
     // the rule as four checks; the open status's step is marked
-    await expect(page.locator('.em-steps .step')).toHaveCount(4)
-    await expect(page.locator('.em-steps .step.is-current')).toContainText('เล็กแต่โตเร็วจริงไหม')
+    // the rule as a decision diagram: four questions; the open tab's status is marked, with its count and an example
+    await expect(page.locator('.em-steps .sfc-row')).toHaveCount(4)
+    await expect(page.locator('.em-steps .sfc-out.is-current')).toContainText('กำลังเกิดใหม่')
+    await expect(page.locator('.em-steps .sfc-out.is-current')).toContainText('5 หัวข้อ')
     await expect(page.locator('.forest.is-wide .fr-row').first()).toBeVisible()
     await page.getByRole('tab', { name: /จับตา/ }).click()
     await expect(page).toHaveURL(/status=WATCH/)
@@ -209,8 +211,8 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     expect((await download).suggestedFilename()).toBe('atlas-2026Q4-topics.csv')
   },
   about: async (page) => {
-    await expect(page.locator('#flow .step')).toHaveCount(4)
-    await expect(page.locator('#definition .ab-tree .step')).toHaveCount(4)
+    await expect(page.locator('#flow .afl-st')).toHaveCount(5)
+    await expect(page.locator('#definition .ab-tree .sfc-row')).toHaveCount(4)
     await expect(page.locator('.defs > div')).toHaveCount(6)
     await expect(page.locator('#changelog li')).toHaveCount(2)
     await expect(page.locator('#definition')).toContainText('+10%')
@@ -288,7 +290,11 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   },
   province: async (page) => {
     await expect(page.locator('h1')).toHaveText('งานวิจัยในเชียงใหม่')
-    await expect(page.locator('#topics tbody tr')).toHaveCount(5)
+    await expect(page.locator('#fig-pv-topics-panel .br-row')).toHaveCount(5)
+    await expect(page.locator('svg.plc path.is-on')).toHaveCount(1)
+    await page.locator('#fig-pv-topics-tab-table').click()
+    await expect(page.locator('#fig-pv-topics-panel tbody tr')).toHaveCount(5)
+    await expect(page).toHaveURL(/v=table/)
     await page.getByLabel('ดูจังหวัดอื่น').selectOption('TH-10')
     await expect(page).toHaveURL(/#\/province\/TH-10$/)
   },

@@ -6,9 +6,9 @@ import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { SourceLine } from '../components/SourceLine'
-import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
+import { StatusGlyph } from '../components/StatusGlyph'
 import { PhoneFold } from '../components/PhoneFold'
-import { Steps } from '../components/Steps'
+import { StatusFlowchart } from '../components/StatusFlowchart'
 import { Tabs } from '../components/Tabs'
 import { TopicLink } from '../components/TopicLink'
 import { ForestPlot } from '../charts/ForestPlot'
@@ -19,7 +19,6 @@ import { ciPct, DASH, fmtInt, fmtRatio, fmtSignedPct } from '../lib/format'
 import { forestSelection } from '../lib/forest'
 import { useI18n, type I18n } from '../lib/i18n'
 import { isSignal, isStatus, STATUSES, type StatusId } from '../lib/status'
-import { STATUS_STEPS, stepOf } from '../lib/statusSteps'
 import { withPrimary } from '../lib/columns'
 import { figureCsv } from '../lib/tableCsv'
 import { statusMeaning, statusName } from '../lib/topicText'
@@ -85,7 +84,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
   return (
     <div className="container">
       <PageHeader title={t('em.title')} lede={lede} />
-      {release.topics.length ? <StatusSteps current={stepOf(st)} level={level} /> : null}
+      {release.topics.length ? <StatusSteps topics={release.topics} status={st} level={level} /> : null}
       {release.topics.length === 0 ? (
         <EmptyState title={t('empty.topics')} />
       ) : (
@@ -160,27 +159,12 @@ function Emerging({ release }: { release: AtlasRelease }) {
   )
 }
 
-/** The status rule as four numbered checks, in the order the definition applies them; the open tab's step is marked. */
-function StatusSteps({ current, level }: { current: number; level: number }) {
+/** The status rule as a decision diagram (the open tab's status is marked), folded on phones. */
+function StatusSteps({ topics, status, level }: { topics: readonly Topic[]; status: StatusId; level: number }) {
   const { t } = useI18n()
-  const vars = ruleVars(level)
   return (
     <PhoneFold id="em-steps-h" className="em-steps" headingClass="em-steps-h" heading={t('steps.h')}>
-      <Steps
-        label={t('steps.label')}
-        current={current}
-        items={STATUS_STEPS.map((s) => ({
-          title: t(`steps.${s.key}.t` as const),
-          body: t(`steps.${s.key}.b` as const, vars),
-          foot: s.outcomes.map((o) => (
-            <span className="step-o" key={o}>
-              <span>{t(`steps.o.${o}` as const, vars)}</span>
-              <span aria-hidden="true">→</span>
-              <StatusChip status={o} label={statusName(t, o)} small />
-            </span>
-          )),
-        }))}
-      />
+      <StatusFlowchart topics={topics} level={level} current={status} />
     </PhoneFold>
   )
 }

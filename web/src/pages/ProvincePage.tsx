@@ -1,5 +1,9 @@
 import { Link, useNavigate, useParams } from 'react-router'
+import { BarRank } from '../charts/BarRank'
+import { rankBars } from '../charts/infographic'
 import { DataTable, type Column } from '../components/DataTable'
+import { Figure } from '../components/Figure'
+import { ProvinceLocator } from '../components/ProvinceLocator'
 import { EmptyState } from '../components/EmptyState'
 import { InstitutionLink } from '../components/InstitutionLink'
 import { ModuleFile } from '../components/ModuleFile'
@@ -16,6 +20,8 @@ import { windows } from '../lib/definition'
 import { fmtInt, fmtNum, fmtPct } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import type { StrKey } from '../strings'
+import { provinceCodec } from '../lib/urlState'
+import { useUrlState } from '../lib/useUrlState'
 import { province as PV } from '../strings/province'
 
 type TopicRow = { topic: Topic; count: number; share: number }
@@ -68,6 +74,12 @@ function Province({ release, file }: { release: AtlasRelease; file: RegionsFile 
           <Picker file={file} />
         </PageHeader>
         <Section id="all" title={s('pv.byRegion')} intro={s('pv.byRegion.intro', span)}>
+          <div className="pv-index">
+            <figure className="pv-map">
+              <ProvinceLocator articles={new Map(file.provinces.map((p) => [p.code, p.articles]))} label={s('pv.map.all')} size="lg" />
+              <figcaption>{s('pv.map.allCap')}</figcaption>
+            </figure>
+            <div>
           {byRegion.map((g) => (
             <div className="pv-region" key={g.key}>
               <h3>{t(`rg.region.${g.key}` as StrKey)}</h3>
@@ -81,6 +93,8 @@ function Province({ release, file }: { release: AtlasRelease; file: RegionsFile 
               </ul>
             </div>
           ))}
+            </div>
+          </div>
         </Section>
       </div>
     )
@@ -115,6 +129,8 @@ function OneProvince({ release, file, p }: { release: AtlasRelease; file: Region
   const rank = placed.findIndex((x) => x.code === p.code) + 1
   const instRows = (insts?.institutions ?? []).filter((i) => i.province === p.code).sort((a, b) => b.articles - a.articles).slice(0, 8)
   const maxShare = Math.max(0.0001, ...rows.map((r) => r.share))
+  const [state, update] = useUrlState(provinceCodec)
+  const bars = rankBars(rows.map((r) => ({ key: lang === 'en' ? r.topic.en : r.topic.th, id: r.topic.id, count: r.count })), rows.length)
   const columns: Column<TopicRow>[] = [
     { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => <TopicLink topic={r.topic} showStatus />, sortValue: (r) => r.topic.id, csv: (r) => r.topic.id },
     { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
@@ -131,6 +147,11 @@ function OneProvince({ release, file, p }: { release: AtlasRelease; file: Region
         <Picker file={file} current={p.code} />
       </PageHeader>
       <Section id="numbers" title={s('pv.f.h', { name })}>
+        <div className="pv-hero">
+          <figure className="pv-map">
+            <ProvinceLocator articles={new Map(file.provinces.map((x) => [x.code, x.articles]))} current={p.code} label={s('pv.map.one', { name })} />
+            <figcaption>{s('pv.map.oneCap', { name })}</figcaption>
+          </figure>
         <StatGrid cols={2}>
           <StatTile label={s('pv.f.articles', { a: w.start, b: w.end })} value={fmtInt(p.articles)} sub={s('pv.f.articlesSub')} />
           <StatTile label={s('pv.f.recent', { a: R[0], b: R[1] })} value={fmtInt(p.articles_recent ?? 0)} sub={s('pv.f.recentSub')} />
@@ -138,10 +159,21 @@ function OneProvince({ release, file, p }: { release: AtlasRelease; file: Region
           <StatTile label={s('pv.f.rank')} value={s('pv.f.rankV', { r: fmtInt(rank), n: fmtInt(placed.length) })} sub={s('pv.f.rankSub')} />
           {p.per_100k != null ? <StatTile label={s('pv.f.per100k')} value={fmtNum(p.per_100k, 1)} sub={s('pv.f.per100kSub', { y: file.population_year ?? '' })} /> : null}
         </StatGrid>
+        </div>
       </Section>
       <Section id="topics" title={s('pv.t.h', { name })} intro={lead ? s('pv.t.intro', { topic: lang === 'en' ? lead.topic.en : lead.topic.th, p: fmtPct(lead.share, 0) }) : undefined}>
         {rows.length ? (
-          <DataTable caption={t('table.n', { n: 1, title: s('pv.t.table', { name }) })} rows={rows} columns={columns} rowKey={(r) => r.topic.id} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${release.overview.release}-${p.code}-topics.csv`} />
+          <Figure
+            id="fig-pv-topics"
+            number={1}
+            title={s('pv.t.fig', { name })}
+            tableTitle={t('table.n', { n: 1, title: s('pv.t.table', { name }) })}
+            source={t('source.line', { release: release.overview.release })}
+            view={state.v}
+            onView={(v) => update({ v })}
+            chart={<BarRank rows={bars.rows} href={(r) => `/topics/${r.id}`} value={(r) => s('pv.t.bar', { k: fmtInt(r.count), p: fmtPct(rows.find((x) => x.topic.id === r.id)?.share ?? null, 0) })} label={s('pv.t.fig', { name })} />}
+            table={<DataTable caption={t('table.n', { n: 1, title: s('pv.t.table', { name }) })} rows={rows} columns={columns} rowKey={(r) => r.topic.id} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${release.overview.release}-${p.code}-topics.csv`} />}
+          />
         ) : (
           <EmptyState title={s('pv.t.none')} />
         )}

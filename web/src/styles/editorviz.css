@@ -197,10 +197,9 @@
   }
 
   /* /about: the pipeline drawings, the decision path, the folded citation, plain changelog */
-  .ab-flow .steps { margin-top: 4px; }
-  .pa-sheet { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5; }
+  .pa-sheet { fill: var(--bg); stroke: var(--brand); stroke-width: 1.5; }
   .pa-line { stroke: var(--ink-2); stroke-width: 1.5; }
-  .pa-ring { fill: none; stroke: var(--link); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
+  .pa-ring { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
   .pa-dot { fill: var(--ink-2); }
   .pa-base { stroke: var(--ink); stroke-width: 1.5; }
   .pa-trend { fill: none; stroke: var(--link); stroke-width: 2.4; stroke-linejoin: round; }
@@ -222,4 +221,17 @@
   .smx-title { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
   .smx-title svg { flex: none; }
   .smx-ctx { fill: none; stroke: var(--border); stroke-width: 1.5; }
+
+  /* "Atlas ทำงานอย่างไร": five stations in a row joined by arrows (a column on phones) */
+  .afl { margin: 22px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 28px; }
+  .afl-st { position: relative; padding: 18px 16px 20px; border-radius: 12px; background: var(--surface); }
+  .afl-st:not(:last-child)::after { content: ""; position: absolute; top: 50px; right: -22px; width: 16px; height: 16px; border-top: 2px solid var(--brand); border-right: 2px solid var(--brand); transform: rotate(45deg); }
+  .afl-art svg { display: block; }
+  .afl-num { margin-top: 10px; font-size: var(--fs-lead); font-weight: 700; color: var(--brand); line-height: 1.5; font-variant-numeric: tabular-nums; }
+  .afl-t { margin-top: 2px; font-weight: 700; line-height: 1.5; }
+  .afl-b { margin-top: 4px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; }
+  .pa-tag { fill: var(--bg); stroke: var(--brand); stroke-width: 1.5; }
+  .pa-tagdot { fill: var(--accent-mark); }
+  .pa-down { fill: none; stroke: var(--accent-mark); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  @media (max-width: 1099px) { .afl { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 28px 28px; } .afl-st::after { display: none; } }
 }

@@ -13,7 +13,7 @@ export const about = defineStrings({
   'about.privacy.body': { th: 'เว็บนี้แสดงแค่หัวข้อ วารสาร และสถาบัน ไม่จัดอันดับและไม่แสดงข้อมูลของบุคคล (ตาม PDPA) ไม่นำบทคัดย่อมาแสดง เพราะเป็นลิขสิทธิ์ของวารสาร ชื่อเรื่องจึงลิงก์กลับไปที่ ThaiJO และระหว่างที่คุณเปิดดู เว็บไม่ได้เชื่อมต่อบริการภายนอกหรือ AI ใด ๆ', en: 'The site shows topics, journals and institutions only; it never ranks or shows individuals (PDPA). Abstracts are not republished because they belong to the journals; titles link back to ThaiJO, and the site calls no outside service or AI while you browse.' },
   'about.cite.h': { th: 'การอ้างอิง Atlas', en: 'Cite this atlas' },
   'about.cite.show': { th: 'แสดงข้อความอ้างอิง (APA และ BibTeX)', en: 'Show the citation (APA and BibTeX)' },
-  'about.flow.h': { th: 'จากบทความถึงสถานะใน 4 ขั้น', en: 'From articles to a status in 4 steps' },
+  'about.flow.h': { th: 'Atlas ทำงานอย่างไร: จากบทความถึงเว็บนี้ใน 5 ขั้น', en: 'How the Atlas works: from articles to this site in 5 steps' },
   'about.log.h': { th: 'นิยามเคยเปลี่ยนอย่างไร', en: 'How the definition has changed' },
   'about.log.intro': { th: 'ทุกครั้งที่นิยามเปลี่ยน เลขฉบับจะเพิ่มขึ้น ตัวเลขที่ใช้นิยามต่างฉบับกันจึงไม่ควรนำมาเทียบกันตรง ๆ', en: 'Each change to the definition raises its version number, so figures from different versions should not be compared directly.' },
   'about.log.version': { th: 'ฉบับที่ {v} · {date}', en: 'Version {v} · {date}' },

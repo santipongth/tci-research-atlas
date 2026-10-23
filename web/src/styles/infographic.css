@@ -130,4 +130,30 @@
     .step::before { top: 36px; bottom: 0; left: 17px; right: auto; border-top: 0; border-left: 2px solid var(--border); }
     .step-c { margin-top: 4px; padding-right: 0; }
   }
+
+  /* "สถานะมาจากไหน": a decision diagram — questions down a spine on the left, the statuses they settle branch right */
+  .sfc { margin: 18px 0 0; padding: 0; list-style: none; }
+  .sfc-row { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 12px 48px; align-items: center; padding: 14px 0; }
+  .sfc-q { position: relative; padding: 16px 20px; border-radius: 12px; background: var(--brand-soft); }
+  .sfc-qt { font-size: var(--fs-lead); font-weight: 700; color: var(--brand); line-height: 1.5; }
+  .sfc-qb { margin-top: 4px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; }
+  .sfc-next { position: absolute; left: 24px; bottom: -26px; font-size: var(--fs-caption); font-weight: 600; color: var(--ink-3); }
+  .sfc-row:not(:last-child) .sfc-q::after { content: ""; position: absolute; left: 14px; bottom: -28px; width: 2px; height: 28px; background: var(--border); }
+  .sfc-outs { position: relative; }
+  .sfc-outs::before { content: ""; position: absolute; left: -48px; top: 50%; width: 40px; height: 2px; background: var(--border); }
+  .sfc-outs::after { content: ""; position: absolute; left: -12px; top: calc(50% - 5px); border: 5px solid transparent; border-left-color: var(--border); }
+  .sfc-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 12px; }
+  .sfc-sub { display: grid; gap: 8px; }
+  .sfc-subq { font-size: var(--fs-meta); font-weight: 600; color: var(--ink-2); }
+  .sfc-out { padding: 12px 16px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--bg); }
+  .sfc-out.is-current { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+  .sfc-when { font-size: var(--fs-caption); font-weight: 700; color: var(--ink-3); }
+  .sfc-st { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+  .sfc-n { font-size: var(--fs-meta); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .sfc-eg { margin-top: 4px; font-size: var(--fs-meta); color: var(--ink-2); }
+  @media (max-width: 760px) {
+    .sfc-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px 0 18px; }
+    .sfc-outs { margin-left: 18px; padding-left: 16px; border-left: 2px solid var(--border); }
+    .sfc-outs::before, .sfc-outs::after, .sfc-row:not(:last-child) .sfc-q::after, .sfc-next { display: none; }
+  }
 }

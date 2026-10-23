@@ -13,6 +13,7 @@ import { ciPct, fmtDate, fmtInt, fmtNum, fmtPct } from '../../lib/format'
 import { useI18n, useStrings } from '../../lib/i18n'
 import type { StrKey } from '../../strings'
 import { openViz } from '../../strings/openViz'
+import PipelineSteps from '../about/PipelineSteps'
 import { ModuleDownloads } from './ModuleDownloads'
 
 /** The release files as loaded (used to download from the offline file, where there is no data folder). */
@@ -213,6 +214,9 @@ export default function OpenData({ release }: { release: AtlasRelease }) {
   return (
     <div className="layout">
       <div className="main-col">
+        <Section id="flow" title={t('about.flow.h')}>
+          <PipelineSteps release={release} />
+        </Section>
         <Section id="csv" title={s('ez.h')} intro={s('ez.intro')}>
           <ul className="ez-cards" aria-label={s('ez.cards')}>
             {easy.map((f) => (

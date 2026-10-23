@@ -55,7 +55,7 @@ export default function AboutPage() {
           ))}
           <Section id="definition" title={t('about.def.h')} intro={t('about.def.intro', { v: version, level })}>
             <Suspense fallback={null}>
-              <StatusDecision level={level} />
+              <StatusDecision level={level} topics={release?.topics ?? []} />
             </Suspense>
             <dl className="defs">
               {STATUSES.map((st) => (
