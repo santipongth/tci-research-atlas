@@ -53,23 +53,29 @@ def profile(
     workers: int = typer.Option(1),
     max_error_ratio: float = typer.Option(0.01, help="exit 1 when more files/lines than this share fail to parse "
                                                      "(same as input.max_error_ratio)"),
+    aliases_todo: Path = typer.Option(None, help="write the most frequent affiliations no institutions_aliases.csv "
+                                                 "row covers yet (a CSV to fill in)"),
 ) -> None:
-    """Corpus quality report — run before the pipeline on every new corpus (exit 1 above the error ceiling)."""
+    """Corpus quality report — run before the pipeline on every new corpus. Exit 1 when too many lines/files are
+    unreadable or a companion file (journals.csv, institutions_aliases.csv, province_population.csv) needs fixing."""
     import json
 
-    from atlas.profile import profile_corpus, render_markdown
+    from atlas.profile import problems, profile_corpus, render_markdown
 
     if fmt not in ("auto", "corpus_jsonl", "thaijo_md"):
         raise typer.BadParameter("--format must be auto, corpus_jsonl or thaijo_md")
-    report = profile_corpus(path, pattern, workers, max_error_ratio, fmt)
+    report = profile_corpus(path, pattern, workers, max_error_ratio, fmt, aliases_todo=aliases_todo)
     if out:
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     text = render_markdown(report)
     if md:
         md.write_text(text, encoding="utf-8")
     typer.echo(text)
-    if report["files_with_errors"]["ratio"] > max_error_ratio:
+    found = problems(report, max_error_ratio)
+    if found:
+        typer.echo("[profile] fix before the hand-over:\n" + "\n".join(f"  - {x}" for x in found), err=True)
         raise typer.Exit(1)
+    typer.echo("[profile] OK — nothing to fix")
 
 
 @app.command()

@@ -38,7 +38,7 @@ tci-research-atlas/
 │   │                         P4: references.py, search_index.py, kwtrends.py, export_research.py, feeds.py (ฟีด Atom ตอน publish))
 │   │   ├── sources/        ← parser ข้อมูลเข้า (corpus_jsonl.py = คลังรูปแบบ 1.0 ที่แนะนำ · thaijo_md.py)
 │   │   └── schema/         ← data contract v2 (contract.py → JSON Schema) · corpus.py (คลังรูปแบบ 1.0 → docs/corpus/corpus.schema.json)
-│   │   (quarterly.py = `atlas quarterly` · corpus_convert.py = `atlas corpus convert`)
+│   │   (quarterly.py = `atlas quarterly` · corpus_convert.py = `atlas corpus convert` · companions.py = ตรวจ journals.csv / institutions_aliases.csv / province_population.csv / ror.zip ที่มากับคลัง)
 │   ├── configs/ci.yaml     ← config สำหรับ CI
 │   ├── atlas/data/         ← ข้อมูลอ้างอิงสาธารณะที่ commit: th_provinces.csv (77 จังหวัด ISO 3166-2:TH), frameworks.yaml (SDG/BCG/แผน ววน./หมุดหมายแผนฯ 13 + คำสำคัญ)
 │   ├── registry/           ← ไฟล์ที่ผู้ดูแลคัดเอง (journals.csv, institutions_aliases.csv, province_population.csv — git-ignored) — repo มีแต่ *.example.csv

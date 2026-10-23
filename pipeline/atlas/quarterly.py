@@ -28,6 +28,7 @@ from pathlib import Path
 
 import yaml
 
+from atlas.companions import companion_paths
 from atlas.profile import detect_format
 from atlas.sources.corpus_jsonl import corpus_files
 from atlas.state import _checked, release_from_date, today
@@ -69,8 +70,12 @@ def round_config(config: Path | None, release: str, corpus: Path | None) -> dict
         raise RoundError(f"corpus not found: {path} — pass --corpus <folder> or set input.path in config.yaml", 2)
     if path.is_dir():
         cfg["input"]["format"] = detect_format(path)
-        if (path / "journals.csv").is_file():
-            cfg["journals"]["registry_path"] = str((path / "journals.csv").resolve())
+        found = companion_paths(path)          # files the data team delivers next to articles/ win over config.yaml
+        if "journals" in found:
+            cfg["journals"]["registry_path"] = str(found["journals"].resolve())
+        for kind, key in (("aliases", "aliases_path"), ("population", "population_path"), ("ror", "ror_path")):
+            if kind in found:
+                cfg["institutions"][key] = str(found[kind].resolve())
     cfg["pipeline"]["release"] = release
     return cfg
 
@@ -79,7 +84,7 @@ def corpus_manifest(cfg: dict) -> dict:
     root = Path(cfg["input"]["path"])
     if cfg["input"]["format"] == "corpus_jsonl":
         files = [Path(f) for f in corpus_files(root, cfg["input"]["corpus_glob"])]
-        extra = [root / "journals.csv"] if (root / "journals.csv").is_file() else []
+        extra = list(companion_paths(root).values())
         entries = [{"path": str(p.relative_to(root)).replace(os.sep, "/"), "bytes": p.stat().st_size,
                     "sha256": _sha256(p)} for p in files + extra]
         return {"format": "corpus_jsonl", "root": str(root), "files": entries,
@@ -226,12 +231,13 @@ def run_round(config: Path | None, corpus: Path | None, release: str | None, yes
     else:
             code = step("profile", lambda: _atlas(["profile", cfg["input"]["path"], "--format", cfg["input"]["format"],
                                                "--md", str(rdir / "profile.md"), "--out", str(rdir / "profile.json"),
+                                               "--aliases-todo", str(rdir / "aliases_todo.csv"),
                                                "--workers", str(cfg["input"]["workers"]),
                                                "--max-error-ratio", str(cfg["input"]["max_error_ratio"])],
                                               rdir / "profile.log"))
     if code:
-        raise RoundError(f"the corpus has more unreadable lines/files than input.max_error_ratio — fix them "
-                         f"(list in {rdir / 'profile.md'}) and run again")
+        raise RoundError(f"the corpus check found problems (too many unreadable lines/files, or a companion file "
+                         f"to fix) — the list is at the end of {rdir / 'profile.md'}; fix them and run again")
     if prepare:
         _say(f"prepared: {rcfg} — first big embedding: uv run atlas embed -c {rcfg} --check / --dry-run / --background")
         return 0

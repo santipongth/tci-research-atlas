@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from atlas.companions import check_companions
+from atlas.companions import render as render_companions
 from atlas.ingest import doi_key, read_corpus_tables, read_thaijo_corpus, records_to_tables, title_key
 from atlas.sources.corpus_jsonl import DEFAULT_GLOB, corpus_files
 
@@ -56,7 +58,7 @@ def _corpus_section(arts: pd.DataFrame, auths: pd.DataFrame, stats: dict) -> dic
 
 def profile_corpus(root: str | Path, pattern: str | None = None, workers: int = 1,
                    max_error_ratio: float = 0.01, fmt: str = "auto",
-                   exclude: tuple[str, ...] = DEFAULT_EXCLUDE) -> dict:
+                   exclude: tuple[str, ...] = DEFAULT_EXCLUDE, aliases_todo: Path | None = None) -> dict:
     fmt = detect_format(root) if fmt == "auto" else fmt
     corpus = None
     if fmt == "corpus_jsonl":
@@ -92,7 +94,10 @@ def profile_corpus(root: str | Path, pattern: str | None = None, workers: int = 
                    for y, c in by_year.items()]
     return {
         "format": fmt,
-        "corpus": corpus,                            # corpus_jsonl only: id sources, exclusions, field coverage
+        "corpus": corpus,
+        # journals.csv, institutions_aliases.csv, province_population.csv, ror.zip next to articles/ (required: journals)
+        "companions": check_companions(root, arts, auths, aliases_todo, required=fmt == "corpus_jsonl")
+        if Path(root).is_dir() else None,                            # corpus_jsonl only: id sources, exclusions, field coverage
         "files": n,                                  # files (Markdown) or lines (JSONL) parsed into a record
         "files_with_errors": {"count": len(errors), "examples": errors[:20],     # unreadable/unparsable: skipped
                               "ratio": round(len(errors) / n_files, 6) if n_files else 0.0,
@@ -181,6 +186,7 @@ def render_markdown(r: dict) -> str:
         *([f"- {k}: {v:,}" for k, v in r["text_quality"].items()] or ["- ไม่พบ"]),
         "",
         *_render_corpus(r),
+        *(render_companions(r["companions"]) if r.get("companions") else []),
         "## Files with errors (could not be read or parsed — skipped by ingest)",
         "",
         f"- files: {r['files_with_errors']['count']:,} (ratio {r['files_with_errors']['ratio']:.4f}, "
@@ -206,3 +212,11 @@ def render_markdown(r: dict) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def problems(r: dict, max_error_ratio: float) -> list[str]:
+    """What makes `atlas profile` exit 1: too many unreadable lines/files, or a companion file to fix."""
+    out = []
+    if r["files_with_errors"]["ratio"] > max_error_ratio:
+        out.append(f"{r['files_with_errors']['count']:,} unreadable lines/files (above input.max_error_ratio)")
+    return out + list((r.get("companions") or {}).get("problems", []))

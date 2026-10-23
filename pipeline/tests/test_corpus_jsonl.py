@@ -157,3 +157,44 @@ def test_affiliation_hints_from_the_corpus():
     hinted = r.resolve("", aff, key, province="TH-40")
     assert hinted.key == f"org:{key}" and hinted.province == "TH-40"
     assert r.resolve("", aff, key).province is None        # no hint: the old rules, unchanged
+
+
+def _copy_example(tmp_path: Path) -> Path:
+    import shutil
+    root = tmp_path / "corpus"
+    shutil.copytree(EXAMPLE, root)
+    return root
+
+
+def test_companion_files_of_the_example_need_no_fix(tmp_path):
+    from atlas.companions import check_companions
+    arts, auths, _, _, _ = read_corpus_tables(EXAMPLE, exclude=EXCLUDE)
+    todo = tmp_path / "todo.csv"
+    c = check_companions(EXAMPLE, arts, auths, todo)
+    assert c["problems"] == []
+    assert c["journals"]["rows"] == 3 and c["aliases"]["covered_pct"] > 80
+    assert todo.read_text(encoding="utf-8-sig").splitlines()[0].startswith("alias,inst_id,")
+
+
+def test_companion_problems_are_named(tmp_path):
+    from atlas.companions import check_companions
+    root = _copy_example(tmp_path)
+    jc = (root / "journals.csv").read_text(encoding="utf-8").splitlines()
+    (root / "journals.csv").write_text("\n".join(jc[:-1]) + "\n", encoding="utf-8")        # drop one journal
+    (root / "province_population.csv").write_text("code,population,year\nTH-10,5500000,2025\n", encoding="utf-8")
+    arts, auths, _, _, _ = read_corpus_tables(root, exclude=EXCLUDE)
+    probs = check_companions(root, arts, auths)["problems"]
+    assert any("tci:sample-education-journal" in p for p in probs)
+    assert any("lacks 76 province" in p for p in probs)
+    (root / "institutions_aliases.csv").write_text("alias,inst_id\nSample University,Bad Id\n", encoding="utf-8")
+    probs = check_companions(root, arts, auths)["problems"]
+    assert any(p.startswith("aliases:") and "inst_id" in p for p in probs)
+
+
+def test_a_corpus_without_journals_csv_is_flagged(tmp_path):
+    from atlas.companions import check_companions
+    root = _copy_example(tmp_path)
+    (root / "journals.csv").unlink()
+    arts, auths, _, _, _ = read_corpus_tables(root, exclude=EXCLUDE)
+    assert "journals.csv is missing from the corpus folder" in check_companions(root, arts, auths)["problems"]
+    assert check_companions(root, arts, auths, required=False)["problems"] == []

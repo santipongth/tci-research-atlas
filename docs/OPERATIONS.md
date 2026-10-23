@@ -40,7 +40,10 @@
 
 ### 1.1 รับและวางคลังบทความ
 
-1. **ตรวจไฟล์ที่ได้รับ:** ทีมข้อมูลส่งคลังรูปแบบ 1.0 ตามคู่มือ [`docs/corpus/README.md`](corpus/README.md) คือโฟลเดอร์ `articles/*.jsonl.gz` + `journals.csv`
+1. **ตรวจไฟล์ที่ได้รับ:** ทีมข้อมูลส่งคลังรูปแบบ 1.0 ตามคู่มือ [`docs/corpus/README.md`](corpus/README.md) คือโฟลเดอร์ `articles/*.jsonl.gz` + `journals.csv` + `README.txt`
+   - อาจมีไฟล์เพิ่ม: `institutions_aliases.csv`, `province_population.csv`, `ror.zip`
+   - `atlas quarterly` ใช้ไฟล์ประกอบในโฟลเดอร์คลังแทนค่าใน config.yaml ให้เอง
+   - รายการสังกัดที่ยังไม่มีใน `institutions_aliases.csv` อยู่ที่ `runs/<รอบ>/aliases_todo.csv` ส่งกลับให้ทีมข้อมูลเติมได้
 2. **วางคลังแยกโฟลเดอร์ตามรอบ นอก git** และห้ามแก้คลังของรอบเก่า:
    ```
    D:/atlas-data/corpus/2026Q4/articles/…

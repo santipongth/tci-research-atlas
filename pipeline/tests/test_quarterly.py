@@ -27,6 +27,8 @@ def test_round_config_takes_the_corpus_format_and_journals_from_the_folder():
     cfg = q.round_config(None, "2026Q4", EXAMPLE)
     assert cfg["input"]["format"] == "corpus_jsonl" and cfg["pipeline"]["release"] == "2026Q4"
     assert Path(cfg["journals"]["registry_path"]) == (EXAMPLE / "journals.csv").resolve()
+    assert Path(cfg["institutions"]["aliases_path"]) == (EXAMPLE / "institutions_aliases.csv").resolve()
+    assert cfg["institutions"]["population_path"] != str(EXAMPLE / "province_population.csv")   # not delivered
 
 
 def test_round_config_refuses_a_missing_corpus(tmp_path):
@@ -36,7 +38,7 @@ def test_round_config_refuses_a_missing_corpus(tmp_path):
 
 def test_corpus_manifest_hashes_every_data_file():
     m = q.corpus_manifest(q.round_config(None, "2026Q4", EXAMPLE))
-    assert [f["path"] for f in m["files"]] == ["articles/part-0001.jsonl", "journals.csv"]
+    assert [f["path"] for f in m["files"]] == ["articles/part-0001.jsonl", "journals.csv", "institutions_aliases.csv"]
     assert all(len(f["sha256"]) == 64 for f in m["files"])
 
 
