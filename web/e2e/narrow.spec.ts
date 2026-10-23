@@ -47,7 +47,7 @@ test.describe('360 px', () => {
     await expect(zoom).toBeVisible()
     const [z, sheet] = await Promise.all([zoom.boundingBox(), page.locator('.sheet-in').boundingBox()])
     expect(z && sheet && z.y >= sheet.y + sheet.height - 1).toBe(true)
-    expect(await page.locator('.fieldkey li .swatch').count()).toBeGreaterThanOrEqual(2)
+    expect(await page.locator('.ab-fields li .swatch').count()).toBeGreaterThanOrEqual(2)
   })
 })
 
@@ -61,7 +61,7 @@ test.describe('390 px atlas', () => {
     // 1000 × 640 map plus the fit margin: no tall band of empty paper under it
     expect(sheet.height / sheet.width).toBeLessThan(0.75)
     await expect.poll(() => page.locator('.mlabel').count()).toBeGreaterThan(1)
-    await expect(page.locator('.gaz .g-val').first()).toContainText('ต่อปี')
+    await expect(page.locator('.ab-row-v').first()).toContainText('ต่อปี')
   })
 })
 

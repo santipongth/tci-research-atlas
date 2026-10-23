@@ -34,5 +34,4 @@ export const embed = defineStrings({
   'cite.version': { th: 'รอบข้อมูล {release}', en: 'Release {release}' },
   'cite.kind': { th: 'ชุดข้อมูล', en: 'Data set' },
   'cite.noRelease': { th: 'ข้อความอ้างอิงที่ระบุรอบข้อมูลจะแสดงเมื่อหน้านี้โหลดข้อมูลได้แล้ว', en: 'Open this page with a loaded release to get a citation that names it.' },
-  'cite.software': { th: 'ซอฟต์แวร์: ไฟล์ CITATION.cff ในคลังโค้ด', en: 'Software: CITATION.cff in the code repository' },
 })

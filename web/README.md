@@ -89,7 +89,7 @@ src/components/     Layout (เมนูซ้าย / แถบบนมือ�
 src/charts/         SVG เขียนเอง: forest · portfolio · trend · multi-line · StatusDonut · StoryLines + infographic (BarRank · ArcNetwork · ColumnChart · MixBar
                     · OpportunityQuadrant · GoalTiles · JournalScatter · PeriodMix · ChecklistBars · SmallMultiples)
                     คณิตการจัดวางแบบ pure + test: infographic.ts · execLayout.ts · editorLayout.ts · donut.ts · scale.ts · series.ts
-src/features/atlas/ แผนที่หัวข้อ (mapSpace, terrain, TerrainMap, Gazetteer = รายชื่อหัวข้อตามสถานะพร้อมพิกัดกริด ไม่มีช่องค้นหา)
+src/features/atlas/ แผนที่หัวข้อ (mapSpace, terrain, TerrainMap, TopicList = รายการหัวข้อข้างแผนที่ในการ์ดเดียวกัน เรียงตามการเติบโตหรือขนาด)
 src/embed/          กราฟฝัง + EmbedBoundary + ลิงก์ฟีด `FeedLink` (แถบหัวของ /topics และหน้าหัวข้อ แสดงเมื่อ latest.feeds === true)
 src/geo/            thProvinces.ts (ใช้ใน ProvinceMap/ProvinceLocator ของ chunk lazy เท่านั้น: การ์ดจังหวัดของภาพรวม, /places, /province/:code — ไม่อยู่ใน entry)
 src/content/        changelog · method

@@ -256,7 +256,7 @@ HttpSource (src/data/source.ts)          EmbeddedSource (src/data/source.ts)
 | `src/pages/` | หน้าตาม §9.2 (+ ส่วนย่อยใน `overview/`, `topic/`, `about/`) |
 | `src/components/` | `Layout` (เมนูซ้าย / แถบบนมือถือ + drawer) · `dashboard/` (`SideNav` · `PageBar` · `Card`/`DashGrid`/`DashStack`/`SeeAll` · `KpiCard`/`KpiRow` · `RankRows`/`MoreRows` · `Segmented` · `Drawer` · `Icon`) · Figure (กราฟอย่างเดียว) · Section (= การ์ด) · DataTable · Term/InfoPop (ปุ่ม ⓘ) · ModuleFile · MovedTo · ProvinceMap · ErrorBoundary ฯลฯ |
 | `src/charts/` | กราฟ SVG เขียนเอง (forest, portfolio, trend, multi-line, donut สถานะ + ชุด infographic) — คณิตการจัดวางแบบ pure อยู่ใน `infographic.ts` / `execLayout.ts` / `editorLayout.ts` / `donut.ts` (มี test) |
-| `src/features/atlas/` | แผนที่หัวข้อ (canvas ภูมิประเทศ + SVG overlay, กริดอ้างอิง 10 × 6 A–J/1–6) + รายชื่อหัวข้อตามสถานะพร้อมพิกัดกริด (`Gazetteer`, ไม่มีช่องค้นหา) |
+| `src/features/atlas/` | แผนที่หัวข้อ (canvas ภูมิประเทศ + SVG overlay, กริดอ้างอิง 10 × 6 A–J/1–6) + รายการหัวข้อข้างแผนที่ในการ์ดเดียว (`TopicList`: ชิปสถานะกรองทั้งแผนที่และรายการ, เรียงตามการเติบโตหรือขนาด, คลิกแถว = เลือกบนแผนที่) |
 | `src/lib/` | `galaxyDocs.ts` (แถวบทความของ `/galaxy` จาก `search/meta.json` + `docs-*.json`) · `galaxyGl.ts` (WebGL2) · `citation.ts` ("อ้างอิง Atlas นี้" ใน `/about`, ไม่มีผู้แต่ง) · `usePaged.ts` · `urlState.ts` (ตัวกรองอยู่ใน URL) ฯลฯ |
 | `src/embed/` | กราฟฝัง + ลิงก์ฟีด `FeedLink` (แถบหัวของ `/topics` และหน้าหัวข้อ แสดงเมื่อ `latest.feeds === true`) |
 | `src/strings/` | ข้อความไทย+อังกฤษทุกตัว (`i18n.test.ts` ตรวจครบคู่) |

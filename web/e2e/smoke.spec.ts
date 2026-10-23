@@ -177,19 +177,25 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page).toHaveURL(/sel=T\d{6}/)
     await expect(page.locator('#atlas-selection .g-ref')).toHaveText(/^[A-J][1-6]$/)
     await page.getByRole('button', { name: 'ขยาย', exact: true }).click()
-    await page.getByLabel('เส้นชั้น', { exact: true }).uncheck()
+    await page.getByRole('button', { name: 'เส้นชั้น', exact: true }).click()
     await expect(page).toHaveURL(/layers=/)
-    // the gazetteer lists the topics by status; there is no search box (owner 2026-10-24)
-    await expect(page.locator('.gaz .gcol')).toHaveCount(4)
-    await page.locator('.gaz .grow').first().click()
-    await expect(page).toHaveURL(/sel=T\d{6}/)
+    // one card: status chips filter the map and the list beside it; a row selects its topic on the map
+    await expect(page.locator('.ab-chip')).toHaveCount(9)                      // 6 statuses + 3 layers
+    await page.getByRole('button', { name: /^คงที่/ }).click()
+    await expect(page).toHaveURL(/hide=STABLE/)
+    await expect(page.locator('.ab-row', { hasText: 'การปลูกข้าว' })).toHaveCount(0)   // a stable topic leaves the list too
+    await page.locator('.ab-row').first().click()
+    await expect(page.locator('.ab-row').first()).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.ab-sel .see-all')).toHaveAttribute('href', /#\/topics\/T\d{6}$/)
+    await page.getByRole('button', { name: 'ใหญ่ที่สุด' }).click()
+    await expect(page).toHaveURL(/by=size/)
   },
   galaxy: async (page) => {
     // headless Chromium normally has WebGL2 (SwiftShader); without it the page explains itself — either is fine
     const canvas = page.locator('canvas.gx-canvas')
     await expect(canvas.or(page.getByText('เบราว์เซอร์นี้วาดแผนที่บทความไม่ได้'))).toBeVisible()
     if (!(await canvas.isVisible())) return
-    await expect(page.locator('.gx-keys li').first()).toBeVisible()
+    await expect(page.locator('.ab-keys li').first()).toBeVisible()
     // click one article's dot (screen position from galaxy.json and the fitted view) → its card
     const gx = bundleOf('example').files['galaxy.json'] as GalaxyFile
     const stage = page.locator('.gx-stage')
@@ -210,8 +216,14 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.gx-card a.btn')).toHaveAttribute('href', /tci-thaijo\.org/)
     await page.getByRole('button', { name: 'ล้างการเลือก' }).click()
     await expect(page.locator('.gx-try-btn')).toHaveCount(3)
-    await page.getByLabel('ตั้งแต่ปี').selectOption('2020')
-    await expect(page).toHaveURL(/from=2020/)
+    // years are presets and the field legend is the field filter — no drop-downs
+    await expect(page.getByRole('combobox')).toHaveCount(0)
+    await page.getByRole('button', { name: '5 ปีล่าสุด' }).click()
+    await expect(page).toHaveURL(/from=\d{4}/)
+    await expect(page.locator('.gx-count')).toContainText('จาก')
+    await page.locator('.gx-field-row').nth(1).click()
+    await expect(page).toHaveURL(/g=/)
+    await expect(page.locator('.gx-field-row').nth(1)).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('tab')).toHaveCount(0)
   },
   about: async (page) => {

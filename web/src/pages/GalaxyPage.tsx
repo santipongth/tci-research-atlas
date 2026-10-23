@@ -2,16 +2,16 @@ import { langOf } from '../lib/script'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Link } from 'react-router'
 import { galaxyPicks } from '../charts/editorLayout'
-import { DataTable, type Column } from '../components/DataTable'
+import { Icon } from '../components/dashboard/Icon'
+import { PageBar } from '../components/dashboard/PageBar'
 import { EmptyState } from '../components/EmptyState'
-import { Figure } from '../components/Figure'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { TopicLink } from '../components/TopicLink'
 import { useReleaseFile, type FileState } from '../data/atlasContext'
 import { groupName, hasModule, MODULE_FILES, searchDocsPath, type AtlasRelease } from '../data/release'
-import type { GalaxyFile, SearchDocShard, SearchMeta, Topic } from '../data/types'
+import type { GalaxyFile, SearchDocShard, SearchMeta } from '../data/types'
 import { placeCentered, tintTokens } from '../features/atlas/mapSpace'
 import { fmtInt } from '../lib/format'
 import {
@@ -26,7 +26,6 @@ import { useTheme } from '../lib/theme'
 import { galaxyCodec } from '../lib/urlState'
 import { useElementSize } from '../lib/useElementSize'
 import { useFontsVersion } from '../lib/useFontsVersion'
-import { figureCsv } from '../lib/tableCsv'
 import { useUrlState } from '../lib/useUrlState'
 import { galaxy } from '../strings/galaxy'
 
@@ -92,7 +91,7 @@ function fieldSpots(release: AtlasRelease, lang: 'th' | 'en', present: ReadonlyS
 
 function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile }) {
   const s = useStrings(galaxy)
-  const { t, lang } = useI18n()
+  const { lang } = useI18n()
   const [state, update] = useUrlState(galaxyCodec)
   const theme = useTheme()
   const groups = release.taxonomy.groups
@@ -158,82 +157,113 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
   const picks = useMemo(() => galaxyPicks(points, fields.map((f) => f.slot), 3), [points, fields])
 
   const filtering = state.from !== null || state.to !== null || slot !== null
-  const rel = release.overview.release
-  const tableRows = slot === null ? release.topics : release.topics.filter((tp) => slotOf.get(tp.group) === slot)
-  const columns: Column<Topic>[] = [
-    { key: 'topic', header: s('tbl.topic'), cell: (tp) => <TopicLink topic={tp} />, sortValue: (tp) => nameIn(tp, lang), rowHeader: true, csvCols: [{ header: 'topic_id', value: (tp) => tp.id }, { header: 'name_th', value: (tp) => tp.th }, { header: 'name_en', value: (tp) => tp.en }] },
-    { key: 'field', header: s('tbl.field'), cell: (tp) => groupName(release, tp.group, lang), sortValue: (tp) => groupName(release, tp.group, lang), csvHeader: 'group', csv: (tp) => tp.group },
-    { key: 'articles', header: s('tbl.articles'), cell: (tp) => fmtInt(tp.size), sortValue: (tp) => tp.size, numeric: true, csvHeader: 'size' },
+  // years: three presets instead of two drop-downs (an old link with another range still works and can be cleared)
+  const last = years.length ? years[years.length - 1] : null
+  const preset: 'all' | '10' | '5' | null =
+    state.from === null && state.to === null ? 'all'
+      : last !== null && state.to === null && state.from === last - 9 ? '10'
+        : last !== null && state.to === null && state.from === last - 4 ? '5' : null
+  const presets = [
+    { id: 'all' as const, label: s('y.all') },
+    ...(last !== null && years[0] <= last - 9 ? [{ id: '10' as const, label: s('y.10') }] : []),
+    ...(last !== null && years[0] <= last - 4 ? [{ id: '5' as const, label: s('y.5') }] : []),
   ]
-
-  const legend = (
-    <div className="gx-legend">
-      <p className="gx-legend-h" id="gx-legend-h">{s('legend')}</p>
-      <ul className="gx-keys" aria-labelledby="gx-legend-h">
-        {fields.map((f) => (
-          <li key={f.g.id} className={slot !== null && slot !== f.slot ? 'is-dim' : undefined}>
-            <span className="gx-swatch" style={{ background: rgbCss(palette.slots[f.slot]) }} aria-hidden="true" />
-            <span>{nameIn(f.g, lang)}</span>
-            <span className="gx-key-n">{fmtInt(f.n)}</span>
-          </li>
-        ))}
-        {noField > 0 ? (
-          <li className={slot !== null ? 'is-dim' : undefined}>
-            <span className="gx-swatch" style={{ background: rgbCss(palette.slots[NEUTRAL_SLOT]) }} aria-hidden="true" />
-            <span>{s('legend.none')}</span>
-            <span className="gx-key-n">{fmtInt(noField)}</span>
-          </li>
-        ) : null}
-      </ul>
-      {fields.length > 8 ? <p className="hint">{s('legend.note')}</p> : null}
-    </div>
-  )
-
+  const setPreset = (p: 'all' | '10' | '5') => update({ from: p === 'all' || last === null ? null : last - (p === '10' ? 9 : 4), to: null })
   return (
-    <div className="container">
-      <PageHeader
-        title={s('q')}
-        lede={<>{s('lede', { release: release.overview.release, n: fmtInt(points.total) })} {points.total > points.count ? s('noCoord', { n: fmtInt(points.total - points.count) }) : null} {s('hint')}</>}
+    <>
+      <PageBar
+        title={s('title')}
+        sub={s('sub', { n: fmtInt(points.total) })}
+        info={<>{s('lede', { release: release.overview.release, n: fmtInt(points.total) })} {points.total > points.count ? s('noCoord', { n: fmtInt(points.total - points.count) }) : null} {s('hint')}</>}
       />
-      <div className="gx-sec">
-        <fieldset className="j-tools gx-filters">
-          <legend className="sr-only">{s('f.h')}</legend>
-          <label>
-            {s('f.from')}
-            <select value={state.from ?? ''} onChange={(e) => update({ from: e.target.value ? Number(e.target.value) : null })}>
-              <option value="">{s('f.any')}</option>
-              {years.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </label>
-          <label>
-            {s('f.to')}
-            <select value={state.to ?? ''} onChange={(e) => update({ to: e.target.value ? Number(e.target.value) : null })}>
-              <option value="">{s('f.any')}</option>
-              {years.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </label>
-          <label>
-            {s('f.group')}
-            <select value={slot === null ? '' : state.g} onChange={(e) => update({ g: e.target.value })}>
-              <option value="">{s('f.any')}</option>
-              {fields.map((f) => <option key={f.g.id} value={f.g.id}>{`${nameIn(f.g, lang)} (${fmtInt(f.n)})`}</option>)}
-            </select>
-          </label>
-          {filtering ? <button type="button" className="btn-secondary" onClick={() => update({ from: null, to: null, g: '' })}>{s('f.reset')}</button> : null}
-        </fieldset>
-        <p className="gx-count" role="status">
-          {filtering ? s('shown', { shown: fmtInt(shown), n: fmtInt(points.count) }) : s('shownAll', { n: fmtInt(points.count) })}
-        </p>
-
-        <Figure
-          id="gx"
-          number={1}
-          title={s('fig.title')}
-          csv={figureCsv(`atlas-${rel}-galaxy-topics.csv`, tableRows, columns)}
-          how={<p>{s('fig.how')}</p>}
-          source={t('source.line', { release: rel })}
-          chart={
-            <div className="gx-layout">
+      <div className="dash">
+        <section className="card atlas-board gx-board" aria-labelledby="gx-title">
+          <h2 className="sr-only" id="gx-title">{s('fig.title')}</h2>
+          <div className="ab-bar">
+            <div className="gx-years">
+              <span className="gx-bar-l" id="gx-years-l">{s('years')}</span>
+              <div className="seg" role="group" aria-labelledby="gx-years-l">
+                {presets.map((p) => (
+                  <button key={p.id} type="button" aria-pressed={preset === p.id} onClick={() => setPreset(p.id)}>{p.label}</button>
+                ))}
+              </div>
+              {preset === null ? (
+                <button type="button" className="ab-chip" aria-pressed="true" onClick={() => setPreset('all')}>
+                  {s('y.custom', { a: state.from ?? years[0], b: state.to ?? last ?? '' })}
+                  <Icon name="close" size={14} />
+                  <span className="sr-only">{s('f.reset')}</span>
+                </button>
+              ) : null}
+            </div>
+            <p className="gx-count" role="status">
+              {filtering ? s('shown', { shown: fmtInt(shown), n: fmtInt(points.count) }) : s('shownAll', { n: fmtInt(points.count) })}
+            </p>
+          </div>
+          <div className="ab-body">
+            <div className="ab-side gx-side">
+              {cardPoint === null ? (
+                <div className="ab-sel gx-empty">
+                  <p className="ab-hint-in" aria-live="polite">{missed ? s('card.none') : s('card.empty')}</p>
+                  {picks.length ? (
+                    <>
+                      <p className="card-h3" id="gx-try-h">{s('try.h')}</p>
+                      <ul className="gx-try-list" aria-labelledby="gx-try-h">
+                        {picks.map((i) => {
+                          const tp = release.topicById.get(file.topics[points.topic[i]])
+                          if (!tp) return null
+                          return (
+                            <li key={i}>
+                              <button type="button" className="gx-try-btn" onClick={() => onPick(i)}>
+                                <span className="gx-swatch" style={{ background: rgbCss(palette.slots[points.slot[i]]) }} aria-hidden="true" />
+                                <span className="gx-try-t">{s('try.pick', { t: nameIn(tp, lang) })}</span>
+                                <span className="gx-try-f">{groupName(release, tp.group, lang)} · {points.yr[i]}</span>
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="ab-sel">
+                  <p className="card-h3 gx-card-h" id="gx-card-h">{s('card.h')}</p>
+                  <Card key={cardPoint} release={release} file={file} points={points} index={cardPoint} meta={meta} palette={palette} pinned={sel !== null} onClear={() => onPick(null)} />
+                </div>
+              )}
+              <div className="ab-list">
+                <div className="ab-list-head">
+                  <p className="ab-list-h" id="gx-fields-h">{s('fields.h')}</p>
+                </div>
+                <div className="ab-scroll">
+                  <ul className="ab-rows" aria-labelledby="gx-fields-h">
+                    <li>
+                      <button type="button" className="ab-row gx-field-row" aria-pressed={slot === null} onClick={() => update({ g: '' })}>
+                        <span className="gx-swatch is-all" aria-hidden="true" />
+                        <span className="ab-row-main"><span className="ab-row-name">{s('fields.all')}</span></span>
+                        <span className="ab-row-v">{fmtInt(points.count)}</span>
+                      </button>
+                    </li>
+                    {fields.map((f) => (
+                      <li key={f.g.id}>
+                        <button type="button" className="ab-row gx-field-row" aria-pressed={slot === f.slot} onClick={() => update({ g: slot === f.slot ? '' : f.g.id })}>
+                          <span className="gx-swatch" style={{ background: rgbCss(palette.slots[f.slot]) }} aria-hidden="true" />
+                          <span className="ab-row-main"><span className="ab-row-name">{nameIn(f.g, lang)}</span></span>
+                          <span className="ab-row-v">{fmtInt(f.n)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {noField > 0 ? (
+                    <p className="gx-nofield">
+                      <span className="gx-swatch" style={{ background: rgbCss(palette.slots[NEUTRAL_SLOT]) }} aria-hidden="true" />
+                      {s('legend.none')} {fmtInt(noField)}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            <div className="ab-map">
               <Stage
                 points={points}
                 grid={grid}
@@ -246,55 +276,23 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
                 fields={spots}
                 topics={topicSpots}
               />
-              <aside className="gx-side" aria-labelledby="gx-card-h">
-                <h2 className="gx-card-h" id="gx-card-h">{s('card.h')}</h2>
-                {cardPoint === null ? (
-                  <>
-                    <p className="gx-card-empty" aria-live="polite">{missed ? s('card.none') : s('card.empty')}</p>
-                    {picks.length ? (
-                      <div className="gx-try">
-                        <p className="gx-try-h" id="gx-try-h">{s('try.h')}</p>
-                        <p className="hint">{s('try.intro')}</p>
-                        <ul className="gx-try-list" aria-labelledby="gx-try-h">
-                          {picks.map((i) => {
-                            const tp = release.topicById.get(file.topics[points.topic[i]])
-                            if (!tp) return null
-                            return (
-                              <li key={i}>
-                                <button type="button" className="gx-try-btn" onClick={() => onPick(i)}>
-                                  <span className="gx-swatch" style={{ background: rgbCss(palette.slots[points.slot[i]]) }} aria-hidden="true" />
-                                  <span className="gx-try-t">{s('try.pick', { t: nameIn(tp, lang) })}</span>
-                                  <span className="gx-try-f">{groupName(release, tp.group, lang)} · {points.yr[i]}</span>
-                                </button>
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <Card key={cardPoint} release={release} file={file} points={points} index={cardPoint} meta={meta} palette={palette} pinned={sel !== null} onClear={() => onPick(null)} />
-                )}
-                {legend}
-              </aside>
             </div>
-          }
-          table={
-            <DataTable
-              caption={t('table.n', { n: 1, title: s('tbl.title') })}
-              rows={tableRows}
-              columns={columns}
-              rowKey={(tp) => tp.id}
-              limit={50}
-              defaultSort={{ key: 'articles', dir: 'desc' }}
-              csvFilename={`atlas-${rel}-galaxy-topics.csv`}
-              empty={s('tbl.empty')}
-            />
-          }
-        />
+          </div>
+          <div className="ab-foot">
+            <ul className="ab-keys">
+              <li>
+                <svg width="22" height="14" viewBox="0 0 22 14" aria-hidden="true" focusable="false">
+                  <circle cx="5" cy="7" r="3" fill="currentColor" /><circle cx="11" cy="5" r="3" fill="currentColor" /><circle cx="18" cy="9" r="3" fill="currentColor" opacity="0.5" />
+                </svg>
+                {s('key.dot')}
+              </li>
+              <li>{s('key.near')}</li>
+              <li>{s('key.zoom')}</li>
+            </ul>
+          </div>
+        </section>
       </div>
-    </div>
+    </>
   )
 }
 

@@ -15,7 +15,7 @@ describe('URL state codecs', () => {
   })
 
   it('atlas: selection, hidden statuses in canonical order, an empty layer set', () => {
-    const s: AtlasUrlState = { sel: 'T000201', hide: ['LOW_DATA', 'STABLE'], layers: [] }
+    const s: AtlasUrlState = { sel: 'T000201', hide: ['LOW_DATA', 'STABLE'], layers: [], by: 'size' }
     expect(atlasCodec.parse(new URLSearchParams(atlasCodec.write(s).toString()))).toEqual({ ...s, hide: ['STABLE', 'LOW_DATA'] })
     expect(atlasCodec.parse(new URLSearchParams('sel=T12&hide=HOT,NOPE'))).toMatchObject({ sel: null, hide: ['HOT'], layers: ['contours', 'tints', 'names'] })
   })

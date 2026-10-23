@@ -112,18 +112,20 @@ export const journalsCodec = makeCodec<{ by: (typeof JOURNAL_BY)[number] }>({ by
 /** /goals: the goal framework shown in the tiles. */
 export const goalsCodec = makeCodec<{ fw: string }>({ fw: text('fw', 24) })
 
-/** /atlas: the selected topic, hidden statuses and map layers. */
+/** /atlas: the selected topic, hidden statuses, map layers and how the topic list beside the map is ranked. */
 export const LAYERS = ['contours', 'tints', 'names'] as const
 export type Layer = (typeof LAYERS)[number]
 export interface AtlasUrlState {
   sel: string | null
   hide: StatusId[]
   layers: Layer[]
+  by: 'growth' | 'size'
 }
 export const atlasCodec = makeCodec<AtlasUrlState>({
   sel: optionalTopic('sel'),
   hide: setOf('hide', STATUSES, []),
   layers: setOf('layers', LAYERS, LAYERS),
+  by: oneOf('by', ['growth', 'size'] as const, 'growth'),
 })
 
 /** /galaxy: the year range and the field in focus. */

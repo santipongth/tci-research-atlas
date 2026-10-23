@@ -1,22 +1,23 @@
-import { TopicName } from '../components/TopicName'
 import { useMemo, useRef } from 'react'
-import { Link } from 'react-router'
+import { SeeAll } from '../components/dashboard/Card'
+import { Icon } from '../components/dashboard/Icon'
+import { PageBar } from '../components/dashboard/PageBar'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
-import { Section } from '../components/Section'
 import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
+import { TopicName } from '../components/TopicName'
 import { TopicTip } from '../components/TopicTip'
 import { groupName, type AtlasRelease } from '../data/release'
-import { Gazetteer } from '../features/atlas/Gazetteer'
+import { TopicList } from '../features/atlas/TopicList'
 import { groupCentroids, gridRef, MAP_H, MAP_W, tintTokens, toMapPoints } from '../features/atlas/mapSpace'
 import { TerrainMap, type MapGroup, type TerrainMapHandle } from '../features/atlas/TerrainMap'
 import { buildTerrain } from '../features/atlas/terrain'
-import { ciPct, fmtInt, fmtShare } from '../lib/format'
+import { fmtInt, fmtShare } from '../lib/format'
 import { useI18n, useStrings, nameIn } from '../lib/i18n'
 import { prefersReducedMotion } from '../lib/scroll'
 import { STATUSES, type StatusId } from '../lib/status'
-import { ciText, growthText, statusName } from '../lib/topicText'
+import { growthText, statusName } from '../lib/topicText'
 import { atlasCodec, LAYERS } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { atlas } from '../strings/atlas'
@@ -26,6 +27,11 @@ export default function AtlasPage() {
   return <RequireRelease title={sa('map.title')}>{(release) => <Atlas release={release} />}</RequireRelease>
 }
 
+/**
+ * One card for the whole map: the statuses to show and the map layers on top; the list of topics (the map in words)
+ * and the selected topic on the left; the map on the right; the field colours and symbol key underneath. Picking a
+ * topic in either place selects it in both.
+ */
 function Atlas({ release }: { release: AtlasRelease }) {
   const { t, other, otherLang, lang } = useI18n()
   const sa = useStrings(atlas)
@@ -59,130 +65,118 @@ function Atlas({ release }: { release: AtlasRelease }) {
   const counts = Object.fromEntries(STATUSES.map((s) => [s, release.topics.filter((tp) => tp.status === s).length])) as Record<StatusId, number>
   const sel = state.sel ? (release.topicById.get(state.sel) ?? null) : null
   const selPoint = sel ? points.find((p) => p.id === sel.id) : undefined
-  const selCi = sel ? ciText(t, sel.metrics, release.ciLevel) : null
   const pick = (id: string) => {
     update({ sel: id })
     mapRef.current?.reveal(id)
+    // phones: the map sits above the list — bring it into view
     document.getElementById('atlas-map')?.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
   }
+  const refOf = new Map(points.map((p) => [p.id, gridRef(p.x, p.y)]))
+  const shown = new Set(STATUSES.filter((s) => !hidden.has(s)))
+  const toggle = (st: StatusId) => update({ hide: hidden.has(st) ? state.hide.filter((s) => s !== st) : [...state.hide, st] })
   return (
-    <div className="container wide">
-      <PageHeader
+    <>
+      <PageBar
         title={sa('map.title')}
-        lede={[sa('map.lede', { n: fmtInt(release.topics.length) }), `${sa('map.read.1t')}: ${sa('map.read.1b')}`, `${sa('map.read.2t')}: ${sa('map.read.2b')}`, `${sa('map.read.3t')}: ${sa('map.read.3b')}`, sa('map.scale'), sa('map.hint')].join(' · ')}
+        sub={sa('map.sub', { n: fmtInt(release.topics.length), g: fmtInt(groups.filter((g) => g.n > 0).length) })}
+        info={[sa('map.lede', { n: fmtInt(release.topics.length) }), `${sa('map.read.1t')}: ${sa('map.read.1b')}`, `${sa('map.read.2t')}: ${sa('map.read.2b')}`, `${sa('map.read.3t')}: ${sa('map.read.3b')}`, sa('map.hint')].join(' · ')}
       />
-      <div className="atlas-grid">
-        <figure className="atlas-fig" id="atlas-map" aria-labelledby="atlas-fig-title">
-          <p className="figtitle" id="atlas-fig-title">{sa('map.fig', { release: release.overview.release })}</p>
-          <p className="sr-only" id="atlas-desc">{sa('map.desc')}</p>
-          <TerrainMap
-            ref={mapRef}
-            points={points}
-            groups={groups}
-            terrain={terrain}
-            hidden={hidden}
-            layers={layers}
-            selected={state.sel}
-            onSelect={(id) => update({ sel: id })}
-            describe={(p) => `${names.get(p.id) ?? p.id} · ${statusName(t, p.status)} · ${sa('map.grid')} ${gridRef(p.x, p.y)}`}
-            tipFor={(id) => {
-              const tp = release.topicById.get(id)
-              return tp ? <TopicTip topic={tp} ciLevel={release.ciLevel} /> : null
-            }}
-            names={names}
-            label={sa('map.aria')}
-            describedBy="atlas-desc"
-            controls={{ zoomIn: sa('map.zoomIn'), zoomOut: sa('map.zoomOut'), reset: sa('map.reset'), group: sa('map.zoomGroup'), hint: sa('map.hint') }}
-          />
-        </figure>
-        <aside className="atlas-side" aria-label={sa('map.key.h')}>
-          <section className="cart" id="atlas-selection" aria-labelledby="sel-h" aria-live="polite">
-            <h2 id="sel-h" className="cart-h">{sa('map.sel.h')}</h2>
-            {sel ? (
-              <>
-                <p className="sel-name">
-                  <b><TopicName topic={sel} /></b>
-                  {selPoint ? <span className="g-ref">{gridRef(selPoint.x, selPoint.y)}</span> : null}
-                </p>
-                <p className="tp-alt" lang={otherLang}>{other(sel)}</p>
-                <p className="mt-2"><StatusChip status={sel.status} label={statusName(t, sel.status)} small /></p>
-                <dl className="summary compact">
-                  <div><dt>{t('col.field')}</dt><dd>{groupName(release, sel.group, lang)}</dd></div>
-                  <div><dt>{t('tp.share')}</dt><dd>{fmtShare(sel.metrics.share_recent, 2)}</dd></div>
-                  <div><dt>{t('tp.growth')}</dt><dd>{growthText(t, sel.metrics)}{selCi ? <small>{selCi}</small> : null}</dd></div>
-                </dl>
-                <p className="mt-4"><Link className="btn" to={`/topics/${sel.id}`}>{sa('map.sel.open')}</Link></p>
-                <p className="mt-2"><button type="button" className="linkbtn" onClick={() => update({ sel: null })}>{sa('map.sel.clear')}</button></p>
-              </>
-            ) : (
-              <p className="hint">{sa('map.sel.none')}</p>
-            )}
-          </section>
-          <section className="cart" aria-labelledby="key-h">
-            <h2 id="key-h" className="cart-h">{sa('map.key.h')}</h2>
-            <fieldset className="keyset">
-              <legend>{sa('map.key.statuses')}</legend>
-              <div className="keylist">
-                {STATUSES.map((st) => (
-                  <label key={st}>
-                    <input
-                      type="checkbox"
-                      checked={!hidden.has(st)}
-                      onChange={(e) => update({ hide: e.target.checked ? state.hide.filter((s) => s !== st) : [...state.hide, st] })}
-                    />
-                    <StatusGlyph status={st} size={14} />
-                    <span>{statusName(t, st)} {fmtInt(counts[st])}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <fieldset className="keyset">
-              <legend>{sa('map.key.fields')}</legend>
-              <ul className="fieldkey">
-                {groups.filter((g) => g.n > 0).map((g) => (
-                  <li key={g.name}>
-                    <i className="swatch" style={{ background: `var(--${g.color})` }} aria-hidden="true" />
-                    <span>{g.name}</span>
-                  </li>
-                ))}
-              </ul>
-            </fieldset>
-            <fieldset className="keyset">
-              <legend>{sa('map.key.layers')}</legend>
-              <div className="layers">
-                {LAYERS.map((ly) => (
-                  <label key={ly}>
-                    <input type="checkbox" checked={layers.has(ly)} onChange={(e) => update({ layers: e.target.checked ? [...state.layers, ly] : state.layers.filter((x) => x !== ly) })} />
-                    <span>{sa(`layer.${ly}` as const)}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <div className="keyrow">
-              <svg width="46" height="22" viewBox="0 0 46 22" aria-hidden="true" focusable="false">
-                {[3, 6, 9].map((r, i) => <circle key={r} cx={[6, 18, 35][i]} cy={11} r={r} fill="none" stroke="currentColor" strokeWidth="1.2" />)}
-              </svg>
-              <span>{sa('map.key.size')}</span>
+      <div className="dash">
+        <section className="card atlas-board" aria-labelledby="atlas-fig-title">
+          <h2 className="sr-only" id="atlas-fig-title">{sa('map.fig', { release: release.overview.release })}</h2>
+          <div className="ab-bar">
+            <div className="ab-chips" role="group" aria-label={sa('map.key.statuses')}>
+              {STATUSES.map((st) => (
+                <button key={st} type="button" className={`ab-chip is-${st}`} aria-pressed={!hidden.has(st)} onClick={() => toggle(st)}>
+                  <StatusGlyph status={st} size={12} />
+                  {statusName(t, st)}
+                  <span className="ab-chip-n">{fmtInt(counts[st])}</span>
+                </button>
+              ))}
             </div>
-            <div className="keyrow">
-              <svg width="46" height="22" viewBox="0 0 46 22" aria-hidden="true" focusable="false">
-                <path d="M2 16c8-10 18-10 26-4s12 4 16-2" fill="none" stroke="var(--map-contour)" strokeWidth="1.5" />
-                <path d="M8 19c8-7 14-6 22-2s8 2 12-1" fill="none" stroke="var(--map-contour)" strokeWidth="0.9" opacity="0.6" />
-              </svg>
-              <span>{sa('map.key.contour')}</span>
+            <div className="ab-layers" role="group" aria-label={sa('map.key.layers')}>
+              {LAYERS.map((ly) => (
+                <button key={ly} type="button" className="ab-chip is-layer" aria-pressed={layers.has(ly)} onClick={() => update({ layers: layers.has(ly) ? state.layers.filter((x) => x !== ly) : [...state.layers, ly] })}>
+                  {sa(`layer.${ly}` as const)}
+                </button>
+              ))}
             </div>
-            <div className="keyrow">
-              <svg width="46" height="22" viewBox="0 0 46 22" aria-hidden="true" focusable="false">
-                {[[8, 9], [16, 14], [24, 8], [31, 13], [39, 10]].map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r={2} fill="var(--map-dot)" />)}
-              </svg>
-              <span>{sa('map.key.dot')}</span>
+          </div>
+          <div className="ab-body">
+            <div className="ab-side">
+              {sel ? (
+                <div className="ab-sel" id="atlas-selection" aria-live="polite">
+                  <div className="ab-sel-head">
+                    <StatusChip status={sel.status} label={statusName(t, sel.status)} small />
+                    <button type="button" className="icon-btn" aria-label={sa('map.sel.clear')} onClick={() => update({ sel: null })}>
+                      <Icon name="close" size={18} />
+                    </button>
+                  </div>
+                  <p className="ab-sel-name"><TopicName topic={sel} /></p>
+                  {other(sel) !== nameIn(sel, lang) ? <p className="ab-sel-alt" lang={otherLang}>{other(sel)}</p> : null}
+                  <dl className="ab-sel-facts">
+                    <div><dt>{t('tp.growth')}</dt><dd>{growthText(t, sel.metrics)}</dd></div>
+                    <div><dt>{t('tp.share')}</dt><dd>{fmtShare(sel.metrics.share_recent, 2)}</dd></div>
+                    <div><dt>{t('col.field')}</dt><dd>{groupName(release, sel.group, lang)}</dd></div>
+                    {selPoint ? <div><dt>{sa('map.grid')}</dt><dd><span className="g-ref">{gridRef(selPoint.x, selPoint.y)}</span></dd></div> : null}
+                  </dl>
+                  <SeeAll to={`/topics/${sel.id}`} label={sa('map.sel.open')} />
+                </div>
+              ) : (
+                <p className="ab-hint" id="atlas-selection" aria-live="polite">{sa('map.sel.none')}</p>
+              )}
+              <TopicList release={release} refOf={refOf} shown={shown} by={state.by} onBy={(by) => update({ by })} selected={state.sel} onPick={pick} />
             </div>
-          </section>
-        </aside>
+            <div className="ab-map" id="atlas-map">
+              <p className="sr-only" id="atlas-desc">{sa('map.desc')}</p>
+              <TerrainMap
+                ref={mapRef}
+                points={points}
+                groups={groups}
+                terrain={terrain}
+                hidden={hidden}
+                layers={layers}
+                selected={state.sel}
+                onSelect={(id) => update({ sel: id })}
+                describe={(p) => `${names.get(p.id) ?? p.id} · ${statusName(t, p.status)} · ${sa('map.grid')} ${gridRef(p.x, p.y)}`}
+                tipFor={(id) => {
+                  const tp = release.topicById.get(id)
+                  return tp ? <TopicTip topic={tp} ciLevel={release.ciLevel} /> : null
+                }}
+                names={names}
+                label={sa('map.aria')}
+                describedBy="atlas-desc"
+                controls={{ zoomIn: sa('map.zoomIn'), zoomOut: sa('map.zoomOut'), reset: sa('map.reset'), group: sa('map.zoomGroup'), hint: sa('map.hint') }}
+              />
+            </div>
+          </div>
+          <div className="ab-foot">
+            <ul className="ab-fields" aria-label={sa('map.key.fields')}>
+              {groups.filter((g) => g.n > 0).map((g) => (
+                <li key={g.name}>
+                  <i className="swatch" style={{ background: `var(--${g.color})` }} aria-hidden="true" />
+                  {g.name}
+                </li>
+              ))}
+            </ul>
+            <ul className="ab-keys">
+              <li>
+                <svg width="34" height="18" viewBox="0 0 34 18" aria-hidden="true" focusable="false">
+                  {[2.5, 4.5, 7].map((r, i) => <circle key={r} cx={[4, 12, 25][i]} cy={9} r={r} fill="none" stroke="currentColor" strokeWidth="1.2" />)}
+                </svg>
+                {sa('map.key.size')}
+              </li>
+              <li>
+                <svg width="34" height="18" viewBox="0 0 34 18" aria-hidden="true" focusable="false">
+                  <path d="M2 13c6-8 13-8 19-3s9 3 12-2" fill="none" stroke="var(--map-contour)" strokeWidth="1.5" />
+                </svg>
+                {sa('map.key.contour')}
+              </li>
+              <li>{sa('map.scale')}</li>
+            </ul>
+          </div>
+        </section>
       </div>
-      <Section id="gazetteer" title={sa('map.gaz.h')} intro={sa('map.gaz.intro', { level: ciPct(release.ciLevel) })}>
-        <Gazetteer release={release} points={points} onPick={pick} selected={state.sel} />
-      </Section>
-    </div>
+    </>
   )
 }
