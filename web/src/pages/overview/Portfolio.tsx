@@ -57,6 +57,7 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
             caption={t('table.n', { n: 5, title: t('ov.pf.topicTable') })}
             rows={topics}
             rowKey={(r) => r.id}
+            limit={50}
             defaultSort={{ key: 'share', dir: 'desc' }}
             csvFilename={`atlas-${release.overview.release}-portfolio.csv`}
             columns={[

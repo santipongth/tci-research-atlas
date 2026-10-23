@@ -32,6 +32,23 @@ export function fmtPct(fraction: number | null | undefined, digits = 1): string 
   return finite(fraction) ? `${fmtNum(fraction * 100, digits)}%` : DASH
 }
 
+/**
+ * A share of articles. Like `fmtPct`, but a share above zero that would print as "0%" / "0.00%" prints "<1%" / "<0.01%"
+ * (one display step), so a topic that exists never reads as nothing; an exact zero stays "0%".
+ */
+export function fmtShare(fraction: number | null | undefined, digits = 1): string {
+  if (!finite(fraction)) return DASH
+  if (fraction > 0 && Number((fraction * 100).toFixed(digits)) === 0) return `<${fmtNum(10 ** -digits, digits)}%`
+  return fmtPct(fraction, digits)
+}
+
+/** A change in percentage points, whole: "+3", "−2", "0"; a change that is real but under one point prints "+<1" / "−<1". */
+export function fmtPts(change: number): string {
+  const d = Math.round(change * 100)
+  if (d !== 0) return d > 0 ? `+${d}` : `${MINUS}${Math.abs(d)}`
+  return change > 0 ? '+<1' : change < 0 ? `${MINUS}<1` : '0'
+}
+
 /** +0.152 → "+15.2%", −0.05 → "−5.0%", values that round to zero → "±0.0%". */
 export function fmtSignedPct(fraction: number | null | undefined, digits = 1): string {
   if (!finite(fraction)) return DASH

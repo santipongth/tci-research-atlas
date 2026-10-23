@@ -50,7 +50,7 @@ export function DotPlot({ rows, axisLabel, tick, refValue, refLabel }: {
           return (
             <li className="dp-row" key={r.id}>
               <span className="dp-name">
-                {r.href ? <Link to={r.href}>{r.label}</Link> : <b>{r.label}</b>}
+                {r.href ? <Link to={r.href} title={typeof r.label === 'string' ? r.label : undefined}>{r.label}</Link> : <b>{r.label}</b>}
                 {r.sub ? <small>{r.sub}</small> : null}
               </span>
               <span className="dp-track" aria-hidden="true">

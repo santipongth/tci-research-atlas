@@ -1,5 +1,7 @@
 import { useTooltip } from '../lib/tooltip'
 import { useElementSize } from '../lib/useElementSize'
+import { useFontsVersion } from '../lib/useFontsVersion'
+import { textWidth as measureText } from '../lib/measure'
 import { LABEL_PX } from '../lib/labelSizes'
 import { labelOrder, scatterLayout, type ScatterPoint } from './editorLayout'
 import { placeLabels, textWidth, type Box } from './execLayout'
@@ -17,6 +19,9 @@ const clip = (s: string, max: number) => {
  * are hollow. The largest journals (and those above the bar) are named, never over a mark or each other; every journal
  * is in the tooltip and the table view.
  */
+/** Only the largest journals are ever considered for a name: with ~2,000 journals the rest stay anonymous dots. */
+const LABEL_TRIES = 40
+
 export function JournalScatter({ points, yRef, text, label, describe, pct }: {
   points: readonly ScatterPoint[]
   yRef?: number | null
@@ -28,6 +33,7 @@ export function JournalScatter({ points, yRef, text, label, describe, pct }: {
 }) {
   const [ref, { width: W }] = useElementSize<HTMLDivElement>()
   const tip = useTooltip()
+  useFontsVersion() // label boxes are measured in Sarabun: measure again once it has loaded
   if (W === 0 || points.length === 0) return <div ref={ref} className="js-host" />
   const narrow = W < 560
   const H = Math.round(Math.max(300, Math.min(440, W * 0.58)))
@@ -41,7 +47,7 @@ export function JournalScatter({ points, yRef, text, label, describe, pct }: {
   const order = labelOrder(points, yRef)
   const labels = placeLabels(
     order.map((p) => ({ id: p.id, text: clip(p.label, narrow ? 16 : 28), cx: L.x(p.x), cy: L.y(p.y) })),
-    { px: LABEL_PX.label, r: 7, bounds: { x: 0, y: 0, w: W, h: H - M.b + 4 }, avoid, max: narrow ? 4 : 8 },
+    { px: LABEL_PX.label, r: 7, bounds: { x: 0, y: 0, w: W, h: H - M.b + 4 }, avoid, max: narrow ? 4 : 8, tries: LABEL_TRIES, measure: (txt, px) => measureText(txt, px, 600) },
   )
   const hasInferred = points.some((p) => p.inferred)
   return (

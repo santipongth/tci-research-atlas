@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GroupInfo, Topic } from '../../data/types'
+import { THAI_ASCENT, THAI_LINE } from '../../lib/labels'
 import { combineView, fitScreen, gridRef, MAP_H, MAP_W, NEUTRAL_TINT, overlaps, placeCentered, placeLabels, tintTokens, toMapPoints, zoomAt } from './mapSpace'
 import { buildTerrain } from './terrain'
 
@@ -52,6 +53,16 @@ describe('map space', () => {
     expect(placeLabels([at('a')], [{ x: 0, y: 0, w: 400, h: 300 }], frame)).toEqual([])
     const fields = placeCentered([{ id: 'x', text: 'X', width: 80, height: 16, x: 100, y: 100 }, { id: 'y', text: 'Y', width: 80, height: 16, x: 110, y: 104 }], frame)
     expect(fields.map((p) => p.id)).toEqual(['x'])
+  })
+
+  it('keeps room for Thai tone marks and the halo: two names 20 px apart (16 px type) do not both stand', () => {
+    const frame = { x: 0, y: 0, w: 400, h: 300 }
+    const fields = placeCentered([{ id: 'x', text: 'X', width: 80, height: 16, x: 100, y: 100 }, { id: 'y', text: 'Y', width: 80, height: 16, x: 100, y: 120 }], frame)
+    expect(fields.map((p) => p.id)).toEqual(['x'])
+    const [x] = fields
+    expect(x.box.h).toBeGreaterThanOrEqual(16 * THAI_LINE)
+    expect(x.box.y).toBeLessThanOrEqual(100 - 16 * THAI_ASCENT)
+    expect(x.box.w).toBeGreaterThan(80)
   })
 
   it('moves a field name off the status markers under it, and skips it when no spot is clear of a marker', () => {

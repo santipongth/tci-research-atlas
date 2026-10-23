@@ -19,11 +19,12 @@
   .brief-use a:hover { text-decoration: underline; }
   .brief-use span { color: var(--ink-2); font-size: var(--fs-meta); }
   .brief-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; }
+  .brief-byline { margin-top: 6px; }
   .brief-head .wm { display: none; }
 
   .brief-meta { font-size: var(--fs-caption); color: var(--ink-2); }
   .brief-headline { margin-top: 14px; font-size: var(--fs-lead); max-width: none; }
-  .brief-sample { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-meta); color: var(--ink-2); }
+  .brief-sample { margin-top: 10px; display: none; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-meta); color: var(--ink-2); }
   .brief-t { margin-top: 10px; font-size: var(--fs-meta); }
   .brief-t caption { text-align: left; }
   .brief-points { margin: 8px 0 0; padding-left: 1.2em; list-style: disc; display: grid; gap: 6px; max-width: var(--measure-body); }
@@ -38,9 +39,9 @@
   @page { size: A4; margin: 14mm 14mm 16mm; }
   body { font-size: 10pt; background: #ffffff; }
   .no-print, .skip, .hdr, .nav, .phase, .ftr, .tbl-tools, .zoom, .tablist { display: none !important; }
+  .brief-sample { display: flex; }
   .brief-head { padding: 0 0 10px; border-bottom: 1px solid var(--border-2); }
   .brief-head .wm { display: flex; }
-  mark { animation: none !important; background-size: 100% 100% !important; }
   .brief { max-width: none; padding: 0; }
   .brief > * { max-width: none; }
   .brief h1 { font-size: 17pt; margin-top: 10px; }

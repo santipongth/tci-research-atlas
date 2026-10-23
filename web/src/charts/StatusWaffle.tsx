@@ -5,20 +5,23 @@ import type { Topic } from '../data/types'
 import { fmtInt } from '../lib/format'
 import type { StatusId } from '../lib/status'
 import { useTooltip } from '../lib/tooltip'
-import { percentOf, type WaffleGroup } from './infographic'
+import { percentOf, waffleCells, type WaffleGroup } from './infographic'
 
 /**
  * Status waffle (unit chart): one row per status — glyph, name, count and share of all topics in text — then one
  * square per topic in that status's colour (low data: a dashed outline). The squares are decorative (the counts are
  * written beside them and the figure's table has every number); pointing at one shows the topic, pressing it opens it.
  */
-export function StatusWaffle({ groups, total, statusLabel, meaning, tipFor, compact = false }: {
+export function StatusWaffle({ groups, total, unit = 1, statusLabel, meaning, tipFor, compact = false }: {
   groups: readonly WaffleGroup[]
   total: number
+  /** topics per square: 1 = a square for every topic; more when the release has too many topics to draw one each */
+  unit?: number
   statusLabel: (s: StatusId) => string
   /** the status in everyday words, under its name */
   meaning?: (s: StatusId) => string
-  tipFor?: (tp: Topic) => ReactNode
+  /** the tooltip of a square: its strongest topic, and how many more topics the square stands for */
+  tipFor?: (tp: Topic, more: number) => ReactNode
   /** smaller squares, no meanings (the printed brief) */
   compact?: boolean
 }) {
@@ -38,15 +41,16 @@ export function StatusWaffle({ groups, total, statusLabel, meaning, tipFor, comp
             {meaning && !compact ? <p className="wf-mean">{meaning(g.status)}</p> : null}
           </div>
           <div className="wf-cells" aria-hidden="true">
-            {g.topics.map((tp) => (
+            {waffleCells(g.topics, unit).map((cell) => (
               <span
-                key={tp.id}
+                key={cell[0].id}
                 className={`wf-cell wf-${g.status}`}
-                onPointerEnter={tipFor ? (e) => tip.show(tipFor(tp), e.clientX, e.clientY) : undefined}
+                onPointerEnter={tipFor ? (e) => tip.show(tipFor(cell[0], cell.length - 1), e.clientX, e.clientY) : undefined}
                 onPointerLeave={tipFor ? () => tip.hide() : undefined}
                 onClick={() => {
                   tip.hide()
-                  navigate(`/topics/${tp.id}`)
+                  // a square for one topic opens it; a square for several opens the list of that status
+                  navigate(cell.length === 1 ? `/topics/${cell[0].id}` : `/emerging?status=${g.status}`)
                 }}
               />
             ))}

@@ -14,16 +14,16 @@
   .js-pt:hover .js-dot { stroke: var(--ink); stroke-width: 2.4; }
   .js-xtitle { margin-left: 48px; margin-right: 16px; }
 
-  /* special-issue openings as cards */
-  .si-cards { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 12px; }
-  .si-card { display: grid; align-content: start; gap: 8px; padding: 14px 16px 16px; border: 1px solid var(--border); background: var(--bg); min-width: 0; }
-  .si-card .chip { justify-self: start; }
-  .si-name { font-size: var(--fs-body); font-weight: 700; line-height: 1.5; }
+  /* special-issue openings: rows on hairlines (like the ideas list), the numbers in one fact line */
+  .si-cards { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr)); gap: 0 48px; }
+  .si-card { padding: 16px 0 18px; border-top: 1px solid var(--border-2); min-width: 0; }
+  .si-name { font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; }
   .si-name .topic-link { font-weight: 700; }
-  .si-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 4px 0 0; padding-top: 10px; border-top: 1px solid var(--border-2); }
-  .si-nums div { display: grid; align-content: start; gap: 2px; min-width: 0; }
-  .si-nums dt { order: 2; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
-  .si-nums dd { order: 1; margin: 0; font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  .si-nums { display: flex; flex-wrap: wrap; gap: 2px 0; margin: 6px 0 0; font-size: var(--fs-meta); line-height: 1.6; font-variant-numeric: tabular-nums; }
+  .si-nums div { display: inline-flex; gap: 6px; min-width: 0; }
+  .si-nums div + div::before { content: '\00b7'; margin: 0 10px; color: var(--ink-2); }
+  .si-nums dt { color: var(--ink-2); }
+  .si-nums dd { margin: 0; font-weight: 700; }
   .si-table { margin-top: 18px; }
 
   /* then vs now: two 100 % bars, same topics in the same order and shade */
@@ -97,16 +97,15 @@
   .kr { margin-top: var(--sp-block); }
   .kr-h { font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; }
   .kr-intro { margin-top: 4px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; max-width: var(--measure-body); }
-  .kr-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
-  .kr-chip { display: grid; grid-template-columns: auto auto; align-items: center; gap: 2px 12px; min-height: 44px; padding: 8px 12px 10px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-  .kr-chip:hover:not(:disabled) { border-color: var(--ink); }
-  .kr-chip:disabled { cursor: default; background: var(--surface); }
-  .kr-term { grid-column: 1 / -1; font-size: var(--fs-meta); font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
-  .kr-chip .spark { margin: 0; }
-  .kr-d { font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* rising words: hairline rows (term · change in share · state); the trend itself stays in the chart */
+  .kr-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr)); gap: 0 40px; }
+  .kr-chip { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 16px; width: 100%; min-height: 44px; padding: 10px 0; border: 0; border-top: 1px solid var(--border-2); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+  .kr-chip:hover:not(:disabled) .kr-term { text-decoration: underline; }
+  .kr-chip:disabled { cursor: default; color: var(--ink-2); }
+  .kr-term { font-size: var(--fs-meta); font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+  .kr-d { font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .kr-d b { color: var(--ink); }
   .kr-on { grid-column: 1 / -1; font-size: var(--fs-caption); font-weight: 600; color: var(--ink-2); line-height: 1.5; }
-  @media (max-width: 640px) { .kr-list li { flex: 1 1 100%; } .kr-chip { width: 100%; grid-template-columns: auto minmax(0, 1fr); } }
 
   /* /match: three steps, the example button, ranked result cards */
   .ms-steps { margin-top: var(--sp-group); max-width: 920px; }
@@ -138,8 +137,8 @@
   }
 
   /* /search: topic cards first */
-  .srch-tp-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 10px; max-width: 64rem; }
-  .srch-tp { display: grid; align-content: start; gap: 4px; padding: 12px 14px 14px; border: 1px solid var(--border); background: var(--bg); min-width: 0; }
+  .srch-tp-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr)); gap: 0 40px; max-width: 64rem; }
+  .srch-tp { display: grid; align-content: start; gap: 4px; padding: 12px 0 14px; border-top: 1px solid var(--border-2); min-width: 0; }
   .srch-tp-name { font-size: var(--fs-body); font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
   .srch-tp-name .topic-link { font-weight: 700; }
   .srch-tp-alt { font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5; overflow-wrap: anywhere; }

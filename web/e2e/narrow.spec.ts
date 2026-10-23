@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test'
 
-const EXAMPLE = 'http://127.0.0.1:4173/'
+// ATLAS_E2E_PORT: another dev server may already own 4173 (the config reuses a running server), so a run can pick its own pair of ports
+const PORT = Number(process.env.ATLAS_E2E_PORT ?? 4173)
+const EXAMPLE = `http://127.0.0.1:${PORT}/`
 
 type Rect = { left: number; right: number; top: number; bottom: number }
 const overlap = (a: Rect, b: Rect) => a.left + 1 < b.right && b.left + 1 < a.right && a.top + 1 < b.bottom && b.top + 1 < a.bottom

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { cachedLoader } from './cache'
 import { DataError, isReleaseName, type DataSource } from './source'
 import type {
   EdgesFile, EmergingKeyword, GroupInfo, KeywordsFile, Latest, Manifest, Overview, SearchDocShard, SearchIndexShard, SearchVocab, SeriesFile, TaxonomyFile, Topic,
@@ -8,6 +9,8 @@ import type {
 export const SUPPORTED_SCHEMA_MAJOR = 2
 /** Embedding providers that never produce a real release (fixtures, the CPU fallback). */
 const SAMPLE_PROVIDERS = new Set(['fixture', 'lite'])
+
+export type PreviousProblem = 'missing' | 'offline' | 'failed'
 
 export interface AtlasRelease {
   source: DataSource['kind']
@@ -20,8 +23,10 @@ export interface AtlasRelease {
   edges: EdgesFile['edges']
   keywords: EmergingKeyword[] | null
   previousOverview: Overview | null
-  /** previous_release is set but its folder is not on this site (or not in the offline file): Δ is hidden and the pages say why */
+  /** previous_release is set but its overview is not usable: Δ is hidden and the pages say why (the release name; never a hostile one) */
   previousMissing: string | null
+  /** why: not on this site, not in the one-release offline file, or the request / file failed */
+  previousProblem: PreviousProblem | null
   topicById: ReadonlyMap<string, Topic>
   groupById: ReadonlyMap<string, GroupInfo>
   ciLevel: number
@@ -51,6 +56,11 @@ function expectArray(value: unknown, where: string): void {
   if (!Array.isArray(value)) throw new DataError('parse', where)
 }
 
+/** The previous release's overview is never validated against the schema: one without its KPI block counts as absent. */
+function usableOverview(o: Overview | null): Overview | null {
+  return o && typeof o === 'object' && o.kpis && typeof o.kpis === 'object' ? o : null
+}
+
 /** latest → manifest (schema 2.x) → core files in parallel → previous overview (for Δ, optional). */
 export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
   const latest = await source.latest()
@@ -73,7 +83,18 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
   expectArray(series.years, `${release}/series.json`)
   expectArray(overview.corpus_by_year, `${release}/overview.json`)
   const previous = manifest.previous_release ?? overview.previous_release ?? null
-  const previousOverview = previous && isReleaseName(previous) ? await source.file<Overview>(previous, 'overview.json').catch(() => null) : null
+  let previousOverview: Overview | null = null
+  let previousProblem: PreviousProblem | null = null
+  if (previous && isReleaseName(previous)) {
+    try {
+      const found = await source.file<Overview>(previous, 'overview.json')
+      previousOverview = usableOverview(found)
+      // null = no such file (the offline file only ever holds its own release); anything else unusable = a damaged file
+      if (!previousOverview) previousProblem = found !== null ? 'failed' : source.kind === 'embedded' ? 'offline' : 'missing'
+    } catch {
+      previousProblem = 'failed' // the request itself failed: not the same as "not on this site"
+    }
+  }
   const topics = topicsFile.topics
   return {
     source: source.kind,
@@ -87,6 +108,7 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
     keywords: keywordsFile?.keywords ?? null,
     previousOverview,
     previousMissing: previous && isReleaseName(previous) && !previousOverview ? previous : null,
+    previousProblem,
     topicById: new Map(topics.map((t) => [t.id, t])),
     groupById: new Map(taxonomy.groups.map((g) => [g.id, g])),
     ciLevel: manifest.ci_level ?? 0.9,
@@ -110,17 +132,12 @@ export function hasModule(release: AtlasRelease, module: ModuleName | 'journal_d
 /** Any other file of the release (journals.json, journals/<id>.json, methods.json, diff.json, match.json), fetched on
  *  demand and cached; a failed request may be retried later. null = this release (or this offline file) has no such file. */
 export function createFileLoader(source: DataSource, release: string): (path: string) => Promise<unknown> {
-  const cache = new Map<string, Promise<unknown>>()
-  return (path) => {
-    let pending = cache.get(path)
-    if (!pending) {
-      pending = source.file<unknown>(release, path)
-      pending.catch(() => cache.delete(path))
-      cache.set(path, pending)
-    }
-    return pending
-  }
+  // the article rows (2,000 per file) are the big ones: only the last few of those stay in memory
+  return cachedLoader((path) => source.file<unknown>(release, path), { max: DOC_SHARDS_KEPT, evictable: (path) => path.startsWith('search/docs-') })
 }
+
+/** Article-row files (search/docs-NNN.json) kept in memory at once: one query reads up to 6. */
+const DOC_SHARDS_KEPT = 8
 
 const pad3 = (n: number) => String(n).padStart(3, '0')
 export const SEARCH_VOCAB = 'search/vocab.json'
@@ -147,16 +164,7 @@ export function createSearchFiles(file: (path: string) => Promise<unknown>): Sea
 
 /** topics/<id>.json on demand, one request per topic; a failed request may be retried later. */
 export function createDetailLoader(source: DataSource, release: string): (id: string) => Promise<TopicDetail | null> {
-  const cache = new Map<string, Promise<TopicDetail | null>>()
-  return (id) => {
-    let pending = cache.get(id)
-    if (!pending) {
-      pending = source.file<TopicDetail>(release, `topics/${id}.json`)
-      pending.catch(() => cache.delete(id))
-      cache.set(id, pending)
-    }
-    return pending
-  }
+  return cachedLoader((id) => source.file<TopicDetail>(release, `topics/${id}.json`))
 }
 
 export function seriesOf(release: AtlasRelease, id: string): number[] | null {

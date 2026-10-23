@@ -10,6 +10,7 @@ import { sortBy } from '../lib/sort'
 import { statusName } from '../lib/topicText'
 import { useI18n } from '../lib/i18n'
 import { pickFindings } from '../lib/findings'
+import { previousNote } from '../lib/previous'
 import { FindingCards } from './overview/FindingCards'
 import { Findings } from './overview/Findings'
 import { KpiGrid } from './overview/KpiGrid'
@@ -46,13 +47,10 @@ function Overview({ release }: { release: AtlasRelease }) {
   const pfIntro = star ? t('ov.pf.intro', { topic: name(star) }) : t('ov.pf.introPlain')
   const findings = pickFindings(release.topics)
   const findingsTitle = findings.length === 3 ? t('ov.fc.h3') : t('ov.findings.h')
+  const prevNote = previousNote(t, release)
   const kpiIntro = release.previousOverview
     ? t('ov.kpi.intro', { prev: release.previousOverview.release })
-    : release.previousMissing
-      ? t('prev.missing', { prev: release.previousMissing })
-      : ov.previous_release
-        ? undefined
-        : t('firstRelease')
+    : (prevNote ?? (ov.previous_release ? undefined : t('firstRelease')))
   return (
     <div className="container">
       <StoryHero release={release}>

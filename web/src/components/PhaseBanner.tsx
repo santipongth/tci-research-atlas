@@ -11,7 +11,7 @@ export function PhaseBanner() {
       <details className="container notice">
         <summary>
           {sample ? <strong className="phase-tag is-sample">{t('sample.tag')}</strong> : <strong className="phase-tag">{t('phase.tag')}</strong>}
-          <span>{t(sample ? 'notice.shortSample' : 'notice.short')}</span>
+          <span className="notice-short">{t(sample ? 'notice.shortSample' : 'notice.short')}</span>
           <span className="notice-more">
             {t('notice.more')}
             <svg viewBox="0 0 10 6" aria-hidden="true" focusable="false">

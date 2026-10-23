@@ -6,6 +6,9 @@ import { defineStrings } from './define'
  * Lazy pages only (read with useStrings) — kept out of the entry chunk.
  */
 export const execViz = defineStrings({
+  'q.in': { th: 'สถาบันไหนทำวิจัยมาก และร่วมงานกับใคร', en: 'Which institutions do the most research, and with whom?' },
+  'q.rg': { th: 'จังหวัดไหนทำวิจัยมากที่สุด', en: 'Which provinces do the most research?' },
+  'q.sdg': { th: 'งานวิจัยไทยเกี่ยวกับเป้าหมาย SDG และแผนชาติเรื่องไหนบ้าง', en: 'Which SDG and national-plan goals does Thai research touch?' },
   'xv.articles': { th: '{k} บทความ', en: '{k} articles' },
   'xv.bar.how': { th: 'ความยาวแถบเทียบกับรายการแรก ตัวเลขท้ายแถบคือจำนวนบทความ รายการทั้งหมดอยู่ในมุมมองตาราง', en: 'Bar length is relative to the first item; the number at the end is the article count. Every item is in the table view.' },
   'xv.more': { th: 'อีก {n} รายการอยู่ในมุมมองตาราง', en: '{n} more in the table view' },
@@ -82,6 +85,7 @@ export const execViz = defineStrings({
   'xv.fl.how': { th: 'ซ้ายคือสถานะในรอบก่อน ขวาคือสถานะในรอบนี้ แถบยิ่งหนา ยิ่งมีหัวข้อเปลี่ยนแบบนั้นมาก สีของแถบคือสถานะใหม่ ชี้ที่แถบเพื่อดูชื่อหัวข้อ', en: 'Left is the status in the previous release, right the status now. The thicker the band, the more topics changed that way; a band takes its new status’s colour. Point at a band for the topic names.' },
   'xv.fl.same': { th: 'อีก {n} หัวข้อสถานะเท่าเดิม', en: '{n} other topics kept their status' },
   'xv.fl.label': { th: 'แผนภาพการเปลี่ยนสถานะของ {n} หัวข้อ ดูรายชื่อในมุมมองตาราง', en: 'Status changes of {n} topics; the names are in the table view.' },
+  'xv.fl.more': { th: 'และอีก {n} หัวข้อ', en: 'and {n} more' },
   'xv.fl.band': { th: '{from} → {to}: {n} หัวข้อ', en: '{from} → {to}: {n} topics' },
   'xv.lin.h': { th: 'หัวข้อเกิด รวม แยก และหายไปอย่างไร', en: 'How topics appear, merge, split and go' },
   'xv.lin.label': { th: 'สี่แบบของการเปลี่ยนหัวข้อระหว่างรอบ', en: 'Four ways topics change between releases' },

@@ -7,7 +7,7 @@ import { StatusChip } from '../components/StatusGlyph'
 import { seriesOf, type AtlasRelease } from '../data/release'
 import type { Topic } from '../data/types'
 import { forecastView } from '../lib/forecast'
-import { DASH, fmtInt, fmtPct } from '../lib/format'
+import { DASH, fmtInt, fmtShare } from '../lib/format'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { useI18n, useStrings } from '../lib/i18n'
 import { growthText, statusName } from '../lib/topicText'
@@ -106,7 +106,7 @@ function TopicWidget({ release, topic }: { release: AtlasRelease; topic: Topic }
               columns={[
                 { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.forecast ? t('tp.forecastYear', { year: r.year }) : String(r.year)), csv: (r) => r.year },
                 { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => (r.articles === null ? DASH : fmtInt(r.articles)), csv: (r) => r.articles },
-                { key: 'share', csvHeader: 'share_of_year', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? DASH : fmtPct(r.share, 2)), csv: (r) => r.share },
+                { key: 'share', csvHeader: 'share_of_year', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? DASH : fmtShare(r.share, 2)), csv: (r) => r.share },
                 ...(fc ? [{ key: 'mean', csvHeader: 'forecast_mean', header: t('forecast'), numeric: true, cell: (r: Row) => (r.mean === null ? DASH : fmtInt(r.mean)), csv: (r: Row) => r.mean }] : []),
               ]}
             />

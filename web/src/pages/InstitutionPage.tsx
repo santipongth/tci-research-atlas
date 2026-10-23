@@ -57,7 +57,7 @@ function InstitutionView({ release, file, id }: { release: AtlasRelease; file: I
 const MIX_TOP = 4
 
 function InstitutionContent({ release, file, inst }: { release: AtlasRelease; file: InstitutionsFile; inst: InstitutionSummary }) {
-  const { t, lang } = useI18n()
+  const { t, lang, name } = useI18n()
   const x = useStrings(execViz)
   const [view, setView] = useUrlState(institutionCodec)
   const detailFile = useReleaseFile<InstitutionDetail>(`institutions/${inst.id}.json`)
@@ -79,7 +79,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
   const rel = release.overview.release
   const maxShare = Math.max(0.0001, ...topics.map((s) => s.share))
   const topicColumns: Column<TopicShare>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s.topic) as Topic} showStatus />, sortValue: (s) => s.topic, csv: (s) => s.topic },
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s.topic) as Topic} showStatus />, sortValue: (s) => name(topicOf(s.topic) as Topic), csv: (s) => s.topic },
     { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (s) => fmtInt(s.count), sortValue: (s) => s.count },
     { key: 'share', csvHeader: 'share', header: t('col.share'), numeric: true, cell: (s) => <ShareBar value={s.share} max={maxShare} />, sortValue: (s) => s.share },
   ]
@@ -136,10 +136,10 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
                 value={fmtInt(inst.articles)}
                 sub={t('in.articlesSub', { a: w.start, b: w.end, all: fmtInt(inst.articles_total) })}
               />
-              <StatTile label={t('in.col.recent', { r: `${r.start}–${r.end}` })} value={fmtInt(inst.articles_recent ?? 0)} sub={t('in.recentSub')} />
+              <StatTile label={t('in.col.recent', { r: `${r.start}–${r.end}` })} value={fmtInt(inst.articles_recent ?? null)} sub={t('in.recentSub')} />
               <StatTile label={t('in.col.intl')} value={fmtPct(inst.intl_share ?? null, 0)} sub={t('in.intlSub')} />
-              <StatTile label={t('in.col.partners')} value={fmtInt(inst.partners ?? 0)} sub={t('in.partnersSub', { a: w.start, b: w.end })} />
-              <StatTile label={t('col.topic')} value={fmtInt(inst.topics ?? 0)} sub={t('in.topicsSub')} />
+              <StatTile label={t('in.col.partners')} value={fmtInt(inst.partners ?? null)} sub={t('in.partnersSub', { a: w.start, b: w.end })} />
+              <StatTile label={t('col.topic')} value={fmtInt(inst.topics ?? null)} sub={t('in.topicsSub')} />
             </StatGrid>
           </Section>
 
@@ -180,7 +180,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
                 view={view.mix}
                 onView={(v) => setView({ mix: v })}
                 chart={<MixBar parts={mix} label={x('xv.mix.label', { parts: mixText })} />}
-                table={<DataTable caption={tbl(num(1), t('in.topics.table'))} rows={topics} columns={topicColumns} rowKey={(s) => s.topic} defaultSort={{ key: 'count', dir: 'desc' }} />}
+                table={<DataTable caption={tbl(num(1), t('in.topics.table'))} rows={topics} columns={topicColumns} rowKey={(s) => s.topic} defaultSort={{ key: 'count', dir: 'desc' }} limit={25} />}
               />
               {signals.length ? (
                 <>
@@ -213,7 +213,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
                     {partnerBars.rest > 0 ? <p className="br-more">{x('xv.more', { n: fmtInt(partnerBars.rest) })}</p> : null}
                   </>
                 }
-                table={<DataTable caption={tbl(num(2), t('in.partners.table'))} rows={partners} columns={partnerColumns} rowKey={(p) => p.id} stack={false} defaultSort={{ key: 'articles', dir: 'desc' }} />}
+                table={<DataTable caption={tbl(num(2), t('in.partners.table'))} rows={partners} columns={partnerColumns} rowKey={(p) => p.id} stack={false} defaultSort={{ key: 'articles', dir: 'desc' }} limit={25} />}
               />
             </Section>
           ) : null}
@@ -231,7 +231,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
                 view={view.ctry}
                 onView={(v) => setView({ ctry: v })}
                 chart={<BarRank rows={countryBars.rows} value={(r) => fmtInt(r.count)} label={x('xv.ctry.label')} />}
-                table={<DataTable caption={tbl(num(3), t('in.countries.table'))} rows={countries} columns={countryColumns} rowKey={(c) => c.code} stack={false} />}
+                table={<DataTable caption={tbl(num(3), t('in.countries.table'))} rows={countries} columns={countryColumns} rowKey={(c) => c.code} stack={false} limit={25} />}
               />
             </Section>
           ) : null}

@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // Run `npm run build` first: the smoke tests exercise the built site with the example and the empty fixture releases.
+// ATLAS_E2E_PORT picks the example server's port (the empty one is the next); a server already listening there is reused,
+// so when another dev server owns 4173 give the run its own pair, e.g. ATLAS_E2E_PORT=4190 npm run e2e.
+const PORT = Number(process.env.ATLAS_E2E_PORT ?? 4173)
+
 export default defineConfig({
   testDir: 'e2e',
   timeout: 30_000,
@@ -11,7 +15,7 @@ export default defineConfig({
   use: { trace: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
-    { command: 'node scripts/serve.mjs --site dist --data fixtures/example/data --port 4173', url: 'http://127.0.0.1:4173/', reuseExistingServer: !process.env.CI },
-    { command: 'node scripts/serve.mjs --site dist --data fixtures/empty/data --port 4174', url: 'http://127.0.0.1:4174/', reuseExistingServer: !process.env.CI },
+    { command: `node scripts/serve.mjs --site dist --data fixtures/example/data --port ${PORT}`, url: `http://127.0.0.1:${PORT}/`, reuseExistingServer: !process.env.CI },
+    { command: `node scripts/serve.mjs --site dist --data fixtures/empty/data --port ${PORT + 1}`, url: `http://127.0.0.1:${PORT + 1}/`, reuseExistingServer: !process.env.CI },
   ],
 })

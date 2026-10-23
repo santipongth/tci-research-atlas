@@ -10,11 +10,13 @@ import { SERIES_DASHES } from './series'
  * line in its series colour and dash, the others as faint grey context, the first and last year, and the latest value
  * printed at the end. Loaded on demand from /compare (the page is in the entry chunk).
  */
-export default function SmallMultiples({ years, series, format, axisFormat }: {
+export default function SmallMultiples({ years, series, format, axisFormat, mono = false }: {
   years: readonly number[]
   series: readonly LineSeries[]
   format: (v: number) => string
   axisFormat: (v: number, step: number) => string
+  /** every panel's own line in the brand blue (solid), the others grey — series colours belong to the compare pages */
+  mono?: boolean
 }) {
   const s = useStrings(editorViz)
   const [ref, { width: W }] = useElementSize<HTMLDivElement>()
@@ -49,13 +51,15 @@ export default function SmallMultiples({ years, series, format, axisFormat }: {
         <ul className={`smx smx-${cols}`}>
           {series.map((x0, k) => {
             const slot = x0.slot ?? k
+            const stroke = mono ? 'var(--brand)' : `var(--series-${slot + 1})`
+            const dash = mono ? undefined : SERIES_DASHES[slot]
             const lastI = x0.values.reduce<number>((a, v, i) => (v !== null ? i : a), -1)
             const last = lastI >= 0 ? (x0.values[lastI] as number) : null
             return (
               <li key={x0.id} className="smx-panel">
                 <p className="smx-title">
                   <svg width="28" height="10" aria-hidden="true" focusable="false">
-                    <line x1="0" x2="28" y1="5" y2="5" style={{ stroke: `var(--series-${slot + 1})` }} strokeWidth="3" strokeDasharray={SERIES_DASHES[slot]} />
+                    <line x1="0" x2="28" y1="5" y2="5" style={{ stroke }} strokeWidth="3" strokeDasharray={dash} />
                   </svg>
                   <span>{x0.label}</span>
                 </p>
@@ -69,10 +73,10 @@ export default function SmallMultiples({ years, series, format, axisFormat }: {
                   <text x={M.l} y={ph - 6} className="tr-tick">{years[0]}</text>
                   <text x={pw - M.r} y={ph - 6} textAnchor="end" className="tr-tick">{years[years.length - 1]}</text>
                   {series.map((o, j) => (j === k ? null : <path key={o.id} d={path(o.values)} className="smx-ctx" />))}
-                  <path d={path(x0.values)} className="ml-line" style={{ stroke: `var(--series-${slot + 1})` }} strokeDasharray={SERIES_DASHES[slot]} />
+                  <path d={path(x0.values)} className="ml-line" style={{ stroke }} strokeDasharray={dash} />
                   {last !== null ? (
                     <>
-                      <circle cx={x(lastI)} cy={y(last)} r={4} className="ml-end" style={{ fill: `var(--series-${slot + 1})` }} />
+                      <circle cx={x(lastI)} cy={y(last)} r={4} className="ml-end" style={{ fill: stroke }} />
                       <text x={x(lastI) + 8} y={y(last)} dy="0.35em" className="ml-label">{format(last)}</text>
                     </>
                   ) : null}

@@ -2,8 +2,8 @@ import { Link } from 'react-router'
 import { StatusChip } from '../../components/StatusGlyph'
 import type { AtlasRelease } from '../../data/release'
 import { fmtWindow, windows } from '../../lib/definition'
-import type { Finding } from '../../lib/findings'
-import { fmtInt, fmtPct, fmtSignedPct } from '../../lib/format'
+import { perVars, type Finding } from '../../lib/findings'
+import { fmtPct, fmtSignedPct } from '../../lib/format'
 import { useI18n } from '../../lib/i18n'
 import { ciText, statusName } from '../../lib/topicText'
 
@@ -28,7 +28,7 @@ export function FindingCards({ release, findings, links = true }: { release: Atl
           kind === 'emerging'
             ? t('ov.fc.emerging.s', { g: fmtSignedPct(g, 0) })
             : kind === 'large'
-              ? t('ov.fc.large.s', { k: fmtInt(Math.max(1, Math.round(m.share_recent * 100))), g: fmtSignedPct(g, 0) })
+              ? t('ov.fc.large.s', { ...perVars(m.share_recent), g: fmtSignedPct(g, 0) })
               : t('ov.fc.decline.s', { g: fmtPct(Math.abs(g), 0) })
         return (
           <li className="find" key={topic.id}>

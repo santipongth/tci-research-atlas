@@ -7,8 +7,10 @@ import type { GalaxyFile } from '../src/data/types'
 import { dequantise, fitView } from '../src/lib/galaxyGl'
 import { bundleOf } from '../test/fixtureData'
 
-const EXAMPLE = 'http://127.0.0.1:4173/'
-const EMPTY = 'http://127.0.0.1:4174/'
+// ATLAS_E2E_PORT: another dev server may already own 4173 (the config reuses a running server), so a run can pick its own pair of ports
+const PORT = Number(process.env.ATLAS_E2E_PORT ?? 4173)
+const EXAMPLE = `http://127.0.0.1:${PORT}/`
+const EMPTY = `http://127.0.0.1:${PORT + 1}/`
 
 const ROUTES = [
   { name: 'overview', path: '/overview' },
@@ -51,9 +53,9 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     // the front door is a data story: the question, the answer (its topic links), one number and the chart
     await expect(page.locator('h1')).toHaveText('งานวิจัยไทย เรื่องไหนกำลังมา')
     await expect(page).toHaveTitle(/งานวิจัยไทย เรื่องไหนกำลังมา/)
-    await expect(page.locator('.story-answer a')).toHaveText('โมเดลภาษาขนาดใหญ่')
+    await expect(page.locator('.story-answer a')).toHaveText('ปัญญาประดิษฐ์ทางการแพทย์') // the leader is a confirmed riser with a baseline: the no-baseline LLM topic is not
     await expect(page.locator('.story-answer a')).toHaveAttribute('href', /#\/topics\/T\d{6}$/)
-    await expect(page.locator('.story-big')).toHaveText('2.1 เท่า')                       // share growth +113%/yr in plain words
+    await expect(page.locator('.story-big')).toHaveText('+36%')                         // share growth +36%/yr (under +100%, so as a percent)
     await expect(page.locator('#fig-story-panel .sl-series')).toHaveCount(5)
     await expect(page.locator('#fig-story-panel .sl-series.is-on')).toHaveCount(1)
     // pointing at another name moves the focus line; the table tab carries the same numbers
@@ -144,7 +146,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     // P4: fixtures have latest.feeds false → no feed link; the embed code points at this site's widget
     await expect(page.locator('.feed-link')).toHaveCount(0)
     await page.locator('.embed-snip summary').click()
-    await expect(page.locator('#embed-code-topic')).toHaveValue(/^<iframe src="http:\/\/127\.0\.0\.1:4173\/#\/embed\/topic\/T000201\?lang=th" title="AI เพื่อการศึกษา — TCI Research Atlas"/)
+    await expect(page.locator('#embed-code-topic')).toHaveValue(new RegExp(`^<iframe src="http://127\\.0\\.0\\.1:${PORT}/#/embed/topic/T000201\\?lang=th" title="AI เพื่อการศึกษา — TCI Research Atlas"`))
     await page.goto(`${EXAMPLE}#/topics/T000701`)
     await expect(page.locator('.uncertain')).toContainText('แนวโน้มไม่แน่นอน')
     await expect(page.locator('.uncertain')).not.toContainText('บทความยังน้อย')
@@ -279,7 +281,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   },
   story: async (page) => {
     await expect(page.locator('.fact')).toHaveCount(5)
-    await expect(page.locator('.fact-big').first()).toHaveText('2.1 เท่า')
+    await expect(page.locator('.fact-big').first()).toHaveText('+36%')
     await expect(page.getByRole('button', { name: 'ดาวน์โหลดภาพสำหรับแชร์' })).toHaveCount(5)
   },
   ideas: async (page) => {
@@ -519,7 +521,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.kw-insight')).toContainText('digital marketing')
     await expect(page.locator('svg.ml')).toBeVisible()
     await expect(page.locator('.kr-chip').first()).toBeVisible()
-    await expect(page.locator('.kr-chip .spark').first()).toBeVisible()
+    await expect(page.locator('.kr-chip .kr-d').first()).toBeVisible() // the change in share as numbers; the trend itself stays in the chart
     await expect(page.locator('#kw-glossary tbody tr')).toHaveCount(10)
     const box = page.getByRole('combobox', { name: 'เพิ่มคำสำคัญ (ไทยหรืออังกฤษ)' })
     await box.fill('ผู้สูงอายุ')
@@ -757,7 +759,8 @@ test('the footer is the partner logos and the licence line; no next-steps block'
   const footer = page.locator('footer')
   await expect(footer.locator('.ftr-logos img')).toHaveCount(3)
   await expect(footer.getByRole('heading')).toHaveCount(0)
-  await expect(footer.getByRole('link')).toHaveCount(0)
+  await expect(footer.getByRole('link')).toHaveCount(1) // "อ้างอิง Atlas นี้", in the licence line
+  await expect(footer.locator('.licence').getByRole('link', { name: 'อ้างอิง Atlas นี้' })).toHaveAttribute('href', '#/about')
   await expect(footer.locator('.licence')).toContainText('CC BY 4.0')
 })
 

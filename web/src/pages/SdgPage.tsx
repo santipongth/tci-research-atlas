@@ -12,7 +12,7 @@ import { TopicLink } from '../components/TopicLink'
 import { MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { GoalStat, SdgFile, Topic } from '../data/types'
 import { fmtWindow, windows } from '../lib/definition'
-import { fmtInt, fmtPct, fmtRatio } from '../lib/format'
+import { fmtInt, fmtRatio, fmtShare } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { sdgCodec } from '../lib/urlState'
@@ -55,8 +55,8 @@ function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
       cell: (g) => <span className="goal-name"><strong>{label(g)}</strong> {name(g)}</span>, sortValue: (g) => g.number, csv: (g) => g.id,
     },
     { key: 'topics', csvHeader: 'topics', header: t('sdg.col.topics'), numeric: true, cell: (g) => (count(g) ? fmtInt(count(g)) : <span className="flag">{t('sdg.gap')}</span>), sortValue: count },
-    { key: 'articles', csvHeader: 'articles_recent', header: t('col.articlesR', { r }), numeric: true, cell: (g) => fmtInt(g.articles_recent ?? 0), sortValue: (g) => g.articles_recent ?? 0 },
-    { key: 'share', csvHeader: 'share_recent', header: t('col.share'), numeric: true, cell: (g) => <ShareBar value={g.share_recent ?? 0} digits={1} max={maxShare} />, sortValue: (g) => g.share_recent ?? 0 },
+    { key: 'articles', csvHeader: 'articles_recent', header: t('col.articlesR', { r }), numeric: true, cell: (g) => fmtInt(g.articles_recent ?? null), sortValue: (g) => g.articles_recent ?? null },
+    { key: 'share', csvHeader: 'share_recent', header: t('col.share'), numeric: true, cell: (g) => <ShareBar value={g.share_recent ?? null} digits={1} max={maxShare} />, sortValue: (g) => g.share_recent ?? null },
     { key: 'ratio', csvHeader: 'share_ratio', header: t('sdg.col.ratio', { b }), numeric: true, cell: (g) => fmtRatio(g.share_ratio ?? null), sortValue: (g) => g.share_ratio ?? null },
     {
       key: 'examples', csvHeader: 'topic_ids', header: t('sdg.col.examples'),
@@ -83,7 +83,7 @@ function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
           ...tile,
           code: label(g),
           name: name(g),
-          shareText: x('xv.goal.share', { p: fmtPct(tile.share, 1) }),
+          shareText: x('xv.goal.share', { p: fmtShare(tile.share, 1) }),
           list: (
             <>
               <p className="gt-list-h">{x('xv.goal.list')}</p>
@@ -99,7 +99,7 @@ function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
   const tableTitle = fw ? t('table.n', { n: 1, title: t('sdg.table', { f: name(fw) }) }) : ''
   return (
     <div className="container">
-      <PageHeader title={t('sdg.title')} lede={t('sdg.lede')} />
+      <PageHeader title={x('q.sdg')} lede={t('sdg.lede', { release: rel, n: fmtInt(release.topics.length) })} />
       {fw ? (
         <Section id="goals" title={t('sdg.frameworks')}>
           <Tabs id="sdg-fw" label={t('sdg.frameworks')} items={file.frameworks.map((f) => ({ id: f.key, label: name(f) }))} value={fw.key} onChange={(id) => update({ fw: id })}>

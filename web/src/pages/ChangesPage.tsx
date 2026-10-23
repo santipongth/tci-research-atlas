@@ -17,8 +17,8 @@ import { TopicLink } from '../components/TopicLink'
 import { useReleaseFile } from '../data/atlasContext'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { DiffFile, JournalsFile, KpiChange, Mover, StatusChange, Topic } from '../data/types'
-import { fmtInt, fmtPct, fmtPp, kpiDelta, kpiDir } from '../lib/format'
-import { useI18n, useStrings } from '../lib/i18n'
+import { fmtInt, fmtPp, kpiDelta, kpiDir, fmtShare } from '../lib/format'
+import { useI18n, useStrings, nameIn } from '../lib/i18n'
 import { STATUSES } from '../lib/status'
 import { figureCsv } from '../lib/tableCsv'
 import { statusName } from '../lib/topicText'
@@ -59,7 +59,7 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
   const order = (s: string) => STATUSES.indexOf(s as (typeof STATUSES)[number])
   const retiredName = (id: string): string | null => {
     const r = diff.retired.find((x) => x.topic === id)
-    return r ? (lang === 'en' ? r.en || r.th : r.th || r.en) || null : null
+    return r ? nameIn(r, lang) || null : null
   }
   /** A parent is a current topic (link), a retired one (its old name) or just an id. */
   const parentNode = (p: string) => {
@@ -74,7 +74,7 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
   ]
   const statusRows = diff.status_changes.filter((c) => known(c.topic))
   const statusColumns: Column<StatusChange>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (c) => <TopicLink topic={topicOf(c.topic) as Topic} />, sortValue: (c) => c.topic, csv: (c) => c.topic },
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (c) => <TopicLink topic={topicOf(c.topic) as Topic} />, sortValue: (c) => name(topicOf(c.topic) as Topic), csv: (c) => c.topic },
     {
       key: 'change', header: t('col.status'), sortValue: (c) => order(c.current) * 10 + order(c.previous),
       cell: (c) => (
@@ -90,9 +90,9 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
   ]
   const movers = diff.movers.filter((m) => known(m.topic))
   const moverColumns: Column<Mover>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (m) => <TopicLink topic={topicOf(m.topic) as Topic} showStatus />, sortValue: (m) => m.topic, csv: (m) => m.topic },
-    { key: 'previous', csvHeader: 'share_previous', header: t('col.previous'), numeric: true, cell: (m) => fmtPct(m.share_previous, 2), sortValue: (m) => m.share_previous },
-    { key: 'current', csvHeader: 'share_current', header: t('col.current'), numeric: true, cell: (m) => fmtPct(m.share_current, 2), sortValue: (m) => m.share_current },
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (m) => <TopicLink topic={topicOf(m.topic) as Topic} showStatus />, sortValue: (m) => name(topicOf(m.topic) as Topic), csv: (m) => m.topic },
+    { key: 'previous', csvHeader: 'share_previous', header: t('col.previous'), numeric: true, cell: (m) => fmtShare(m.share_previous, 2), sortValue: (m) => m.share_previous },
+    { key: 'current', csvHeader: 'share_current', header: t('col.current'), numeric: true, cell: (m) => fmtShare(m.share_current, 2), sortValue: (m) => m.share_current },
     { key: 'change', header: t('col.change'), numeric: true, cell: (m) => fmtPp((m.share_current - m.share_previous) * 100, lang), sortValue: (m) => Math.abs(m.share_current - m.share_previous) },
   ]
   // examples for the intros: the first status change listed, and the biggest mover
@@ -171,11 +171,12 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
                   heads={{ left: x('xv.fl.prev', { r: diff.previous_release }), right: x('xv.fl.cur', { r: diff.release }) }}
                   label={x('xv.fl.label', { n: fmtInt(statusRows.length) })}
                   bandTitle={(l) => x('xv.fl.band', { from: statusName(t, l.from), to: statusName(t, l.to), n: fmtInt(l.count) })}
+                  moreText={(n) => x('xv.fl.more', { n: fmtInt(n) })}
                 />
                 {unchanged > 0 ? <p className="br-more">{x('xv.fl.same', { n: fmtInt(unchanged) })}</p> : null}
               </>
             }
-            table={<DataTable caption={statusTitle} rows={statusRows} columns={statusColumns} rowKey={(c) => c.topic} defaultSort={{ key: 'change', dir: 'asc' }} />}
+            table={<DataTable caption={statusTitle} rows={statusRows} columns={statusColumns} rowKey={(c) => c.topic} defaultSort={{ key: 'change', dir: 'asc' }} limit={25} />}
           />
         ) : (
           <p className="note">{t('ch.status.none')}</p>
@@ -223,7 +224,7 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
               const into = r.merged_into ? topicOf(r.merged_into) : undefined
               return (
                 <li key={r.topic}>
-                  <span lang={lang === 'en' && !r.en ? 'th' : undefined}>{(lang === 'en' ? r.en || r.th : r.th || r.en) || r.topic}</span>
+                  <span lang={lang === 'en' && !r.en ? 'th' : undefined}>{nameIn(r, lang) || r.topic}</span>
                   <span className="topic-sub">
                     {r.merged_into
                       ? <>{t('ch.retired.into')} {into ? <TopicLink topic={into} /> : r.merged_into}</>
@@ -237,8 +238,8 @@ function Changes({ release, diff }: { release: AtlasRelease; diff: DiffFile }) {
         </Section>
       ) : null}
       {movers.length ? (
-        <Section id="movers" title={t('ch.movers.h')} intro={bigMover ? t('ch.movers.intro', { topic: name(topicOf(bigMover.topic) as Topic), a: fmtPct(bigMover.share_previous, 2), b: fmtPct(bigMover.share_current, 2) }) : undefined}>
-          <DataTable caption={t('table.n', { n: 2, title: t('ch.movers.table') })} rows={movers} columns={moverColumns} rowKey={(m) => m.topic} defaultSort={{ key: 'change', dir: 'desc' }} csvFilename={`atlas-${rel}-movers.csv`} />
+        <Section id="movers" title={t('ch.movers.h')} intro={bigMover ? t('ch.movers.intro', { topic: name(topicOf(bigMover.topic) as Topic), a: fmtShare(bigMover.share_previous, 2), b: fmtShare(bigMover.share_current, 2) }) : undefined}>
+          <DataTable caption={t('table.n', { n: 2, title: t('ch.movers.table') })} rows={movers} columns={moverColumns} rowKey={(m) => m.topic} defaultSort={{ key: 'change', dir: 'desc' }} csvFilename={`atlas-${rel}-movers.csv`} limit={25} />
         </Section>
       ) : null}
       {diff.journals_compared && (diff.new_journals ?? []).length ? (

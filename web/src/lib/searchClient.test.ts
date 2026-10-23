@@ -48,6 +48,13 @@ describe('runSearch on the example release', () => {
     expect(out).toMatchObject({ known: [], unknown: ['ควอนตัม'], total: 0, hits: [] })
   })
 
+  it('reports a stopword as ignored instead of as a failed search', async () => {
+    const src = await exampleSource()
+    const stop = [...src.stopwords][0]
+    const out = await runSearch(src, stop)
+    expect(out).toMatchObject({ known: [], unknown: [], ignored: [stop], total: 0 })
+  })
+
   it('examines only part of a broad match when the doc shard cap is reached', async () => {
     const src = await exampleSource()
     const full = await runSearch(src, 'study')

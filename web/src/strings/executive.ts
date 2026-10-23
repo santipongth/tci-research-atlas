@@ -41,7 +41,7 @@ export const executive = defineStrings({
   'data.file.gaps': { th: 'โอกาสที่ยังไม่มีใครทำ และหัวข้อที่พึ่งแหล่งเดียว', en: 'Untapped opportunities and topics that rely on one source' },
 
   'in.title': { th: 'สถาบัน', en: 'Institutions' },
-  'in.lede': { th: 'แต่ละสถาบันมีบทความกี่เรื่อง ทำงานร่วมกับใคร และทำเรื่องอะไร (แสดงสถาบันที่มีบทความอย่างน้อย {n} เรื่อง ปี {a}–{b})', en: 'How much each institution writes, with whom and on what (at least {n} articles in {a}–{b}).' },
+  'in.lede': { th: 'ข้อมูลรอบ {release} มี {k} สถาบันที่มีบทความอย่างน้อย {n} เรื่อง (ปี {a}–{b}) ดูได้ว่าแต่ละแห่งมีบทความกี่เรื่อง ทำงานร่วมกับใคร และทำเรื่องอะไร', en: 'Release {release} has {k} institutions with at least {n} articles in {a}–{b}: how much each writes, with whom and on what.' },
   'ex.most': { th: 'เช่น {x} มีบทความมากที่สุด {k} เรื่อง', en: 'For example, {x} has the most articles: {k}.' },
   'in.search': { th: 'ค้นหาสถาบัน', en: 'Find an institution' },
   'in.type': { th: 'ประเภทสถาบัน', en: 'Institution type' },
@@ -102,7 +102,7 @@ export const executive = defineStrings({
   'in.years.table': { th: 'บทความของสถาบันรายปี', en: 'The institution’s articles by year' },
 
   'rg.title': { th: 'แผนที่จังหวัด', en: 'Provinces' },
-  'rg.lede': { th: 'บทความปี {a}–{b} แยกตามจังหวัดที่ตั้งของสถาบันผู้แต่ง', en: 'Articles in {a}–{b}, by the province of the authors’ institutions.' },
+  'rg.lede': { th: 'ข้อมูลรอบ {release}: {n} จังหวัดมีบทความในปี {a}–{b} แยกตามจังหวัดที่ตั้งของสถาบันผู้แต่ง', en: 'Release {release}: {n} provinces have articles in {a}–{b}, by the province of the authors’ institutions.' },
   'rg.how': { th: 'บทความที่มีผู้แต่งจากหลายจังหวัด นับให้ทุกจังหวัด · ระบุจังหวัดได้ {p} ของบทความที่รู้สังกัด', en: 'An article with authors in several provinces counts in each. Province known for {p} of articles with an affiliation.' },
   'rg.metric': { th: 'แสดงบนแผนที่', en: 'Show on the map' },
   'rg.metric.articles': { th: 'จำนวนบทความ', en: 'Articles' },
@@ -129,7 +129,7 @@ export const executive = defineStrings({
   'rg.source': { th: 'เส้นขอบจังหวัด: Natural Earth (สาธารณสมบัติ) · ที่มา: TCI Research Atlas รอบข้อมูล {release}', en: 'Province outlines: Natural Earth (public domain) · Source: TCI Research Atlas, release {release}' },
 
   'sdg.title': { th: 'SDG และแผนชาติ', en: 'SDGs and national plans' },
-  'sdg.lede': { th: 'หัวข้อวิจัยแต่ละเรื่องเกี่ยวข้องกับเป้าหมายไหนของ SDG และแผนชาติ ผลนี้ได้จากการจับคู่อัตโนมัติ ไม่ใช่การจัดกลุ่มอย่างเป็นทางการ', en: 'Which SDG and national-plan goals each topic relates to. Matched automatically, not an official classification.' },
+  'sdg.lede': { th: 'ข้อมูลรอบ {release}: เทียบหัวข้อวิจัยทั้ง {n} หัวข้อกับเป้าหมายของ SDG และแผนชาติ ผลนี้ได้จากการจับคู่อัตโนมัติ ไม่ใช่การจัดกลุ่มอย่างเป็นทางการ', en: 'Release {release}: all {n} topics matched to SDG and national-plan goals. Matched automatically, not an official classification.' },
   'sdg.example': { th: 'เช่น “{topic}” อยู่ในเป้าหมาย {goal}', en: 'For example, “{topic}” falls under {goal}.' },
   'sdg.method.embedding': { th: 'การเทียบความหมายของหัวข้อกับคำอธิบายเป้าหมาย', en: 'comparing the meaning of each topic with the goal descriptions' },
   'sdg.method.lexical': { th: 'คำสำคัญของเป้าหมายที่พบในชื่อเรื่องและคำสำคัญของบทความ', en: 'goal keywords found in article titles and keywords' },

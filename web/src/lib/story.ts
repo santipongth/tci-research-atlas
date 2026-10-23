@@ -1,16 +1,22 @@
 import type { Topic } from '../data/types'
 import { sortBy } from './sort'
 
-/** Statuses that count as "on the rise" for the front door's story: never low data, stable or declining. */
-const RISING: readonly Topic['status'][] = ['EMERGING', 'HOT', 'WATCH']
+/** Statuses that count as "on the rise" for the front door's story: only the confirmed ones — never WATCH (unconfirmed, often one journal), low data, stable or declining. */
+const RISING: readonly Topic['status'][] = ['EMERGING', 'HOT']
+
+const finite = (v: number | null | undefined): v is number => typeof v === 'number' && Number.isFinite(v)
 
 /**
- * The topics the front door's story is about: the `n` whose share of articles grows fastest among the rising statuses
- * (largest growth first, ties by id). The first one is the answer to "which topic is on the rise?".
+ * The topics the front door's story is about: the first n best-supported risers among the confirmed rising statuses. A topic with
+ * no baseline (nothing in the base years) is left out — its growth ratio is arbitrary. Ranking is by the lower bound of
+ * the growth interval (the growth the data supports even on a cautious reading), then by signal score for a topic without
+ * an interval, then by id. The first one is the answer to "which topic is on the rise?".
  */
 export function pickRisers(topics: readonly Topic[], n = 5): Topic[] {
-  const rising = topics.filter((tp) => RISING.includes(tp.status) && typeof tp.metrics.share_growth === 'number' && Number.isFinite(tp.metrics.share_growth) && tp.metrics.share_growth > 0)
-  return sortBy(sortBy(rising, (tp) => tp.id, 'asc'), (tp) => tp.metrics.share_growth, 'desc').slice(0, n)
+  const rising = topics.filter((tp) => RISING.includes(tp.status) && !tp.metrics.no_baseline && finite(tp.metrics.share_growth) && tp.metrics.share_growth > 0)
+  const withCi = sortBy(sortBy(rising.filter((tp) => finite(tp.metrics.share_growth_lo)), (tp) => tp.id, 'asc'), (tp) => tp.metrics.share_growth_lo, 'desc')
+  const without = sortBy(sortBy(rising.filter((tp) => !finite(tp.metrics.share_growth_lo)), (tp) => tp.id, 'asc'), (tp) => tp.score, 'desc')
+  return [...withCi, ...without].slice(0, n)
 }
 
 /**

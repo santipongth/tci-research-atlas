@@ -137,15 +137,12 @@
     .bp-line { display: none; }
   }
 
-  /* few institutions: topic | number | trend */
+  /* few institutions: topic | number */
   .few { list-style: none; margin: 4px 0 0; padding: 0; max-width: 760px; }
-  .few-row { display: grid; grid-template-columns: minmax(0, 1fr) 9rem 10rem; gap: 6px 20px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-2); }
+  .few-row { display: grid; grid-template-columns: minmax(0, 1fr) 9rem; gap: 6px 20px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-2); }
   .few-name { min-width: 0; font-size: var(--fs-meta); line-height: 1.5; }
   .few-k { font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5; white-space: nowrap; }
   .few-k b { font-size: var(--fs-tile); font-weight: 700; color: var(--ink); line-height: 1.5; font-variant-numeric: tabular-nums; margin-right: 4px; }
-  .few-trend { display: grid; justify-items: start; }
-  .few-trend .spark { margin-top: 0; }
-  .few-yr { width: 120px; display: flex; justify-content: space-between; font-size: var(--fs-tick); color: var(--ink-2); line-height: 1.5; font-variant-numeric: tabular-nums; }
   @media (max-width: 640px) {
     .few-row { grid-template-columns: minmax(0, 1fr) auto; }
     .few-name { grid-column: 1 / -1; }
@@ -244,7 +241,7 @@
   .fact { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 24px; padding: 32px 0 36px; border-top: 1px solid var(--border-2); }
   .fact-n { font-size: var(--fs-lead); font-weight: 700; color: var(--ink-3); font-variant-numeric: tabular-nums; line-height: 1.5; }
   .fact-big { font-size: var(--fs-hero); font-weight: 700; line-height: 1.45; color: var(--brand); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-  .fact-big::after { content: ""; display: block; width: 72px; height: 6px; margin-top: 10px; border-radius: 3px; background: var(--accent-mark); }
+  .fact-big::after { content: ""; display: block; width: 72px; height: 2px; margin-top: 10px; background: var(--brand); }
   .fact-line { margin-top: 18px; font-size: var(--fs-h2); font-weight: 700; line-height: 1.5; max-width: var(--measure-body); }
   .fact-sub { margin-top: 6px; color: var(--ink-2); max-width: var(--measure-body); }
   .fact-acts { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; font-weight: 600; }

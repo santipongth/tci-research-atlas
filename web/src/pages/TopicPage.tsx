@@ -20,7 +20,7 @@ import type { Topic } from '../data/types'
 import { DEFINITION, fmtWindow, ruleVars, windows } from '../lib/definition'
 import { breadthText } from '../lib/breadth'
 import { forecastView } from '../lib/forecast'
-import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
+import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct, fmtShare } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { ciText, growthText, lowDataText, ratioText, statusMeaning, statusName } from '../lib/topicText'
 import { figureCsv } from '../lib/tableCsv'
@@ -29,6 +29,9 @@ import { useUrlState } from '../lib/useUrlState'
 import { FOREST_DOMAIN } from './topicColumns'
 
 // SDG chips (they read sdg.json) and the RIS/BibTeX export load on demand: this page is in the entry chunk.
+/** A topic name longer than this is set one heading size smaller (a 90-character name is four lines at full size). */
+const LONG_NAME = 40
+
 const TopicSdg = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.TopicSdg })))
 const ArticleCite = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.ArticleCite })))
 const TopicRanking = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.TopicRanking })))
@@ -121,7 +124,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
     { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.kind === 'forecast' ? t('tp.forecastYear', { year: r.year }) : String(r.year)), csv: (r) => r.year },
     { key: 'kind', csvHeader: 'kind', header: 'kind', cell: () => null, csv: (r) => r.kind, csvOnly: true },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => (r.articles === null ? '' : fmtInt(r.articles)), csv: (r) => r.articles },
-    { key: 'share', csvHeader: 'share_of_year', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? '' : fmtPct(r.share, 2)), csv: (r) => r.share },
+    { key: 'share', csvHeader: 'share_of_year', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? '' : fmtShare(r.share, 2)), csv: (r) => r.share },
     { key: 'mean', csvHeader: 'forecast_mean', header: t('forecast'), numeric: true, cell: (r) => (r.mean === null ? '' : fmtInt(r.mean)), csv: (r) => r.mean },
     { key: 'r80', csvHeader: 'range_80', header: t('tp.col.range80'), numeric: true, cell: (r) => (r.lo80 === null ? '' : `${fmtInt(r.lo80)}–${fmtInt(r.hi80)}`), csv: (r) => (r.lo80 === null ? null : `${r.lo80}-${r.hi80}`) },
     { key: 'r95', csvHeader: 'range_95', header: t('tp.col.range95'), numeric: true, cell: (r) => (r.lo95 === null ? '' : `${fmtInt(r.lo95)}–${fmtInt(r.hi95)}`), csv: (r) => (r.lo95 === null ? null : `${r.lo95}-${r.hi95}`) },
@@ -153,7 +156,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
 
   return (
     <div className="container">
-      <PageHeader title={name(topic)} titleLang={lang === 'en' && !topic.en ? 'th' : undefined} lede={topic.description || undefined}>
+      <PageHeader title={name(topic)} long={name(topic).length > LONG_NAME} titleLang={lang === 'en' && !topic.en ? 'th' : undefined} lede={topic.description || undefined}>
         <p className="tp-alt" lang={otherLang}>{other(topic)}</p>
         <div className="tp-tags">
           <span className="tp-field">{t('tp.field', { f: group })}</span>
@@ -197,7 +200,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
         <StatGrid cols={2} className="tp-hero-tiles">
           <StatTile
             label={t('tp.share')}
-            value={fmtPct(m.share_recent, 2)}
+            value={fmtShare(m.share_recent, 2)}
             sub={t('tp.inWindow', { w: fmtWindow(w.R) })}
           />
           <StatTile
@@ -324,6 +327,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 caption={t('table.n', { n: tableNo.glossary, title: t('tp.glossary.table') })}
                 rows={glossary}
                 rowKey={(g) => `${g.th}|${g.en}`}
+                limit={25}
                 stack={false}
                 csvFilename={`atlas-${release.overview.release}-${topic.id}-glossary.csv`}
                 defaultSort={{ key: 'n', dir: 'desc' }}

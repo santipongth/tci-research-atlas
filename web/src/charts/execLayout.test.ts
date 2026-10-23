@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arcLayout, arcPath, bandPath, columnAxis, goalTiles, mixSegments, overlaps, placeLabels, quadrantLayout, statusFlow, textWidth, type QuadPoint } from './execLayout'
+import { arcLayout, arcPath, bandPath, columnAxis, flowUnit, goalTiles, mixSegments, overlaps, placeLabels, quadrantLayout, statusFlow, textWidth, type QuadPoint } from './execLayout'
 
 describe('arcLayout', () => {
   const nodes = [
@@ -164,9 +164,27 @@ describe('placeLabels', () => {
     expect(placeLabels(pts, { px: 14, r: 6, bounds, max: 2 }).map((l) => l.id)).toEqual(['first', 'second'])
   })
 
+  it('examines at most `tries` points, in order', () => {
+    const pts = Array.from({ length: 50 }, (_, i) => ({ id: `p${i}`, text: 'A', cx: 20 + (i % 10) * 36, cy: 30 + Math.floor(i / 10) * 50 }))
+    const out = placeLabels(pts, { px: 14, r: 6, bounds, max: 50, tries: 7 })
+    expect(out.length).toBeLessThanOrEqual(7)
+    expect(out.every((l) => Number(l.id.slice(1)) < 7)).toBe(true)
+    expect(placeLabels(pts, { px: 14, r: 6, bounds, max: 50 }).length).toBeGreaterThan(7)
+  })
+
   it('goes left when the right side is off the sheet', () => {
     const [l] = placeLabels([{ id: 'edge', text: 'Near the edge', cx: 390, cy: 150 }], { px: 14, r: 6, bounds })
     expect(l.anchor).toBe('end')
+  })
+})
+
+describe('flowUnit', () => {
+  it('keeps 26 px per topic for a few changes and shrinks so the bands stay within 520 px', () => {
+    expect(flowUnit(5)).toBe(26)
+    expect(flowUnit(20)).toBe(26)
+    expect(flowUnit(52)).toBe(10)
+    expect(flowUnit(300) * 300).toBeCloseTo(520)
+    expect(flowUnit(0)).toBe(26)
   })
 })
 

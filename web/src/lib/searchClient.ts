@@ -12,7 +12,7 @@
  * page then tells the reader the list is drawn from part of the matches and suggests adding a word.
  */
 import type { SearchDocRow, SearchDocShard, SearchIndexShard, SearchMeta, SearchVocab } from '../data/types'
-import { docShardOf, indexShardOf, normalise, queryTokens } from './searchTokens'
+import { docShardOf, ignoredWords, indexShardOf, normalise, queryTokens } from './searchTokens'
 
 /** Doc shards fetched per query at most (6 × 2,000 rows by default ≈ 0.5 MB gzip). */
 export const MAX_DOC_SHARDS = 6
@@ -46,6 +46,8 @@ export interface SearchHit extends SearchDoc {
 export interface SearchOutcome {
   known: string[]
   unknown: string[]
+  /** stopwords in the query: understood but not searched (too common to tell articles apart) */
+  ignored: string[]
   /** articles that contain every known word */
   total: number
   /** of those, the ones whose rows were fetched and ranked */
@@ -131,7 +133,8 @@ async function required<T>(p: Promise<T | null>, what: string): Promise<T> {
 export async function runSearch(src: SearchSource, q: string, maxDocShards = MAX_DOC_SHARDS): Promise<SearchOutcome> {
   const { meta } = src
   const { known, unknown } = queryTokens(q, src.vocab, src.stopwords, meta.max_token_chars)
-  if (known.length === 0) return { known, unknown, total: 0, examined: 0, complete: true, hits: [] }
+  const ignored = ignoredWords(q, src.vocab, src.stopwords, meta.max_token_chars)
+  if (known.length === 0) return { known, unknown, ignored, total: 0, examined: 0, complete: true, hits: [] }
 
   const shardOf = new Map(known.map((w) => [w, indexShardOf(w, meta.index_shards)]))
   const shards = [...new Set(shardOf.values())]
@@ -139,7 +142,7 @@ export async function runSearch(src: SearchSource, q: string, maxDocShards = MAX
   const byShard = new Map(shards.map((s, i) => [s, loaded[i]]))
   const lists = known.map((w) => decodePostings(byShard.get(shardOf.get(w) as number)?.postings[w] ?? []))
   const matches = intersect(lists)
-  if (matches.length === 0) return { known, unknown, total: 0, examined: 0, complete: true, hits: [] }
+  if (matches.length === 0) return { known, unknown, ignored, total: 0, examined: 0, complete: true, hits: [] }
 
   const per = meta.docs_per_shard
   const docShards = pickDocShards(matches, per, maxDocShards)
@@ -155,7 +158,7 @@ export async function runSearch(src: SearchSource, q: string, maxDocShards = MAX
     const doc = rowToDoc(row, o, meta.journals)
     hits.push({ ...doc, titleHits: titleHits(doc, known) })
   }
-  return { known, unknown, total: matches.length, examined: hits.length, complete: hits.length === matches.length, hits: rank(hits) }
+  return { known, unknown, ignored, total: matches.length, examined: hits.length, complete: hits.length === matches.length, hits: rank(hits) }
 }
 
 export function filterHits(hits: readonly SearchHit[], f: SearchFilters): SearchHit[] {
