@@ -16,6 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 from atlas.io_utils import read_table, write_table
+from atlas.registry import journal_keys
 from atlas.state import snapshot_at
 
 
@@ -76,7 +77,8 @@ def build_series(cfg: dict) -> pd.DataFrame:
     work = Path(cfg["pipeline"]["work_dir"])
     docs = read_table(work / "02_docs.parquet")
     n_articles = len(docs)
-    docs = docs[[c for c in ("article_id", "year", "journal_name", "published") if c in docs.columns]]
+    docs = docs[[c for c in ("article_id", "year", "journal_name", "journal_key", "published") if c in docs.columns]]
+    docs = docs.assign(journal_name=journal_keys(docs))       # a journal is its key, never a (possibly varying) title
     fine = read_table(work / "04_fine_topics.parquet")
     try:
         authors = read_table(work / "01_authors.parquet")[["article_id", "org_key"]]
@@ -105,7 +107,11 @@ def build_series(cfg: dict) -> pd.DataFrame:
     a = a.assign(has_org=a["article_id"].isin(set(orgs["article_id"])))
     counts = (a.groupby(["fine_topic", "year"]).agg(count=("article_id", "size"), count_with_org=("has_org", "sum"))
               .reset_index().rename(columns={"fine_topic": "topic_id"}))
-    grid = pd.MultiIndex.from_product([sorted(a["fine_topic"].unique()), sorted(totals.index)],
+    try:                                                     # a topic with no article in the analysed years still exists
+        known = set(read_table(work / "04_topic_info.parquet")["topic_id"].astype(int))
+    except FileNotFoundError:
+        known = set()
+    grid = pd.MultiIndex.from_product([sorted(set(a["fine_topic"].unique()) | known), sorted(totals.index)],
                                       names=["topic_id", "year"]).to_frame(index=False)
     s = grid.merge(counts, on=["topic_id", "year"], how="left").fillna({"count": 0, "count_with_org": 0})
     s[["count", "count_with_org"]] = s[["count", "count_with_org"]].astype(int)

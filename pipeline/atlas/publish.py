@@ -90,15 +90,60 @@ def release_notes(release_dir: str | Path) -> str:
     return "\n".join(lines)
 
 
-def offline_bundle(release_dir: str | Path, latest: dict, exclude=()) -> dict:
+DETAIL_FOLDERS = ("topics", "journals", "institutions")   # inlined in this order, as far as the byte budget goes
+SLIM_KEEP = ("manifest.json", "overview.json", "topics.json", "taxonomy.json", "diff.json")
+
+
+def offline_bundle(release_dir: str | Path, latest: dict, exclude=(), max_bytes: int | None = None) -> dict:
     """{latest, files: {relative path: parsed JSON}} — what atlas-offline.html carries; paths equal to (or inside
-    a folder named by) an entry of `exclude` are left out."""
+    a folder named by) an entry of `exclude` are left out. The top-level files always go in; the per-topic,
+    per-journal and per-institution files follow until `max_bytes` of JSON is reached (None = no limit)."""
     root = Path(release_dir)
     skip = tuple(str(e).strip("/") for e in exclude)
-    files = {rel: json.loads(p.read_text(encoding="utf-8"))
-             for p in sorted(root.rglob("*.json"))
-             if not any((rel := p.relative_to(root).as_posix()) == e or rel.startswith(f"{e}/") for e in skip)}
+    paths = [p for p in sorted(root.rglob("*.json"))
+             if not any((rel := p.relative_to(root).as_posix()) == e or rel.startswith(f"{e}/") for e in skip)]
+
+    def folder(p: Path) -> str:
+        return p.relative_to(root).parts[0] if len(p.relative_to(root).parts) > 1 else ""
+    top = [p for p in paths if folder(p) not in DETAIL_FOLDERS]
+    files = {p.relative_to(root).as_posix(): json.loads(p.read_text(encoding="utf-8")) for p in top}
+    used = sum(p.stat().st_size for p in top)
+    left_out: dict[str, int] = {}
+    for name in DETAIL_FOLDERS:
+        for p in (p for p in paths if folder(p) == name):
+            size = p.stat().st_size
+            if max_bytes is not None and used + size > max_bytes:
+                left_out[name] = left_out.get(name, 0) + 1
+                continue
+            files[p.relative_to(root).as_posix()] = json.loads(p.read_text(encoding="utf-8"))
+            used += size
+    if left_out:
+        print("[publish] atlas-offline.html size budget reached — left out: "
+              + ", ".join(f"{n} {k}/ files" for k, n in left_out.items()) + " (raise export.offline_max_mb)")
     return {"latest": latest, "files": files}
+
+
+def slim_old_releases(site: Path, keep_full: int) -> list[str]:
+    """Older releases on the site keep only what the web and the feeds read (SLIM_KEEP): the site must not grow by
+    hundreds of MB every quarter. The newest `keep_full` releases are untouched. Returns the slimmed names."""
+    data = site / "data"
+    names = sorted((p.name for p in data.glob("*") if (p / "manifest.json").exists()), reverse=True)
+    slimmed = []
+    for name in names[keep_full:]:
+        folder = data / name
+        removed = False
+        for p in sorted(folder.rglob("*"), reverse=True):
+            rel = p.relative_to(folder).as_posix()
+            if p.is_file() and rel not in SLIM_KEEP:
+                p.unlink()
+                removed = True
+            elif p.is_dir() and not any(p.iterdir()):
+                p.rmdir()
+        if removed:
+            slimmed.append(name)
+    if slimmed:
+        print(f"[publish] older release(s) {', '.join(slimmed)} slimmed to {', '.join(SLIM_KEEP)} (publish.keep_full_releases)")
+    return slimmed
 
 
 def inject_offline(template_html: str, bundle: dict) -> str:
@@ -179,6 +224,7 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
     shutil.copytree(release_dir, dst)
     restored = restore_previous(release_dir, site)
     pcfg = (cfg or {}).get("publish") or {}
+    slimmed = slim_old_releases(site, int(pcfg.get("keep_full_releases", 1))) if move else []
     feeds = None
     if pcfg.get("site_url"):
         feeds = write_feeds(site, pcfg["site_url"], int(pcfg.get("feed_max_entries", 12)),
@@ -202,7 +248,8 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
         (site / "data" / "latest.json").write_text(json.dumps(latest_json, ensure_ascii=False), encoding="utf-8")
         exclude = tuple(dict.fromkeys([*(cfg["export"]["offline_exclude"] if cfg else ()), *ALWAYS_OFFLINE_EXCLUDE]))
         html = inject_offline(template.read_text(encoding="utf-8"),
-                              offline_bundle(release_dir, offline_latest, exclude))
+                              offline_bundle(release_dir, offline_latest, exclude,
+                                             int(cfg["export"]["offline_max_mb"]) * 1_000_000 if cfg else None))
         offline = site / OFFLINE_HTML
         offline.write_text(html, encoding="utf-8", newline="")     # same bytes on Windows and Linux
     else:
@@ -210,7 +257,7 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
         print(f"[publish] WARNING: {template} not found — build the web first (npm run build); "
               "the single-file offline edition was skipped")
     return {"site_data": str(dst), "latest": str(site / "data" / "latest.json"), "latest_moved": move,
-            "restored": restored, "feeds": feeds,
+            "restored": restored, "slimmed": slimmed, "feeds": feeds,
             "offline_html": str(offline) if offline else None}
 
 
@@ -222,7 +269,7 @@ def publish(cfg: dict, release: str | None = None, allow_warnings: bool = False,
     except ValueError as e:
         raise PublishRefused(str(e)) from e
     rel_dir = Path(cfg["pipeline"]["output_dir"]) / "data" / release
-    rep = validate_release(rel_dir, None, cfg["validation"])
+    rep = validate_release(rel_dir, None, cfg["validation"], cfg["pipeline"]["work_dir"])
     print(render_report(rep))
     if rep.exit_code == 2 or (rep.exit_code == 1 and not allow_warnings):
         raise PublishRefused(f"validation exit code {rep.exit_code} — fix the release (or pass --allow-warnings)")

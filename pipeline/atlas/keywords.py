@@ -26,6 +26,7 @@ import pandas as pd
 from atlas.config import KeywordsCfg
 from atlas.emerging import share_growth
 from atlas.io_utils import read_table, write_table
+from atlas.registry import journal_keys
 from atlas.thai import norm_key
 
 KEYWORD_COLUMNS = ["term", "key", "count_recent", "count_baseline", "share_ratio", "no_baseline", "growth", "growth_lo",
@@ -36,7 +37,7 @@ KEYWORD_COLUMNS = ["term", "key", "count_recent", "count_baseline", "share_ratio
 def keyword_rows(docs: pd.DataFrame, min_key_length: int = KeywordsCfg().min_key_length) -> pd.DataFrame:
     """One row per (article, keyword key): article_id, year, journal, key, term (keys ≥ min_key_length)."""
     rows = []
-    for aid, year, journal, th, en in zip(docs["article_id"], docs["year"], docs["journal_name"],
+    for aid, year, journal, th, en in zip(docs["article_id"], docs["year"], journal_keys(docs),
                                           docs["keywords_th"].fillna("").astype(str),
                                           docs["keywords_en"].fillna("").astype(str)):
         if pd.isna(year):

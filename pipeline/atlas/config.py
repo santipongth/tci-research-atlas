@@ -125,7 +125,7 @@ class LeidenCfg(_Strict):
 
 class ClusteringCfg(_Strict):
     algorithm: Literal["hdbscan", "leiden"] = "hdbscan"
-    hdbscan_backend: Literal["sklearn", "fast"] = "sklearn"
+    hdbscan_backend: Literal["sklearn", "fast"] = "fast"        # sklearn is quadratic: only for tiny corpora
     leiden: LeidenCfg = Field(default_factory=LeidenCfg)
     reducer: Literal["umap", "pca"] = "umap"
     pca_dims: int = 128
@@ -236,7 +236,7 @@ class ScoreWeightsCfg(_Strict):
 
 class EmergingCfg(_Strict):
     definition_version: Literal[3] = 3
-    as_of_year: int | None = None     # null = today's calendar year; the running year is never complete
+    as_of_year: int | None = None     # null = the year of the snapshot recorded by cluster; the running year is never complete
     min_year_complete: int | None = None
     backfill_min_ratio: float = 0.6
     backfill_ref_years: int = Field(3, ge=1)
@@ -507,12 +507,16 @@ class ExportCfg(_Strict):
     max_topic_orgs: int = Field(10, ge=1)
     max_neighbors: int = Field(6, ge=0)
     offline_exclude: list[str] = Field(default_factory=lambda: ["match.json", "search", "galaxy.json"])
+    offline_max_mb: int = Field(60, ge=1)      # atlas-offline.html budget: topic, journal and institution detail files are
+                                               # inlined in that order until it is full (a page without its file says so)
 
 
 class PublishCfg(_Strict):
     """`atlas publish --site` extras (P4): Atom feeds need the public address of the site."""
     site_url: str | None = Field(None, pattern=r"^https?://\S+$")   # e.g. https://<user>.github.io/<repo>/
     feed_max_entries: int = Field(12, ge=1)              # releases per feed (newest first)
+    keep_full_releases: int = Field(1, ge=1)             # releases kept whole on the site (newest first); older ones keep only
+                                                         # manifest, overview, topics, taxonomy and diff (a few MB, not 300)
 
 
 class ValidateCfg(_Strict):

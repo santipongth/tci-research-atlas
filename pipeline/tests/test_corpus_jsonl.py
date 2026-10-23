@@ -198,3 +198,13 @@ def test_a_corpus_without_journals_csv_is_flagged(tmp_path):
     arts, auths, _, _, _ = read_corpus_tables(root, exclude=EXCLUDE)
     assert "journals.csv is missing from the corpus folder" in check_companions(root, arts, auths)["problems"]
     assert check_companions(root, arts, auths, required=False)["problems"] == []
+
+
+def test_org_names_never_carry_contact_details_or_a_bare_person():
+    from atlas.orgs import org_name, publishable_name
+    mail = "Independent researcher, 99/1 Moo 3, Bangkok 10400, email: somchai.j@gmail.com"
+    assert publishable_name(org_name("", mail)) == ""
+    assert publishable_name(org_name("นักวิชาการอิสระ 12 หมู่ 4 อีเมล somchai@gmail.com", "")) == ""
+    assert publishable_name(org_name("สมชาย ใจดี", "")) == ""
+    assert publishable_name(org_name("คณะบริหารธุรกิจ มหาวิทยาลัยเกษตรศาสตร์ 10900", "")) == "มหาวิทยาลัยเกษตรศาสตร์"
+    assert "@" not in org_name("", "Faculty of Science, Chiang Mai University, tel 053-943-333, a@b.co")

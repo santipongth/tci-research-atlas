@@ -24,6 +24,7 @@ def two_releases(tmp_path_factory):
         cfg["input"].update(path=str(FIXTURES / "thaijo_md"), workers=1)
         cfg["embedding"]["provider"] = "lite"
         cfg["clustering"]["reducer"] = "pca"
+        cfg["institutions"]["min_articles"] = 1        # an 11-article fixture: every named institution is publishable
         run(cfg, STEPS)
     return root, cfg
 
@@ -482,7 +483,9 @@ def test_publish_restores_earlier_releases_the_site_lacks(two_releases, tmp_path
     (site / "data").mkdir(parents=True)                               # `npm run build` emptied dist/data
     r = publish({**cfg, "pipeline": {**cfg["pipeline"], "release": "2026Q2"}}, site=site)
     assert r["restored"] == ["2026Q1"] and (site / "data" / "2026Q1" / "manifest.json").exists()
-    assert _digest(site / "data" / "2026Q1") == _digest(root / "out" / "data" / "2026Q1")
+    full, kept = _digest(root / "out" / "data" / "2026Q1"), _digest(site / "data" / "2026Q1")
+    assert kept and kept == {k: v for k, v in full.items() if k in kept}      # restored, then slimmed to what the web reads
+    assert {"manifest.json", "overview.json", "topics.json"} <= set(kept)
     assert json.loads((site / "data" / "latest.json").read_text(encoding="utf-8"))["release"] == "2026Q2"
     # a release folder already on the site is never replaced by the restore
     (site / "data" / "2026Q1" / "topics.json").write_text('{"edited": true}', encoding="utf-8")
@@ -694,3 +697,66 @@ def test_published_template_sentences_are_plain_language(two_releases, tmp_path)
     names = [n for t in topics for n in (t["th"], t["en"]) if n]
     bad = {t: jargon_in(t, names) for t in texts if jargon_in(t, names)}
     assert bad == {}, bad
+
+
+def _rehash(rel_dir, changed: str) -> None:
+    """Update manifest.json for a file the test rewrote (so only the cross-check under test can complain)."""
+    man = json.loads((rel_dir / "manifest.json").read_text(encoding="utf-8"))
+    raw = (rel_dir / changed).read_bytes()
+    for f in man["files"]:
+        if f["path"] == changed:
+            f["bytes"], f["sha256"] = len(raw), hashlib.sha256(raw).hexdigest()
+    (rel_dir / "manifest.json").write_text(json.dumps(man), encoding="utf-8")
+
+
+def test_validate_catches_a_search_index_that_disagrees_with_the_galaxy_and_topics(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    rel = data / "2026Q2"
+    assert validate_release(rel, None, cfg["validation"]).errors == []
+    galaxy = json.loads((rel / "galaxy.json").read_text(encoding="utf-8"))
+    n = galaxy["n"]
+    for k in ("x", "y", "t", "yr"):
+        galaxy[k] = galaxy[k][:-1]
+    galaxy["n"] = n - 1                                        # one point short of the search articles
+    (rel / "galaxy.json").write_text(json.dumps(galaxy), encoding="utf-8")
+    _rehash(rel, "galaxy.json")
+    shard = json.loads((rel / "search" / "docs-000.json").read_text(encoding="utf-8"))
+    shard["docs"][0][5] = "T999999"                            # a topic that does not exist
+    (rel / "search" / "docs-000.json").write_text(json.dumps(shard), encoding="utf-8")
+    _rehash(rel, "search/docs-000.json")
+    errors = validate_release(rel, None, cfg["validation"]).errors
+    assert any("galaxy.json has" in e for e in errors) and any("not in topics.json" in e for e in errors)
+
+
+def test_validate_scans_the_real_release_for_a_person(two_releases, tmp_path):
+    from atlas.validate import validate_release
+
+    data, cfg = _copy(two_releases, tmp_path)
+    rel = data / "2026Q2"
+    kw = json.loads((rel / "keywords.json").read_text(encoding="utf-8"))
+    kw["leak"] = "contact somchai.j@example.org"
+    (rel / "keywords.json").write_text(json.dumps(kw), encoding="utf-8")
+    _rehash(rel, "keywords.json")
+    errors = validate_release(rel, None, cfg["validation"], cfg["pipeline"]["work_dir"]).errors
+    assert any("e-mail address" in e and "keywords.json" in e for e in errors)
+
+
+def test_older_releases_on_the_site_are_slimmed_and_the_offline_file_has_a_budget(two_releases, tmp_path):
+    from atlas.publish import offline_bundle, publish_site, slim_old_releases
+
+    root, cfg = two_releases
+    site = tmp_path / "site"
+    (site / "data").mkdir(parents=True)
+    for rel in ("2026Q1", "2026Q2"):
+        publish_site(root / "out" / "data" / rel, site, cfg)
+    old = site / "data" / "2026Q1"
+    assert sorted(p.relative_to(old).as_posix() for p in old.rglob("*") if p.is_file()) == sorted(
+        n for n in ("manifest.json", "overview.json", "topics.json", "taxonomy.json", "diff.json") if (old / n).exists())
+    assert (site / "data" / "2026Q2" / "search" / "meta.json").exists()          # the newest is whole
+    assert slim_old_releases(site, 1) == []                                       # idempotent
+    full = offline_bundle(root / "out" / "data" / "2026Q2", {"release": "2026Q2"})
+    tight = offline_bundle(root / "out" / "data" / "2026Q2", {"release": "2026Q2"}, max_bytes=1)
+    assert any(f.startswith("topics/") for f in full["files"]) and not any(f.startswith("topics/") for f in tight["files"])
+    assert {"overview.json", "topics.json"} <= set(tight["files"])                # the top-level files always go in

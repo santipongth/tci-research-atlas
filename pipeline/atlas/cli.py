@@ -640,7 +640,7 @@ def validate_cmd(
     except ValueError as e:
         raise typer.BadParameter(str(e)) from e
     root = release_dir or Path(cfg["pipeline"]["output_dir"]) / "data" / name
-    rep = validate_release(root, previous, cfg["validation"])
+    rep = validate_release(root, previous, cfg["validation"], cfg["pipeline"]["work_dir"])
     typer.echo(render_report(rep))
     raise typer.Exit(rep.exit_code)
 

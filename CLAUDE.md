@@ -179,6 +179,8 @@ bash scripts/import_atlas.sh                              # (ทำเอง) bu
 - **DON'T** ลดเกณฑ์ `references.min_coverage` / `min_internal_matches` เพียงเพื่อให้หน้าแสดงผล — คลังที่รายการอ้างอิงครอบคลุมต่ำทำให้ตัวเลขรายวารสารหลอกตา (ถามเจ้าของข้อมูล)
 - **DO** ประโยคที่ pipeline เขียนให้สาธารณะ (brief, `overview.executive`, คำอธิบายหัวข้อแบบแม่แบบ, เหตุผลความกว้าง, บันทึกวิธีวิจัย, สรุปในฟีด) ใช้ภาษาง่าย: เขียนปีแทน "ช่วงฐาน/ช่วงล่าสุด", มีหน่วยทุกตัวเลข, ชื่อสถานะไทย/อังกฤษจาก `narrative.STATUS_TH/STATUS_EN` (ไม่ใช่รหัส) และต้องผ่าน `narrative.jargon_in` (คำต้องห้าม `JARGON_TH/JARGON_EN` + รหัสสถานะ; `test_release.py::test_published_template_sentences_are_plain_language` ตรวจทุกไฟล์ที่เผยแพร่) — ตัวเลขและข้อเท็จจริง "(x เท่า)" ห้ามเปลี่ยน
 - **DO** คลังรูปแบบ 1.0: แก้ช่องข้อมูล = แก้ `atlas/schema/corpus.py` + `atlas corpus schema` + `docs/corpus/README.md` + ตัวอย่างใน `docs/corpus/example/` พร้อมกัน (`test_corpus_jsonl` ตรวจ drift และอ่านตัวอย่าง); เพิ่มได้อย่างเดียวภายใน 1.x — รหัสบทความที่ได้จากกฎ id ห้ามเปลี่ยน (ประวัติหัวข้อและ store embedding ผูกกับมัน)
+- **DO** ชื่อสถาบันที่เผยแพร่ต้องผ่าน `orgs.publishable_name` (ไม่มีอีเมล/ที่อยู่ และมีคำบอกองค์กร); หน้าหัวข้อแสดงเฉพาะสถาบันที่เผยแพร่ (≥ `institutions.min_articles`); `atlas validate`/`publish` สแกนรอบจริงหาอีเมล ORCID และชื่อผู้แต่ง (`atlas/privacy.py`) — error = ห้ามเผยแพร่; ห้ามลดด่านนี้เพื่อให้ผ่าน
+- **DO** วารสารระบุด้วย `journal_key` (`registry.journal_keys`) ในทุกการนับ/กลุ่ม ไม่ใช่ `journal_name`; ตัดซ้ำในชั้นชื่อเรื่อง+ปีใช้ชื่อเรื่องทั้งชื่อ (`ingest._drop_title_year_duplicates`)
 - **DON'T** ใช้ชื่อรอบ (release) นอกรูป YYYYQn, ใช้ ID หัวข้อซ้ำ หรือรันรอบที่เก่ากว่ารอบที่มีอยู่ — โค้ดปฏิเสธอยู่แล้ว อย่าเลี่ยง
 
 ### Web

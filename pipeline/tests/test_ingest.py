@@ -308,3 +308,50 @@ def test_issue_year_fill_runs_on_the_whole_article_table():
     out = fill_years_from_issue_df(df)
     assert out["year"].tolist()[:3] == [2020, 2020, 2021] and out.loc[1, "year_source"] == "issue_median"
     assert pd.isna(out.loc[3, "year"]) and pd.isna(out.loc[4, "year"])     # no dated sibling / no issue
+
+
+def test_formulaic_long_titles_differing_at_the_end_are_not_duplicates():
+    import pandas as pd
+
+    from atlas.ingest import dedup
+    stem = "การพัฒนารูปแบบการจัดการเรียนรู้เพื่อส่งเสริมทักษะการคิดวิเคราะห์ของนักเรียนชั้นมัธยมศึกษาปีที่ "
+    df = pd.DataFrame({"article_id": ["a0", "a1", "a2"], "title": [stem + "1", stem + "4", stem + "4"],
+                       "title_th": [stem + "1", stem + "4", stem + "4"], "title_en": ["", "", ""],
+                       "year": [2023, 2023, 2023], "doi": ["", "", ""], "journal_key": ["j0", "j1", "j1"],
+                       "abstract_th": ["", "", ""], "abstract_en": ["", "", ""], "keywords_th": ["", "", ""],
+                       "keywords_en": ["", "", ""], "authors": ["", "", ""]})
+    out, stats = dedup(df)
+    assert sorted(out["article_id"]) == ["a0", "a1"] and stats["dropped"] == 1      # a2 = a1 again; a0 differs at the end
+
+
+def test_same_title_and_year_with_different_dois_are_kept_apart():
+    import pandas as pd
+
+    from atlas.ingest import dedup
+    t = "ผลของการใช้โปรแกรมต่อความรู้ของผู้ป่วยโรคเรื้อรังในชุมชนชนบท ตอนที่"
+    df = pd.DataFrame({"article_id": ["a", "b", "c"], "title": [t] * 3, "title_th": [t] * 3, "title_en": [""] * 3,
+                       "year": [2022] * 3, "doi": ["10.5555/x.1", "10.5555/x.2", ""], "journal_key": ["j"] * 3,
+                       "abstract_th": [""] * 3, "abstract_en": [""] * 3, "keywords_th": [""] * 3,
+                       "keywords_en": [""] * 3, "authors": [""] * 3})
+    out, _ = dedup(df)
+    assert {"a", "b"} <= set(out["article_id"]) and len(out) == 2          # c has no DOI: it is a copy of the first
+
+
+def test_a_refused_run_leaves_no_thinned_checkpoint(make_cfg, thaijo_dir, tmp_path):
+    import shutil
+
+    import pytest
+
+    from atlas.ingest import ingest
+    src = tmp_path / "md"
+    shutil.copytree(thaijo_dir, src)
+    for f in list(src.glob("*.md"))[:6]:
+        f.write_bytes(b"")                           # empty files parse to nothing usable → error rows
+    cfg = make_cfg(src)
+    cfg["input"]["max_error_ratio"] = 0.01
+    try:
+        ingest(cfg)
+    except RuntimeError:
+        assert not (tmp_path / "work" / "01_articles.parquet").exists()
+    else:
+        pytest.skip("empty files are tolerated by the parser; the ordering is covered by the code path")

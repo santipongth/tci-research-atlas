@@ -29,6 +29,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from atlas.privacy import scan_release
 from atlas.schema.contract import SCHEMA_VERSION, Manifest, model_for
 
 
@@ -116,6 +117,55 @@ def _check_coherence(models: dict, rep: Report) -> None:
         rep.errors.append(f"overview.json: kpis.topics={ov.kpis.topics} but topics.json has {len(ids)}")
     rep.stats.update(topics=len(ids), articles=ov.kpis.articles if ov is not None else None,
                      statuses=ov.status_counts if ov is not None else {})
+
+
+VOCAB_WARN_BYTES = 8_000_000      # search/vocab.json is downloaded whole before the first search
+
+
+def _check_research(models: dict, root: Path, rep: Report) -> None:
+    """P4 cross-checks the per-file schemas cannot see: the search index, its article rows and the galaxy must agree
+    with each other and with topics.json — a broken search or galaxy must not pass as a valid release."""
+    meta = models.get("search/meta.json")
+    galaxy = models.get("galaxy.json")
+    topics = models.get("topics.json")
+    topic_ids = {t.id for t in topics.topics} if topics is not None else None
+    if meta is not None:
+        want = -(-meta.n_docs // meta.docs_per_shard) if meta.docs_per_shard else 0
+        if meta.doc_shards != want:
+            rep.errors.append(f"search/meta.json: {meta.doc_shards} doc shards for {meta.n_docs:,} articles at "
+                              f"{meta.docs_per_shard} per shard (expected {want})")
+        rows = 0
+        bad_topic = 0
+        for i in range(meta.doc_shards):
+            shard = models.get(f"search/docs-{i:03d}.json")
+            if shard is None:
+                rep.errors.append(f"search/docs-{i:03d}.json: missing or invalid (search/meta.json lists {meta.doc_shards} shards)")
+                continue
+            if shard.start != i * meta.docs_per_shard:
+                rep.errors.append(f"search/docs-{i:03d}.json: starts at ordinal {shard.start}, expected {i * meta.docs_per_shard}")
+            rows += len(shard.docs)
+            if topic_ids is not None:
+                bad_topic += sum(1 for d in shard.docs if d[5] is not None and d[5] not in topic_ids)
+        if rows != meta.n_docs:
+            rep.errors.append(f"search: the doc shards hold {rows:,} rows, search/meta.json says {meta.n_docs:,} articles")
+        if bad_topic:
+            rep.errors.append(f"search: {bad_topic:,} article rows name a topic that is not in topics.json")
+        for i in range(meta.index_shards):
+            if f"search/idx-{i:03d}.json" not in models:
+                rep.errors.append(f"search/idx-{i:03d}.json: missing or invalid (search/meta.json lists {meta.index_shards} index shards)")
+        vocab = models.get("search/vocab.json")
+        if vocab is not None and len(vocab.tokens) != meta.n_tokens:
+            rep.errors.append(f"search/vocab.json: {len(vocab.tokens):,} tokens, search/meta.json says {meta.n_tokens:,}")
+        vfile = root / "search" / "vocab.json"
+        if vfile.exists() and vfile.stat().st_size > VOCAB_WARN_BYTES:
+            rep.warnings.append(f"search/vocab.json is {vfile.stat().st_size / 1e6:.1f} MB and is downloaded whole before the first "
+                                f"search — consider search.min_df: 2")
+        rep.stats["search"] = f"{meta.n_docs:,} articles · {meta.n_tokens:,} tokens · {meta.doc_shards} doc shards"
+    if galaxy is not None:
+        if meta is not None and galaxy.n != meta.n_docs:
+            rep.errors.append(f"galaxy.json has {galaxy.n:,} points but search/meta.json has {meta.n_docs:,} articles")
+        if topic_ids is not None and not set(galaxy.topics) <= topic_ids:
+            rep.errors.append("galaxy.json names topics that are not in topics.json")
 
 
 def _unknown(ids, known: set[str]) -> list[str]:
@@ -267,13 +317,18 @@ def _check_llm(manifest: Manifest | None, rep: Report) -> None:
             rep.warnings.append(f"LLM {s.task}: {s.fallback} of {s.items} items use their fallback")
 
 
-def validate_release(release_dir: str | Path, previous_dir: str | Path | None, vcfg: dict) -> Report:
+def validate_release(release_dir: str | Path, previous_dir: str | Path | None, vcfg: dict,
+                     work_dir: str | Path | None = None) -> Report:
+    """Checks of one release folder. With `work_dir` (the pipeline work folder) the PDPA scan also looks for author
+    names inside organisation strings (atlas.privacy)."""
     root = Path(release_dir)
     rep = Report(release_dir=str(root))
     models = _check_files(root, rep, int(vcfg.get("max_file_bytes", 50_000_000)))
     _check_coherence(models, rep)
     _check_editors(models, rep)
     _check_executives(models, rep)
+    _check_research(models, root, rep)
+    rep.errors += scan_release(root, work_dir)
     manifest = models.get("manifest.json")
     _check_llm(manifest, rep)
     if manifest is not None and manifest.release != root.name:

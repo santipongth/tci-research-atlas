@@ -99,7 +99,7 @@ def resolve_authors(authors: pd.DataFrame, resolver: Resolver, display: dict[str
     for k, th, en, src in zip(ident["org_key"], ident["name_th"].fillna(""), ident["name_en"].fillna(""),
                               ident["source"]):
         if src == "name":
-            shown = display.get(k) or th or en
+            shown = display.get(k, "")                  # no publishable written form → unnamed (counted, never listed)
             th, en = (shown, "") if thai_ratio(shown) > 0.5 else ("", shown)
         th_out.append(str(th))
         en_out.append(str(en))
@@ -208,7 +208,8 @@ def institutions(cfg: dict) -> pd.DataFrame:
     per_w = lw.groupby("inst_key")["article_id"].nunique()
     per_r = links[_in(links["year"], R)].groupby("inst_key")["article_id"].nunique()
     per_all = links.groupby("inst_key")["article_id"].nunique()
-    published = set(per_w[per_w >= int(icfg["min_articles"])].index)
+    named = set(ident.loc[(ident["name_th"].fillna("") != "") | (ident["name_en"].fillna("") != ""), "inst_key"])
+    published = set(per_w[per_w >= int(icfg["min_articles"])].index) & named      # an unnamed institution is never listed
     intl = set(lw.loc[lw["foreign"], "article_id"]) & set(lw.loc[~lw["foreign"], "article_id"])
     lw["intl"] = lw["article_id"].isin(intl).astype(bool)
     with_org = int(lw["article_id"].nunique())
@@ -290,7 +291,8 @@ def institutions(cfg: dict) -> pd.DataFrame:
         "with_org": with_org, "located": int(pwy["article_id"].nunique()),
         "pct_international": round(len(intl) / with_org, 6) if with_org else None,
         "pct_multi_institution": round(multi / with_org, 6) if with_org else None,
-        "institutions_total": int(len(ident)), "published": len(published),
+        "institutions_total": len(named & set(per_w.index)),     # named institutions with an article in W (not every spelling)
+        "published": len(published),
         "sources": {str(k): int(v) for k, v in out.loc[out["published"], "source"].value_counts().items()},
         "aliases": len(resolver.alias_to_id), "ror_records": len(ror),
         "population": load_population(icfg["population_path"]),

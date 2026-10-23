@@ -19,7 +19,8 @@ def _site(tmp_path: Path, provider: str) -> Path:
     (site / "data" / "latest.json").write_text(json.dumps({"release": "2026Q4", "path": "2026Q4/manifest.json"}),
                                                encoding="utf-8")
     (site / "data" / "2026Q4" / "manifest.json").write_text(
-        json.dumps({"embedding_provider": provider, "counts": {"total_articles": 11}}), encoding="utf-8")
+        json.dumps({"embedding_provider": provider}), encoding="utf-8")
+    (site / "data" / "2026Q4" / "overview.json").write_text(json.dumps({"kpis": {"articles": 11}}), encoding="utf-8")
     return site
 
 
@@ -47,9 +48,22 @@ def test_package_makes_the_site_folder_and_two_zips(tmp_path):
     assert (Path(pkg["site"]) / "index.html").is_file()
     with zipfile.ZipFile(pkg["data_zip"]) as z:
         files = sorted(n for n in z.namelist() if not n.endswith("/"))
-        assert files == ["atlas-offline.html", "data/2026Q4/manifest.json", "data/latest.json"]
+        assert files == ["atlas-offline.html", "data/2026Q4/manifest.json", "data/2026Q4/overview.json", "data/latest.json"]
     with zipfile.ZipFile(pkg["site_zip"]) as z:
         assert "index.html" in z.namelist()
+
+
+def test_package_reports_the_kpis_of_the_release(tmp_path):
+    assert q.package(_site(tmp_path, "api"), "2026Q4", tmp_path / "deploy")["articles"] == {"articles": 11}
+
+
+def test_an_unfinished_round_is_resumed_after_the_quarter_turns(tmp_path, monkeypatch):
+    runs = tmp_path / "runs"
+    monkeypatch.setattr("atlas.state.recorded_release", lambda cfg: "2026Q3")
+    assert q.default_release(None, runs) == "2026Q3"                      # started, no summary → resume it
+    (runs / "2026Q3").mkdir(parents=True)
+    (runs / "2026Q3" / "summary.md").write_text("done", encoding="utf-8")
+    assert q.default_release(None, runs) != "2026Q3"                      # finished → the next round is a new one
 
 
 def test_package_refuses_sample_data(tmp_path):

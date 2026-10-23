@@ -82,7 +82,7 @@ embedding:
 
 clustering:
   algorithm: hdbscan          # hdbscan (UMAP→HDBSCAN) | leiden (Leiden บน kNN graph — ต้อง uv sync --extra leiden)
-  hdbscan_backend: sklearn    # sklearn | fast (fast_hdbscan เร็วกว่ามากที่ 500K — ต้อง uv sync --extra fast)
+  hdbscan_backend: fast       # fast | sklearn (fast_hdbscan เร็วกว่ามากที่ 500K — ต้อง uv sync --extra fast; sklearn ช้าแบบกำลังสอง ใช้กับคลังเล็กเท่านั้น; เปลี่ยนกลางทางทำให้กลุ่มต่างไป)
   leiden:
     k: 15                     # เพื่อนบ้านต่อบทความใน kNN graph
     resolution: 1.0           # สูง = หัวข้อเล็กลง/มากขึ้น
@@ -208,7 +208,7 @@ taxonomy:
 # ---------- Emerging v3 — นิยามเต็มใน docs/EMERGING_SPEC.md ----------
 emerging:
   definition_version: 3
-  as_of_year: null            # ปีที่รัน (null = ปีปฏิทินปัจจุบัน) — ปีที่กำลังดำเนินอยู่ไม่ถือว่าครบเสมอ
+  as_of_year: null            # ปีของ snapshot ที่ขั้น cluster บันทึกไว้ (null = ปีของวันที่รันขั้น cluster) — ปีที่กำลังดำเนินอยู่ไม่ถือว่าครบเสมอ
   min_year_complete: null     # null = backfill guard อัตโนมัติ (ตั้งเองได้ — มีผลเหนือกว่า guard)
   backfill_min_ratio: 0.6     # ปีที่ยอด < 60% ของ median ปีอ้างอิงก่อนหน้า ถือว่ายังไม่ครบ
   backfill_ref_years: 3       # จำนวนปีก่อนหน้าที่ใช้หา median อ้างอิง
@@ -437,11 +437,13 @@ export:
   max_topic_journals: 10
   max_topic_orgs: 10
   max_neighbors: 6
-  offline_exclude: [match.json, search, galaxy.json]   # ไฟล์/โฟลเดอร์ที่ไม่ใส่ใน HTML เดี่ยว (atlas-offline.html ≤ ~15MB) — หน้า /match /search /galaxy ในไฟล์ offline บอกให้ใช้เว็บออนไลน์
+  offline_max_mb: 60          # ขนาดสูงสุดของ atlas-offline.html: ไฟล์รายละเอียดหัวข้อ → วารสาร → สถาบัน ใส่จนเต็ม (หน้าที่ไม่มีไฟล์จะบอกผู้อ่าน)
+  offline_exclude: [match.json, search, galaxy.json]   # ไฟล์/โฟลเดอร์ที่ไม่ใส่ใน HTML เดี่ยว (atlas-offline.html) — หน้า /match /search /galaxy ในไฟล์ offline บอกให้ใช้เว็บออนไลน์
 
 publish:                      # atlas publish --site (P4)
   site_url: null              # ที่อยู่สาธารณะของเว็บ เช่น https://<user>.github.io/<repo>/ — ตั้งแล้วจึงเขียนฟีด Atom (data/feeds/releases.xml + data/feeds/topics/<รหัสหัวข้อ>.xml); null = ไม่เขียนฟีด
   feed_max_entries: 12        # จำนวนรอบข้อมูลสูงสุดต่อฟีด (ใหม่สุดก่อน)
+  keep_full_releases: 1       # รอบที่เก็บครบบนเว็บ (ใหม่สุดก่อน) รอบเก่ากว่าเก็บเฉพาะ manifest/overview/topics/taxonomy/diff (หลาย MB ไม่ใช่หลายร้อย MB)
 
 # ---------- atlas validate: เทียบกับรอบก่อน ----------
 validation:

@@ -288,7 +288,13 @@ def grounding_error(texts: list[str], facts: str, names: list[str], *, no_baseli
 
 # ---------------------------------------------------------------------- facts
 def _pct(v: float, nd: int = 2) -> str:
-    return f"{v * 100:.{nd}f}"
+    """A share as a percent. Tiny shares keep their first significant digits instead of printing "0.00"."""
+    p = v * 100
+    if 0 < abs(p) < 10 ** -nd:
+        if abs(p) < 0.0001:
+            return "0.0001"                                  # read as "under 0.0001" by the sentence around it
+        return f"{p:.{min(4, nd + 2)}f}"
+    return f"{p:.{nd}f}"
 
 
 def _years(cfg: dict, last: int) -> tuple[str, str]:

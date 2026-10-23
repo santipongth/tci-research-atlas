@@ -270,12 +270,15 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
     # ---- topics/<id>.json
     titles = docs.set_index("article_id")
     topic_of = pd.Series(labels_arr, index=docs["article_id"].to_numpy())
-    oc = (orgs.assign(topic_id=orgs["article_id"].map(topic_of)).dropna(subset=["topic_id"])
+    org_total = orgs.groupby("org_key")["article_id"].nunique()
+    listed = {k for k in org_names if org_total.get(k, 0) >= int(cfg["institutions"]["min_articles"])}
+    oc = (orgs[orgs["org_key"].isin(listed)]          # named and not below institutions.min_articles (PDPA rule)
+          .assign(topic_id=lambda d: d["article_id"].map(topic_of)).dropna(subset=["topic_id"])
           .astype({"topic_id": int}).query("topic_id >= 0")
           .groupby(["topic_id", "org_key"]).size().rename("count").reset_index()      # one groupby for all topics
           .sort_values(["topic_id", "count", "org_key"], ascending=[True, False, True])
           .groupby("topic_id").head(int(ecfg["max_topic_orgs"])))
-    institutions = {int(t): [C.CountItem(key=org_names.get(k, k), count=int(n)) for k, n in zip(g["org_key"], g["count"])]
+    institutions = {int(t): [C.CountItem(key=org_names[k], count=int(n)) for k, n in zip(g["org_key"], g["count"])]
                     for t, g in oc.groupby("topic_id")}
     canonical = topic_institutions(work, docs["article_id"].to_numpy(), labels_arr, iid, int(ecfg["max_topic_orgs"]))
     if canonical is not None:                        # P3: canonical institutions (variants merged), linked when published
@@ -373,8 +376,8 @@ def build_release(cfg: dict) -> dict[str, C._Model]:
         definition_version=int(cfg["emerging"]["definition_version"]),
         brief=C.Brief(**brief["brief"]) if brief.get("brief") else None, executive=executive_summary(files),
         kpis=C.Kpis(articles=len(docs), assigned_articles=int((labels_arr >= 0).sum()), topics=len(ids),
-                    groups=len(group_rows), journals=int(docs["journal_name"].nunique()),
-                    institutions=int(inst_kpis.get("institutions", orgs["org_key"].nunique())),
+                    groups=len(group_rows), journals=int(journal_keys(docs).nunique()),      # a journal is its key, not a title
+                    institutions=int(inst_kpis.get("institutions", len(listed))),
                     pct_international=inst_kpis.get("pct_international"),
                     pct_multi_institution=inst_kpis.get("pct_multi_institution"),
                     provinces=inst_kpis.get("provinces"),

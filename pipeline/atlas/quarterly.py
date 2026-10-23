@@ -173,7 +173,13 @@ def package(site: Path, release: str, deploy_dir: Path) -> dict:
         shutil.copy2(target / "atlas-offline.html", data_only / "atlas-offline.html")
     data_zip = shutil.make_archive(str(deploy_dir / f"atlas-data-{release}"), "zip", data_only)
     shutil.rmtree(data_only)
-    return {"site": str(target), "site_zip": full, "data_zip": data_zip, "articles": manifest.get("counts", {})}
+    try:
+        kpis = json.loads((site / "data" / latest["path"].rsplit("/", 1)[0] / "overview.json")
+                          .read_text(encoding="utf-8")).get("kpis", {})
+    except (OSError, ValueError):
+        kpis = {}
+    return {"site": str(target), "site_zip": full, "data_zip": data_zip,
+            "articles": {k: v for k, v in kpis.items() if isinstance(v, int)}}
 
 
 def _summary(release: str, cfg: dict, timings: list[tuple[str, float]], validate_code: int, pkg: dict | None,
@@ -198,10 +204,25 @@ def _summary(release: str, cfg: dict, timings: list[tuple[str, float]], validate
     return "\n".join(lines)
 
 
+def default_release(config: Path | None, runs_dir: Path) -> str:
+    """Today's quarter — unless work_dir holds a round that was started and never finished (no summary.md in its
+    runs folder): that round is resumed, also after the quarter has turned."""
+    from atlas.config import load_config
+    from atlas.state import recorded_release
+
+    try:
+        started = recorded_release(load_config(config))
+    except (FileNotFoundError, ValueError):
+        started = None
+    if started and not (runs_dir / started / "summary.md").is_file():
+        return started
+    return release_from_date(today())
+
+
 def run_round(config: Path | None, corpus: Path | None, release: str | None, yes: bool, strict: bool,
               build: bool, prepare: bool, runs_dir: Path, deploy_dir: Path, site: Path,
               confirm: Callable[[str], bool]) -> int:
-    release = _checked(release or release_from_date(today()))
+    release = _checked(release or default_release(config, runs_dir))
     cfg = round_config(config, release, corpus)
     rdir = runs_dir / release
     rdir.mkdir(parents=True, exist_ok=True)
@@ -221,6 +242,7 @@ def run_round(config: Path | None, corpus: Path | None, release: str | None, yes
         return code
 
     _say(f"round {release} · corpus {cfg['input']['path']} ({cfg['input']['format']}) · config {rcfg}")
+
     def write_manifest() -> None:
         (rdir / "corpus_manifest.json").write_text(json.dumps(corpus_manifest(cfg), ensure_ascii=False, indent=2),
                                                    encoding="utf-8")
@@ -229,7 +251,7 @@ def run_round(config: Path | None, corpus: Path | None, release: str | None, yes
     if cfg["input"]["format"] == "table":           # one table file: atlas profile reads folders only
         code = 0
     else:
-            code = step("profile", lambda: _atlas(["profile", cfg["input"]["path"], "--format", cfg["input"]["format"],
+        code = step("profile", lambda: _atlas(["profile", cfg["input"]["path"], "--format", cfg["input"]["format"],
                                                "--md", str(rdir / "profile.md"), "--out", str(rdir / "profile.json"),
                                                "--aliases-todo", str(rdir / "aliases_todo.csv"),
                                                "--workers", str(cfg["input"]["workers"]),
@@ -267,7 +289,9 @@ def run_round(config: Path | None, corpus: Path | None, release: str | None, yes
 
     if build or not (site / "index.html").is_file() or not (site / "offline-template.html").is_file():
         step("web build", lambda: build_web(cfg["publish"]["site_url"], rdir / "web_build.log"))
-    if step("publish", lambda: _atlas(["publish", *c, "--site", str(site)], rdir / "publish.log")):
+    # warnings were accepted above (exit 1 without --strict): publish validates again and must not refuse them
+    allow = [] if strict else ["--allow-warnings"]
+    if step("publish", lambda: _atlas(["publish", *c, "--site", str(site), *allow], rdir / "publish.log")):
         raise RoundError(f"atlas publish failed — see {rdir / 'publish.log'}")
     pkg: dict = {}
     step("deploy package", lambda: pkg.update(package(site, release, deploy_dir)))

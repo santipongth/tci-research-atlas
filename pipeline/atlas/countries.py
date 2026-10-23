@@ -31,6 +31,10 @@ COUNTRIES_TH = (
 _EN = re.compile(r"(?<![\w.-])(?:" + "|".join(re.escape(c) for c in sorted(COUNTRIES_EN, key=len, reverse=True))
                  + r")(?![\w-])")
 _TH = re.compile("ประเทศ\\s*(?:" + "|".join(sorted(COUNTRIES_TH, key=len, reverse=True)) + ")|สปป\\.?\\s*ลาว")
+# A country written as the LAST word of a Thai affiliation without "ประเทศ" ("มหาวิทยาลัยโตเกียว ญี่ปุ่น"). Only names
+# that are not also a language / subject word ("จีน", "ลาว", "อังกฤษ" are left to the "ประเทศ" rule above).
+_TH_STRONG = tuple(c for c in COUNTRIES_TH if c not in ("จีน", "ลาว", "อังกฤษ", "เกาหลี", "พม่า"))
+_TH_END = re.compile("(?:^|[\\s,])(?:" + "|".join(sorted(_TH_STRONG, key=len, reverse=True)) + ")\\s*$")
 _THAILAND = re.compile(r"(?i)\bthailand\b|ประเทศไทย")
 
 
@@ -38,7 +42,7 @@ def is_foreign_affiliation(affiliation_th: str | None, affiliation_en: str | Non
     th, en = clean_text(affiliation_th), clean_text(affiliation_en)
     if _THAILAND.search(th) or _THAILAND.search(en):
         return False
-    return bool(_TH.search(th) or _EN.search(en))
+    return bool(_TH.search(th) or _TH_END.search(th) or _EN.search(en))
 
 
 # ISO 3166-1 alpha-2 of every name above (England, Scotland, UK → GB) and the names the web shows (th, en)
@@ -88,5 +92,7 @@ def country_of(affiliation_th: str | None, affiliation_en: str | None) -> str | 
     if m := _TH.search(th):
         name = re.sub(r"^ประเทศ\s*", "", m.group(0))
         return "LA" if name.startswith("สปป") else COUNTRY_ISO_TH.get(name)
+    if m := _TH_END.search(th):
+        return COUNTRY_ISO_TH.get(m.group(0).strip(" ,"))
     m = _EN.search(en)
     return COUNTRY_ISO.get(m.group(0)) if m else None

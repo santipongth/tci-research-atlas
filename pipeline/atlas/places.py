@@ -22,7 +22,10 @@ from atlas.thai import clean_text, norm_key
 
 PROVINCES_CSV = Path(__file__).parent / "data" / "th_provinces.csv"
 REGIONS = ("bangkok", "central", "northeast", "north", "south")
-_TH_PREFIXES = ("จังหวัด", "จ", "ราชภัฏ", "มหาวิทยาลัย", "โรงพยาบาล", "วิทยาลัยพยาบาลบรมราชชนนี")
+# Words that put a province name right after them. A bare "จ" is not one: folded, it is also the last letter of
+# ธุรกิจ / เศรษฐกิจ / วิจัย… ("ศูนย์วิจัยเศรษฐกิจตาก" is not in Tak). "จ." / "จังหวัด" are read first, unfolded.
+_TH_PREFIXES = ("จังหวัด", "ราชภัฏ", "มหาวิทยาลัย", "โรงพยาบาล", "วิทยาลัยพยาบาลบรมราชชนนี")
+_MARKED = re.compile(r"(?:จังหวัด|จ\.)\s*(\S+)")
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,7 @@ class ProvinceFinder:
             for n in [r["name_en"], *filter(None, r["alt_en"].split(";"))]:
                 en_names[n.strip().lower()] = r["code"]
         self._th_code = th_names
+        self._by_length = sorted(th_names, key=len, reverse=True)
         names = "|".join(re.escape(k) for k in sorted(th_names, key=len, reverse=True))
         prefixes = "|".join(re.escape(norm_key(p)) for p in _TH_PREFIXES)
         self._th = re.compile(f"(?:{prefixes})({names})")
@@ -75,8 +79,22 @@ class ProvinceFinder:
         words = [r"\s?".join(re.escape(w) for w in k.split()) for k in sorted(en_names, key=len, reverse=True)]
         self._en = re.compile(r"(?<![a-z])(" + "|".join(words) + r")(?![a-z])")
 
+    def _marked(self, text: str) -> str | None:
+        """The province named right after "จังหวัด" / "จ." — the last such mention (it is the address, at the end)."""
+        found = None
+        for m in _MARKED.finditer(text):
+            word = norm_key(m.group(1))
+            for name in self._by_length:
+                if word.startswith(name):
+                    found = self._th_code[name]
+                    break
+        return found
+
     def find(self, affiliation_th: str | None, affiliation_en: str | None) -> str | None:
-        th = norm_key(clean_text(affiliation_th))
+        raw = clean_text(affiliation_th)
+        if code := self._marked(raw):
+            return code                              # an explicit "จังหวัด…" beats a name inside a university's name
+        th = norm_key(raw)
         hits = []
         if m := self._th.search(th):
             hits.append((m.start(), self._th_code[m.group(1)]))

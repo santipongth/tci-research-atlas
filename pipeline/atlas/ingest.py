@@ -52,8 +52,8 @@ def _parse_file(path_str: str) -> dict:
     rec = parse_markdown(text, source_path=str(p))
     if REPLACEMENT_CHAR in text:
         rec["text_quality"].append("decode_replaced")
-    if not rec["article_id"]:                     # broken scrape: stable id from the file name
-        rec["article_id"] = "file:" + hashlib.sha1(p.name.encode("utf-8")).hexdigest()[:16]
+    if not rec["article_id"]:                     # broken scrape: stable id from the folder and file name
+        rec["article_id"] = "file:" + hashlib.sha1(f"{p.parent.name}/{p.name}".encode()).hexdigest()[:16]
     return rec
 
 
@@ -282,7 +282,17 @@ def doi_key(df: pd.DataFrame) -> pd.Series:
 
 
 def title_key(titles: pd.Series) -> pd.Series:
+    """First 80 folded characters — the DOI-collision check only (a prefix is enough to tell two titles apart there)."""
     return titles.fillna("").astype(str).map(norm_key).str[:80]
+
+
+def full_title_key(titles: pd.Series) -> pd.Series:
+    """The whole folded title: formulaic Thai titles that differ only at the end ("… ชั้นมัธยมศึกษาปีที่ 1" / "… 4")
+    must stay different articles."""
+    return titles.fillna("").astype(str).map(norm_key)
+
+
+SHORT_TITLE = 40          # folded characters: a title this short ("บทบรรณาธิการ") is generic and needs the journal to match
 
 
 def drop_duplicate_ids(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
@@ -315,6 +325,32 @@ def _drop_doi_duplicates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df.drop(index=drop), int(conflicts)
 
 
+def _drop_title_year_duplicates(df: pd.DataFrame) -> pd.DataFrame:
+    """Same whole title and year = the same article, unless both carry a DOI and the DOIs differ, or the title is a
+    short generic one and the journals differ. `df` is most-complete-first: the first of a duplicate set is kept."""
+    df = df.reset_index(drop=True)
+    tkey = full_title_key(df["title"])
+    key = tkey.where(tkey == "", tkey + "|" + df["year"].astype(str))
+    cand = (key != "") & key.duplicated(keep=False)
+    if not cand.any():
+        return df
+    doi = doi_key(df)
+    jkey = df["journal_key"].fillna("").astype(str) if "journal_key" in df.columns else pd.Series("", index=df.index)
+    drop: list[int] = []
+    for rows in key[cand].groupby(key[cand]).indices.values():
+        pos = sorted(key[cand].index[rows])
+        kept: list[int] = []
+        for i in pos:
+            same = any((doi[i] == "" or doi[k] == "" or doi[i] == doi[k])
+                       and not (len(tkey[i]) < SHORT_TITLE and jkey[i] != "" and jkey[k] != "" and jkey[i] != jkey[k])
+                       for k in kept)
+            if same:
+                drop.append(i)
+            else:
+                kept.append(i)
+    return df.drop(index=drop)
+
+
 def dedup(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """article_id → DOI (+ same Thai or same English title) → normalised title + year; keep the most complete.
 
@@ -325,8 +361,7 @@ def dedup(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     n0 = len(df)
     df = _most_complete_first(df).drop_duplicates("article_id", keep="first")
     df, conflicts = _drop_doi_duplicates(df)
-    tkey = title_key(df["title"])
-    df = _drop_dup_keys(df, tkey.where(tkey == "", tkey + "|" + df["year"].astype(str)))
+    df = _drop_title_year_duplicates(df)
     out = df.sort_values("article_id").reset_index(drop=True)
     return out, {"dropped": n0 - len(out), "doi_title_conflicts": conflicts}
 
@@ -366,8 +401,11 @@ def ingest(cfg: dict) -> pd.DataFrame:
         articles, authors, refs = read_table_input(cfg)
     n_raw = len(articles)
     articles = normalize_years(articles, int(icfg["min_year"]), icfg["max_year"])
+    n_bad_year = n_raw - len(articles)
     articles = add_convenience_columns(articles)
+    n_before_title = len(articles)
     articles = articles[articles["title"] != ""]
+    n_no_title = n_before_title - len(articles)
     if icfg["dedup"]["enabled"]:
         articles, stats = dedup(articles)
         n_dup = stats["dropped"]
@@ -381,14 +419,20 @@ def ingest(cfg: dict) -> pd.DataFrame:
     refs = refs[refs["article_id"].isin(keep)].drop_duplicates(["article_id", "position"])
 
     work = Path(cfg["pipeline"]["work_dir"])
+    # the error ceiling is checked BEFORE the checkpoints are written: a refused run must not leave a thinned
+    # 01_articles behind that a later `atlas run -s preprocess …` would carry on with
+    write_table(pd.DataFrame(errors, columns=ERROR_COLUMNS), work / "01_ingest_errors.parquet")
+    check_error_ceiling(n_files, errors, float(icfg["max_error_ratio"]), work / "01_ingest_errors.parquet")
     write_table(articles.reset_index(drop=True), work / "01_articles.parquet")
     write_table(authors.reset_index(drop=True), work / "01_authors.parquet")
     write_table(refs.reset_index(drop=True), work / "01_references.parquet")
-    write_table(pd.DataFrame(errors, columns=ERROR_COLUMNS), work / "01_ingest_errors.parquet")
-    check_error_ceiling(n_files, errors, float(icfg["max_error_ratio"]), work / "01_ingest_errors.parquet")
+    drops = {"records": n_raw, "articles": len(articles), "outside_year_range": n_bad_year, "no_title": n_no_title,
+             "duplicates": n_dup, "year_missing": int(articles["year"].isna().sum()), "files_with_errors": len(errors)}
+    (work / "01_ingest_meta.json").write_text(json.dumps(drops), encoding="utf-8")
     if errors:
         print(f"[ingest] WARNING: {len(errors):,} files could not be read or parsed and were skipped "
               f"(first: {errors[0]['path']} — {errors[0]['error']}) → 01_ingest_errors")
-    print(f"[ingest] {n_raw:,} records → {len(articles):,} articles (duplicates dropped: {n_dup:,}; "
-          f"year missing: {int(articles['year'].isna().sum()):,}; files with errors: {len(errors):,}) → {work}")
+    print(f"[ingest] {n_raw:,} records → {len(articles):,} articles (left out: duplicates {n_dup:,}, "
+          f"year outside {icfg['min_year']}–{icfg['max_year'] or 'next year'} {n_bad_year:,}, no title {n_no_title:,}; "
+          f"year missing: {drops['year_missing']:,}; files with errors: {len(errors):,}) → {work}")
     return articles

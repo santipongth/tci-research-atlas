@@ -120,3 +120,20 @@ def test_foreign_and_unplaced_institutions(tmp_path):
     assert type_from_name("โรงพยาบาลศิริราช") == "hospital" and type_from_name("Chiang Rai Rajabhat University") == "rajabhat"
     assert set(COUNTRY_ISO) == set(COUNTRIES_EN) and set(COUNTRY_ISO_TH) == set(COUNTRIES_TH)
     assert set(COUNTRY_ISO.values()) | set(COUNTRY_ISO_TH.values()) | {"TH"} <= set(COUNTRY_NAMES)
+
+
+def test_province_finder_prefers_an_explicit_province_and_ignores_the_letter_cho():
+    from atlas.places import province_finder
+
+    f = province_finder()
+    assert f.find("มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตปัตตานี จังหวัดปัตตานี", "") == "TH-94"   # not Songkhla (TH-90)
+    assert f.find("ศูนย์วิจัยเศรษฐกิจตาก", "") is None            # "…จ" of เศรษฐกิจ is not the prefix "จ." (Tak)
+    assert f.find("คณะบริหารธุรกิจน่าน", "") is None
+    assert f.find("สถาบันวิจัย จ. ตาก", "") == "TH-63" and f.find("โรงพยาบาลจ.ขอนแก่น", "") == "TH-40"
+
+
+def test_a_thai_affiliation_ending_in_a_foreign_country_is_foreign():
+    from atlas.countries import country_of, is_foreign_affiliation
+
+    assert country_of("มหาวิทยาลัยโตเกียว ญี่ปุ่น", "") == "JP" and is_foreign_affiliation("มหาวิทยาลัยฮาร์วาร์ด สหรัฐอเมริกา", "")
+    assert not is_foreign_affiliation("ภาควิชาภาษาจีน", "") and not is_foreign_affiliation("สาขา ภาษา อังกฤษ", "")

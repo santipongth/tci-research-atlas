@@ -281,17 +281,19 @@ def gaps_file(cfg: dict, work: Path, code: dict[int, str], iid: dict[str, str], 
 
 def topic_institutions(work: Path, article_ids, labels_arr, iid: dict[str, str], max_n: int
                        ) -> dict[int, list[C.CountItem]] | None:
-    """Top institutions per topic (canonical — alias/ROR merge spelling variants), linked when published (D6)."""
+    """Top published institutions per topic (canonical — alias/ROR merge spelling variants), each linked (D6). An
+    institution below institutions.min_articles, or without a publishable name, is in no file."""
     links = _opt(work / "15_article_institutions.parquet")
     inst = _opt(work / "15_institutions.parquet")
     if links is None or inst is None:
         return None
-    names = {r.inst_key: (r.name_th or r.name_en or r.inst_key) for r in inst.itertuples()}
+    names = {r.inst_key: (r.name_th or r.name_en) for r in inst.itertuples() if r.inst_key in iid}
     topic_of = pd.Series(labels_arr, index=article_ids)
     t = links.assign(topic_id=links["article_id"].map(topic_of)).dropna(subset=["topic_id"]).astype({"topic_id": int})
+    t = t[t["inst_key"].isin(names)]                  # published (≥ institutions.min_articles) and named only
     c = (t[t["topic_id"] >= 0].groupby(["topic_id", "inst_key"]).size().rename("count").reset_index()
          .sort_values(["topic_id", "count", "inst_key"], ascending=[True, False, True]).groupby("topic_id").head(max_n))
-    return {int(tid): [C.CountItem(key=names.get(k, k), count=int(n), id=iid.get(k))
+    return {int(tid): [C.CountItem(key=names[k], count=int(n), id=iid.get(k))
                        for k, n in zip(g["inst_key"], g["count"])] for tid, g in c.groupby("topic_id")}
 
 

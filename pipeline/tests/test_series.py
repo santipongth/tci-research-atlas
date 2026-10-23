@@ -34,7 +34,7 @@ def test_series_backfill_guard_and_tables(make_cfg, tmp_path):
     assert (s["corpus_total"] == 10).all()                    # ... but counts in the denominator
     assert (s["count"] == 5).all() and (s["count_with_org"] <= s["count"]).all()
     jf = read_table(work / "06_journal_first_year.parquet").set_index("journal")["first_year"]
-    assert jf.to_dict() == {"jA": 2019, "jB": 2019}
+    assert jf.to_dict() == {"name:ja": 2019, "name:jb": 2019}      # a journal is its key
     assert len(read_table(work / "06_topic_org_year.parquet")) > 0
 
 
