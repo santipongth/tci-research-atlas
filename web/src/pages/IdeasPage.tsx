@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
 import { HowNote } from '../components/HowNote'
+import { ListMore } from '../components/ListMore'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
@@ -13,6 +14,7 @@ import { windows } from '../lib/definition'
 import { fmtInt, fmtSignedPct } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { pickIdeas, type Idea } from '../lib/ideas'
+import { useCapped } from '../lib/useCapped'
 import { statusName } from '../lib/topicText'
 import { ideasCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
@@ -35,12 +37,14 @@ function Ideas({ release }: { release: AtlasRelease }) {
   const group = groups.includes(state.g) ? state.g : ''
   const list = pickIdeas(release.topics, few, group || null)
   const R = windows(release.overview.last_complete_year).R
+  const capList = useCapped(list, 24)           // 1,500 topics must not become a 30,000 px page
   const why = (i: Idea) => {
     const g = fmtSignedPct(i.topic.metrics.share_growth, 0)
     return i.kind === 'few' ? s('id.why.few', { k: fmtInt(i.institutions) }) : s(i.kind === 'emerging' ? 'id.why.emerging' : 'id.why.watch', { g })
   }
   const byId = (id: string): Topic | undefined => release.topicById.get(id)
   const bridges = (gaps?.bridges ?? []).filter((b) => byId(b.a) && byId(b.b) && (!group || byId(b.a)?.group === group || byId(b.b)?.group === group))
+  const capBridges = useCapped(bridges, 20)
   return (
     <div className="container">
       <PageHeader title={s('id.title')} lede={s('id.lede')}>
@@ -58,7 +62,7 @@ function Ideas({ release }: { release: AtlasRelease }) {
       <Section id="ideas" title={s('id.list.h')} intro={list[0] ? s('id.list.intro', { topic: name(list[0].topic), why: why(list[0]) }) : undefined}>
         {list.length ? (
           <ol className="ideas">
-            {list.map((i) => {
+            {capList.shown.map((i) => {
               const m = i.topic.metrics
               return (
                 <li key={i.topic.id} className="idea">
@@ -78,6 +82,7 @@ function Ideas({ release }: { release: AtlasRelease }) {
         ) : (
           <EmptyState title={s('id.none')} />
         )}
+        <ListMore {...capList.more} />
         <HowNote>
           <p>{s('id.how', { k: fmtInt(gaps?.max_institutions ?? 5) })}</p>
         </HowNote>
@@ -85,7 +90,7 @@ function Ideas({ release }: { release: AtlasRelease }) {
       {bridges.length ? (
         <Section id="bridges" title={s('id.bridge.h')} intro={s('id.bridge.intro')}>
           <ul className="ideas-pairs">
-            {bridges.map((b) => (
+            {capBridges.shown.map((b) => (
               <li key={`${b.a}-${b.b}`}>
                 <span className="idea-pair">
                   <TopicLink topic={byId(b.a) as Topic} showStatus /> <span className="hint">{s('id.bridge.plus')}</span> <TopicLink topic={byId(b.b) as Topic} showStatus />
@@ -94,6 +99,7 @@ function Ideas({ release }: { release: AtlasRelease }) {
               </li>
             ))}
           </ul>
+          <ListMore {...capBridges.more} />
         </Section>
       ) : null}
       <p className="source">{t('source.line', { release: release.overview.release })}</p>

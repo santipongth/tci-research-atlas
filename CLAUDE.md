@@ -200,6 +200,7 @@ bash scripts/import_atlas.sh                              # (ทำเอง) bu
 - **DO** กราฟฝัง (`/embed/*`) อยู่นอก app shell (ไม่มีเมนู/ส่วนท้าย) แต่ต้องมีลิงก์ที่มา "TCI Research Atlas" และป้ายข้อมูลตัวอย่างเมื่อเป็นข้อมูลสังเคราะห์; ลิงก์ฟีดแสดงเฉพาะเมื่อ `latest.feeds === true`
 - **DO** เก็บสถานะตัวกรอง/การเลือกไว้ใน URL ผ่าน `useUrlState` + codec ใน `web/src/lib/urlState.ts`
 - **DO** ไฟล์ `.tsx` export ได้เฉพาะ component (กฎ react-refresh) — hook/context/helper อยู่ใน `.ts`; ห้าม setState แบบ synchronous ใน effect และห้ามอ่าน `ref.current` ระหว่าง render (react-hooks v7)
+- **DO** ออกแบบสำหรับข้อมูลขนาดจริง (หัวข้อ ~1,500 · วารสาร ~2,000 · สถาบัน ~10,000): ตารางที่อาจยาวต้องส่ง `limit` ให้ `DataTable`, รายการ/กราฟที่ยาวใช้ `useCapped` + `ListMore` (แสดง 20–25 รายการ + "แสดงทั้งหมด (n)"), ช่องของ `StatusWaffle` รวมหลายหัวข้อเมื่อเกิน 300 (`waffleUnit`), ป้ายชื่อบนแผนที่วางด้วยกล่องที่วัดจริง (`lib/labels.ts`); มี `ErrorBoundary` ใน `Layout` (หน้าไม่ขาวแม้ chunk หาย/ข้อมูลผิดรูป); หน้าหลักขึ้นต้นด้วยคำถามเป็น h1 และประโยคแรกของ lede เป็นคำตอบพร้อมเลขรอบ; สถานะในตาราง/ลิสต์ต้องมีชื่อกำกับเสมอ (`TopicLink showStatus` / `StatusChip`)
 - **DON'T** ใช้ Tailwind class แบบ dynamic (`bg-[${color}]`) — ใช้ inline style `var(--…)` หรือ class ที่เขียนไว้ใน CSS ครบทุกค่า (`chip-${status}`)
 - **DON'T** ใช้ `href="#id"` ในหน้า (HashRouter จะเปลี่ยน route) — ใช้ `scrollToId()`
 - **DON'T** โหลดอะไรจากเซิร์ฟเวอร์ภายนอกตอน runtime (ฟอนต์, CDN, analytics) และไม่เรียก API/LLM จากเว็บ
