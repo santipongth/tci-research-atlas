@@ -357,7 +357,7 @@
 
 @layer components {
   /* phones: the topic map takes the card's whole width (its labels need every pixel) */
-  @media (max-width: 760px) { .atlas-fig { padding: 8px; } }
+  @media (max-width: 760px) { main .atlas-grid > .atlas-fig { margin-inline: -12px; padding: 8px 0 0; border-radius: 0; overflow: hidden; } main .atlas-grid > .atlas-fig > .figtitle { padding: 0 12px; } }
 }
 
 /* print (the overview is the executive brief): two columns on A4 — wide cards across, the rest side by side; charts
