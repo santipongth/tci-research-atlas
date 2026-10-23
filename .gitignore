@@ -54,3 +54,4 @@ deploy/
 .claude/worktrees/
 npmci.log
 web/.capture.mjs
+web/.metrics.mjs
