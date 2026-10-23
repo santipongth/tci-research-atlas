@@ -3,6 +3,7 @@
 > **รอบปกติใช้คำสั่งเดียว:** `atlas quarterly` (หรือดับเบิลคลิก `scripts\quarterly_run.cmd` บน Windows)
 > คำสั่งนี้ทำงานตั้งแต่รับคลังบทความไปจนได้โฟลเดอร์เว็บที่อัปโหลดขึ้น host ได้ทันที และเก็บทุกอย่างของรอบไว้ใน `runs/<รอบ>/`
 > คนต้องทำเองแค่ 3 จุด: วางคลัง → ตอบ "y" ยืนยันค่า LLM → อ่านสรุปแล้วอัปโหลด
+> §1 คือขั้นตอนหลักฉบับเดียวของรอบไตรมาส คู่มือนักศึกษาฝึกงาน ([`INTERN_GUIDE.md`](INTERN_GUIDE.md)) อธิบายขั้นเดียวกันแบบละเอียดทีละขั้น พร้อมจุดขออนุมัติ และวิธีตั้งค่าเซิร์ฟเวอร์ขององค์กร
 
 ## 0. เตรียมเครื่อง (ครั้งแรกครั้งเดียว)
 
@@ -26,7 +27,10 @@
    | `pipeline.work_dir`, `pipeline.output_dir` | โฟลเดอร์ทำงาน เช่น `D:/atlas-data/work` และ `D:/atlas-data/output` |
    | `embedding.provider` + `embedding.api.*` | `api` + ปลายทางและโมเดล (ดู §1A) |
    | `labeling.provider`, `narrative.provider` | `llm` เมื่อต้องการชื่อหัวข้อและคำอธิบายจาก LLM (ดู §6) ไม่ใช้ใส่ `"off"` หรือ `template` |
-   | `publish.site_url` | ที่อยู่เว็บจริง เช่น `https://atlas.tci-thailand.org/` (ใช้กับฟีดและ SEO) |
+   | `publish.site_url` | ที่อยู่เว็บจริง เช่น `https://atlas.tci-thailand.org/` (`atlas quarterly` ส่งค่านี้ให้ตอน build เว็บ จึงใช้กับลิงก์ canonical, `sitemap.xml`, `robots.txt`, การ์ดตอนแชร์ และฟีด) |
+   | `labeling.overrides_path` | คงค่าจาก `config.example.yaml` (`./registry/label_overrides.csv`) ไว้ ถ้าว่าง `atlas review import` ใช้ไม่ได้ |
+
+   ทุกครั้งที่ `atlas quarterly` รัน ระบบสร้าง `runs/<รอบ>/config.yaml` ใหม่จาก `config.yaml` นี้ ถ้าแก้ `config.yaml` แล้วจะใช้คำสั่งแบบ `-c ../runs/<รอบ>/config.yaml` ต่อ ให้รัน `atlas quarterly … --prepare` ใหม่ก่อน
 
 5. **ตั้ง API key ใน env var เท่านั้น** ห้ามเขียนลงไฟล์ใด ๆ:
    ```powershell
@@ -54,8 +58,10 @@
    cd pipeline
    uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4 --prepare
    ```
+   - คำสั่งนี้สร้าง `runs/2026Q4/config.yaml` จดรายการไฟล์คลัง ตรวจคลัง แล้วหยุด ยังไม่เสียเงิน
+   - คำสั่งหยุดพร้อม `STOPPED:` เมื่อบรรทัดที่ผิดเกิน `input.max_error_ratio` (ค่าเริ่ม 1%) หรือไฟล์ประกอบมีปัญหา (เช่น ไม่มี `journals.csv`, `journal_key` ในบทความไม่มีแถวใน `journals.csv`, `province_population.csv` ไม่ครบ 77 จังหวัด) รายการที่ต้องแก้อยู่ในหัวข้อ "ต้องแก้ก่อนส่ง" ของส่วน "Companion files" ใน `profile.md` และท้ายหน้าจอหลังบรรทัด `[profile] fix before the hand-over:`
    - เปิด `runs/2026Q4/profile.md` ดูดังนี้:
-     - **บรรทัดที่ผิด:** ต้องน้อยกว่า 1% ถ้าเกิน คำสั่งจะหยุดเอง ให้ส่งรายการ `ไฟล์:บรรทัด` กลับทีมข้อมูล
+     - **บรรทัดที่ผิด** (ส่วน "Files with errors"): ส่งรายการ `ไฟล์:บรรทัด` กลับทีมข้อมูล
      - **ช่วงปีและยอดต่อปี:** เทียบรอบก่อนแล้วต้องสมเหตุสมผล
      - **วารสารที่อัปโหลดย้อนหลังในปีเดียว**
      - **% ความครบ:** โดยเฉพาะ abstract และสังกัด
@@ -73,7 +79,9 @@ uv run atlas embed -c ../runs/2026Q4/config.yaml --background   # เริ่�
 uv run atlas status -c ../runs/2026Q4/config.yaml               # ดูความคืบหน้าและเวลาที่เหลือ (เปิดดูได้เรื่อย ๆ)
 ```
 
-- `runs/2026Q4/config.yaml` ได้มาจาก `--prepare` ในข้อ 1.1 คือ config ของคุณ + คลังและชื่อรอบนี้
+- `runs/2026Q4/config.yaml` ได้มาจาก `--prepare` ในข้อ 1.1 คือ config ของคุณ + คลัง ชื่อรอบ และไฟล์ประกอบของรอบนี้
+- `--check` ใช้กับ `embedding.provider: api` เท่านั้น ส่วน `provider: local` ข้าม `--check` ได้ (ใช้ `--dry-run` / `--background` ได้เหมือนกัน) และถ้าไม่ embed ล่วงหน้า ขั้น `run` ของ `atlas quarterly` จะ embed ให้เอง
+- **ก่อนเริ่มจริง:** ส่งตัวเลขจาก `--dry-run` (จำนวนที่ต้อง embed, ~token, จำนวน request) ให้ผู้ดูแลอนุมัติค่าใช้จ่าย
 - **เน็ตหลุด / server ล่ม / ปิดเครื่อง:** สั่งคำสั่ง `--background` เดิมอีกครั้ง ระบบทำต่อจากจุดเดิมโดยไม่จ่ายซ้ำ
 - **หยุดเอง:** `uv run atlas embed-stop -c ../runs/2026Q4/config.yaml`
 - เมื่อ `atlas status` ขึ้น `done` ไปข้อ 1.3 ได้เลย
@@ -85,34 +93,40 @@ cd pipeline
 uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4
 ```
 
-ถ้าตั้ง `input.path` ใน config ไว้แล้ว ดับเบิลคลิก `scripts\quarterly_run.cmd` ได้เลย (ใช้ไตรมาสของวันนี้เป็นชื่อรอบ)
+หรือจาก root ของ repo: `bash scripts/quarterly_run.sh --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4` (สคริปต์นี้ส่งตัวเลือกทุกตัวต่อให้ `atlas quarterly` ตรง ๆ ไม่ได้รับ path ของ config เป็นอาร์กิวเมนต์แรก — จะใช้ config อื่นให้ใส่ `--config <path แบบเต็ม>`) บน Windows ดับเบิลคลิก `scripts\quarterly_run.cmd` ได้เมื่อตั้ง `input.path` ใน config ไว้แล้ว (หรือพิมพ์ `scripts\quarterly_run.cmd --corpus … --release …`)
 
-คำสั่งนี้ทำทีละขั้นและหยุดทันทีเมื่อมีปัญหา พร้อมบอกวิธีแก้:
+**ชื่อรอบเมื่อไม่ใส่ `--release`:** ใช้ไตรมาสของวันนี้ ยกเว้นเมื่อ work_dir มีรอบที่เริ่มแล้วแต่ยังไม่เสร็จ (ยังไม่มี `output/data/<รอบนั้น>/manifest.json` และยังไม่มี `runs/<รอบนั้น>/summary.md`) ระบบจะทำรอบนั้นต่อ พร้อมขึ้น `NOTICE: work_dir holds the unfinished round …` ถ้าตั้งใจเริ่มรอบใหม่ ให้ใส่ `--release <รอบใหม่>` · config: ถ้าไม่ใส่ `--config` ใช้ `pipeline/config.yaml` (ถ้ามี)
+
+คำสั่งนี้ทำทีละขั้นและหยุดทันทีเมื่อมีปัญหา (ขึ้น `[quarterly] STOPPED: …` พร้อมบอกวิธีแก้):
 
 | ขั้น | ทำอะไร | ผลอยู่ที่ |
 |---|---|---|
-| config | รวม config ของคุณกับคลัง ชื่อรอบ และ `journals.csv` ของรอบนี้ | `runs/<รอบ>/config.yaml` |
-| corpus | จดรายชื่อไฟล์ ขนาด และ sha256 ของคลังที่อ่าน | `runs/<รอบ>/corpus_manifest.json` |
-| profile | ตรวจคุณภาพคลัง หยุดถ้าบรรทัดที่ผิดเกินเพดาน | `runs/<รอบ>/profile.md` |
-| embed | (เฉพาะ `provider: api`) ประมาณค่าใช้จ่าย แล้ว embed เฉพาะเรื่องที่ยังไม่มี | `embed_dryrun.txt`, `embed.log` |
-| llm | (เมื่อเปิด LLM) **แสดงค่าใช้จ่ายโดยประมาณและถามยืนยันก่อนจ่าย** ตอบ `y` เพื่อไปต่อ | `llm_dryrun.txt` |
-| run | pipeline ครบทุกขั้น | `pipeline.log` |
+| config | รวม config ของคุณกับคลัง (ดูรูปแบบจากโฟลเดอร์เอง) ชื่อรอบ และไฟล์ประกอบที่วางในโฟลเดอร์คลัง (`journals.csv`, `institutions_aliases.csv`, `province_population.csv`, `ror.zip` — ชนะค่าใน config.yaml) | `runs/<รอบ>/config.yaml` |
+| corpus | จดรายชื่อไฟล์ ขนาด และ sha256 ของคลังที่อ่าน (คลัง .md จดแค่จำนวนและขนาด) | `runs/<รอบ>/corpus_manifest.json` |
+| profile | ตรวจคุณภาพคลังและไฟล์ประกอบ หยุดถ้าบรรทัดที่ผิดเกิน `input.max_error_ratio` หรือไฟล์ประกอบต้องแก้ (ข้ามเมื่อ `input.format: table`) | `profile.md`, `profile.json`, `aliases_todo.csv`, `profile.log` |
+| embed | (เฉพาะ `provider: api`) `atlas embed --dry-run` แล้ว `atlas embed` เฉพาะเรื่องที่ยังไม่มี — **ไม่ถามยืนยัน** จึงต้องขออนุมัติตัวเลขจาก §1.2 ก่อน (`provider: local` embed ในขั้น run) | `embed_dryrun.txt`, `embed.log` |
+| llm | (เมื่อ `labeling`, `narrative` หรือ `methods.provider` เป็น `llm`) `atlas llm --dry-run` แล้ว **ถามยืนยันก่อนจ่าย** `[y/N]` ตอบ `y` เพื่อไปต่อ | `llm_dryrun.txt` |
+| run | `atlas run` ครบทุกขั้น | `pipeline.log` |
 | validate | ตรวจรอบก่อนเผยแพร่: exit 2 = หยุด, exit 1 = มีคำเตือน (ไปต่อ เว้นแต่ใส่ `--strict`) | `validate.txt` |
-| web | build เว็บเมื่อยังไม่มี `web/dist` (หรือใส่ `--build-web`) | `web_build.log` |
-| publish | วางข้อมูลรอบใหม่ + รอบก่อน ๆ + ไฟล์ออฟไลน์ลงเว็บ | `publish.log` |
-| deploy | ทำโฟลเดอร์และ zip พร้อมอัปโหลด (ปฏิเสธข้อมูลทดสอบ) | `deploy/<รอบ>/site/`, `deploy/atlas-site-<รอบ>.zip`, `deploy/atlas-data-<รอบ>.zip` |
-| summary | ตัวเลขสำคัญ เวลาแต่ละขั้น คำเตือน และขั้นต่อไป | `runs/<รอบ>/summary.md` |
+| web | build เว็บ (`npm ci` เมื่อยังไม่มี `node_modules` + `npm run build` โดยส่ง `publish.site_url` เป็น `ATLAS_SITE_URL`) เมื่อ `web/dist` ยังไม่มี `index.html` หรือ `offline-template.html` หรือเมื่อใส่ `--build-web` | `web_build.log` |
+| publish | `atlas publish --site web/dist --allow-warnings` (ไม่ใส่ `--allow-warnings` เมื่อใช้ `--strict`): วางข้อมูลรอบใหม่ + รอบก่อน ๆ + `atlas-offline.html` ลงเว็บ | `publish.log` |
+| deploy | คัดลอก `web/dist` ทั้งโฟลเดอร์ไปเป็นชุดพร้อมอัปโหลดและทำ zip 2 ไฟล์ (ปฏิเสธเมื่อรอบล่าสุดเป็นข้อมูลทดสอบ `fixture`/`lite`) | `deploy/<รอบ>/site/`, `deploy/atlas-site-<รอบ>.zip`, `deploy/atlas-data-<รอบ>.zip` |
+| summary | ตัวเลขสำคัญ เวลาแต่ละขั้น คำเตือน และวิธีอัปโหลด และคัดลอกไฟล์ชั้นบนสุดของ `output/` มาเก็บ | `runs/<รอบ>/summary.md` |
 
 **ถ้าหยุดกลางทาง:** แก้ตามข้อความที่ขึ้น แล้ว **สั่งคำสั่งเดิมอีกครั้ง** ส่วนที่จ่ายเงินไปแล้ว (embedding, คำตอบ LLM) ไม่ถูกจ่ายซ้ำ
 
-**ตัวเลือกที่ใช้บ่อย:**
+**ตัวเลือกทั้งหมด** (ตรวจได้ด้วย `uv run atlas quarterly --help`):
 
 | ตัวเลือก | ผล |
 |---|---|
-| `--yes` | ไม่ถามก่อนจ่ายค่า LLM (ใช้กับงานตั้งเวลา) งบสูงสุดยังคุมด้วย `llm.budget_usd` |
+| `--corpus <โฟลเดอร์>` | คลังของรอบนี้ (ไม่ใส่ = `input.path` ใน config) |
+| `--release`, `-r` `YYYYQn` | ชื่อรอบ (ไม่ใส่ = ตามกฎด้านบน) |
+| `--config`, `-c` | config ที่ใช้ (ไม่ใส่ = `pipeline/config.yaml`) |
+| `--yes`, `-y` | ไม่ถามก่อนจ่ายค่า LLM (ใช้กับงานตั้งเวลา) งบสูงสุดยังคุมด้วย `llm.budget_usd` |
 | `--strict` | หยุดเมื่อ validate มีคำเตือนด้วย |
-| `--build-web` | build เว็บใหม่ (หลังอัปเดตโค้ดเว็บ) |
+| `--build-web` | build เว็บใหม่แม้มี `web/dist` แล้ว (หลังอัปเดตโค้ดเว็บ หรือเปลี่ยน `publish.site_url`) |
 | `--prepare` | หยุดหลังตรวจคลัง |
+| `--runs-dir`, `--deploy-dir`, `--site` | ย้ายที่เก็บรอบ (`runs/`), ชุดอัปโหลด (`deploy/`) หรือเว็บที่ build แล้ว (`web/dist`) |
 
 ### 1.4 ตรวจผลก่อนเผยแพร่ (10 นาที)
 
@@ -127,27 +141,30 @@ uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4
 3. **ตรวจหน้าเว็บ:**
    - **หน้าแรก:** ต้องแสดงชื่อรอบใหม่ และต้อง **ไม่มี** ป้าย "ข้อมูลตัวอย่าง"
    - **"อะไรเปลี่ยน" (`/changes`):** หัวข้อใหม่ หัวข้อที่ยุติ และหัวข้อที่เปลี่ยนสถานะต้องอธิบายได้ (ผู้บริหารใช้หน้านี้)
-   - **"กำลังมา" (`/emerging`):** ลองคลิก 1 หัวข้อ ต้องมีกราฟและตาราง
+   - **"สถานะหัวข้อ" (`/emerging`):** ลองคลิก 1 หัวข้อ ต้องมีกราฟและตาราง
 4. **ตรวจชื่อหัวข้อที่ LLM ตั้ง (ทุกรอบ ประมาณ 50 หัวข้อ):**
    - ส่งออกไฟล์ให้บรรณาธิการแก้: `uv run atlas review export -c ../runs/<รอบ>/config.yaml`
    - นำไฟล์ที่แก้แล้วกลับเข้า: `uv run atlas review import <csv> -c ../runs/<รอบ>/config.yaml`
-   - จากนั้นรัน `atlas quarterly` เดิมอีกครั้ง เพื่อให้ชื่อใหม่ขึ้นเว็บ (§7)
+   - จากนั้นรัน `atlas quarterly` เดิมอีกครั้ง (ชื่อรอบเดิม) เพื่อให้ชื่อใหม่ขึ้นเว็บ — คำตอบ LLM มาจาก cache ไม่จ่ายซ้ำ; หรือทำเฉพาะขั้นที่เกี่ยวตาม §7
+5. **ขออนุมัติก่อนขึ้นเว็บ:** ส่ง `summary.md`, `validate.txt` และผลตรวจหน้าเว็บให้ผู้ดูแล และรอคำตอบก่อนข้อ 1.5 ถ้า `validate.txt` มีบรรทัด `ERROR privacy: …` ห้ามเผยแพร่ (§3)
 
 ### 1.5 ขึ้นเว็บ (copy แล้วเสร็จ)
 
-- **ครั้งแรก หรือเมื่อโค้ดเว็บเปลี่ยน:** อัปโหลดทุกไฟล์ใน `deploy/<รอบ>/site/` ขึ้นโฟลเดอร์รากของ host หรือแตก `atlas-site-<รอบ>.zip` ที่นั่น
+เว็บเป็นไฟล์ static ล้วน (ไม่มีฐานข้อมูล ไม่มีโปรแกรมฝั่งเซิร์ฟเวอร์) วางที่โฟลเดอร์ย่อยใดก็ได้ และใช้ URL แบบ `#/…` จึงไม่ต้องตั้ง rewrite บนเซิร์ฟเวอร์ — ตัวอย่างการตั้งค่า Nginx / Apache / IIS (HTTPS, MIME type, การบีบอัด, cache) อยู่ใน [`INTERN_GUIDE.md` ภาคผนวก ก](INTERN_GUIDE.md)
+
+- **ครั้งแรก หรือเมื่อโค้ดเว็บเปลี่ยน:** อัปโหลดทุกไฟล์ใน `deploy/<รอบ>/site/` ขึ้นโฟลเดอร์ของเว็บบน host หรือแตก `atlas-site-<รอบ>.zip` ที่นั่น
   - host อะไรก็ได้ที่ให้ไฟล์ static: IIS, Apache, Nginx, S3 หรือ GitHub Pages
-  - ไม่ต้องมีฐานข้อมูลหรือเซิร์ฟเวอร์โปรแกรม
-- **รอบถัดไป (โค้ดเว็บเดิม):** แตก `atlas-data-<รอบ>.zip` ทับโฟลเดอร์เว็บบน host
-  - zip มีแค่ `data/` + `atlas-offline.html`
-  - รอบเก่ายังอยู่ใน `data/` เว็บจึงเทียบกับรอบก่อนได้
+  - `publish.site_url` ต้องตรงกับที่อยู่จริง และเว็บต้อง build ด้วยค่านั้น (`atlas quarterly --build-web` เมื่อค่าเปลี่ยน)
+- **รอบถัดไป (โค้ดเว็บเดิม):** ใช้ `atlas-data-<รอบ>.zip`
+  - zip มีแค่ `data/` + `atlas-offline.html` (รอบเก่ายังอยู่ใน `data/` เว็บจึงเทียบกับรอบก่อนได้)
+- **ลำดับการอัปโหลด** (ผู้อ่านจะไม่เห็นเว็บครึ่ง ๆ กลาง ๆ): `data/<รอบใหม่>/` และโฟลเดอร์รอบอื่นใน `data/` ก่อน → `data/feeds/` → `data/latest.json` กับ `atlas-offline.html` เป็นไฟล์สุดท้าย (เว็บอ่าน `latest.json` ก่อนแล้วจึงไปโหลด `data/<รอบ>/…`); เมื่ออัปโหลดทั้งเว็บ ให้ `assets/` ขึ้นก่อน `index.html`
 - **GitHub Pages:** `bash scripts/package_release.sh --upload` แล้วไปที่ Actions → Pages → Run workflow → ใส่ `data_release` (§21)
-- **หลังขึ้นเว็บ:** เปิดเว็บจริงแล้วกด refresh หน้าแรกต้องแสดงรอบใหม่ ถ้าไม่ขึ้น ดูหัวข้อ "หน้าเว็บยังเป็นข้อมูลเก่า" ใน §3
-- **ย้อนกลับ:** แก้ `data/latest.json` บน host ให้ชี้รอบก่อน (§5)
+- **หลังขึ้นเว็บ:** เปิดเว็บจริงในหน้าต่างส่วนตัว (Incognito) หน้าแรกต้องแสดงรอบใหม่และไม่มีป้าย "ข้อมูลตัวอย่าง"; `<เว็บ>/data/latest.json` ต้องมี `"release"` เป็นรอบใหม่ ถ้าไม่ขึ้น ดูหัวข้อ "หน้าเว็บยังเป็นข้อมูลเก่า" ใน §3
+- **ย้อนกลับ:** ห้ามแก้ `data/latest.json` บน host เอง — ทำตาม §5
 
 ### 1.6 เก็บรอบรัน
 
-- `runs/<รอบ>/` เก็บไว้ครบแล้ว: config ที่ใช้จริง, รายการไฟล์คลัง (sha256), profile, log, validate, summary และไฟล์ใน `output/`
+- `runs/<รอบ>/` เก็บไว้ครบแล้ว: config ที่ใช้จริง, รายการไฟล์คลัง (sha256), profile, log, validate, summary และไฟล์ชั้นบนสุดของ `output/` (เช่น `manifest.json`)
 - **backup ทุกรอบ:**
   - `runs/<รอบ>/`
   - `deploy/atlas-data-<รอบ>.zip`
@@ -156,18 +173,20 @@ uv run atlas quarterly --corpus D:/atlas-data/corpus/2026Q4 --release 2026Q4
 
 ### 1.7 ทำเองทีละคำสั่ง (เมื่อต้องการคุมแต่ละขั้น)
 
-คำสั่งเดียวกับที่ `atlas quarterly` เรียกให้:
+คำสั่งเดียวกับที่ `atlas quarterly` เรียกให้ ใช้ config ของรอบจาก `--prepare` (มีคลัง ชื่อรอบ และไฟล์ประกอบของคลังแล้ว — ถ้าใช้ `config.yaml` ตรง ๆ ต้องตั้ง `input.path`, `pipeline.release`, `journals.registry_path` และ `institutions.aliases_path` / `population_path` / `ror_path` เอง เพราะคำสั่งเดี่ยวไม่หาไฟล์ประกอบในโฟลเดอร์คลังให้):
 
 ```bash
 cd pipeline
-uv run atlas profile <คลัง> --md ../logs/profile.md
-uv run atlas embed -c config.yaml --dry-run && uv run atlas embed -c config.yaml
-uv run atlas llm -c config.yaml --dry-run          # ดูค่าใช้จ่ายก่อนทุกครั้ง
-uv run atlas run -c config.yaml
-uv run atlas validate -c config.yaml               # 0 = ผ่าน, 1 = มีคำเตือน, 2 = ห้ามเผยแพร่
-cd ../web && npm ci && npm run build && cd ../pipeline
-uv run atlas publish -c config.yaml --site ../web/dist
+uv run atlas quarterly --corpus <คลัง> --release <รอบ> --prepare   # → ../runs/<รอบ>/config.yaml + profile.md
+uv run atlas embed -c ../runs/<รอบ>/config.yaml --dry-run && uv run atlas embed -c ../runs/<รอบ>/config.yaml
+uv run atlas llm -c ../runs/<รอบ>/config.yaml --dry-run    # ดูค่าใช้จ่ายก่อนทุกครั้ง
+uv run atlas run -c ../runs/<รอบ>/config.yaml
+uv run atlas validate -c ../runs/<รอบ>/config.yaml         # 0 = ผ่าน, 1 = มีคำเตือน, 2 = ห้ามเผยแพร่
+cd ../web && npm ci && ATLAS_SITE_URL=<publish.site_url> npm run build && cd ../pipeline
+uv run atlas publish -c ../runs/<รอบ>/config.yaml --site ../web/dist   # + --allow-warnings เมื่อ validate exit 1 และอ่านคำเตือนแล้ว
 ```
+
+(ตรวจคลังอย่างเดียวโดยไม่สร้าง config รอบ: `uv run atlas profile <คลัง> --md profile.md --aliases-todo aliases_todo.csv`)
 
 สิ่งที่ควรรู้ตอนทำเอง:
 
@@ -181,11 +200,13 @@ uv run atlas publish -c config.yaml --site ../web/dist
   - export รอบเดิมซ้ำได้ไฟล์เหมือนเดิมทุกไบต์
 - **รอบก่อนหน้าตามมาด้วย:**
   - publish คัดลอกรอบก่อน ๆ ตามสาย `previous_release` จาก `output/data/` ให้เอง เช่น หลัง `npm run build` ล้าง `dist/data` เว็บจึงเทียบ Δ ได้
-  - publish ไม่เขียนทับโฟลเดอร์รอบที่มีบน site แล้ว
-- **`latest.json` ชี้รอบใหม่สุดเสมอ:** publish รอบที่เก่ากว่าจะวางโฟลเดอร์ให้ แต่ไม่ย้าย `latest.json` (ต้องการย้ายจริงใช้ `--set-latest`)
+  - รอบก่อน ๆ ที่มีบน site แล้วไม่ถูกเขียนทับ ส่วนรอบที่กำลัง publish ถูกแทนที่ทั้งโฟลเดอร์ (publish รอบเดิมซ้ำได้)
+  - รอบที่เก่ากว่า `publish.keep_full_releases` (ค่าเริ่ม 1 = เก็บครบเฉพาะรอบใหม่สุด) ถูกตัดเหลือ `manifest.json`, `overview.json`, `topics.json`, `taxonomy.json`, `diff.json` และโฟลเดอร์ `topics/`
+- **`latest.json` ชี้รอบใหม่สุดเสมอ:** publish รอบที่เก่ากว่าจะวางโฟลเดอร์ให้ แต่ไม่ย้าย `latest.json` และไม่สร้าง `atlas-offline.html` ใหม่ (ต้องการย้ายจริงใช้ `--set-latest` — §5)
+- **`atlas-offline.html`:** ใส่ไฟล์รายละเอียดหัวข้อ → วารสาร → สถาบัน จนถึง `export.offline_max_mb` (60 MB) ไม่มี `search/`, `galaxy.json` และ `match.json` (§12)
 - **ห้ามเปลี่ยนชื่อโฟลเดอร์รอบ:** `atlas validate` เป็น error เมื่อ `manifest.release` ไม่ตรงกับชื่อโฟลเดอร์ ชื่อรอบต้องเป็นรูป YYYYQn
 - **`atlas-offline.html`:** เว็บทั้งหน้าในไฟล์เดียว เปิดได้โดยไม่ต่อเน็ต
-- **ไฟล์แนบ GitHub Release:** `--tarball` ได้ tar.gz + sha256 + release notes
+- **ไฟล์แนบ GitHub Release:** `--tarball` ได้ `output/releases/atlas-data-<รอบ>.tar.gz` + sha256 + release notes และพิมพ์คำสั่ง `gh release create` ให้คนสั่งเอง (ไม่อัปโหลดให้)
 - **ฟีด Atom:** ต้องตั้ง `publish.site_url` (§19)
 - **workflow `.github/workflows/pages.yml`:** ไม่ใส่ `data_release` = เว็บสาธิตที่ใช้ข้อมูลสังเคราะห์ มีป้าย "ข้อมูลตัวอย่าง" ทุกหน้า และตั้ง noindex (§21)
 
@@ -282,14 +303,14 @@ uv run atlas embed -c config.yaml
 
 ## 2. ตั้งเวลารันอัตโนมัติ (ไม่บังคับ — คนยังต้องตรวจผลตาม §1.4 ก่อนอัปโหลด)
 
-ทีมข้อมูลต้องวางคลังของรอบนั้นไว้ที่ `input.path` ก่อนถึงเวลารัน และงานตั้งเวลาต้องใส่ `--yes` เพราะไม่มีคนตอบคำถามยืนยันค่า LLM (งบยังคุมด้วย `llm.budget_usd`)
+ทีมข้อมูลต้องวางคลังของรอบนั้นไว้ที่ `input.path` ก่อนถึงเวลารัน และงานตั้งเวลาต้องใส่ `--yes` เพราะไม่มีคนตอบคำถามยืนยันค่า LLM (งบยังคุมด้วย `llm.budget_usd`) ชื่อรอบ = ไตรมาสของวันที่รัน (ตามกฎใน §1.3)
 
 ```cron
-# 01:00 วันที่ 1 ของเดือน 1,4,7,10
+# 01:00 วันที่ 1 ของเดือน 1,4,7,10 (สร้างโฟลเดอร์ logs/ ไว้ก่อน)
 0 1 1 1,4,7,10 * cd /path/to/tci-research-atlas && bash scripts/quarterly_run.sh --yes >> logs/quarterly.log 2>&1
 ```
 
-Windows Task Scheduler: ให้โปรแกรมเป็น `scripts\quarterly_run.cmd` อาร์กิวเมนต์ `--yes` และเริ่มใน (Start in) `<repo>\scripts`
+Windows Task Scheduler: **อย่าใช้ `scripts\quarterly_run.cmd`** เพราะท้ายไฟล์มีคำสั่ง `pause` ที่รอคนกดปุ่ม งานจึงค้างไม่จบ ให้ตั้งโปรแกรมเป็น `cmd.exe` อาร์กิวเมนต์ `/c uv run atlas quarterly --yes >> ..\logs\quarterly.log 2>&1` และเริ่มใน (Start in) `<repo>\pipeline` (บัญชีที่รันงานต้องเห็น env var ของ key และหา `uv` เจอใน PATH)
 
 ## 3. Troubleshooting
 
@@ -317,7 +338,7 @@ Windows Task Scheduler: ให้โปรแกรมเป็น `scripts\quar
 | log ขึ้น `[embed] WARNING: embedding.provider is 'lite'` | config ใช้ `lite` (สำหรับ CI) กับคลังจริง | เปลี่ยนเป็น `embedding.provider: local` (หรือ `api`) แล้วรันใหม่ — อย่าเผยแพร่ผลจาก lite |
 | `ValueError: HDBSCAN found no clusters in N documents` | `hdbscan_min_cluster_size` ใหญ่เกินคลัง หรือ embedding ผิดปกติ (เช่น lite/โมเดลผิด) | ลด `clustering.fine.hdbscan_min_cluster_size` / `hdbscan_min_samples`; ตรวจ `work/03_meta.json` (model_id) — pipeline จะไม่รวมทุกอย่างเป็นหัวข้อเดียวเงียบ ๆ อีกแล้ว (ยกเว้นคลังจิ๋ว < 2 × min_cluster_size) |
 | label เป็นภาษาอังกฤษหมด | โมเดลไม่ถนัดไทย | เปลี่ยนโมเดลใน `llm.tasks.label.model` (เช่น typhoon / gpt-4o / gemini-2.0-flash) แล้ว `atlas llm --check` — cache key (model + prompt) เปลี่ยน เฉพาะ label จะถูกสร้างใหม่ |
-| หน้าเว็บยังเป็นข้อมูลเก่า | latest.json ยังชี้รอบเก่า หรือ cache | ตรวจ `data/latest.json` บน host; hard-refresh (เว็บอ่านด้วย no-cache) |
+| หน้าเว็บยังเป็นข้อมูลเก่า | latest.json ยังชี้รอบเก่า (อัปโหลดไม่ครบ หรือ publish รอบที่เก่ากว่าโดยไม่ใส่ `--set-latest`) หรือเซิร์ฟเวอร์/CDN ตั้ง cache นานให้ `index.html`, `data/` หรือ `atlas-offline.html` | ตรวจ `data/latest.json` บน host; hard-refresh (เว็บขอข้อมูลแบบ no-cache อยู่แล้ว); ให้ทีม IT ตั้ง cache ตาม `INTERN_GUIDE.md` ภาคผนวก ก (cache นานได้เฉพาะ `assets/`) |
 | แถบ "ยังไม่มีชุดข้อมูล" / "รุ่นของข้อมูลไม่ตรง" | ไม่มี `data/latest.json` หรือ schema ไม่ใช่ 2.x | รัน `atlas publish --site` ใหม่ / อัปเดตเว็บให้ตรงรุ่น |
 | forecast ไม่มีบาง topic | ประวัติ < 6 ปี, ไม่ผ่าน skill gate (ดีกว่า naive ไม่พอ) หรือมีจุด backtest ซื่อสัตย์น้อยกว่า `forecast.min_honest_points` | เป็นเรื่องปกติ (`forecast.min_history_years`, `forecast.min_skill`, `forecast.min_honest_points`); ใน contract v2 (`topics.json`) ประวัติสั้น/LOW_DATA = `forecast: null`, ไม่ผ่าน gate = `forecast.show: false` (ไม่มีเส้น — เว็บขึ้น "แนวโน้มไม่แน่นอน"); `forecast_uncertain` มีเฉพาะไฟล์เก่า `atlas_data.json` (v1.1) · forecast รายหัวข้อ (share × ยอดรวมที่พยากรณ์) **ไม่ได้ปรับให้ผลรวมเท่ายอดรวมของคลัง** — รวมทุกหัวข้อแล้วไม่จำเป็นต้องเท่า `corpus_forecast` |
 | หัวข้อเกือบทั้งหมดเป็น LOW_DATA | corpus เล็ก/ช่วงปีสั้น หรือ `min_articles_recent` สูงไป | ตรวจรายงาน profile; ปรับ `emerging.min_articles_recent` เฉพาะเมื่อมีเหตุผล (กระทบนิยาม ต้อง bump `definition_version`) |
@@ -344,8 +365,19 @@ Windows Task Scheduler: ให้โปรแกรมเป็น `scripts\quar
 
 ## 5. การย้อนกลับ (rollback)
 
-- เว็บ: deploy commit ก่อนหน้าอีกครั้งผ่าน GitHub Pages (re-run workflow ของ commit เก่า) หรือวางโฟลเดอร์ `web/dist` เวอร์ชันเก่ากลับ
-- ข้อมูล: รอบเก่าบนเว็บถูกตัดเหลือเฉพาะไฟล์ที่ใช้เทียบ (`publish.keep_full_releases`) จึง**ห้ามแก้ `data/latest.json` ให้ชี้รอบเก่าเอง** (หน้าวารสาร/สถาบัน/ค้นหาของรอบนั้นจะไม่มีไฟล์) ให้วางรอบนั้นกลับเต็มรอบแทน: `uv run atlas publish -c config.yaml --release <รอบก่อน> --set-latest --site <โฟลเดอร์เว็บ>` (คัดลอกจาก `output/data/<รอบก่อน>` ทั้งรอบ) แล้วอัปโหลดโฟลเดอร์เว็บใหม่ — GitHub Pages: Run workflow ด้วย `data_release` ของรอบก่อน
+- เว็บ: deploy commit ก่อนหน้าอีกครั้งผ่าน GitHub Pages (Run workflow โดยเลือก branch/tag ของโค้ดเก่า) หรือวางชุด `deploy/<รอบ>/site/` เวอร์ชันเก่ากลับ
+- ข้อมูล: รอบเก่าบนเว็บถูกตัดเหลือเฉพาะไฟล์ที่ใช้เทียบ (`publish.keep_full_releases`) จึง**ห้ามแก้ `data/latest.json` ให้ชี้รอบเก่าเอง** (หน้าวารสาร/สถาบัน/ค้นหาของรอบนั้นจะไม่มีไฟล์) ให้วางรอบนั้นกลับเต็มรอบแทน ในเครื่องที่ยังมี `output/data/<รอบก่อน>/` ครบ:
+
+  ```bash
+  cd pipeline
+  uv run atlas publish -c ../runs/<รอบก่อน>/config.yaml --release <รอบก่อน> --set-latest --site ../deploy/<รอบล่าสุด>/site
+  ```
+
+  - publish ตรวจรอบนั้นอีกครั้ง ถ้ามีแต่คำเตือนที่เคยยอมรับแล้วให้เติม `--allow-warnings`
+  - ผล: `data/<รอบก่อน>/` กลับมาครบทุกไฟล์, `data/latest.json` และ `atlas-offline.html` ชี้รอบก่อน, ฟีดเขียนใหม่ รอบล่าสุดยังอยู่ใน `data/` (ไม่ถูกตัด)
+  - อัปโหลดตามลำดับใน §1.5: `data/<รอบก่อน>/` ก่อน แล้ว `data/latest.json` กับ `atlas-offline.html` ท้ายสุด
+  - รอบถัดไปที่ publish ตามปกติ (ใหม่กว่า) จะย้าย `latest.json` กลับมาเอง
+- GitHub Pages: Run workflow ด้วย `data_release` ของรอบก่อน (zip ของรอบนั้นมี `latest.json` ชี้รอบนั้นอยู่แล้ว)
 
 ## 6. LLM ผ่าน API (ชื่อหัวข้อ · คู่ที่อาจซ้ำ · คำอธิบาย · บทสรุปผู้บริหาร)
 
@@ -355,7 +387,7 @@ Windows Task Scheduler: ให้โปรแกรมเป็น `scripts\quar
 $env:ATLAS_LLM_API_KEY = "sk-..."        # หรือ setx ATLAS_LLM_API_KEY "sk-..." แล้วเปิดหน้าต่างใหม่ (bash: export ...)
 uv run atlas llm -c config.yaml --check  # 1 คำขอเล็กต่อโมเดล: ตอบได้ไหม, เป็น JSON ไหม, ภาษาไทยครบไหม
 uv run atlas llm -c config.yaml --dry-run   # ต่องาน: กี่ call, มีใน cache กี่ตัว, token ขาเข้า, ค่าใช้จ่ายสูงสุด, งบที่ใช้ไปในรอบนี้
-uv run atlas llm -c config.yaml          # รัน step label + narrate (หรือรวมอยู่ใน atlas run อยู่แล้ว); --background = รันเบื้องหลัง ปิดหน้าต่างได้
+uv run atlas llm -c config.yaml          # รัน step label + methods (เมื่อ methods.provider: llm) + narrate แล้วต้อง `atlas run -s export` + publish (atlas run ทั้งสายรวมขั้นเหล่านี้อยู่แล้ว); --background = รันเบื้องหลัง ปิดหน้าต่างได้
 uv run atlas status -c config.yaml       # ความคืบหน้า embedding + LLM
 uv run atlas llm-stop -c config.yaml     # หยุดหลัง call ที่กำลังทำเสร็จ (exit 130) — รันคำสั่งเดิม = ทำต่อ
 ```
@@ -378,7 +410,10 @@ uv run atlas review export -c config.yaml         # → output/review/<release>_
 #   บรรณาธิการกรอก name_th_fixed / name_en_fixed / reviewer / note ในแถวที่ต้องแก้
 uv run atlas review import output/review/2026Q4_label_review.csv -c config.yaml   # → labeling.overrides_path
 uv run atlas run -c config.yaml -s label -s narrate -s export                      # ใช้ชื่อใหม่ทันที
+uv run atlas publish -c config.yaml --site ../web/dist                              # วางรอบที่แก้แล้วลงเว็บ (แทนที่โฟลเดอร์รอบเดิม)
 ```
+
+(ในรอบไตรมาส ใช้ `-c ../runs/<รอบ>/config.yaml` หรือรัน `atlas quarterly` เดิมซ้ำแทน 2 บรรทัดสุดท้าย — §1.4; `import` ต้องมี `labeling.overrides_path` ใน config)
 
 - ตัวอย่างที่ส่งตรวจ: ชื่อที่ LLM ทำไม่ได้ (ใช้คำสำคัญแทน) + คู่หัวข้อที่อาจซ้ำ มาก่อน แล้วสุ่มที่เหลือแบบทำซ้ำได้ (หัวข้อที่แก้แล้วไม่ถูกสุ่มซ้ำ)
 - ไฟล์ overrides ผูกกับ ID ถาวร (T000123) → ชื่อที่แก้ชนะชื่อจาก LLM ทุกไตรมาส; ID ที่ถูกรวม/เลิกใช้ถูกแจ้งเตือนตอน label
@@ -490,7 +525,7 @@ uv run atlas sdg-scores -c config.yaml     # อ่านอย่างเด�
 
 ### ปรับขนาดจุดของกาแล็กซีกับข้อมูลจริง (ทำในรอบจริงรอบแรก)
 
-ขนาดและความทึบของจุดคำนวณจากจำนวนจุด (`pointSize` / `pointAlpha` ใน `web/src/lib/galaxyGl.ts`) — ค่าตั้งต้นทดสอบกับข้อมูลสังเคราะห์ ~600 จุดเท่านั้น รอบจริงรอบแรกให้เปิด `/galaxy` ทั้งโหมดสว่าง/มืด บนจอปกติและมือถือ: จุดทับกันจนเป็นก้อนสีเดียว → ลดขนาด/ความทึบ; กลุ่มเล็กมองไม่เห็นตอนซูมออก → เพิ่มขนาดขั้นต่ำ — เป็นการแก้โค้ดเว็บ (build ใหม่ครั้งเดียว) ไม่ใช่ข้อมูล
+ขนาดและความทึบของจุดคำนวณจากจำนวนจุด (`pointSize` / `pointAlpha` ใน `web/src/lib/galaxyGl.ts`) — ค่าตั้งต้นทดสอบกับข้อมูลสังเคราะห์ ~600 จุดเท่านั้น รอบจริงรอบแรกให้เปิด `/galaxy` บนจอปกติและมือถือ: จุดทับกันจนเป็นก้อนสีเดียว → ลดขนาด/ความทึบ; กลุ่มเล็กมองไม่เห็นตอนซูมออก → เพิ่มขนาดขั้นต่ำ — เป็นการแก้โค้ดเว็บ (build ใหม่ครั้งเดียว) ไม่ใช่ข้อมูล
 
 ## 18. การอ้างอิง (`references`): เกณฑ์ที่ต้องผ่านก่อนเผยแพร่
 
@@ -525,21 +560,21 @@ publish:
 
 เว็บสาธิตบน GitHub Pages ใช้ข้อมูลสังเคราะห์ จึงมีป้าย "ข้อมูลตัวอย่าง" และไม่ให้เครื่องมือค้นหาเก็บหน้า (noindex) เมื่อรอบข้อมูลมาจากคลังจริง ป้ายนี้หายเองทุกหน้า (เว็บดูจาก `manifest.embedding_provider` — `fixture`/`lite` = ตัวอย่าง) และอ้างอิงได้จริง ขั้นตอน (บนเครื่องที่มีคลังบทความ):
 
-1. รันรอบจริงตาม §1: `bash scripts/quarterly_run.sh pipeline/config.yaml` (embedding แบบ `local` หรือ `api` — ห้าม `lite`) แล้วตรวจชื่อหัวข้อตาม §7; ถ้าใช้ LLM ให้ `uv run atlas llm -c config.yaml --dry-run` ดูค่าใช้จ่ายก่อน (§6)
-2. `cd pipeline && uv run atlas validate -c config.yaml` ต้องได้ exit 0 (หรือ 1 ที่อ่านคำเตือนแล้ว)
-3. ตั้ง `publish.site_url` เป็นที่อยู่เว็บจริง (เช่น `https://santipongth.github.io/tci-research-atlas/`) เพื่อให้มีฟีด
-4. `bash scripts/import_atlas.sh pipeline/config.yaml` → web/dist มีข้อมูลรอบจริง + `atlas-offline.html` (เปิดดู local ก่อน: `cd web && node scripts/serve.mjs --site dist`)
-5. `bash scripts/package_release.sh --upload` → สร้าง GitHub Release `data-<รอบ>` แนบ `atlas-site-data-<รอบ>.zip` (มีเฉพาะไฟล์ที่เผยแพร่: ไม่มีชื่อผู้แต่ง/บทคัดย่อ — `atlas validate` ตรวจแล้ว)
-6. GitHub → Actions → Pages → Run workflow → ใส่ `data_release` = `data-<รอบ>` → เว็บจริงขึ้นแทนเว็บสาธิต (workflow ปฏิเสธ zip ที่เป็นข้อมูลตัวอย่าง)
-7. ถ้าต้องการให้ Google เก็บหน้าเว็บจริง: เว็บที่ build ปกติไม่มี noindex — มีเฉพาะเว็บสาธิต (`stage:demo`) และไฟล์ offline template
+1. ตั้ง `publish.site_url` เป็นที่อยู่ของ Pages (`https://santipongth.github.io/tci-research-atlas/`) เพื่อให้มีฟีด — workflow build เว็บเองด้วยที่อยู่นี้ (ค่าเริ่มของ `ATLAS_SITE_URL`)
+2. รันรอบจริงตาม §1 (`uv run atlas quarterly --corpus … --release …` หรือ `bash scripts/quarterly_run.sh --corpus … --release …`; embedding แบบ `local` หรือ `api` — ห้าม `lite`) รวมการดูค่าใช้จ่าย (§1.2, §6) การตรวจผลและชื่อหัวข้อ (§1.4, §7) — เมื่อจบ `web/dist` มีข้อมูลรอบจริง + `atlas-offline.html` แล้ว (validate ผ่านในตัว; เปิดดูในเครื่อง: `cd web && node scripts/serve.mjs --site dist`)
+3. `bash scripts/package_release.sh --upload` (จาก root ของ repo, ต้อง `gh auth login` แล้ว) → zip `web/dist/data` + `atlas-offline.html` เป็น `atlas-site-data-<รอบ>.zip` ที่ root ของ repo แล้วสร้าง/อัปเดต GitHub Release `data-<รอบ>` (มีเฉพาะไฟล์ที่เผยแพร่: ไม่มีชื่อผู้แต่ง/บทคัดย่อ; สคริปต์ปฏิเสธรอบที่เป็นข้อมูลตัวอย่าง) — ไม่ใส่ `--upload` = ทำแค่ zip
+4. GitHub → Actions → Pages → Run workflow → ใส่ `data_release` = `data-<รอบ>` (หรือ `gh workflow run pages.yml --ref main -f data_release=data-<รอบ>`) → workflow รัน `npm ci`, `npm test`, `npm run build` แล้วแตก zip ลง `dist/` และ deploy → เว็บจริงขึ้นแทนเว็บสาธิต (workflow ปฏิเสธ zip ที่เป็นข้อมูลตัวอย่าง) — ไม่ใส่ `data_release` = กลับเป็นเว็บสาธิต
+5. ถ้าต้องการให้ Google เก็บหน้าเว็บจริง: เว็บที่ build ปกติไม่มี noindex — มีเฉพาะเว็บสาธิต (`stage:demo`) และไฟล์ offline template (§22)
 
-รอบถัดไป: ทำข้อ 1–6 ซ้ำ (รอบก่อนหน้าถูกคัดลอกตามสาย `previous_release` ให้เองเพื่อเทียบ Δ). ย้อนกลับ: Run workflow อีกครั้งด้วยแท็กรอบก่อน (§5)
+ทำเองแบบแยกขั้น (ไม่ใช้ `atlas quarterly`): หลัง `atlas run` + `atlas validate` ใช้ `bash scripts/import_atlas.sh` (build เว็บ + `atlas publish --site web/dist` ด้วย `pipeline/config.yaml`; ถ้าจะใส่ config อื่นให้ใช้ path แบบเต็ม เพราะสคริปต์ย้ายไปที่ `pipeline/` ก่อนเรียก publish) แล้วทำข้อ 3–4
+
+รอบถัดไป: ทำข้อ 2–4 ซ้ำ (รอบก่อนหน้าถูกคัดลอกตามสาย `previous_release` ให้เองเพื่อเทียบ Δ). ย้อนกลับ: Run workflow อีกครั้งด้วยแท็กรอบก่อน (§5)
 
 
 ## 22. ให้ Google เก็บเว็บเข้าดัชนี (SEO)
 
 - `npm run build` ใส่ข้อมูลสำหรับเครื่องมือค้นหาให้เองใน `dist/index.html`: ชื่อหน้า คำอธิบาย ลิงก์ canonical การ์ดตอนแชร์ (Open Graph / Twitter พร้อม `og-image.png` ขนาด 1200×630) และ schema.org แบบ WebSite + Organization + Dataset ซึ่งทำให้ข้อมูลไปขึ้นใน Google Dataset Search ได้ นอกจากนี้ยังสร้าง `robots.txt` และ `sitemap.xml` ให้ด้วย (ทั้งหมดอยู่ใน plugin `atlasSeo` ของ `web/vite.config.ts`)
-- ที่อยู่เว็บสาธารณะมาจาก env `ATLAS_SITE_URL` ถ้าไม่ตั้ง จะใช้ `https://santipongth.github.io/tci-research-atlas/` ย้ายโดเมนเมื่อไรต้องตั้งค่านี้ตอน build ใหม่ทุกครั้ง
+- ที่อยู่เว็บสาธารณะมาจาก env `ATLAS_SITE_URL` ถ้าไม่ตั้ง จะใช้ `https://santipongth.github.io/tci-research-atlas/` — `atlas quarterly` ตั้งค่านี้จาก `publish.site_url` ให้ตอน build (ขั้น web) ย้ายโดเมนเมื่อไรต้อง build ใหม่ทุกครั้ง (`atlas quarterly --build-web`)
 - ไฟล์ HTML ออฟไลน์ไม่มีแท็กเหล่านี้ และติด `noindex` ไว้เสมอ
 - **ตราบใดที่เว็บยังใช้ข้อมูลตัวอย่าง** `npm run stage:demo` จะเปลี่ยนแท็กเป็น `noindex` เพราะการให้ Google เก็บตัวเลขสังเคราะห์เข้าดัชนีจะทำให้คนเข้าใจผิด เว็บจะเริ่มถูกเก็บเข้าดัชนีหลังขึ้นด้วยข้อมูลจริงตาม §21
 - หลังขึ้นด้วยข้อมูลจริงแล้ว ให้ทำต่อดังนี้:

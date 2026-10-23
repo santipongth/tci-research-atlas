@@ -1,7 +1,8 @@
 """Validated configuration for the TCI Research Atlas pipeline (pydantic v2).
 
 `load_config()` returns a plain dict so modules keep using cfg["section"]["key"].
-Every field has a default equal to config.example.yaml; unknown keys are errors.
+Every key of config.example.yaml has a default here (the example sets a few paths and input.format: corpus_jsonl
+for a real round; the bare defaults read Markdown and need no files); unknown keys are errors.
 """
 from __future__ import annotations
 

@@ -1,6 +1,7 @@
 """`atlas quarterly`: the whole quarterly round in one command — corpus in, a site folder ready to upload out.
 
-  1. config     runs/<release>/config.yaml = config.yaml + this round's corpus, release and journals.csv (archived)
+  1. config     runs/<release>/config.yaml = config.yaml + this round's corpus, release and companion files
+               (journals.csv, institutions_aliases.csv, province_population.csv, ror.zip — archived)
   2. corpus     runs/<release>/corpus_manifest.json (files, sizes, sha256 of JSONL files) — what this round read
   3. profile    runs/<release>/profile.md — stops when more lines/files fail than input.max_error_ratio
   4. embed      embedding.provider api only: dry-run numbers, then `atlas embed` (retries forever, resumable)
@@ -59,7 +60,7 @@ def _sha256(path: Path) -> str:
 
 
 def round_config(config: Path | None, release: str, corpus: Path | None) -> dict:
-    """The user's config with this round's corpus (format detected from the folder), journals.csv and release."""
+    """The user's config with this round's corpus (format detected from the folder), its companion files and release."""
     from atlas.config import load_config
 
     cfg = load_config(config)
@@ -256,7 +257,9 @@ def run_round(config: Path | None, corpus: Path | None, release: str | None, yes
     if cfg["input"]["format"] == "table":           # one table file: atlas profile reads folders only
         code = 0
     else:
+        pattern = cfg["input"]["corpus_glob"] if cfg["input"]["format"] == "corpus_jsonl" else cfg["input"]["glob"]
         code = step("profile", lambda: _atlas(["profile", cfg["input"]["path"], "--format", cfg["input"]["format"],
+                                               "--pattern", pattern,
                                                "--md", str(rdir / "profile.md"), "--out", str(rdir / "profile.json"),
                                                "--aliases-todo", str(rdir / "aliases_todo.csv"),
                                                "--workers", str(cfg["input"]["workers"]),
@@ -264,7 +267,8 @@ def run_round(config: Path | None, corpus: Path | None, release: str | None, yes
                                               rdir / "profile.log"))
     if code:
         raise RoundError(f"the corpus check found problems (too many unreadable lines/files, or a companion file "
-                         f"to fix) — the list is at the end of {rdir / 'profile.md'}; fix them and run again")
+                         f"to fix) — see the '[profile] fix before the hand-over' lines above and the 'Companion files' / 'Files with errors' "
+                         f"sections of {rdir / 'profile.md'}; fix them and run again")
     if prepare:
         _say(f"prepared: {rcfg} — first big embedding: uv run atlas embed -c {rcfg} --check / --dry-run / --background")
         return 0

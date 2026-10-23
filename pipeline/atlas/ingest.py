@@ -1,4 +1,5 @@
-"""Ingest: a folder of ThaiJO Markdown files (default) or one table file → canonical tables.
+"""Ingest: corpus format 1.0 (articles/*.jsonl[.gz], docs/corpus/README.md), a folder of ThaiJO Markdown files
+(the config default when input.format is not set) or one table file → canonical tables.
 
 Outputs (work_dir): 01_articles, 01_authors, 01_references  (via io_utils)
 """

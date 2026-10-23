@@ -119,7 +119,7 @@ export async function loadRelease(source: DataSource): Promise<AtlasRelease> {
   }
 }
 
-/** Optional modules (contract 2.1–2.3) and the file each page reads first. */
+/** Optional modules (contract 2.1–2.5) and the file each page reads first. */
 export const MODULE_FILES = {
   journals: 'journals.json', methods: 'methods.json', diff: 'diff.json', match: 'match.json',
   institutions: 'institutions.json', regions: 'regions.json', sdg: 'sdg.json', global: 'global.json', gaps: 'gaps.json',

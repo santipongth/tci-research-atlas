@@ -1,144 +1,140 @@
 # ROADMAP — แผนพัฒนาและไอเดียต่อยอด
 
-> แผนหลักปัจจุบันอยู่ที่ `docs/superpowers/specs/2026-10-18-tci-atlas-v2-design.md` (เฟส P0–P4)
+> แผนหลักของ v2 อยู่ที่ `docs/superpowers/specs/2026-10-18-tci-atlas-v2-design.md` (เฟส P0–P4) · สถานะสรุปอยู่ใน `CLAUDE.md` §3 · สิ่งที่ยังเปิดอยู่รวมไว้ที่ [งานที่ยังเปิดอยู่](#งานที่ยังเปิดอยู่) ท้ายเอกสาร
 
-## Phase ที่เสร็จแล้ว (baseline ปัจจุบัน)
+## Phase ที่เสร็จแล้ว (baseline)
 
 | Phase | รายละเอียด | ไฟล์หลัก |
 |---|---|---|
-| **1 — Embedding (batch)** | รองรับ 3 โหมด: API (OpenAI-compatible: OpenAI/Gemini/OpenRouter/vLLM/Ollama), local (sentence-transformers, default BGE-M3) และ lite (TF-IDF+SVD บน CPU สำหรับ CI/ทดสอบ); journal ทุก batch + store ทุก `checkpoint_every`; resume ได้หลัง Ctrl-C/ปิดหน้าต่าง/ไฟดับ; `atlas embed` (retry ไม่จำกัด, `--background`, `atlas status`) | `pipeline/atlas/embed.py` + `embed_runner.py` |
-| **2 — Topic Clustering** | 2 ชั้น: fine (~หลายร้อย topic) + coarse (กลุ่มใหญ่บนแผนที่); fine = UMAP 10 มิติ + HDBSCAN (+ รวม cluster ที่ซ้ำ); outlier เข้าหัวข้อที่ใกล้ที่สุดเฉพาะเมื่อ cosine ≥ `outlier_min_similarity` (ไม่งั้น "ยังไม่จัดหมวด"); coarse = agglomerative clustering ของ centroid หัวข้อ (ไม่ใช่ HDBSCAN); c-TF-IDF ตัดคำด้วย pythainlp + author keywords (เหมาะกับไทย) | `pipeline/atlas/cluster.py` |
-| **3 — Atlas web** | React bubble map (pan/zoom), drill-down, 2 ภาษา (ไทย/EN), insights ที่คำนวณจากข้อมูล, live loader + fallback | `web/` |
-| **4 — Emerging Topic Analysis** | นิยาม TCI v3 (ดู EMERGING_SPEC.md: ช่วงเชื่อมั่น + ตัวกรองความกว้าง, 6 สถานะ), Kleinberg burst, novelty (สัดส่วนบทความในช่วง R + อายุหัวข้อ — lineage เทียบรอบก่อนผ่าน `state/releases/` มาใน P1), score 0–100, section "หัวข้อเกิดใหม่" บนเว็บ | `pipeline/atlas/emerging.py`, `web/src/pages/EmergingPage.tsx` |
-| **5 — Research Trend Forecasting** | (P0) naive/OLS/Poisson ต่อ topic, เลือกโมเดลด้วย backtest, แสดงเฉพาะที่ผ่าน skill gate · (P1 Forecast v2) share × ยอดรวม, ช่วง 80/95 แบบ conformal, nowcast ของปีที่ยังไม่ครบ — ดู P1a ด้านล่าง | `pipeline/atlas/forecast.py`, `web/src/charts/TrendChart.tsx` |
-| **+ LLM Labeling** | ตั้งชื่อ topic ไทย+อังกฤษ, cache ด้วย key = hash ของ model + prompt (รันใหม่ไม่เสียเงินซ้ำ); P1 ย้ายไป LLM runner (`llm_runner.py`) | `pipeline/atlas/label.py`, `prompts/` |
-| **+ ThaiJO Markdown ingest (P0)** | parse ไฟล์ .md จาก ThaiJO (ซ่อม PUA/สระอำ, ปีจาก Published→DOI→issue, ผู้แต่ง/สังกัด/อ้างอิง), `atlas profile` | `pipeline/atlas/sources/thaijo_md.py`, `pipeline/atlas/profile.py` |
-| **+ Synthetic e2e (P0)** | คลังสังเคราะห์ 20K เรื่อง ฝังหัวข้อ EMERGING/WATCH/HOT/DECLINING แล้วตรวจว่ากู้คืนได้ | `pipeline/atlas/synth.py`, `pipeline/tests/test_e2e_synth.py` |
-| **+ CI (P0)** | GitHub Actions: ruff + pytest + JSON Schema drift, e2e (`pytest -m slow`), web (type drift + build) | `.github/workflows/ci.yml` |
-| **+ Live dashboard** | เว็บอ่าน `data/latest.json` runtime ผ่าน DataSource (Http \| Embedded) — อัปเดตข้อมูลโดยไม่ build เว็บใหม่ | `web/src/data/{source,release}.ts` |
-| **P1b/P1c Web v2** | 7 หน้า + brief, TH/EN, dark mode, URL state, offline HTML, PDF, GitHub Pages demo | `web/` |
+| **1 — Embedding (batch)** | 3 โหมด: local (sentence-transformers, ดีฟอลต์ BGE-M3), API (OpenAI-compatible: OpenAI/Gemini/OpenRouter/vLLM/Ollama) และ lite (TF-IDF+SVD สำหรับ CI/ทดสอบ); store แบบเขียนต่อท้ายใน `state_dir` (ข้อความเดิมไม่ฝังซ้ำข้ามไตรมาส); `atlas embed` (retry ไม่จำกัด, `--background`, `atlas status`, `atlas embed-stop`) ทำต่อหลัง Ctrl-C/ไฟดับได้ | `pipeline/atlas/embed.py`, `embed_runner.py`, `embed_store.py` |
+| **2 — Topic Clustering** | 2 ชั้น: fine (หลายร้อยหัวข้อ, UMAP 10 มิติ + HDBSCAN หรือ Leiden, รวม cluster ที่ซ้ำด้วย `merge_similarity`) + กลุ่มใหญ่บนแผนที่; outlier เข้าหัวข้อใกล้สุดเฉพาะเมื่อ cosine ≥ `outlier_min_similarity`; c-TF-IDF ตัดคำด้วย pythainlp + คำสำคัญของผู้แต่ง | `pipeline/atlas/cluster.py` |
+| **3 — Atlas web** | เว็บ v2 (ดูแถว P1b/P1c และ Redesign) | `web/` |
+| **4 — Emerging Topic Analysis** | นิยาม TCI v3 (ช่วงเชื่อมั่น + ตัวกรองความกว้าง, 6 สถานะ), Kleinberg burst, novelty, score 0–100 | `pipeline/atlas/emerging.py`, `web/src/pages/EmergingPage.tsx` |
+| **5 — Research Trend Forecasting** | Forecast v2: share × ยอดรวม, naive/drift/NB GLM/damped ETS, rolling-origin CV, skill gate, ช่วง 80/95 แบบ conformal, nowcast ของปีที่ยังไม่ครบ | `pipeline/atlas/forecast.py`, `web/src/charts/TrendChart.tsx` |
+| **+ LLM** | ชื่อหัวข้อ TH/EN, คู่ที่อาจซ้ำ, คำอธิบายหัวข้อ, บทสรุปผู้บริหาร, บันทึกวิธีวิจัย — ผ่าน runner ตัวเดียว (cache, งบ, หยุด/ทำต่อ) + review/overrides ของบรรณาธิการ | `pipeline/atlas/{llm,llm_runner,label,review,narrative}.py`, `prompts/` |
+| **+ ThaiJO Markdown ingest (P0)** | parse .md จาก ThaiJO (ซ่อม PUA/สระอำ, ปีจาก Published→DOI→issue, ผู้แต่ง/สังกัด/อ้างอิง), `atlas profile` | `pipeline/atlas/sources/thaijo_md.py`, `profile.py` |
+| **+ Synthetic e2e (P0)** | คลังสังเคราะห์ 20K เรื่อง ฝังสัญญาณแต่ละสถานะแล้วตรวจว่ากู้คืนได้ + รับรอง 2 ไตรมาส | `pipeline/atlas/synth.py`, `pipeline/tests/test_e2e_synth.py` |
+| **+ CI (P0)** | GitHub Actions: ruff + pytest + schema drift + e2e (`pytest -m slow`); web: type drift, fixtures, build, งบ bundle, Playwright smoke (a11y, จอมือถือ, ไฟล์ออฟไลน์); brief PDF | `.github/workflows/ci.yml` |
+| **+ Live dashboard** | เว็บอ่าน `data/latest.json` ตอนเปิดหน้า (Http \| Embedded) — อัปเดตข้อมูลโดยไม่ build เว็บใหม่ | `web/src/data/{source,release}.ts` |
+| **P1b/P1c Web v2** | 7 หน้า + brief, TH/EN, URL state, HTML ออฟไลน์, PDF, GitHub Pages สาธิต (โหมดมืดของรุ่นนี้ถูกตัดออกตอน Redesign) | `web/` |
 
 ## P1a — core analytics v2 (เสร็จ)
 
-ID หัวข้อถาวร + lineage · กลุ่มตาม OpenAlex fields · Forecast v2 (share × ยอดรวม, conformal 80/95, nowcast ของปีที่ยังไม่ครบ) · emerging keywords · แผนที่นิ่งข้ามรอบ + galaxy · LLM ทุกงานผ่าน API (runner + งบ + review/overrides) · คำอธิบายและบทสรุปที่ตรวจตัวเลข · contract v2 + `atlas validate` + `atlas publish --site` · bake-off · ingest แบบเป็นชุด
+ID หัวข้อถาวร + lineage · กลุ่มตาม OpenAlex fields · Forecast v2 · emerging keywords · **แผนที่นิ่งข้ามรอบ** (UMAP เริ่มจากตำแหน่งรอบก่อน + Procrustes + anchor, `pipeline/atlas/layout.py`) + กาแล็กซีบทความ · LLM ทุกงานผ่าน API (runner + งบ + review/overrides) · **คำอธิบายหัวข้อและบทสรุปผู้บริหารอัตโนมัติที่ตรวจตัวเลข** (`narrative.py`, `prompts/topic_narrative.th.md`, `prompts/executive_brief.th.md`) · contract v2 + `atlas validate` + `atlas publish --site` · bake-off · ingest แบบเป็นชุด
 
 ## P1b/P1c — เว็บ v2 + ช่องทางเผยแพร่ (เสร็จ, 2026-10-19)
 
-ดีไซน์ hybrid (Civic + พาดหัว Editorial + แผนที่ Cartographic) · `/overview` `/atlas` `/emerging` `/topics/:id` `/compare` `/data` `/about` `/brief` · TH/EN · โหมดมืด · มือถือ · WCAG 2.2 AA (axe) · HTML เดี่ยว offline · PDF สรุปผู้บริหาร · GitHub Pages สาธิต (ข้อมูลสังเคราะห์, กดรันเอง) — แผน `docs/superpowers/plans/2026-10-19-p1bc-web-v2.md`
+`/overview` `/atlas` `/emerging` `/topics/:id` `/compare` `/data` `/about` `/brief` · TH/EN · มือถือ · WCAG 2.2 AA (axe) · HTML เดี่ยวออฟไลน์ · PDF สรุปผู้บริหาร · GitHub Pages สาธิต (ข้อมูลสังเคราะห์, กดรันเอง) — แผน `docs/superpowers/plans/2026-10-19-p1bc-web-v2.md` · (ดีไซน์ hybrid Civic ของรุ่นนี้ถูกแทนด้วยโลก "ข่าวข้อมูล" แล้ว — ดู Redesign)
 
 ### งานค้างเล็ก ๆ หลัง P1 (จากรีวิว — ไม่บล็อกการใช้งาน)
-- **ก่อนเปิด LLM เขียนเรื่องเล่าในรุ่นสาธารณะ:** ประโยคทิศทางที่ไม่มีตัวเลข/คำบอกอัตรา ("หัวข้อนี้เติบโต") ยังไม่ถูกตรวจ; ประโยคใน brief ที่เอ่ยถึง ≥ 2 หัวข้อตรวจเฉพาะกรณีมีตัวเลขอัตราเดียว
+- **ก่อนเปิด LLM เขียนเรื่องเล่าในรุ่นสาธารณะ:** ประโยคบอกทิศทางที่ไม่มีตัวเลข/คำบอกอัตรา ("หัวข้อนี้เติบโต") ยังไม่ถูกตรวจ; ประโยคใน brief ที่เอ่ยถึง ≥ 2 หัวข้อตรวจเฉพาะกรณีมีตัวเลขอัตราเดียว
 - Forecast: ยอดคาดการณ์รายหัวข้อไม่ได้ปรับให้รวมเท่ายอดทั้งคลัง (share × N̂ แยกกัน); เกณฑ์ `min_month_share` ของ nowcast อ่อนเมื่อคลังเล็กมาก; เทสต์เชิงสถิติใช้ seed เดียว
 - Bake-off: คอลัมน์ `ari_vs_first` ของอัลกอริทึมแรกเป็น 1.0 เสมอ / NPMI จาก seed แรก — อธิบายในรายงาน
 - Label: `n_labels_fallback` นับรวมหัวข้อที่บรรณาธิการแก้ชื่อภายหลัง; รายการที่ fallback จะถูกถาม LLM ใหม่ทุกรอบ (ตั้งใจ)
 - Runner: ค่าใช้จ่ายรอบ repair อาจเกินค่าประมาณหนึ่งครั้ง (งบเป็น soft cap); `atlas llm --background` ไม่มีหัว log
 - Checkpoint fingerprint ตรวจเฉพาะ article_id/ลำดับ ไม่ตรวจการเปลี่ยน doc_text ที่ id เดิม; `hdbscan_backend: fast` ที่ไม่ได้ติดตั้ง extra ได้ error ดิบ
-- เว็บ: ~~`offline-template.html` บน Pages ไม่มี noindex~~ (ทำแล้วใน P4); หมายเหตุหน่วยของ CSV อยู่ข้างปุ่ม ไม่ได้อยู่ในไฟล์; ค่า `group_name` ใน CSV เปลี่ยนตามภาษา; ชื่อกลุ่ม fallback ภาษาไทยในหน้าอังกฤษยังไม่ครอบ `lang="th"`; headline linker ไม่ใช้ word boundary กับชื่ออังกฤษ (ควรให้ brief ส่ง topic id ใน P2); เทสต์ line-height ยังไม่สแกน shorthand `font:`
-- ~~Bundle เว็บเป็นก้อนเดียว ~163 KB gzip — แยก lazy route `/atlas` `/brief`~~ (ทำแล้วใน P4)
+- เว็บ: หมายเหตุหน่วยของ CSV อยู่ข้างปุ่ม ไม่ได้อยู่ในไฟล์; ค่า `group_name` ใน CSV เปลี่ยนตามภาษา; ชื่อกลุ่ม fallback ภาษาไทยในหน้าอังกฤษยังไม่ครอบ `lang="th"`; เทสต์ line-height ยังไม่สแกน shorthand `font:`
+- ~~`offline-template.html` บน Pages ไม่มี noindex~~ (ทำแล้วใน P4) · ~~Bundle เว็บเป็นก้อนเดียว~~ (P4 แยก `/atlas` `/brief` เป็น lazy) · ~~headline linker ไม่ใช้ word boundary~~ (ทำแล้ว: ลิงก์หัวข้อในพาดหัวตัดที่ขอบคำด้วย `Intl.Segmenter` ทั้งไทยและอังกฤษ)
 
 ## P2 — บรรณาธิการ (เสร็จ, 2026-10-19)
 
-แผน: `docs/superpowers/plans/2026-10-19-p2-editors.md` · หน้าใหม่ 5 หน้า (`/journals`, `/journals/:id`, `/methods`, `/changes`, `/match`) + `pipeline/atlas/{journals,journal_metrics,journal_topics,registry,methods,matcher,diff}.py` + contract 2.1 (ไฟล์เสริม optional) · ฟีเจอร์: ตัวชี้วัดวารสาร D1–D5/D7, วิธีวิจัย E11, อะไรเปลี่ยนจากรอบก่อน E5, วางบทคัดย่อ R3/R4
+แผน: `docs/superpowers/plans/2026-10-19-p2-editors.md` · หน้าใหม่ 5 หน้า (`/journals`, `/journals/:id`, `/methods`, `/changes`, `/match`) + `pipeline/atlas/{journals,journal_metrics,journal_topics,registry,methods,matcher,diff}.py` + contract 2.1 · ฟีเจอร์: **มุมมองวารสาร** (ตัวชี้วัด D1–D5/D7: หัวข้อที่วารสารรับ, ขอบเขตที่เลื่อน, วารสารใกล้เคียง, ความครบของข้อมูล), วิธีวิจัย E11, **อะไรเปลี่ยนจากรอบก่อน** E5 (`diff.json` จาก snapshot ของรอบก่อนใน `state_dir`: หัวข้อใหม่ เปลี่ยนสถานะ รวม/แตก ตัวที่ขยับมากสุด), วางบทคัดย่อ R3/R4
 
 **ต่อยอดจาก P2:**
-- นำเข้าทะเบียนวารสารอย่างเป็นทางการของ TCI แทน `registry/journals.csv` (คำถามเจ้าของ Q2: ยืนยันว่าไม่ต้อง scrape หน้าวารสาร ThaiJO)
+- ทะเบียนวารสาร: ตอนนี้ทีมข้อมูลส่ง `journals.csv` มากับคลัง (corpus format 1.0) และ `atlas quarterly` ใช้ให้เอง — ยังเปิดอยู่: นำเข้าจากทะเบียนอย่างเป็นทางการของ TCI โดยตรง (คำถามเจ้าของ Q2: ยืนยันว่าไม่ต้อง scrape หน้าวารสาร ThaiJO)
 - ตั้ง `journals.inhouse_flag_share` เมื่อ TCI ยืนยันเกณฑ์สัดส่วนผู้แต่งในสถาบันเจ้าของ (คำถามเจ้าของ Q1; ตอนนี้ null = ไม่มีเครื่องหมาย)
-- ชุดตรวจความแม่นยำที่คนติดป้าย (สเปก "P2+"): วิธีวิจัย 200 บทความ, สังกัด/ผู้แต่งต่างประเทศ 500 บทความ — ยังไม่มีชุดนี้ ตัวเลข coverage ที่เผยแพร่คู่กับทุกสัดส่วนคือสิ่งที่ใช้แทนตอนนี้
-- ตรวจผู้แต่งต่างประเทศด้วย ROR ใน P3 (ตอนนี้ lexicon ประเทศเน้นความแม่น: ข้อความไทยระบุประเทศต่างประเทศเมื่อมีคำว่า "ประเทศ" เท่านั้น)
+- ชุดตรวจความแม่นยำที่คนติดป้าย (สเปก "P2+"): วิธีวิจัย 200 บทความ, สังกัด/ผู้แต่งต่างประเทศ 500 บทความ — ยังไม่มี ตัวเลข coverage ที่เผยแพร่คู่กับทุกสัดส่วนคือสิ่งที่ใช้แทนตอนนี้
+- ผู้แต่งต่างประเทศ: P3 ใช้ ROR ระบุตัวสถาบันแล้ว และ corpus format 1.0 มีช่อง `country` ต่อผู้แต่ง แต่คลัง Markdown ยังใช้ lexicon ประเทศที่เน้นความแม่น (ข้อความไทยนับเป็นต่างประเทศเมื่อมีคำว่า "ประเทศ" เท่านั้น)
 - Matcher แบบความหมาย (embedding) เป็นตัวเลือกภายหลัง — ตอนนี้เทียบถ้อยคำด้วย trigram และหน้าเว็บบอกข้อจำกัดนี้
-- ~~แยก `/atlas` และ `/brief` เป็น lazy route เพื่อลด entry chunk~~ (ทำแล้วใน P4 — entry ≈ 171 KB gzip จากงบ 180 KB หลังเพิ่มหน้า P4)
-- ~~แถบความใกล้เคียงใน `/match` ชิดขวาสุดบนจอกว้าง~~ (P4 จำกัดความกว้างรายการแล้ว)
+- ~~แยก `/atlas` และ `/brief` เป็น lazy route~~ (P4) · ~~แถบความใกล้เคียงใน `/match` ชิดขวาสุดบนจอกว้าง~~ (P4)
 
 ## P3 — ผู้บริหาร (เสร็จ, 2026-10-19)
 
-แผน: `docs/superpowers/plans/2026-10-19-p3-executives.md` · หน้าใหม่ 6 หน้า (`/institutions`, `/institutions/:id`, `/regions`, `/sdg`, `/global`, `/gaps`) + เมนูแบ่งกลุ่ม + ประโยคเชิงนโยบายในภาพรวม/brief + `pipeline/atlas/{places,institutions_ref,institutions,sdg,global_bench,gaps,export_exec}.py` + contract 2.2 · ฟีเจอร์: สถาบัน/เครือข่าย/แผนที่จังหวัด E6–E7 D6 R6, SDG และกรอบไทย E8, ไทยเทียบโลก E9, ช่องว่าง R5, ความเสี่ยงกระจุกตัว E10
+แผน: `docs/superpowers/plans/2026-10-19-p3-executives.md` · หน้าใหม่ 6 หน้า (`/institutions`, `/institutions/:id`, `/regions`, `/sdg`, `/global`, `/gaps`) + ประโยคเชิงนโยบายในภาพรวม/brief + `pipeline/atlas/{places,institutions_ref,institutions,sdg,global_bench,gaps,export_exec}.py` + contract 2.2 · ฟีเจอร์: สถาบัน/เครือข่ายความร่วมมือ/แผนที่จังหวัด E6–E7 D6 R6, SDG และกรอบไทย E8, ไทยเทียบโลก E9, ช่องว่าง R5, ความเสี่ยงกระจุกตัว E10
 
 **ต่อยอดจาก P3:**
-- ให้ LLM ยืนยันการจับคู่หัวข้อ → เป้าหมาย (งานแบบปิดเป็นดีฟอลต์; ตอนนี้ใช้ embedding หรือคำสำคัญเท่านั้น)
-- ~~วาดเครือข่ายความร่วมมือแบบ node-link~~ (web refresh: แผนภาพเส้นโค้ง `ArcNetwork` ใน `/institutions` พร้อมแท็บตารางคู่สถาบัน)
+- ให้ LLM ยืนยันการจับคู่หัวข้อ → เป้าหมาย (ปิดเป็นดีฟอลต์; ตอนนี้ใช้คำสำคัญหรือ embedding เท่านั้น)
 - KPI เทียบรอบก่อน (YoY, 4 ไตรมาสย้อนหลัง) ในภาพรวมเชิงนโยบาย
-- ~~ชิป SDG ในหน้าหัวข้อ~~ (ทำแล้วใน P4)
-- จังหวัดระดับวิทยาเขต (ตอนนี้ใช้จังหวัดของสำนักงานใหญ่ของสถาบัน)
+- จังหวัดระดับวิทยาเขต (ตอนนี้แต่ละสถาบันมีจังหวัดเดียว: จังหวัดที่พบบ่อยที่สุดในแถวสังกัดของสถาบันนั้น — ช่อง `province` ของ corpus format 1.0 ช่วยบอก — หรือจังหวัดของสำนักงานใหญ่)
 - ชุดตรวจความแม่นยำที่คนติดป้าย (สังกัด 500 บทความ, SDG 300 หัวข้อ) ตามสเปก "P2+"
-- ทะเบียนวารสารและสถาบันอย่างเป็นทางการของ TCI แทนไฟล์ที่ผู้ดูแลคัดเอง
-- ~~`check:bundle` บังคับ lazy chunk ของหน้าใหม่~~ (ตอนนี้ตรวจทุก `lazy(() => import('./pages/…' | './embed/…'))` ใน `App.tsx`)
-- ~~ตัวช่วยตั้งเกณฑ์ `sdg.min_similarity`~~ (P4: `atlas sdg-scores`)
+- ทะเบียนสถาบันอย่างเป็นทางการของ TCI แทน `institutions_aliases.csv` ที่ผู้ดูแลคัดเอง
+- ~~เครือข่ายความร่วมมือแบบ node-link~~ (web refresh: `ArcNetwork`) · ~~ชิป SDG ในหน้าหัวข้อ~~ (P4) · ~~`check:bundle` บังคับ lazy chunk~~ · ~~ตัวช่วยตั้งเกณฑ์ `sdg.min_similarity`~~ (P4: `atlas sdg-scores`)
 
 ## P4 — นักวิจัย (เสร็จ, 2026-10-23)
 
-แผน: `docs/superpowers/plans/2026-10-19-p4-researchers.md` · หน้าใหม่ (lazy): `/search`, `/galaxy`, `/keywords`, `/references`, กราฟฝัง `/embed/topic/:id` และ `/embed/emerging` + `pipeline/atlas/{references,search_index,kwtrends,export_research,feeds}.py` + contract 2.3 · ฟีเจอร์: ค้นหาบทความทั้งคลัง R2 (ดัชนีสถิตแบ่ง shard จากชื่อเรื่อง + คำสำคัญผู้แต่ง, export CSV/RIS/BibTeX), กาแล็กซีบทความ R8 (WebGL2, คลิกจุดเพื่อดูบทความ), แนวโน้มคำสำคัญ + อภิธานศัพท์ไทย↔อังกฤษ R7, แนวปฏิบัติการอ้างอิงรายวารสาร D7 + "ถูกอ้างใน TCI" R12 (เผยแพร่เมื่อ coverage ถึงเกณฑ์), RIS/BibTeX + "อ้างอิง Atlas นี้" ใน `/about` + `CITATION.cff` R9, ฟีด Atom ต่อรอบและต่อหัวข้อ R11 (`publish.site_url`), ชิป SDG ในหน้าหัวข้อ, `atlas sdg-scores`, `/atlas` และ `/brief` เป็น lazy · ไม่มีชื่อผู้แต่งและบทคัดย่อในไฟล์ใด (RIS/BibTeX ไม่มีผู้แต่ง — DOI ใช้หาการอ้างอิงเต็ม)
+แผน: `docs/superpowers/plans/2026-10-19-p4-researchers.md` · หน้าใหม่ (lazy): `/search`, `/galaxy`, `/keywords`, `/references`, กราฟฝัง `/embed/topic/:id` และ `/embed/emerging` + `pipeline/atlas/{references,search_index,kwtrends,export_research,feeds}.py` + contract 2.3 · ฟีเจอร์: ค้นหาบทความทั้งคลัง R2 (ดัชนี static แบ่ง shard จากชื่อเรื่อง + คำสำคัญผู้แต่ง, export CSV/RIS/BibTeX), กาแล็กซีบทความ R8 (WebGL2), แนวโน้มคำสำคัญ + อภิธานศัพท์ไทย↔อังกฤษ R7, แนวปฏิบัติการอ้างอิงรายวารสาร D7 + "ถูกอ้างใน TCI" R12, RIS/BibTeX + "อ้างอิง Atlas นี้" + `CITATION.cff` R9, ฟีด Atom ต่อรอบและต่อหัวข้อ R11, ชิป SDG ในหน้าหัวข้อ, `atlas sdg-scores` · ไม่มีชื่อผู้แต่งและบทคัดย่อในไฟล์ใด
 
 **ข้อตัดสินที่ต่างจากแผน:** RIS ใส่ชื่อเรื่องภาษาอังกฤษใน `TT` และชื่อวารสารใน `T2` (แผน Ruling 10 ให้ชื่อเรื่องภาษาที่สองอยู่ใน `T2`) เพื่อให้ Zotero/EndNote/Mendeley อ่านวารสารถูก · หน้า `/keywords` เทียบได้ครั้งละ 4 คำ (แผนเขียน ≤ 5) ให้ตรงกับสีเส้น 4 สี
 
 **ต่อยอดจาก P4:**
-- ปรับขนาด/ความทึบของจุดกาแล็กซี (`pointSize`/`pointAlpha` ใน `web/src/lib/galaxyGl.ts`) กับข้อมูลจริงรอบแรก — ค่าตั้งต้นทดสอบกับข้อมูลสังเคราะห์ ~600 จุดเท่านั้น (`docs/OPERATIONS.md` §17)
-- คำค้นกว้างใน `/search`: โหลด doc shard ≤ 6 ไฟล์ต่อคำค้น ผลที่กระจายมากกว่านั้นแสดงจากบางส่วน (หน้าบอกผู้อ่าน) — ทางเลือก: จัดเรียง ordinal ตามปี/หัวข้อแทน article_id หรือดัชนีชื่อเรื่องแยก เพื่อให้ผลอันดับต้นอยู่ใน shard น้อยลง
-- ยังไม่มีไฟล์ LICENSE ของโค้ด — `CITATION.cff` ระบุ CC-BY-4.0 เฉพาะข้อมูลที่เผยแพร่ เจ้าของต้องเลือกสัญญาอนุญาตของโค้ด
+- คำค้นกว้างใน `/search`: โหลด doc shard ≤ 6 ไฟล์ต่อคำค้น ผลที่กระจายมากกว่านั้นแสดงจากบางส่วน (หน้าบอกผู้อ่าน) — ทางเลือก: เรียง ordinal ตามปี/หัวข้อแทน article_id หรือทำดัชนีชื่อเรื่องแยก
 - การเรียงตาราง (คอลัมน์/ทิศ) ยังไม่อยู่ใน URL — ลิงก์ที่แชร์ได้ตัวกรองแต่ไม่ได้ลำดับการเรียง
-- HTML ออฟไลน์ไม่มีกราฟฝัง (`/embed/*`) ค้นหา และกาแล็กซี (ตั้งใจ: ขนาดไฟล์) — ต้องใช้เว็บออนไลน์
-- ตรวจ coverage ของรายการอ้างอิงกับคลังจริง — ถ้าต่ำกว่า `references.min_coverage` หน้า `/references` จะแสดงเหตุผลแทนข้อมูล (ปรับ parser ใน ingest ก่อนคิดลดเกณฑ์)
-- ~~ปรับภาษาให้เข้าใจง่ายและปรับภาพทั้งเว็บ (plain-language + visual refresh)~~ (เสร็จ — ดูหัวข้อถัดไป)
+- HTML ออฟไลน์ไม่มีกราฟฝัง ค้นหา และกาแล็กซี (ตั้งใจ: ขนาดไฟล์) — ต้องใช้เว็บออนไลน์
 
-## Web refresh — ภาษาง่าย + ภาพแบบ infographic (เสร็จ, 2026-10-23)
+## Web refresh — ภาษาง่าย + infographic (เสร็จ, 2026-10-23)
 
-แผน: `docs/superpowers/plans/2026-10-23-web-refresh.md` (branch `web-refresh`, 6 batch) · ฐาน Civic modern ของ `DESIGN.md` เดิม — เป็นการขัดเกลา ไม่ใช่โลกภาพใหม่ · **นิยามสถานะ, `definition_version` 3 และ data contract ไม่เปลี่ยน**
+แผน: `docs/superpowers/plans/2026-10-23-web-refresh.md` · **นิยามสถานะ, `definition_version` 3 และ data contract ไม่เปลี่ยน**
 
-- **พื้นฐาน:** type scale 6 ขั้น + ตัวเลข 2 ขั้น (`--fs-*`), จังหวะ `--sp-*`, ความยาวบรรทัด `--measure-*`; มือถือมีปุ่ม "เมนู" ปุ่มเดียว แถบแจ้ง (ทดลองใช้ + ข้อมูลตัวอย่าง) รวมเป็นบรรทัดเดียว h1 อยู่สูง; ส่วนท้าย "ทำอะไรต่อ" (อ้างอิง Atlas · ดาวน์โหลดข้อมูล · รอบก่อนหน้า · อ่านตัวเลขอย่างไร)
-- **ชิ้นส่วนกลาง:** `StatTile` + sparkline, แถบคำบรรยาย `Figure` (แผนภูมิ/ตาราง · วิธีอ่าน · CSV), คอลัมน์หลักของ `DataTable` (`primary`, `limit`), `CsvButton`, `SourceLine`, คำอธิบายศัพท์ `Term`/`InfoPop`, `HowNote`, `StatusLegend` แบบมีความหมายบรรทัดเดียว, แท็บสถานะเลื่อนข้างบนมือถือ, ทศนิยมแกนตามขั้น (แก้แกนซ้ำของ JournalPage)
-- **ภาษา:** ข้อความ 2 ชั้นทุกหน้า (ภาษาง่ายขึ้นด้วยตัวอย่าง → รายละเอียดหลัง "วิธีอ่าน"), ใช้ปีแทน "ช่วงฐาน/ช่วงล่าสุด", ชื่อสถานะไทย HOT = กำลังมาแรง, DECLINING = ลดลง, ชื่อเมนู "อ่านตัวเลขอย่างไร" (`/about`), "แผนที่บทความทุกเรื่อง" (`/galaxy`), "โอกาสที่ยังไม่มีใครทำ" (`/gaps`)
-- **หน้าแรกและหน้าหลัก:** การ์ด "3 เรื่องสำคัญรอบนี้", waffle สถานะ, brief เป็น infographic 1 หน้า (dot plot ของหัวข้อที่ขยับมากสุด), hero ของหน้าหัวข้อ + ตัวอย่างบทความ, ขั้นตอนใน `/emerging`, `/atlas` บนมือถือ
-- **ผู้บริหาร:** เครือข่ายความร่วมมือ `ArcNetwork`, `ColumnChart` รายปี, `MixBar`/`SplitBar`, แผนภาพโอกาส `OpportunityQuadrant` (`/global`, `/gaps`), `StatusFlow` + `LineageKey` (`/changes`), `GoalTiles` (`/sdg`), `BridgePairs`, ลายเส้นทแยงสำหรับจังหวัดที่ไม่มีข้อมูล + อันดับจังหวัดข้างแผนที่
-- **บรรณาธิการ/นักวิจัย:** `JournalScatter`, `PeriodMix` (ก่อน/หลังของวารสาร), `ChecklistBars`, `SmallMultiples` (`/compare`), แยก `/data` เป็น "ดาวน์โหลดง่าย ๆ" / "สำหรับนักพัฒนา", `/about` มีแผนภาพขั้นตอน + ทางตัดสินสถานะ, `/match` "ลองด้วยตัวอย่าง", `/search` แสดงหัวข้อที่ตรงก่อนบทความ, `/galaxy` มีหัวข้อแนะนำให้ลอง
-- **pipeline (9f1f50b):** ประโยคแม่แบบ (brief, ข้อสังเกตเชิงนโยบาย, คำอธิบายหัวข้อ, เหตุผลความกว้าง, บันทึกวิธีวิจัย, ฟีด) ใช้ภาษาง่าย + `narrative.jargon_in` ตรวจใน `test_release.py`; prompt `topic_narrative` / `executive_brief` / `topic_methods` มีกฎน้ำเสียง (รอบ `atlas llm` ถัดไปเขียนข้อความเหล่านี้ใหม่ — `docs/OPERATIONS.md` §6)
+- **พื้นฐาน:** type scale (`--fs-*`), จังหวะ `--sp-*`, ความยาวบรรทัด `--measure-*`; มือถือมีปุ่ม "เมนู" ปุ่มเดียว; แถบแจ้งรวมเป็นบรรทัดเดียว; ส่วนท้าย "ทำอะไรต่อ"
+- **ชิ้นส่วนกลาง:** `StatTile` + sparkline, แถบคำบรรยาย `Figure` (แผนภูมิ/ตาราง · วิธีอ่าน · CSV), `DataTable` (`primary`, `limit`), `CsvButton`, `SourceLine`, `Term`/`InfoPop`, `HowNote`, `StatusLegend`
+- **ภาษา:** ข้อความ 2 ชั้นทุกหน้า, ใช้ปีแทน "ช่วงฐาน/ช่วงล่าสุด", ชื่อสถานะไทย, ชื่อเมนู "อ่านตัวเลขอย่างไร" (`/about`), "แผนที่บทความทุกเรื่อง" (`/galaxy`), "โอกาสที่ยังไม่มีใครทำ" (`/gaps`)
+- **กราฟชุด infographic:** waffle สถานะ, dot plot ใน brief, `ArcNetwork`, `ColumnChart`, `MixBar`/`SplitBar`, `OpportunityQuadrant`, `StatusFlow` + `LineageKey`, `GoalTiles`, `BridgePairs`, `JournalScatter`, `PeriodMix`, `ChecklistBars`, `SmallMultiples` — คณิตการจัดวางแยกไฟล์ `.ts` ที่มี test
+- **pipeline:** ประโยคแม่แบบทุกชนิดใช้ภาษาง่ายและผ่าน `narrative.jargon_in` (ตรวจใน `test_release.py`); prompt `topic_narrative` / `executive_brief` / `topic_methods` มีกฎน้ำเสียง; ข้อความจาก LLM ผ่านทั้ง `grounding_error` และ `jargon_in` (ไม่ผ่าน = เขียนใหม่ 1 ครั้ง แล้วใช้ประโยคแม่แบบ)
+- ✅ **สัดส่วนหัวข้อรายปีของวารสาร** (contract 2.4 `JournalDetail.topic_years` → small multiples บน `/journals/:id`)
+- ✅ **เมนูแบบคำถาม:** ภาพรวม · สรุปผู้บริหาร · **อะไรกำลังมา** (5 เรื่องน่ารู้รอบนี้, สถานะหัวข้อ, แนวโน้มคำสำคัญ, อะไรเปลี่ยน, โอกาสที่ยังไม่มีใครทำ, หัวข้อน่าทำ) · **ใครทำเรื่องอะไร** (สถาบัน, วารสาร, วิธีวิจัย, การอ้างอิง) · **ไทยอยู่ตรงไหน** (งานวิจัยในจังหวัดของฉัน, แผนที่จังหวัด, ไทยเทียบโลก, SDG และแผนชาติ) · **หางานวิจัย** (ค้นหาบทความ, แผนที่หัวข้อ, แผนที่บทความทุกเรื่อง, เปรียบเทียบ, วางบทคัดย่อ) · ข้อมูลเปิด · อ่านตัวเลขอย่างไร — URL ไม่เปลี่ยน
 
-**ต่อยอดจาก web refresh:**
-- ~~สัดส่วนหัวข้อรายปีของวารสาร~~ ✅ ทำแล้ว 2026-10-23: contract 2.4 `JournalDetail.topic_years` (`journals.year_mix_topics` หัวข้อใหญ่ ≤ 4 + อื่น ๆ, ปีที่บทความ < `year_mix_min_articles` เว้นว่าง) → small multiples บนหน้า `/journals/:id`
-- ~~เมนูแบบคำถาม~~ ✅ ทำแล้ว 2026-10-23 (เจ้าของสั่ง): ภาพรวม · สรุปผู้บริหาร · **อะไรกำลังมา** (สถานะหัวข้อ, แนวโน้มคำสำคัญ, อะไรเปลี่ยน, โอกาสที่ยังไม่มีใครทำ) · **ใครทำเรื่องอะไร** (สถาบัน, วารสาร, วิธีวิจัย, การอ้างอิง) · **ไทยอยู่ตรงไหน** (แผนที่จังหวัด, ไทยเทียบโลก, SDG และแผนชาติ) · **หางานวิจัย** (ค้นหาบทความ, แผนที่หัวข้อ, แผนที่บทความทุกเรื่อง, เปรียบเทียบ, วางบทคัดย่อ) · ข้อมูลเปิด · อ่านตัวเลขอย่างไร — URL ไม่เปลี่ยน
-- ช่องของ waffle เส้นโค้งของเครือข่าย และแท่งของ column chart โฟกัสด้วยแป้นพิมพ์ไม่ได้ (ตั้งใจ: แท็บตารางคือทางของแป้นพิมพ์และ screen reader) — ถ้าต้องการสำรวจบนกราฟด้วยแป้นพิมพ์ต้องออกแบบ roving focus
-- ปรับ `/galaxy` (ขนาด/ความทึบของจุด, หัวข้อแนะนำ) และ `/regions` (ชั้นสี quantile, ลายเส้นทแยง) กับข้อมูลจริงรอบแรก — ค่าตั้งต้นทดสอบกับข้อมูลสังเคราะห์
-- ~~ใช้ `narrative.jargon_in` ตรวจข้อความจาก LLM~~ ✅ ทำแล้ว (da9daeb): ข้อความ LLM ที่มีคำต้องห้าม/รหัสสถานะถูกส่งกลับเขียนใหม่ 1 ครั้ง แล้วใช้ประโยคแม่แบบ — ดูอัตรา fallback ในรอบ LLM จริงรอบแรก
-- `prompts/topic_label.th.md` ไม่ได้แก้โดยตั้งใจ — แก้ template = `prompt_version` เปลี่ยน = ตั้งชื่อทุกหัวข้อใหม่และเสียค่า LLM ทั้งชุด; ทำเมื่อมีเหตุผลอื่นให้ตั้งชื่อใหม่อยู่แล้ว (เช่น refit รายปี)
+## Redesign + พร้อมข้อมูลจริง (เสร็จ, 2026-10-23)
 
-## งานแนะนำลำดับถัดไป (เรียงตาม value/effort)
+**เว็บ**
+- **โลกดีไซน์ "ข่าวข้อมูล" (data explainer)** แทน Civic modern (เจ้าของเลือก): หน้าแรกเป็นเรื่องเล่าข้อมูล (คำถามเป็น h1 · คำตอบ 1 ประโยค · ตัวเลข 1 ตัว · กราฟเส้นที่เน้นได้), แถบบนสีขาว + โลโก้ TCI, ส่วนท้ายมีโลโก้ TCI · NECTEC · สวทช., palette ใหม่ (น้ำเงิน/ส้ม TCI), **ตัดโหมดมืด** — กฎอยู่ใน `DESIGN.md`
+- **หน้าใหม่:** `/story` (5 เรื่องน่ารู้รอบนี้ พร้อมภาพสี่เหลี่ยมสำหรับแชร์ที่วาดในเบราว์เซอร์), `/ideas` (หัวข้อน่าทำรายสาขา + คู่หัวข้อที่น่าเชื่อม), `/province` และ `/province/:code` (งานวิจัยในจังหวัดของฉัน — ใช้ contract 2.5 หัวข้อเด่นรายจังหวัด) · brief อยู่ในเลย์เอาต์ของเว็บ (พิมพ์แล้วซ่อนหัว/เมนู)
+- **SEO และการแชร์:** canonical, Open Graph/Twitter card, schema.org WebSite + Organization + Dataset, `robots.txt`, `sitemap.xml` จาก `ATLAS_SITE_URL` (`web/vite.config.ts`); เว็บสาธิตและ `offline-template.html` เป็น noindex
+- **พร้อมข้อมูลขนาดจริง** (~1,500 หัวข้อ, ~2,000 วารสาร, ~10,000 สถาบัน): ตารางและรายการมีเพดานและบอกจำนวนที่ตรง/ที่แสดง (`DataTable` `limit`, `ListMore`, `useCapped`), waffle/flow ปรับสเกล, LRU cache ของ doc shard, มือถือแสดงตาราง 10 แถว
+- **ไม่มีหน้าขาว:** error boundary ครอบทั้งแอป พื้นที่หน้า และกราฟฝัง (chunk หายหลัง deploy = reload ให้ 1 ครั้ง); ลิงก์หัวข้อในพาดหัวตัดที่ขอบคำไทย; entry chunk ≈ 167 KB gzip (งบ 180 KB)
 
-### 🟢 ทำได้เร็ว คุ้ม (1–3 วัน)
+**pipeline และการปฏิบัติการ**
+- **Corpus format 1.0** (JSON Lines, `pipeline/atlas/schema/corpus.py` + `sources/corpus_jsonl.py`, คู่มือ `docs/corpus/README.md`) + `atlas corpus schema` / `atlas corpus convert` (แปลงคลัง .md โดยคง id เดิม)
+- **Companion files** (`journals.csv`, `institutions_aliases.csv`, `province_population.csv`, `ror.zip`) วางข้างคลังแล้วถูกใช้ให้เอง; `atlas profile` ตรวจด้วยตัวอ่านเดียวกับ pipeline และเขียน CSV รายการสังกัดที่ยังไม่มีในตาราง alias
+- **รอบรายไตรมาสด้วยคำสั่งเดียว** `atlas quarterly` (`scripts/quarterly_run.sh` / `.cmd`): config → บันทึกคลัง → profile → embed → LLM (ต้องยืนยันก่อนจ่าย) → run → validate → build เว็บ → publish → แพ็กพร้อมอัปโหลด (`runs/<release>/`, `deploy/<release>/`) — รันซ้ำ = ทำต่อ
+- **ด่าน PDPA** (`pipeline/atlas/privacy.py`): `atlas validate`/`publish` หาอีเมล ORCID และชื่อผู้แต่งที่ปนในชื่อหน่วยงานในทุกไฟล์ที่จะเผยแพร่ (ยกเว้นได้ด้วย `validation.privacy_allow`)
+- **เว็บไม่โตทุกไตรมาส:** รอบเก่าบนเว็บถูกลดขนาด (`publish.keep_full_releases`) แต่ยังเก็บไฟล์ที่ฟีดและการเทียบรอบใช้ ปลอดภัยต่อ rollback; รอบก่อนที่หายจากเว็บถูกกู้จาก `output/data/`; HTML ออฟไลน์มีงบ `export.offline_max_mb`
+- **ขึ้นข้อมูลจริงบน GitHub Pages:** `scripts/package_release.sh` สร้าง GitHub Release ที่แนบ `atlas-site-data-<release>.zip` แล้ว workflow Pages (กดรันเอง) วางข้อมูลนั้น และปฏิเสธข้อมูลตัวอย่าง
+- อ่านเฉพาะคอลัมน์ที่ต้องใช้จากตารางใหญ่ (รองรับคลัง 500K บทความ)
 
-1. **Search box บนแผนที่** — ค้นหาหัวข้อ/คำสำคัญ (ไทย+อังกฤษ) แล้วไฮไลต์บนแผนที่
-   - ทำที่ `web/` ล้วน (filter `data.nodes` ตาม `th/en/keywords`) ไม่ต้องแตะ pipeline
-2. **Export รูป/ข้อมูลจากเว็บ** — ปุ่ม download PNG ของแผนที่ + CSV ของรายการ emerging
-   - `svg → canvas → png` ฝั่ง client ล้วน
-3. **Topic detail เจาะลึกขึ้น** — แสดง top journals, ตัวอย่างชื่อบทความล่าสุด (ต้องเพิ่มฟิลด์ใน export.py — มี metadata พร้อมอยู่แล้ว)
-4. **โหมดเปรียบเทียบ 2 หัวข้อ** — overlay เส้นกราฟ 2 เส้นในแผง detail
+## งานที่ยังเปิดอยู่
 
-### 🟡 ปานกลาง (1–2 สัปดาห์)
+### ต้องปรับกับข้อมูลจริงรอบแรก (ค่าตั้งต้นทดสอบกับข้อมูลสังเคราะห์)
 
-5. **Map stability ข้ามรอบรัน** — ตอนนี้ตำแหน่ง node เปลี่ยนทุกไตรมาส ผู้ใช้จำแผนที่เดิมไม่ได้
-   - วิธี: init UMAP 2D ของรอบใหม่ด้วยตำแหน่งรอบก่อน (เฉพาะ topic ที่ match ได้ด้วย centroid similarity ≥ 0.7)
-   - แตะ `pipeline/atlas/layout.py` + เก็บ layout เดิมใน `work/prev/`
-6. **Journal view** — หน้า/โหมดแสดงวารสาร: วารสาร X มีบทความกระจายใน topic ไหนบ้าง (ใช้ `journal_name` ที่ ingest เก็บไว้)
-   - เพิ่ม aggregation step ใน pipeline + หน้าใหม่ในเว็บ
-7. **Diff รอบรัน ("อะไรเปลี่ยนตั้งแต่ไตรมาสก่อน")** — หัวข้อใหม่, หัวข้อที่เปลี่ยนสถานะ, mover ที่ score ขึ้นแรงสุด
-   - ข้อมูล prev centroids มีอยู่แล้ว; เพิ่มการเก็บ snapshot status รอบก่อน + section เล็กในเว็บ
-8. **Emerging narrative อัตโนมัติ** — ให้ LLM เขียนย่อหน้าสรุป "ทำไมหัวข้อนี้ emerging" จาก metric + ตัวอย่างบทความ (prompt ใช้งานจริงที่ `prompts/topic_narrative.th.md` + `prompts/executive_brief.th.md`)
+ไม่ใช่การเปลี่ยนนิยามสถานะ — แต่ถ้าการปรับกระทบตัวเลขที่ผู้บริหารใช้ ให้ถามเจ้าของก่อน
 
-9. **URL แบบ path เพื่อให้ Google เก็บทุกหน้า** — เว็บใช้ HashRouter อยู่ Google จึงเก็บได้แค่หน้าแรก
-   - วิธี: เวอร์ชันบนเว็บใช้ BrowserRouter โดยตั้ง `basename` เป็นที่อยู่ย่อยของ Pages, เพิ่ม `404.html` ที่ส่งต่อไปหน้าเดิม และให้ sitemap สร้างรายการหน้า (หัวข้อ จังหวัด วารสาร) จาก `data/latest.json` ตอน publish
-   - ต้องทำ title/description แยกต่อหน้า ส่วน HTML ออฟไลน์และกราฟฝังยังใช้ hash ได้ตามเดิม (ลิงก์ `#/…` เดิมต้องเปลี่ยนทางไปหน้าใหม่ได้)
+- **`clustering.merge_similarity`** (ตอนนี้ 0.8): ดูคู่ที่อาจซ้ำใน `05_merge_suggestions` และรายงาน review — ถ้าซ้ำเยอะ ลดค่าในรอบ refit ถัดไป (ไม่รวมหัวข้ออัตโนมัติกลางปี)
+- **`search.min_df`** (ตอนนี้ 1 = ทุกคำ): ถ้า `atlas validate` เตือนว่า `search/vocab.json` ใหญ่ (เบราว์เซอร์โหลดทั้งไฟล์ก่อนค้นครั้งแรก) ให้ตั้ง 2
+- **ความแม่นของคำสำคัญ SDG** (`sdg.method: lexical`, คำใน `pipeline/atlas/data/frameworks.yaml`, `min_article_share`): สุ่มตรวจหัวข้อที่จับคู่ได้ ตัดคำที่กว้างเกิน; จะเปลี่ยนเป็น `embedding` ต้องตั้ง `sdg.min_similarity` ด้วย `atlas sdg-scores` ก่อน
+- **ชื่อสถาบันที่เขียนเป็นตัวย่ออย่างเดียว** (เช่น "KKU"): ROR ไม่จับคู่ตัวย่อโดยตั้งใจ (กำกวม) จึงกลายเป็นสถาบันแยกจากชื่อเต็ม — ต้องเติมในตาราง alias (`atlas profile` ทำรายการที่พบบ่อยให้)
+- **ด่าน PDPA:** ดูว่ามีชื่อหน่วยงานที่บังเอิญตรงกับชื่อผู้แต่งไหม (คนตรวจแล้วจึงใส่ `validation.privacy_allow`)
+- **รายการอ้างอิง:** ตรวจ coverage กับคลังจริง — ถ้าต่ำกว่า `references.min_coverage` หน้า `/references` แสดงเหตุผลแทนข้อมูล (ปรับตัวอ่านใน ingest ก่อน ห้ามลดเกณฑ์เพื่อให้หน้าแสดงผล)
+- **ภาพ:** ขนาด/ความทึบของจุดใน `/galaxy` (`pointSize`/`pointAlpha` ใน `web/src/lib/galaxyGl.ts`), หัวข้อแนะนำให้ลอง, ชั้นสี quantile และลายเส้นทแยงของ `/regions` — แก้โค้ดเว็บแล้ว build ใหม่ครั้งเดียว
+- **LLM:** ดูอัตราที่ข้อความตกไปใช้ประโยคแม่แบบ (ไม่ผ่าน grounding/jargon) ในรอบ `atlas llm` จริงรอบแรก — รัน `--dry-run` ก่อนเสมอ
 
-### 🔵 ใหญ่ ต้องวางแผน (เดือนขึ้นไป)
+### ฟีเจอร์และงานโครงสร้าง
 
-9. **Author / affiliation network** — metadata มี authors+affiliations อยู่แล้ว; ทำ co-authorship graph ต่อ topic (ใครคุยกับใครในเรื่องนี้)
-10. **Co-citation edges** — ถ้า export TCI มี references จะได้ edge คุณภาพสูงกว่า semantic similarity
-11. **API backend + auth** — ถ้าต้องการ saved views, alerts ("แจ้งเตือนเมื่อหัวข้อ X เข้าเกณฑ์ EMERGING"), หรือข้อมูลที่ห้าม public
-    - แนวทาง Kimi platform: backend-building (Hono + tRPC + Drizzle + MySQL, Kimi login ในตัว)
-12. **ลงทะเบียน incremental** — ตอนนี้รันทั้ง corpus ใหม่ทุกไตรมาส (200K เรื่องยังสบาย); ถ้าโตเป็นล้านเรื่องค่อยทำ online clustering
+1. **URL แบบ path เพื่อให้ search engine เก็บทุกหน้า** — เว็บใช้ HashRouter และ `sitemap.xml` มีแค่หน้าแรก
+   - วิธี: เวอร์ชันออนไลน์ใช้ BrowserRouter โดยตั้ง `basename` เป็นที่อยู่ย่อยของ Pages, เพิ่ม `404.html` ที่ส่งต่อไปหน้าเดิม และให้ `atlas publish` สร้าง sitemap รายหน้า (หัวข้อ จังหวัด วารสาร สถาบัน) จาก `data/latest.json`
+   - ต้องมี title/description แยกต่อหน้า; HTML ออฟไลน์และกราฟฝังยังใช้ hash ได้ (ลิงก์ `#/…` เดิมต้องเปลี่ยนทางไปหน้าใหม่ได้)
+2. **ไฟล์ LICENSE ของโค้ด** — `CITATION.cff` ระบุ CC-BY-4.0 เฉพาะข้อมูลที่เผยแพร่ เจ้าของต้องเลือกสัญญาอนุญาตของโค้ด
+3. **ดาวน์โหลดรูปแผนที่หัวข้อเป็น PNG** — ตอนนี้มี CSV ทุกกราฟ/ตาราง และภาพแชร์ของ `/story` แต่แผนที่ `/atlas` ยังไม่มีปุ่มบันทึกรูป
+4. **สำรวจบนกราฟด้วยแป้นพิมพ์** — ช่อง waffle เส้นโค้งเครือข่าย และแท่ง column chart โฟกัสไม่ได้ (ตั้งใจ: แท็บตารางคือทางของแป้นพิมพ์และ screen reader) ถ้าต้องการต้องออกแบบ roving focus
+5. **ตั้งชื่อหัวข้อใหม่ด้วยภาษาง่าย** — `prompts/topic_label.th.md` ไม่ได้แก้โดยตั้งใจ (แก้ template = `prompt_version` เปลี่ยน = ตั้งชื่อทุกหัวข้อใหม่และเสียค่า LLM ทั้งชุด) ทำพร้อมรอบ refit รายปี
+6. **Co-citation edges** — รายการอ้างอิงถูก parse แล้ว (P4 ใช้ทำ D7/R12) แต่ยังไม่ได้ใช้เป็น edge ระหว่างหัวข้อ ซึ่งอาจมีคุณภาพดีกว่าความคล้ายเชิงความหมาย
+7. **API backend + auth** — ถ้าต้องการ saved views, การแจ้งเตือน ("แจ้งเมื่อหัวข้อ X เข้าเกณฑ์กำลังเกิดใหม่"), ค้นหาบทคัดย่อเต็ม หรือข้อมูลที่ห้ามเปิดสาธารณะ (ตอนนี้ฟีด Atom ต่อหัวข้อใช้แทนการแจ้งเตือนได้บางส่วน)
+8. **Clustering แบบ incremental เต็มรูป** — ตอนนี้ไตรมาสปกติ assign บทความใหม่เข้าหัวข้อเดิม (`topics.mode: auto`) และ embedding ไม่ฝังซ้ำ แต่ refit ยังทำทั้งคลัง; ถ้าคลังโตเป็นหลายล้านเรื่องค่อยทำ online clustering
 
-## แนวคิดเชิงนโยบายที่ข้อมูลพร้อมจะตอบ (เสนอผู้บริหารได้เลย)
+## แนวคิดเชิงนโยบายที่ข้อมูลพร้อมจะตอบ
 
-- **ช่องว่างงานวิจัย** — คู่ topic ที่อยู่ใกล้กันเชิงความหมายแต่ไทยทำน้อยทั้งคู่ (หางยาวของแผนที่)
-- **จับคู่งานวิจัยกับวารสาร** — บรรณาธิการเห็นว่าหัวข้อ emerging ไปลงวารสารไหน → ตัดสินใจเปิด section ใหม่
-- **ภาพรวมระดับประเทศรายปี** — สถิติ share ของแต่ละกลุ่มเทียบปี = วัตถุดิบรายงานนโยบาย
-- **Early warning** — topic ที่ DECLINING หลายไตรมาสติดในสาขาสำคัญของประเทศ
+- **ช่องว่างงานวิจัย** — มีแล้วใน `/gaps` และ `/ideas` (หัวข้อที่โลกโตแต่ไทยยังเล็ก, หัวข้อที่กำลังเกิดแต่มีสถาบันทำน้อย, คู่หัวข้อที่น่าเชื่อม)
+- **จับคู่งานวิจัยกับวารสาร** — มีแล้วใน `/journals/:id` (หัวข้อที่วารสารรับ, สัดส่วนรายปี, โอกาสเปิดฉบับพิเศษ)
+- **ภาพรวมระดับประเทศรายปี** — share ของแต่ละกลุ่มเทียบปี + KPI ใน `/overview` และ `/brief`; ยังขาด KPI เทียบรอบก่อนแบบ 4 ไตรมาสย้อนหลัง (ดูต่อยอดจาก P3)
+- **Early warning** — หัวข้อที่ลดลงหลายไตรมาสติดในสาขาสำคัญของประเทศ: ข้อมูลรายรอบมีอยู่ใน `diff.json` ทุกรอบ แต่ยังไม่มีมุมมองข้ามหลายไตรมาส
 
 ## สิ่งที่ตั้งใจไม่ทำ (และเหตุผล)
 
@@ -148,3 +144,9 @@ ID หัวข้อถาวร + lineage · กลุ่มตาม OpenAlex
 | Login/user accounts (ตอนนี้) | เป็นเครื่องมือสาธารณะ — เพิ่มภายหลังได้ถ้าต้องการ saved views |
 | ทำนายยาว > 2 ปี | ข้อมูลมี backfill lag — ทำนายยาวจะสร้างความมั่นใจเทียม |
 | Score เทียบข้ามรอบรัน | score เป็น percentile ภายในรอบโดยออกแบบ — ใช้มิติดิบถ้าจะเทียบข้ามรอบ |
+| ข้อมูลระดับบุคคล (ชื่อผู้แต่ง, เครือข่ายผู้แต่งร่วม, อันดับนักวิจัย) | PDPA — เผยแพร่เฉพาะตัวเลขรวมและระดับสถาบัน; เครือข่ายความร่วมมือทำในระดับสถาบันแทน |
+| เผยแพร่บทคัดย่อหรือข้อความรายการอ้างอิง | สิทธิ์ในเนื้อหา + PDPA — ค้นหาใช้ชื่อเรื่องและคำสำคัญ, "วางบทคัดย่อ" เก็บแค่น้ำหนัก trigram |
+| เรียก API/LLM หรือโหลดของจากเซิร์ฟเวอร์ภายนอกตอนเปิดเว็บ | ความเป็นส่วนตัวของผู้อ่าน, ไม่มีค่าใช้จ่ายต่อการเข้าชม, ทำงานออฟไลน์ได้ |
+| รวมหัวข้อซ้ำอัตโนมัติ | LLM เสนอคู่ที่อาจซ้ำเท่านั้น — คนตัดสินผ่าน overrides หรือรอ refit (ID และ lineage ต้องนิ่ง) |
+| โหมดมืด | เจ้าของเลือกโลกดีไซน์ "ข่าวข้อมูล" ธีมสว่างธีมเดียว (2026-10-23) |
+| ลดเกณฑ์ `references.min_coverage` / `min_internal_matches` เพื่อให้หน้าแสดงผล | coverage ต่ำทำให้ตัวเลขรายวารสารหลอกตา — แก้ที่ตัวอ่านหรือถามเจ้าของข้อมูล |

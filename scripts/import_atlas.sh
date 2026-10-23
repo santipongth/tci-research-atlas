@@ -14,6 +14,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="${1:-$ROOT/pipeline/config.yaml}"
+CONFIG="$(cd "$(dirname "$CONFIG")" && pwd)/$(basename "$CONFIG")"   # absolute: the script changes directory below
 
 cd "$ROOT/web"
 [[ -d node_modules ]] || npm ci

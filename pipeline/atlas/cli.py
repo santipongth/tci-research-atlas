@@ -613,7 +613,11 @@ def review_import_cmd(
     from atlas.config import load_config
     from atlas.review import import_review
 
-    r = import_review(load_config(config), file)
+    try:
+        r = import_review(load_config(config), file)
+    except ValueError as e:                        # e.g. labeling.overrides_path not set, or a malformed CSV
+        typer.echo(f"[review] {e}", err=True)
+        raise typer.Exit(2) from e
     typer.echo(f"{r['applied']} corrections from {r['reviewed']} reviewed topics → {r['path']} "
                f"({r['overrides_total']} overrides in total; they apply from the next label step)")
 
