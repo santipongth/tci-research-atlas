@@ -26,6 +26,29 @@ function atSyllableEdge(text: string, start: number, end: number): boolean {
   return !LEADING.includes(text.charAt(end - 1))
 }
 
+const words = typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter('th', { granularity: 'word' }) : null
+
+/**
+ * Offsets where a word starts or ends (Intl.Segmenter's Thai dictionary, plus every switch between Thai and other
+ * script: ICU keeps "และAI" as one word); null when the browser has no Segmenter.
+ */
+function wordEdges(text: string): Set<number> | null {
+  if (!words) return null
+  const edges = new Set<number>([text.length])
+  for (const s of words.segment(text)) edges.add(s.index)
+  for (let k = 1; k < text.length; k++) if (THAI.test(text.charAt(k - 1)) !== THAI.test(text.charAt(k))) edges.add(k)
+  return edges
+}
+
+/**
+ * A Thai name links only when it starts and ends on word edges: "การปลูกข้าว" is not linked inside "การปลูกข้าวโพด",
+ * nor "การจัดการน้ำ" inside "การจัดการน้ำมันรั่วไหล". Without Segmenter the syllable rule above is the fallback.
+ */
+function thaiNameFits(text: string, edges: Set<number> | null, start: number, end: number): boolean {
+  if (!atSyllableEdge(text, start, end)) return false
+  return edges === null || (edges.has(start) && edges.has(end))
+}
+
 export function segmentHeadline(text: string, topics: readonly Named[], opts: { figures?: boolean; minNameLength?: number } = {}): Segment[] {
   const figures = opts.figures ?? true
   const minLength = opts.minNameLength ?? 4
@@ -33,11 +56,12 @@ export function segmentHeadline(text: string, topics: readonly Named[], opts: { 
     .flatMap((t) => [t.th, t.en].filter((n) => n && n.length >= (THAI.test(n) ? Math.max(minLength, MIN_THAI_NAME) : minLength)).map((name) => ({ id: t.id, name: name.toLowerCase(), thai: THAI.test(name) })))
     .sort((a, b) => b.name.length - a.name.length)
   const lower = text.toLowerCase()
+  const edges = names.some((n) => n.thai) ? wordEdges(lower) : null
   const taken: { start: number; end: number; id: string }[] = []
   for (const { id, name, thai } of names) {
     for (let from = 0, i = lower.indexOf(name); i >= 0; from = i + name.length, i = lower.indexOf(name, from)) {
       const end = i + name.length
-      if (thai && !atSyllableEdge(lower, i, end)) continue
+      if (thai && !thaiNameFits(lower, edges, i, end)) continue
       if (!taken.some((r) => i < r.end && end > r.start)) taken.push({ start: i, end, id })
     }
   }

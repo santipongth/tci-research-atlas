@@ -1,5 +1,5 @@
 import { TopicName } from '../components/TopicName'
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { CiWhisker } from '../components/CiWhisker'
 import { StatusGlyph } from '../components/StatusGlyph'
@@ -22,7 +22,7 @@ export interface ForestGroup {
   /** topics of this status without a confidence interval (drawn as text rows when shown) */
   noCi?: number
   /** a pointer past the rows shown: a link to the full list, or a button that expands this group in place */
-  more?: { to?: string; onClick?: () => void; label: string }
+  more?: { to?: string; onClick?: () => void; label: string; /** the in-place button's state (aria-expanded) */ expanded?: boolean }
 }
 
 /** Growth-axis limits: a share cannot fall faster than −100 %/yr; an interval beyond +300 %/yr runs to the edge as an arrow (its numbers are beside it). */
@@ -48,6 +48,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
   wide?: boolean
 }) {
   const [plotRef, { width }] = useElementSize<HTMLDivElement>()
+  const listId = useId()
   const { t, name } = useI18n()
   const dom = domain ?? dataDomain(groups.flatMap((g) => g.rows.flatMap((tp) => [tp.metrics.share_growth_lo, tp.metrics.share_growth_hi, tp.metrics.share_growth])), [0, refValue], CAP)
   const x = linear(dom[0], dom[1], 6, Math.max(width, 12) - 6)
@@ -82,7 +83,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
             {g.rule ? <p className="fr-grule">{g.rule}</p> : null}
           </div>
           {g.note}
-          <ul className="fr-list">
+          <ul className="fr-list" id={`${listId}-${g.status}`}>
             {g.rows.map((tp) => {
               const ci = hasCi(tp)
               return (
@@ -116,7 +117,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
           </ul>
           {g.more ? (
             <p className="fr-more">
-              {g.more.to ? <Link to={g.more.to}>{g.more.label}</Link> : <button type="button" className="btn-secondary" onClick={g.more.onClick}>{g.more.label}</button>}
+              {g.more.to ? <Link to={g.more.to}>{g.more.label}</Link> : <button type="button" className="btn-secondary" aria-expanded={g.more.expanded ?? false} aria-controls={`${listId}-${g.status}`} onClick={g.more.onClick}>{g.more.label}</button>}
             </p>
           ) : null}
         </div>

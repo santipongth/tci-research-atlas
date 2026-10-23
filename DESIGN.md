@@ -184,8 +184,8 @@ components:
     rounded: "{rounded.pill}"
     padding: "1px 10px"
   notice-tag-sample:
-    backgroundColor: "{colors.tag-watch}"
-    textColor: "{colors.tag-watch-ink}"
+    backgroundColor: "#e4e6ee"
+    textColor: "{colors.ink-secondary}"
   stat-value:
     textColor: "{colors.ink}"
     typography: "{typography.numeric-tile}"
@@ -337,7 +337,7 @@ White top bar with a hairline bottom, never a band: the TCI logo (48 px tall; 40
 **Page names** are plain words, not method words (`web/src/strings/*` `nav.*`): top-level ภาพรวม · สรุปผู้บริหาร … ข้อมูลเปิด · **อ่านตัวเลขอย่างไร** / How to read the numbers (`/about`). Between them the menu is grouped by **the question a reader brings, not by who they are** (owner's ruling 2026-10-23): **อะไรกำลังมา** / What's coming — สถานะหัวข้อ · แนวโน้มคำสำคัญ · อะไรเปลี่ยน · **โอกาสที่ยังไม่มีใครทำ** / Untapped opportunities (`/gaps`); **ใครทำเรื่องอะไร** / Who works on what — สถาบัน · วารสาร · วิธีวิจัย · การอ้างอิง; **ไทยอยู่ตรงไหน** / Where Thailand stands — แผนที่จังหวัด · ไทยเทียบโลก · SDG และแผนชาติ; **หางานวิจัย** / Find research — ค้นหาบทความ · แผนที่หัวข้อ · **แผนที่บทความทุกเรื่อง** / Map of every article (`/galaxy`) · เปรียบเทียบ · วางบทคัดย่อ. Group menus (desktop) are a disclosure pattern, not an ARIA menu: a white 12 px floating panel; each item is the page name over one plain Meta hint line (`nav.hint.*`, Ink Secondary, the link's `aria-describedby`) saying the question the page answers; the current item sits on TCI Blue Soft; a menu that would cross the right edge opens leftwards (`.is-flipped`, measured on open). Routes did not change.
 
 ### Notice line
-One quiet line on a Surface strip under the navigation (a `<details>`): one pill tag — "รุ่นทดลอง" on TCI Blue Soft, or the WATCH-tinted "ข้อมูลตัวอย่าง" on test releases (visible on every page) — one short sentence and a "รายละเอียด" toggle with a chevron; the full texts open beneath. The data error banner (`role="alert"`) is separate and never folded: HOT tag background and ink, 8 px radius, a bold reason and what to do.
+One quiet line on a Surface strip under the navigation (a `<details>`): one pill tag — "รุ่นทดลอง" on TCI Blue Soft, or "ข้อมูลตัวอย่าง" on test releases as a quiet neutral grey pill with secondary ink (`--tag-sample-*`; the owner asked for a quieter label; never a status tint; visible on every page) — one short sentence and a "รายละเอียด" toggle with a chevron; the full texts open beneath. Under 640 px the strip keeps one line (tag + toggle) and the short sentence becomes the first line of the opened text. The data error banner (`role="alert"`) is separate and never folded: HOT tag background and ink, 8 px radius, a bold reason and what to do.
 
 ### Buttons
 - **Primary:** TCI blue fill, white 700 Meta text, 8 px radius, 44 px; hover TCI Blue Deep.

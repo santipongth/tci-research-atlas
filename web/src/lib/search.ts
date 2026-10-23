@@ -87,12 +87,14 @@ export function searchTopics(index: SearchIndex, query: string, limit = 10): Sea
 
 /**
  * Topics for the words of an article search (/search): the whole query first, then each word the article index knew
- * (so "ผู้สูงอายุควอนตัม" still finds the ageing topics), best score per topic, at most `limit`.
+ * (so "ผู้สูงอายุควอนตัม" still finds the ageing topics), best score per topic, at most `limit`. When the article search
+ * left words out as too common (`ignored`, e.g. "การ"), the whole query is not used: it would match topics through
+ * exactly the words the page says it did not search on.
  */
-export function topicsForWords(index: SearchIndex, query: string, words: readonly string[], limit = 5): SearchHit[] {
+export function topicsForWords(index: SearchIndex, query: string, words: readonly string[], limit = 5, ignored: readonly string[] = []): SearchHit[] {
   const best = new Map<string, SearchHit & { order: number }>()
   let order = 0
-  for (const q of [query, ...words]) {
+  for (const q of ignored.length ? words : [query, ...words]) {
     for (const h of searchTopics(index, q, limit)) {
       const prev = best.get(h.id)
       if (!prev || h.score > prev.score) best.set(h.id, { ...h, order: prev?.order ?? order++ })

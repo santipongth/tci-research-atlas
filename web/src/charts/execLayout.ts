@@ -12,7 +12,11 @@ const cp = (n: number) => String.fromCodePoint(n)
 /** Combining marks: Latin diacritics, Thai above/below vowels and tone marks. */
 const COMBINING = new RegExp(`[${cp(0x300)}-${cp(0x36f)}${cp(0xe31)}${cp(0xe34)}-${cp(0xe3a)}${cp(0xe47)}-${cp(0xe4e)}]`)
 
-/** Approximate rendered width of `text` at `px` (Sarabun): combining Thai marks take no width. */
+/**
+ * Approximate rendered width of `text` at `px` (Sarabun): combining Thai marks take no width. A DOM-free estimate for
+ * the pure layouts here and their tests (arc apex labels, placeLabels' default); components pass the canvas
+ * measurement of lib/measure.ts (`measure`) wherever a real label is placed.
+ */
 export function textWidth(text: string, px: number): number {
   let w = 0
   for (const ch of text) {
@@ -60,6 +64,22 @@ export interface ArcLayout {
   height: number
   /** links not drawn because an end is outside the top `maxNodes` */
   hidden: number
+}
+
+/**
+ * Which institutions the arc diagram draws: the ends of the strongest partnerships first (strongest pair, then the
+ * next …) until `max` rows are taken, so the partnership a sentence names as the strongest is always in the picture.
+ * `links` are the pairs between the chosen rows (an edge whose second end would not fit is left to the table).
+ */
+export function networkNodes<E extends { a: string; b: string; articles: number }>(edges: readonly E[], max: number): { ids: string[]; links: E[] } {
+  const strongest = [...edges].filter((e) => e.a !== e.b).sort((p, q) => q.articles - p.articles || (p.a + p.b < q.a + q.b ? -1 : 1))
+  const ids = new Set<string>()
+  for (const e of strongest) {
+    if (ids.size >= max) break
+    const add = [e.a, e.b].filter((id) => !ids.has(id))
+    if (ids.size + add.length <= max) add.forEach((id) => ids.add(id))
+  }
+  return { ids: [...ids], links: edges.filter((e) => ids.has(e.a) && ids.has(e.b)) }
 }
 
 /**
@@ -241,6 +261,10 @@ export interface PlacedLabel {
  * given order (most important first) and at most `max` get a label. `tries` caps how many points are examined at all
  * (a chart of thousands of marks only ever names its first few dozen, so the tests stay cheap and deterministic).
  * `measure` replaces the character estimate with a real measurement (lib/measure.ts, Sarabun on a canvas) in the browser.
+ * Why a second placeLabels next to lib/labels.ts: this one names points (cx, cy, one radius, one font size) with a
+ * `max`/`tries` budget for charts of thousands of marks; lib/labels.ts places pre-measured candidates of mixed sizes
+ * with per-candidate radii, obstacles that exclude their own mark and forced (hovered) labels — the map and the
+ * portfolio matrix need those. Merging them would change both sets of tested placements.
  */
 export function placeLabels(points: readonly { id: string; text: string; cx: number; cy: number }[], opts: { px: number; r: number; bounds: Box; avoid?: readonly Box[]; max?: number; tries?: number; measure?: (text: string, px: number) => number }): PlacedLabel[] {
   const { px, r, bounds, avoid = [], max = 8, tries = Infinity, measure = textWidth } = opts
@@ -329,11 +353,13 @@ export function statusFlow(changes: readonly { topic: string; previous: string; 
   }
   const left = column('from')
   const right = column('to')
+  // every band is count × unit thick at both ends (a node taller than its bands, kept for its label, centres them),
+  // so a band never changes thickness between its two ends
   const fill = (nodes: FlowNode[], side: 'from' | 'to', other: 'from' | 'to', top: 'y0' | 'y1', bottom: 'y0b' | 'y1b') => {
     for (const n of nodes) {
-      let y = n.y
+      let y = n.y + (n.h - n.count * unit) / 2
       for (const l of links.filter((x) => x[side] === n.status).sort((p, q) => order(p[other]) - order(q[other]))) {
-        const h = (l.count / n.count) * n.h
+        const h = l.count * unit
         l[top] = y
         l[bottom] = y + h
         y += h

@@ -37,7 +37,6 @@
   .tr-hit { fill: transparent; cursor: crosshair; }
   .lg-line { display: inline-block; width: 22px; border-top: 3px solid var(--link); }
   .lg-line.is-dashed { border-top-style: dashed; }
-  .lg-now { display: inline-block; vertical-align: -1px; fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
   .lg-band { display: inline-block; width: 22px; height: 10px; background: var(--link); opacity: 0.22; }
 
   .kw-list { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }

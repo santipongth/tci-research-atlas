@@ -1,4 +1,4 @@
-import { THAI } from '../lib/script'
+import { langOf, THAI } from '../lib/script'
 import { Link } from 'react-router'
 import { BridgePairs, type BridgeRow } from '../charts/BridgePairs'
 import { weightedMean } from '../charts/editorLayout'
@@ -46,8 +46,6 @@ export default function ReferencesPage() {
   )
 }
 
-/** Thai script (U+0E00–U+0E7F), built from code points: the codebase never writes a backslash-u escape. */
-const langOf = (text: string) => (THAI.test(text) ? 'th' : 'en')
 const median = (v: number | null | undefined) => (v === null || v === undefined ? DASH : fmtNum(v, Number.isInteger(v) ? 0 : 1))
 
 function References({ release, file }: { release: AtlasRelease; file: ReferencesFile }) {

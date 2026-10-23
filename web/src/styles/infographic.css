@@ -18,15 +18,11 @@
   .find-topic a { display: inline-block; min-height: 24px; }
   .find-s { margin-top: 6px; font-size: var(--fs-meta); line-height: 1.65; }
   .find-s .chip { margin-right: 4px; vertical-align: 1px; }
-  .find-trend { margin-top: auto; padding-top: 18px; display: grid; justify-items: start; gap: 2px; }
-  .find-tl { font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
-  .find-yr { width: 168px; display: flex; justify-content: space-between; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; font-variant-numeric: tabular-nums; }
   @media (max-width: 700px) {
     .finds { grid-template-columns: 1fr; gap: var(--sp-group); }
     .find { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; }
     .find > * { grid-column: 1 / -1; }
     .find > .find-v, .find > .find-ci { grid-column: 1; }
-    .find > .find-trend { grid-column: 2; grid-row: 2 / span 2; align-self: start; margin: 0; padding-top: 6px; }
   }
 
   .more-points { margin-top: var(--sp-group); }
@@ -123,7 +119,6 @@
   .step-t { font-size: var(--fs-body); font-weight: 700; line-height: 1.5; }
   .step-b { margin-top: 4px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; }
   .step-f { margin-top: 10px; display: grid; gap: 6px; justify-items: start; }
-  .step-o { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
   @media (max-width: 760px) {
     .steps, .steps-3 { grid-template-columns: 1fr; }
     .step { display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 14px; padding-bottom: 20px; }

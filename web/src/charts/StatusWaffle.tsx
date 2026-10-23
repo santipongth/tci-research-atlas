@@ -5,11 +5,12 @@ import type { Topic } from '../data/types'
 import { fmtInt } from '../lib/format'
 import type { StatusId } from '../lib/status'
 import { useTooltip } from '../lib/tooltip'
-import { percentOf, waffleCells, type WaffleGroup } from './infographic'
+import { percentOf, waffleCells, waffleCounts, type WaffleGroup } from './infographic'
 
 /**
  * Status waffle (unit chart): one row per status — glyph, name, count and share of all topics in text — then one
- * square per topic in that status's colour (low data: a dashed outline). The squares are decorative (the counts are
+ * square per topic in that status's colour (low data: a dashed outline); with many topics one square stands for about
+ * `unit` topics (waffleCounts). The squares are decorative (the counts are
  * written beside them and the figure's table has every number); pointing at one shows the topic, pressing it opens it.
  */
 export function StatusWaffle({ groups, total, unit = 1, statusLabel, meaning, tipFor, compact = false }: {
@@ -27,9 +28,10 @@ export function StatusWaffle({ groups, total, unit = 1, statusLabel, meaning, ti
 }) {
   const navigate = useNavigate()
   const tip = useTooltip()
+  const squares = waffleCounts(groups.map((g) => g.topics.length), unit)
   return (
     <div className={compact ? 'wf is-compact' : 'wf'}>
-      {groups.map((g) => (
+      {groups.map((g, gi) => (
         <div className="wf-row" key={g.status}>
           <div className="wf-label">
             <p className="wf-name">
@@ -41,7 +43,7 @@ export function StatusWaffle({ groups, total, unit = 1, statusLabel, meaning, ti
             {meaning && !compact ? <p className="wf-mean">{meaning(g.status)}</p> : null}
           </div>
           <div className="wf-cells" aria-hidden="true">
-            {waffleCells(g.topics, unit).map((cell) => (
+            {waffleCells(g.topics, squares[gi]).map((cell) => (
               <span
                 key={cell[0].id}
                 className={`wf-cell wf-${g.status}`}
@@ -49,8 +51,9 @@ export function StatusWaffle({ groups, total, unit = 1, statusLabel, meaning, ti
                 onPointerLeave={tipFor ? () => tip.hide() : undefined}
                 onClick={() => {
                   tip.hide()
-                  // a square for one topic opens it; a square for several opens the list of that status
-                  navigate(cell.length === 1 ? `/topics/${cell[0].id}` : `/emerging?status=${g.status}`)
+                  // a square for one topic opens it; once squares stand for several topics, every square (even one
+                  // left holding a single topic) opens the list of that status
+                  navigate(unit <= 1 ? `/topics/${cell[0].id}` : `/emerging?status=${g.status}`)
                 }}
               />
             ))}

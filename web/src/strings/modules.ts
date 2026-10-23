@@ -23,4 +23,5 @@ export const modules = defineStrings({
   'nav.galaxy': { th: 'แผนที่บทความทุกเรื่อง', en: 'Map of every article' },
   'search.articles': { th: 'ค้นหาบทความทุกเรื่อง', en: 'Search every article' },
   'data.file.match': { th: 'ข้อมูลสำหรับหน้าวางบทคัดย่อ ไม่มีข้อความบทความ', en: 'Data for the abstract matcher; no article text' },
+  'mod.skipped': { th: 'เหตุผล:', en: 'Reason:' },
 })

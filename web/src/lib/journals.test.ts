@@ -8,10 +8,10 @@ const byId = new Map(file.journals.map((j) => [j.id, j]))
 
 describe('journal helpers', () => {
   it('names a journal by its registry name, the other language, or its OJS path', () => {
-    expect(journalName(byId.get('so02.example0')!, 'th')).toEqual({ text: 'วารสารวิชาการตัวอย่าง ก', lang: null, isPath: false })
-    expect(journalName(byId.get('so02.example0')!, 'en')).toEqual({ text: 'วารสารวิชาการตัวอย่าง ก', lang: 'th', isPath: false })
+    expect(journalName(byId.get('so02.example0')!, 'th')).toEqual({ text: 'วารสารวิชาการตัวอย่าง ก', lang: null, fallback: false })
+    expect(journalName(byId.get('so02.example0')!, 'en')).toEqual({ text: 'วารสารวิชาการตัวอย่าง ก', lang: 'th', fallback: false })
     expect(journalName(byId.get('so02.example3')!, 'th').lang).toBe('en')
-    expect(journalName(byId.get('so02.example2')!, 'th')).toEqual({ text: 'example2', lang: null, isPath: true })
+    expect(journalName(byId.get('so02.example2')!, 'th')).toEqual({ text: 'example2', lang: null, fallback: true })
     expect(otherJournalName({ name_th: 'ก', name_en: 'A', path: 'x' }, 'th')).toBe('A')
     expect(otherJournalName({ name_th: 'ก', name_en: '', path: 'x' }, 'th')).toBe('')
   })

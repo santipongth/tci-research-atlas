@@ -3,7 +3,7 @@ import type { Topic } from '../data/types'
 import { pickFindings } from '../lib/findings'
 import { stepOf, STATUS_STEPS } from '../lib/statusSteps'
 import { STATUSES } from '../lib/status'
-import { dotDomain, pctAt, percentOf, rankBars, topMovers, waffleCells, waffleGroups, waffleUnit } from './infographic'
+import { dotDomain, pctAt, percentOf, rankBars, topMovers, waffleCells, waffleCounts, waffleGroups, waffleUnit } from './infographic'
 
 const tp = (id: string, status: Topic['status'], g: number | null, score = 0, share = 0.01): Topic =>
   ({ id, status, score, th: id, en: id, metrics: { share_growth: g, share_recent: share } }) as unknown as Topic
@@ -49,14 +49,26 @@ describe('waffleUnit / waffleCells', () => {
     for (const n of [301, 800, 1500, 4000]) expect(Math.ceil(n / waffleUnit(n))).toBeLessThanOrEqual(150 + 1)
   })
 
-  it('cuts a status into runs of the unit, strongest first, and never loses a topic', () => {
+  it('splits a status into its squares, strongest first, as evenly as possible, and never loses a topic', () => {
     const topics = Array.from({ length: 23 }, (_, i) => tp('t' + i, 'HOT', 0.1, 50 - i))
-    const cells = waffleCells(topics, 10)
-    expect(cells.map((c) => c.length)).toEqual([10, 10, 3])
+    const cells = waffleCells(topics, 2)
+    expect(cells.map((c) => c.length)).toEqual([12, 11])
     expect(cells.flat().map((x) => x.id)).toEqual(topics.map((x) => x.id))
-    expect(waffleCells(topics, 1)).toHaveLength(23)
-    expect(waffleCells([], 10)).toEqual([])
-    expect(waffleCells(topics.slice(0, 1), 10)).toHaveLength(1)
+    expect(waffleCells(topics, 23)).toHaveLength(23)
+    expect(waffleCells(topics, 99)).toHaveLength(23)
+    expect(waffleCells([], 3)).toEqual([])
+    expect(waffleCells(topics.slice(0, 1), 1)).toHaveLength(1)
+  })
+
+  it('gives each status its share of the squares (largest remainder), at least one for any topic', () => {
+    // 12 topics at 10 a square: 1 square, not 2
+    expect(waffleCounts([12], 10)).toEqual([1])
+    expect(waffleCounts([12, 0, 3, 985], 10)).toEqual([1, 0, 1, 98])
+    const counts = [412, 77, 260, 151, 590, 10]
+    const squares = waffleCounts(counts, 10)
+    expect(squares.reduce((a, c) => a + c, 0)).toBe(Math.round(1500 / 10))
+    squares.forEach((n, i) => expect(Math.abs(n - counts[i] / 10)).toBeLessThan(1))
+    expect(waffleCounts([3, 0, 7], 1)).toEqual([3, 0, 7])
   })
 })
 

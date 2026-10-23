@@ -21,15 +21,17 @@ import { figureCsv } from '../lib/tableCsv'
 import { methodsCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { editorViz } from '../strings/editorViz'
+import { journals } from '../strings/journals'
+import { methods } from '../strings/methods'
 
 const TOP_METHODS = 6
 
 export default function MethodsPage() {
-  const { t } = useI18n()
+  const sme = useStrings(methods)
   return (
-    <RequireRelease title={t('me.title')}>
+    <RequireRelease title={sme('me.title')}>
       {(release) => (
-        <ModuleFile<MethodsFile> release={release} module="methods" path={MODULE_FILES.methods} title={t('me.title')}>
+        <ModuleFile<MethodsFile> release={release} module="methods" path={MODULE_FILES.methods} title={sme('me.title')}>
           {(file) => <Methods release={release} file={file} />}
         </ModuleFile>
       )}
@@ -39,6 +41,8 @@ export default function MethodsPage() {
 
 function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }) {
   const { t, lang, name } = useI18n()
+  const sj = useStrings(journals)
+  const sme = useStrings(methods)
   const s = useStrings(editorViz)
   const [state, update] = useUrlState(methodsCodec)
   const info = new Map(file.methods.map((m) => [m.key, m]))
@@ -56,11 +60,11 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
   const yearRows = by.years.map((year, i) => ({ year, i }))
   const yearColumns: Column<{ year: number; i: number }>[] = [
     { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => String(r.year), csv: (r) => r.year },
-    { key: 'n', csvHeader: 'articles_with_method', header: t('col.coverage'), numeric: true, cell: (r) => fmtInt(by.articles[r.i]), csv: (r) => by.articles[r.i] },
+    { key: 'n', csvHeader: 'articles_with_method', header: sme('col.coverage'), numeric: true, cell: (r) => fmtInt(by.articles[r.i]), csv: (r) => by.articles[r.i] },
     ...Object.keys(by.shares).map((k): Column<{ year: number; i: number }> => ({ key: k, csvHeader: k, header: mName(k), numeric: true, cell: (r) => fmtPct(by.shares[k][r.i], 0), csv: (r) => by.shares[k][r.i] })),
   ]
   const corpusColumns: Column<MethodShare>[] = [
-    { key: 'method', csvHeader: 'method', header: t('col.method'), rowHeader: true, cell: (m) => mName(m.method), sortValue: (m) => mName(m.method), csv: (m) => m.method },
+    { key: 'method', csvHeader: 'method', header: sj('col.method'), rowHeader: true, cell: (m) => mName(m.method), sortValue: (m) => mName(m.method), csv: (m) => m.method },
     { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (m) => fmtInt(m.count), sortValue: (m) => m.count },
     { key: 'share', csvHeader: 'share', header: t('col.share'), numeric: true, cell: (m) => <ShareBar value={m.share} />, sortValue: (m) => m.share },
   ]
@@ -69,21 +73,21 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
   const topicColumns: Column<TopicMethods>[] = withPrimary<TopicMethods>([
     { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => <TopicLink topic={topicOf(r)} showStatus />, sortValue: (r) => name(topicOf(r)), csv: (r) => r.topic },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), sortValue: (r) => r.articles },
-    { key: 'coverage', csvHeader: 'coverage', header: t('col.coverage'), numeric: true, cell: (r) => fmtPct(r.coverage, 0), sortValue: (r) => r.coverage },
+    { key: 'coverage', csvHeader: 'coverage', header: sme('col.coverage'), numeric: true, cell: (r) => fmtPct(r.coverage, 0), sortValue: (r) => r.coverage },
     {
-      key: 'top', header: t('col.topMethods'), cell: (r) => r.methods.slice(0, 2).map((m) => `${mName(m.method)} ${fmtPct(m.share, 0)}`).join(' · ') || DASH,
+      key: 'top', header: sme('col.topMethods'), cell: (r) => r.methods.slice(0, 2).map((m) => `${mName(m.method)} ${fmtPct(m.share, 0)}`).join(' · ') || DASH,
       csv: (r) => r.methods.map((m) => `${m.method}:${m.share}`).join(';'), csvHeader: 'methods',
     },
     {
-      key: 'sample', csvHeader: 'sample_size_median', header: t('col.sample'), numeric: true, sortValue: (r) => r.sample_size_median ?? null,
-      cell: (r) => (r.sample_size_median == null ? DASH : t('me.sampleRange', { m: fmtInt(r.sample_size_median), q1: fmtInt(r.sample_size_q1 ?? null), q3: fmtInt(r.sample_size_q3 ?? null) })),
+      key: 'sample', csvHeader: 'sample_size_median', header: sme('col.sample'), numeric: true, sortValue: (r) => r.sample_size_median ?? null,
+      cell: (r) => (r.sample_size_median == null ? DASH : sme('me.sampleRange', { m: fmtInt(r.sample_size_median), q1: fmtInt(r.sample_size_q1 ?? null), q3: fmtInt(r.sample_size_q3 ?? null) })),
     },
     {
-      key: 'mono', csvHeader: 'monoculture_share', header: t('col.mono'), numeric: true, sortValue: (r) => r.monoculture_share ?? null,
+      key: 'mono', csvHeader: 'monoculture_share', header: sme('col.mono'), numeric: true, sortValue: (r) => r.monoculture_share ?? null,
       cell: (r) => (
         <>
           <ShareBar value={r.monoculture_share} />
-          {r.monoculture ? <span className="flag">{t('me.mono')}</span> : null}
+          {r.monoculture ? <span className="flag">{sme('me.mono')}</span> : null}
         </>
       ),
     },
@@ -99,40 +103,40 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
   const notes = file.topics.filter((r) => r.note && release.topicById.has(r.topic))
   return (
     <div className="container">
-      <PageHeader title={t('me.title')} lede={t('me.lede', { a: w.start, b: w.end, m: topMethod ? mName(topMethod.method) : DASH })}>
-        <HowNote><p>{t('me.how')}</p></HowNote>
+      <PageHeader title={sme('me.title')} lede={sme('me.lede', { a: w.start, b: w.end, m: topMethod ? mName(topMethod.method) : DASH })}>
+        <HowNote><p>{sme('me.how')}</p></HowNote>
       </PageHeader>
       <StatGrid cols={2}>
         <StatTile
-          label={t('me.kpi.coverage')}
+          label={sme('me.kpi.coverage')}
           value={fmtPct(file.articles ? file.with_methods / file.articles : null, 0)}
-          sub={t('me.kpi.coverageSub', { n: fmtInt(file.with_methods), all: fmtInt(file.articles) })}
+          sub={sme('me.kpi.coverageSub', { n: fmtInt(file.with_methods), all: fmtInt(file.articles) })}
         />
-        <StatTile label={t('me.kpi.mono', { methods: monoNames })} value={fmtPct(file.monoculture_share ?? null, 0)} sub={t('me.kpi.monoSub')} />
+        <StatTile label={sme('me.kpi.mono', { methods: monoNames })} value={fmtPct(file.monoculture_share ?? null, 0)} sub={sme('me.kpi.monoSub')} />
       </StatGrid>
       {series.length && by.years.length ? (
-        <Section id="trend" title={t('me.trend.h')}>
+        <Section id="trend" title={sme('me.trend.h')}>
           <Figure
             id="fig-methods"
             number={1}
-            title={t('me.trend.fig', { a: by.years[0], b: by.years[by.years.length - 1] })}
-            tableTitle={t('table.n', { n: 1, title: t('me.trend.table') })}
+            title={sme('me.trend.fig', { a: by.years[0], b: by.years[by.years.length - 1] })}
+            tableTitle={t('table.n', { n: 1, title: sme('me.trend.table') })}
             csv={figureCsv(`atlas-${rel}-methods-by-year.csv`, yearRows, yearColumns)}
             source={source}
             view={state.trend}
             onView={(v) => update({ trend: v })}
-            chart={<MultiLineChart years={by.years} series={series} format={(v) => fmtPct(v, 0)} axisFormat={(v, step) => fmtPct(v, tickDecimals(step, 100))} label={t('me.trend.fig', { a: by.years[0], b: by.years[by.years.length - 1] })} />}
-            table={<DataTable caption={t('table.n', { n: 1, title: t('me.trend.table') })} rows={yearRows} columns={yearColumns} rowKey={(r) => String(r.year)} stack={false} wide />}
+            chart={<MultiLineChart years={by.years} series={series} format={(v) => fmtPct(v, 0)} axisFormat={(v, step) => fmtPct(v, tickDecimals(step, 100))} label={sme('me.trend.fig', { a: by.years[0], b: by.years[by.years.length - 1] })} />}
+            table={<DataTable caption={t('table.n', { n: 1, title: sme('me.trend.table') })} rows={yearRows} columns={yearColumns} rowKey={(r) => String(r.year)} stack={false} wide />}
           />
         </Section>
       ) : null}
       {ranked.length ? (
-        <Section id="corpus" title={t('me.corpus.h')}>
+        <Section id="corpus" title={sme('me.corpus.h')}>
           <Figure
             id="fig-corpus"
             number={series.length && by.years.length ? 2 : 1}
             title={s('mb.fig', { a: w.start, b: w.end })}
-            tableTitle={t('table.n', { n: 2, title: t('me.corpus.table', { a: w.start, b: w.end }) })}
+            tableTitle={t('table.n', { n: 2, title: sme('me.corpus.table', { a: w.start, b: w.end }) })}
             csv={figureCsv(`atlas-${rel}-methods.csv`, file.corpus, corpusColumns)}
             how={<p>{s('mb.how')}</p>}
             source={source}
@@ -151,25 +155,25 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
                 ) : null}
               </>
             }
-            table={<DataTable caption={t('table.n', { n: 2, title: t('me.corpus.table', { a: w.start, b: w.end }) })} rows={file.corpus} columns={corpusColumns} rowKey={(m) => m.method} defaultSort={{ key: 'count', dir: 'desc' }} limit={25} />}
+            table={<DataTable caption={t('table.n', { n: 2, title: sme('me.corpus.table', { a: w.start, b: w.end }) })} rows={file.corpus} columns={corpusColumns} rowKey={(m) => m.method} defaultSort={{ key: 'count', dir: 'desc' }} limit={25} />}
           />
         </Section>
       ) : null}
       {file.topics.length ? (
         <Section
           id="topics"
-          title={t('me.topics.h')}
-          intro={t('me.topics.intro', { n: fmtInt(file.min_articles), a: w.start, b: w.end, p: fmtPct(file.monoculture_min_share, 0), methods: monoNames })}
+          title={sme('me.topics.h')}
+          intro={sme('me.topics.intro', { n: fmtInt(file.min_articles), a: w.start, b: w.end, p: fmtPct(file.monoculture_min_share, 0), methods: monoNames })}
         >
           <label className="check">
             <input type="checkbox" checked={state.mono === 'only'} onChange={(e) => update({ mono: e.target.checked ? 'only' : 'all' })} />
-            {t('me.onlyMono')}
+            {sme('me.onlyMono')}
           </label>
-          <DataTable caption={t('table.n', { n: 3, title: t('me.topics.table') })} rows={topicRows} columns={topicColumns} rowKey={(r) => r.topic} defaultSort={{ key: 'mono', dir: 'desc' }} csvFilename={`atlas-${rel}-methods-by-topic.csv`} limit={25} />
+          <DataTable caption={t('table.n', { n: 3, title: sme('me.topics.table') })} rows={topicRows} columns={topicColumns} rowKey={(r) => r.topic} defaultSort={{ key: 'mono', dir: 'desc' }} csvFilename={`atlas-${rel}-methods-by-topic.csv`} limit={25} />
         </Section>
       ) : null}
       {notes.length ? (
-        <Section id="notes" title={t('me.notes.h')}>
+        <Section id="notes" title={sme('me.notes.h')}>
           <ul className="opp-list">
             {notes.map((r) => (
               <li key={r.topic}>
@@ -181,7 +185,7 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
           </ul>
         </Section>
       ) : null}
-      <Section id="lexicon" title={t('me.lexicon.h')} intro={t('me.lexicon.intro', { v: file.lexicon_version })}>
+      <Section id="lexicon" title={sme('me.lexicon.h')} intro={sme('me.lexicon.intro', { v: file.lexicon_version })}>
         <ul className="kw-list">
           {file.methods.map((m) => <li key={m.key}>{lang === 'en' ? m.en : m.th}</li>)}
         </ul>

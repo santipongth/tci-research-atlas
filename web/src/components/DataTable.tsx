@@ -1,9 +1,11 @@
 import { useId, useMemo, useState, type ReactNode } from 'react'
 import { toCsv, type CsvColumn } from '../lib/csv'
 import { useFigureFrame } from '../lib/figureContext'
+import { fmtInt } from '../lib/format'
 import { tableCsvColumns } from '../lib/tableCsv'
 import { useI18n } from '../lib/i18n'
-import { nextSort, sortBy, type SortDir } from '../lib/sort'
+import { nextSort, type SortDir } from '../lib/sort'
+import { tableView, useRowLimit } from '../lib/tableRows'
 import { CsvButton } from './CsvButton'
 
 export interface Column<R> {
@@ -68,7 +70,10 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
   empty?: string
   /** a note under the table (e.g. what † means) */
   footnote?: string
-  /** show only the first `limit` rows (in the current order) with a "แสดงทั้งหมด" button; the CSV always has every row */
+  /**
+   * show only the first `limit` rows (in the current order) with a "แสดงทั้งหมด" button; the CSV always has every row.
+   * While rows are stacked cards (phones) at most PHONE_ROW_LIMIT show (lib/tableRows.ts).
+   */
   limit?: number
 }) {
   const { t } = useI18n()
@@ -79,10 +84,17 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
   const [allRows, setAllRows] = useState(false)
   const [openRows, setOpenRows] = useState<ReadonlySet<string>>(() => new Set())
   const active = sort !== undefined ? sort : own
-  const sorted = useMemo(() => {
-    const col = active ? columns.find((c) => c.key === active.key) : undefined
-    return active && col?.sortValue ? sortBy(rows, col.sortValue, active.dir) : [...rows]
-  }, [rows, columns, active])
+  const lim = useRowLimit(limit, stack)
+  // keyed on the sort key, direction and the sorted column's value function, not on the `sort` object or the
+  // `columns` array: a page that memoises its columns does not re-sort thousands of rows on every keystroke
+  const activeKey = active?.key
+  const activeDir = active?.dir
+  const sortCol = activeKey ? columns.find((c) => c.key === activeKey) : undefined
+  const sortValue = sortCol?.sortValue
+  const { sorted, cut, visible } = useMemo(
+    () => tableView(rows, sortValue && activeKey && activeDir ? [{ key: activeKey, sortValue }] : [], activeKey && activeDir ? { key: activeKey, dir: activeDir } : null, lim, allRows),
+    [rows, sortValue, activeKey, activeDir, lim, allRows],
+  )
   const shown = columns.filter((c) => !c.csvOnly)
   // the column the table is sorted by always shows, so a shared link sorted by a secondary column still makes sense
   const isExtra = (c: Column<R>) => !c.primary && !c.rowHeader && c.key !== active?.key
@@ -105,8 +117,6 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
     })
   const cellClass = (c: Column<R>, base?: string) => [base ?? '', c.numeric ? 'num' : '', c.className ?? '', nExtra && isExtra(c) ? 'col-extra' : ''].join(' ').trim() || undefined
   const showCsv = Boolean(csvFilename) && rows.length > 0 && !frame.csv
-  const cut = limit !== undefined && limit > 0 && sorted.length > limit
-  const visible = cut && !allRows ? sorted.slice(0, limit) : sorted
   return (
     <div className="tbl">
       {showCsv || nExtra ? (
@@ -185,7 +195,7 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
       {cut ? (
         <p className="tbl-rows">
           <button type="button" className="btn-secondary" aria-expanded={allRows} aria-controls={tableId} onClick={() => setAllRows((a) => !a)}>
-            {allRows ? t('table.firstRows', { n: limit }) : t('table.allRows', { n: sorted.length })}
+            {allRows ? t('table.firstRows', { n: fmtInt(lim ?? 0) }) : t('table.allRows', { n: fmtInt(sorted.length) })}
           </button>
         </p>
       ) : null}

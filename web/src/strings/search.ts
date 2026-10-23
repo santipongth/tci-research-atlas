@@ -27,6 +27,7 @@ export const search = defineStrings({
   'res.count': { th: 'พบ {n} บทความ', en: '{n} articles found' },
   'index.loading': { th: 'กำลังเตรียมดัชนีค้นหา ปุ่มค้นจะใช้ได้ในอีกสักครู่', en: 'Preparing the search index. The search button will work in a moment.' },
   'res.countFiltered': { th: 'พบ {n} บทความตามตัวกรอง จาก {all} บทความที่ตรงคำค้น', en: '{n} articles match the filters, of {all} that match the words' },
+  'res.countFilteredPartial': { th: 'พบ {n} บทความตามตัวกรอง จาก {examined} บทความที่ตรวจในรอบนี้', en: '{n} articles match the filters, of the {examined} checked' },
   'res.none': { th: 'ไม่พบบทความที่มีครบทุกคำ ลองใช้คำน้อยลงหรือคำที่กว้างขึ้น', en: 'No article contains all of these words. Try fewer or broader words.' },
   'res.noneFiltered': { th: 'ไม่มีบทความที่ตรงตัวกรองนี้ ลองขยายช่วงปีหรือล้างตัวกรอง', en: 'No article matches these filters. Widen the years or clear the filters.' },
   'res.words': { th: 'ค้นด้วยคำ', en: 'Searched for' },

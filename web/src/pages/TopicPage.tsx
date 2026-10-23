@@ -28,10 +28,10 @@ import { topicCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { FOREST_DOMAIN } from './topicColumns'
 
-// SDG chips (they read sdg.json) and the RIS/BibTeX export load on demand: this page is in the entry chunk.
 /** A topic name longer than this is set one heading size smaller (a 90-character name is four lines at full size). */
 const LONG_NAME = 40
 
+// SDG chips (they read sdg.json) and the RIS/BibTeX export load on demand: this page is in the entry chunk.
 const TopicSdg = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.TopicSdg })))
 const ArticleCite = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.ArticleCite })))
 const TopicRanking = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.TopicRanking })))

@@ -15,7 +15,7 @@ import { MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { GlossaryItem, KeywordTrend, KwTrendsFile } from '../data/types'
 import { comboKey } from '../lib/comboKeys'
 import { toCsv } from '../lib/csv'
-import { fmtInt, fmtPct } from '../lib/format'
+import { fmtInt, fmtPct, yearSpan } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { kwInsight, kwKey, matchKeywords, risingKeywords, shareOf, type KwOption } from '../lib/kwtrends'
@@ -218,7 +218,7 @@ function Risers({ file, risers, chosen, full, onAdd }: { file: KwTrendsFile; ris
   return (
     <section className="kr" aria-labelledby="kr-h">
       <h2 id="kr-h" className="kr-h">{s('kr.h')}</h2>
-      <p className="kr-intro">{s('kr.intro', { a: `${years[0]}–${years[1]}`, b: `${years[years.length - 2]}–${years[years.length - 1]}` })}</p>
+      <p className="kr-intro">{s('kr.intro', { a: yearSpan(years[0], years[1]), b: yearSpan(years[years.length - 2], years[years.length - 1]) })}</p>
       <ul className="kr-list" aria-label={s('kr.label')}>
         {risers.map((k) => {
           const shares = shareOf(file, k)

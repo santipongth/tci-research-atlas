@@ -45,7 +45,8 @@
     .wm-logo { height: 40px; }
     .menubtn { display: inline-flex; }
     .nav:not(.is-open) { display: none; }
-    .nav { box-shadow: 0 12px 24px rgba(20, 24, 43, 0.08); }
+    /* above the chart tooltip layer (.tip, z-index 80) */
+    .nav { position: relative; z-index: 90; box-shadow: 0 12px 24px rgba(20, 24, 43, 0.08); }
     /* one full-width column: the desktop row's space-between would shrink the grid track to its widest item */
     .nav-row { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 0; padding-block: 14px 22px; }
     .nav-search { max-width: none; padding-bottom: 10px; }
@@ -71,11 +72,13 @@
   .notice summary:hover .notice-more { color: var(--link-hover); }
   .notice-body { display: grid; gap: 6px; margin-top: 4px; padding: 6px 0 8px; max-width: var(--measure-body); color: var(--ink); }
   .phase-tag { flex: none; display: inline-block; padding: 1px 10px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: var(--fs-caption); line-height: 1.6; }
-  .phase-tag.is-sample { background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
-  /* phones: the strip is one line (tag + details); the sentence is the first line of the details */
+  .phase-tag.is-sample { background: var(--tag-sample-bg); color: var(--tag-sample-ink); }
+  /* phones: the strip is one line (tag + details); the short sentence moves to the first line of the details */
+  .notice-short-body { display: none; }
   @media (max-width: 640px) {
     .notice summary { flex-wrap: nowrap; justify-content: space-between; }
     .notice-short { display: none; }
+    .notice-short-body { display: block; font-weight: 600; }
   }
   @media (prefers-reduced-motion: reduce) { .notice-more svg { transition: none; } }
 

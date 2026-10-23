@@ -18,21 +18,21 @@ import { useReleaseFile } from '../data/atlasContext'
 import { MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { CountryCount, InstitutionDetail, InstitutionSummary, InstitutionsFile, Partner, Topic, TopicShare } from '../data/types'
 import { instName, otherInstName } from '../lib/executive'
-import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
+import { DASH, fmtInt, fmtNum, fmtPct, yearSpan } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { institutionCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
-import type { StrKey } from '../strings'
 import { execViz } from '../strings/execViz'
+import { execPages } from '../strings/execPages'
 
 export default function InstitutionPage() {
   const { id } = useParams()
-  const { t } = useI18n()
+  const sx = useStrings(execPages)
   return (
-    <RequireRelease title={t('in.title')}>
+    <RequireRelease title={sx('in.title')}>
       {(release) => (
-        <ModuleFile<InstitutionsFile> release={release} module="institutions" path={MODULE_FILES.institutions} title={t('in.title')}>
+        <ModuleFile<InstitutionsFile> release={release} module="institutions" path={MODULE_FILES.institutions} title={sx('in.title')}>
           {(file) => <InstitutionView release={release} file={file} id={id ?? ''} />}
         </ModuleFile>
       )}
@@ -41,13 +41,13 @@ export default function InstitutionPage() {
 }
 
 function InstitutionView({ release, file, id }: { release: AtlasRelease; file: InstitutionsFile; id: string }) {
-  const { t } = useI18n()
+  const sx = useStrings(execPages)
   const inst = file.institutions.find((i) => i.id === id)
   if (!inst) {
     return (
       <div className="container">
-        <PageHeader title={t('in.notFound', { id: id || DASH })} lede={t('in.notFound.body')} />
-        <p className="mt-6"><Link to="/institutions">{t('in.back')}</Link></p>
+        <PageHeader title={sx('in.notFound', { id: id || DASH })} lede={sx('in.notFound.body')} />
+        <p className="mt-6"><Link to="/institutions">{sx('in.back')}</Link></p>
       </div>
     )
   }
@@ -58,6 +58,7 @@ const MIX_TOP = 4
 
 function InstitutionContent({ release, file, inst }: { release: AtlasRelease; file: InstitutionsFile; inst: InstitutionSummary }) {
   const { t, lang, name } = useI18n()
+  const sx = useStrings(execPages)
   const x = useStrings(execViz)
   const [view, setView] = useUrlState(institutionCodec)
   const detailFile = useReleaseFile<InstitutionDetail>(`institutions/${inst.id}.json`)
@@ -73,7 +74,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
   const shown = instName(inst, lang)
   const other = otherInstName(inst, lang)
   const province = (file.province_names ?? []).find((p) => p.code === inst.province)
-  const place = province ? (lang === 'en' ? province.name_en : province.name_th) : inst.country && inst.country !== 'TH' ? t('in.abroad', { c: inst.country }) : t('in.unplaced')
+  const place = province ? (lang === 'en' ? province.name_en : province.name_th) : inst.country && inst.country !== 'TH' ? sx('in.abroad', { c: inst.country }) : sx('in.unplaced')
   const w = file.window
   const r = file.recent
   const rel = release.overview.release
@@ -88,7 +89,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (p) => fmtInt(p.articles), sortValue: (p) => p.articles },
   ]
   const countryColumns: Column<CountryCount>[] = [
-    { key: 'name', csvHeader: 'country', header: t('in.col.country'), rowHeader: true, cell: (c) => (lang === 'en' ? c.name_en : c.name_th), csv: (c) => c.code },
+    { key: 'name', csvHeader: 'country', header: sx('in.col.country'), rowHeader: true, cell: (c) => (lang === 'en' ? c.name_en : c.name_th), csv: (c) => c.code },
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (c) => fmtInt(c.articles), sortValue: (c) => c.articles },
   ]
   const pname = (id: string) => instName(byId.get(id) as InstitutionSummary, lang).text
@@ -118,9 +119,9 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
       <PageHeader title={shown.text} titleLang={shown.lang ?? undefined}>
         {other ? <p className="tp-alt" lang={lang === 'en' ? 'th' : 'en'}>{other}</p> : null}
         <div className="j-tags">
-          <span className="tp-badge">{t(`in.type.${inst.type ?? 'other'}` as StrKey)}</span>
+          <span className="tp-badge">{sx(`in.type.${inst.type ?? 'other'}` as keyof typeof execPages)}</span>
           <span>{place}</span>
-          <span className="tp-sub">{t(`in.source.${inst.source}` as StrKey)}</span>
+          <span className="tp-sub">{sx(`in.source.${inst.source}` as keyof typeof execPages)}</span>
           {inst.ror ? (
             <a href={`https://ror.org/${inst.ror}`} target="_blank" rel="noopener noreferrer">ROR<span className="sr-only"> {t('newTab')}</span></a>
           ) : null}
@@ -128,28 +129,28 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
       </PageHeader>
       <div className="layout">
         <div className="main-col">
-          <Section id="numbers" title={t('in.numbers.h')}>
+          <Section id="numbers" title={sx('in.numbers.h')}>
             <StatGrid cols={3}>
               <StatTile
                 wide
                 label={t('col.articles')}
                 value={fmtInt(inst.articles)}
-                sub={t('in.articlesSub', { a: w.start, b: w.end, all: fmtInt(inst.articles_total) })}
+                sub={sx('in.articlesSub', { a: w.start, b: w.end, all: fmtInt(inst.articles_total) })}
               />
-              <StatTile label={t('in.col.recent', { r: `${r.start}–${r.end}` })} value={fmtInt(inst.articles_recent ?? null)} sub={t('in.recentSub')} />
-              <StatTile label={t('in.col.intl')} value={fmtPct(inst.intl_share ?? null, 0)} sub={t('in.intlSub')} />
-              <StatTile label={t('in.col.partners')} value={fmtInt(inst.partners ?? null)} sub={t('in.partnersSub', { a: w.start, b: w.end })} />
-              <StatTile label={t('col.topic')} value={fmtInt(inst.topics ?? null)} sub={t('in.topicsSub')} />
+              <StatTile label={sx('in.col.recent', { r: yearSpan(r.start, r.end) })} value={fmtInt(inst.articles_recent ?? null)} sub={sx('in.recentSub')} />
+              <StatTile label={sx('in.col.intl')} value={fmtPct(inst.intl_share ?? null, 0)} sub={sx('in.intlSub')} />
+              <StatTile label={sx('in.col.partners')} value={fmtInt(inst.partners ?? null)} sub={sx('in.partnersSub', { a: w.start, b: w.end })} />
+              <StatTile label={t('col.topic')} value={fmtInt(inst.topics ?? null)} sub={sx('in.topicsSub')} />
             </StatGrid>
           </Section>
 
           {years.length ? (
-            <Section id="years" title={t('in.years.h')}>
+            <Section id="years" title={sx('in.years.h')}>
               <Figure
                 id="fig-years"
                 number={1}
                 title={x('xv.yr.title')}
-                tableTitle={tbl(1, t('in.years.table'))}
+                tableTitle={tbl(1, sx('in.years.table'))}
                 csv={figureCsv(`atlas-${rel}-${inst.id}-years.csv`, years, yearColumns)}
                 how={<p>{x('xv.yr.how')}</p>}
                 source={source}
@@ -162,29 +163,29 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
                     label={x('xv.yr.label', { a: years[0].year, b: years[years.length - 1].year, values: years.map((y) => fmtInt(y.articles)).join(', ') })}
                   />
                 }
-                table={<DataTable caption={tbl(1, t('in.years.table'))} rows={years} columns={yearColumns} rowKey={(y) => String(y.year)} stack={false} defaultSort={{ key: 'year', dir: 'asc' }} />}
+                table={<DataTable caption={tbl(1, sx('in.years.table'))} rows={years} columns={yearColumns} rowKey={(y) => String(y.year)} stack={false} defaultSort={{ key: 'year', dir: 'asc' }} />}
               />
             </Section>
           ) : null}
 
           {topics.length ? (
-            <Section id="topics" title={t('in.topics.h')}>
+            <Section id="topics" title={sx('in.topics.h')}>
               <Figure
                 id="fig-mix"
                 number={num(1)}
                 title={x('xv.mix.title')}
-                tableTitle={tbl(num(1), t('in.topics.table'))}
+                tableTitle={tbl(num(1), sx('in.topics.table'))}
                 csv={figureCsv(`atlas-${rel}-${inst.id}-topics.csv`, topics, topicColumns)}
                 how={<p>{x('xv.mix.how', { n: MIX_TOP })}</p>}
                 source={source}
                 view={view.mix}
                 onView={(v) => setView({ mix: v })}
                 chart={<MixBar parts={mix} label={x('xv.mix.label', { parts: mixText })} />}
-                table={<DataTable caption={tbl(num(1), t('in.topics.table'))} rows={topics} columns={topicColumns} rowKey={(s) => s.topic} defaultSort={{ key: 'count', dir: 'desc' }} limit={25} />}
+                table={<DataTable caption={tbl(num(1), sx('in.topics.table'))} rows={topics} columns={topicColumns} rowKey={(s) => s.topic} defaultSort={{ key: 'count', dir: 'desc' }} limit={25} />}
               />
               {signals.length ? (
                 <>
-                  <h3 className="mt-6">{t('in.emerging')}</h3>
+                  <h3 className="mt-6">{sx('in.emerging')}</h3>
                   <ul className="opp-list">
                     {signals.map((tp) => (
                       <li key={tp.id}><TopicLink topic={tp} showStatus /></li>
@@ -196,12 +197,12 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
           ) : null}
 
           {partners.length ? (
-            <Section id="partners" title={t('in.partners.h')}>
+            <Section id="partners" title={sx('in.partners.h')}>
               <Figure
                 id="fig-partners"
                 number={num(2)}
                 title={x('xv.ptn.title')}
-                tableTitle={tbl(num(2), t('in.partners.table'))}
+                tableTitle={tbl(num(2), sx('in.partners.table'))}
                 csv={figureCsv(`atlas-${rel}-${inst.id}-partners.csv`, partners, partnerColumns)}
                 how={<p>{x('xv.bar.how')}</p>}
                 source={source}
@@ -213,37 +214,37 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
                     {partnerBars.rest > 0 ? <p className="br-more">{x('xv.more', { n: fmtInt(partnerBars.rest) })}</p> : null}
                   </>
                 }
-                table={<DataTable caption={tbl(num(2), t('in.partners.table'))} rows={partners} columns={partnerColumns} rowKey={(p) => p.id} stack={false} defaultSort={{ key: 'articles', dir: 'desc' }} limit={25} />}
+                table={<DataTable caption={tbl(num(2), sx('in.partners.table'))} rows={partners} columns={partnerColumns} rowKey={(p) => p.id} stack={false} defaultSort={{ key: 'articles', dir: 'desc' }} limit={25} />}
               />
             </Section>
           ) : null}
 
           {countries.length ? (
-            <Section id="abroad" title={t('in.countries.h')}>
+            <Section id="abroad" title={sx('in.countries.h')}>
               <Figure
                 id="fig-abroad"
                 number={num(3)}
-                title={t('in.countries.table')}
-                tableTitle={tbl(num(3), t('in.countries.table'))}
+                title={sx('in.countries.table')}
+                tableTitle={tbl(num(3), sx('in.countries.table'))}
                 csv={figureCsv(`atlas-${rel}-${inst.id}-countries.csv`, countries, countryColumns)}
                 how={<p>{x('xv.bar.how')}</p>}
                 source={source}
                 view={view.ctry}
                 onView={(v) => setView({ ctry: v })}
                 chart={<BarRank rows={countryBars.rows} value={(r) => fmtInt(r.count)} label={x('xv.ctry.label')} />}
-                table={<DataTable caption={tbl(num(3), t('in.countries.table'))} rows={countries} columns={countryColumns} rowKey={(c) => c.code} stack={false} limit={25} />}
+                table={<DataTable caption={tbl(num(3), sx('in.countries.table'))} rows={countries} columns={countryColumns} rowKey={(c) => c.code} stack={false} limit={25} />}
               />
             </Section>
           ) : null}
 
           {suggested.length ? (
-            <Section id="suggested" title={t('in.suggest.h')} intro={t('in.suggest.intro', { x: instName(byId.get(suggested[0].id) as InstitutionSummary, lang).text, a: w.start, b: w.end })}>
+            <Section id="suggested" title={sx('in.suggest.h')} intro={sx('in.suggest.intro', { x: instName(byId.get(suggested[0].id) as InstitutionSummary, lang).text, a: w.start, b: w.end })}>
               <ul className="sug-list">
                 {suggested.map((s) => (
                   <li key={s.id}>
                     <InstitutionLink inst={byId.get(s.id) as InstitutionSummary} />
                     <span className="sug-topics">
-                      <span className="topic-sub">{t('in.suggest.sub', { s: fmtNum(s.similarity, 2) })}</span>
+                      <span className="topic-sub">{sx('in.suggest.sub', { s: fmtNum(s.similarity, 2) })}</span>
                       {(s.topics ?? []).map((tid) => topicOf(tid)).filter((tp): tp is Topic => tp !== undefined).map((tp) => (
                         <TopicLink key={tp.id} topic={tp} />
                       ))}
@@ -256,7 +257,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
 
           {detailFile.status === 'loading' ? <p className="loading" role="status">{t('loading')}</p> : null}
         </div>
-        <p className="page-back"><Link to="/institutions">{t('in.back')}</Link></p>
+        <p className="page-back"><Link to="/institutions">{sx('in.back')}</Link></p>
       </div>
     </div>
   )

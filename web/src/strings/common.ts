@@ -125,6 +125,7 @@ export const common = defineStrings({
   delta: { th: 'จาก {prev}', en: 'vs {prev}' },
   'prev.offline': { th: 'ไฟล์ออฟไลน์นี้มีข้อมูลรอบเดียว จึงไม่แสดงการเปลี่ยนแปลงจากรอบก่อน ({prev}) เปิดเว็บ Atlas เพื่อดูการเทียบ', en: 'This offline file holds one release, so changes since {prev} are not shown. Open the Atlas website to compare.' },
   'prev.failed': { th: 'โหลดข้อมูลรอบก่อน ({prev}) ไม่สำเร็จ จึงยังเทียบกันไม่ได้ ลองโหลดหน้านี้ใหม่', en: 'The previous release ({prev}) could not be loaded, so changes are not shown. Reload the page to try again.' },
+  'prev.damaged': { th: 'ไฟล์ข้อมูลรอบก่อน ({prev}) บนเว็บนี้ไม่ครบ จึงยังเทียบกันไม่ได้', en: 'The previous release ({prev}) on this site is incomplete, so changes are not shown.' },
   'prev.missing': { th: 'เว็บนี้ไม่มีข้อมูลรอบก่อน ({prev}) จึงยังเทียบกันไม่ได้', en: 'The previous release ({prev}) is not on this site, so changes are not shown.' },
   firstRelease: { th: 'นี่คือรอบแรก จึงยังไม่มีรอบก่อนให้เทียบ', en: 'First release: nothing to compare with yet' },
   addToCompare: { th: 'เพิ่มในการเปรียบเทียบ', en: 'Add to comparison' },

@@ -54,8 +54,8 @@ function Story({ release }: { release: AtlasRelease }) {
   }
   const findings = pickFindings(release.topics)
   const large = findings.find((f) => f.kind === 'large')?.topic
-  if (large) {
-    const per = perVars(large.metrics.share_recent)
+  const per = large ? perVars(large.metrics.share_recent) : null
+  if (large && per) {
     facts.push({ id: 'large', big: s('st.big.big', per), line: s('st.big.line', { topic: name(large) }), sub: s('st.big.sub', { ...per, g: fmtSignedPct(large.metrics.share_growth, 0) }), to: `/topics/${large.id}` })
   }
   const down = findings.find((f) => f.kind === 'decline')?.topic

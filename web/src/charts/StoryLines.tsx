@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { LABEL_PX } from '../lib/labelSizes'
+import { fitText, textWidth } from '../lib/measure'
 import { spreadLabels } from '../lib/story'
 import { useElementSize } from '../lib/useElementSize'
+import { useFontsVersion } from '../lib/useFontsVersion'
 import { niceTicks } from './scale'
 
 export interface StorySeries {
@@ -27,6 +30,7 @@ export function StoryLines({ years, series, initial, format, label, note }: {
 }) {
   const [ref, { width }] = useElementSize<HTMLDivElement>()
   const [focus, setFocus] = useState(initial)
+  useFontsVersion() // end labels are measured in Sarabun: measure again once it has loaded
   const narrow = width > 0 && width < 560
   const W = width
   const H = narrow ? 300 : 420
@@ -96,6 +100,11 @@ export function StoryLines({ years, series, initial, format, label, note }: {
             : series.map((s, k) => {
                 const e = ends[k]
                 if (!e) return null
+                // a long name (60–90 Thai characters) is cut with "…" inside the plot's right gutter; the value always shows
+                // and the full name is in the label's <title> and the table tab
+                const value = ` ${format(e.v)}`
+                const room = W - (x(e.i) + 24) - 4 - textWidth(value, LABEL_PX.strong, 700)
+                const name = fitText(s.label, room, LABEL_PX.strong, 700)
                 return (
                   <g
                     key={s.id}
@@ -103,14 +112,16 @@ export function StoryLines({ years, series, initial, format, label, note }: {
                     tabIndex={0}
                     role="button"
                     aria-pressed={s.id === on?.id}
+                    aria-label={name !== s.label ? `${s.label}${value}` : undefined}
                     onMouseEnter={() => setFocus(s.id)}
                     onFocus={() => setFocus(s.id)}
                     onClick={() => setFocus(s.id)}
                   >
+                    {name !== s.label ? <title>{s.label}</title> : null}
                     <line x1={x(e.i) + 9} x2={x(e.i) + 18} y1={y(e.v)} y2={labelY[k]} className="sl-leader" />
                     <text x={x(e.i) + 24} y={labelY[k]} dy="0.35em">
-                      <tspan className="sl-name">{s.label}</tspan>
-                      <tspan className="sl-val">{` ${format(e.v)}`}</tspan>
+                      <tspan className="sl-name">{name}</tspan>
+                      <tspan className="sl-val">{value}</tspan>
                     </text>
                   </g>
                 )

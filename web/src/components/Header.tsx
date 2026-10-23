@@ -4,6 +4,7 @@ import { Wordmark } from '../brand/Wordmark'
 import { useRelease } from '../data/atlasContext'
 import { hasModule } from '../data/release'
 import { useI18n } from '../lib/i18n'
+import { useTooltip } from '../lib/tooltip'
 import { COMPACT_CHROME, useMediaQuery } from '../lib/useMediaQuery'
 import type { StrKey } from '../strings'
 import { LangSwitch } from './LangSwitch'
@@ -165,6 +166,7 @@ export function Header() {
   const [openOn, setOpenOn] = useState<string | null>(null)
   const open = compact && openOn === pathname
   const menuBtn = useRef<HTMLButtonElement>(null)
+  const tip = useTooltip()
   const close = (refocus: boolean) => {
     setOpenOn(null)
     if (refocus) menuBtn.current?.focus()
@@ -200,7 +202,14 @@ export function Header() {
             </div>
           )}
           {compact ? (
-            <button ref={menuBtn} type="button" className="menubtn" aria-expanded={open} aria-controls="site-nav" onClick={() => (open ? close(false) : setOpenOn(pathname))}>
+            <button ref={menuBtn} type="button" className="menubtn" aria-expanded={open} aria-controls="site-nav" onClick={() => {
+              if (open) close(false)
+              else {
+                // a chart tooltip left open (a tap on a phone) would float over the menu
+                tip.hide()
+                setOpenOn(pathname)
+              }
+            }}>
               <MenuIcon open={open} />
               <span>{t('menu.button')}</span>
             </button>

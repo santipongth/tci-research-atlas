@@ -61,4 +61,9 @@ export const data = defineStrings({
   'data.cite.h': { th: 'การอ้างอิงและสัญญาอนุญาต', en: 'Citation and licence' },
   'data.cite.text': { th: 'TCI Research Atlas (รอบข้อมูล {release}, {date}). แผนที่ภูมิทัศน์งานวิจัยไทย. ศูนย์ดัชนีการอ้างอิงวารสารไทย (TCI).', en: 'TCI Research Atlas (release {release}, {date}). A map of the Thai research landscape. Thai-Journal Citation Index Centre (TCI).' },
   'data.cite.licence': { th: 'นำไปใช้ต่อได้ตาม CC BY 4.0 โดยระบุที่มา ข้อมูลชุดนี้ไม่มีบทคัดย่อเต็มและไม่มีข้อมูลรายบุคคล ชื่อเรื่องบทความลิงก์กลับไปที่ ThaiJO', en: 'Reuse under CC BY 4.0 with credit. No full abstracts and no person-level data; article titles link back to ThaiJO.' },
+  'data.file.institutions': { th: 'สถาบัน คู่ที่เขียนร่วม และประเทศที่ร่วมงาน', en: 'Institutions, co-author pairs and partner countries' },
+  'data.file.regions': { th: 'บทความรายจังหวัดและรายภาค', en: 'Articles by province and region' },
+  'data.file.sdg': { th: 'หัวข้อวิจัยตาม SDG และแผนชาติ', en: 'Research topics by SDG and national plan' },
+  'data.file.global': { th: 'ไทยเทียบโลกรายสาขาย่อย (OpenAlex)', en: 'Thailand vs the world by subfield (OpenAlex)' },
+  'data.file.gaps': { th: 'โอกาสที่ยังไม่มีใครทำ และหัวข้อที่พึ่งแหล่งเดียว', en: 'Untapped opportunities and topics that rely on one source' },
 })

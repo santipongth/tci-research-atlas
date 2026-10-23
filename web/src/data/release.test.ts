@@ -105,7 +105,7 @@ describe('loadRelease', () => {
     const odd = ((input: RequestInfo | URL, init?: RequestInit) => (String(input).endsWith('2026Q3/overview.json') ? Promise.resolve(new Response(JSON.stringify({ release: '2026Q3' }))) : base(input, init))) as typeof fetch
     const r = await loadRelease(new HttpSource('./', odd))
     expect(r.previousOverview).toBeNull()
-    expect(r.previousProblem).toBe('failed')
+    expect(r.previousProblem).toBe('damaged')
   })
 
   it('parses schema majors', () => {

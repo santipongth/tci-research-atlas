@@ -4,7 +4,7 @@ import { useFontsVersion } from '../lib/useFontsVersion'
 import { textWidth as measureText } from '../lib/measure'
 import { LABEL_PX } from '../lib/labelSizes'
 import { labelOrder, scatterLayout, type ScatterPoint } from './editorLayout'
-import { placeLabels, textWidth, type Box } from './execLayout'
+import { placeLabels, type Box } from './execLayout'
 import { tickDecimals } from './scale'
 
 const graphemes = typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter('th', { granularity: 'grapheme' }) : null
@@ -43,7 +43,7 @@ export function JournalScatter({ points, yRef, text, label, describe, pct }: {
   const avoid: Box[] = []
   const zone = L.zone
   const zoneLabel = zone && zone.h > LABEL_PX.strong * 1.8 ? { x: zone.x + 8, y: zone.y + 8 + LABEL_PX.strong * 0.8 } : null
-  if (zone && zoneLabel) avoid.push({ x: zone.x, y: zone.y, w: textWidth(text.zone, LABEL_PX.strong) + 18, h: LABEL_PX.strong * 1.6 + 8 })
+  if (zone && zoneLabel) avoid.push({ x: zone.x, y: zone.y, w: measureText(text.zone, LABEL_PX.strong, 700) + 18, h: LABEL_PX.strong * 1.6 + 8 })
   const order = labelOrder(points, yRef)
   const labels = placeLabels(
     order.map((p) => ({ id: p.id, text: clip(p.label, narrow ? 16 : 28), cx: L.x(p.x), cy: L.y(p.y) })),

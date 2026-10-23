@@ -1,31 +1,18 @@
 import type { JournalSummary } from '../data/types'
 import type { Lang } from './i18n'
+import { otherName, shownName, type ShownName } from './names'
 import { foldText } from './search'
-
-export interface ShownName {
-  text: string
-  /** language of `text` when it differs from the UI language, for a lang attribute; null = same / not a name */
-  lang: Lang | null
-  /** true when no registry name exists and the OJS path is shown instead */
-  isPath: boolean
-}
 
 type Named = Pick<JournalSummary, 'name_th' | 'name_en' | 'path'>
 
-/** The registry name in the UI language, else the other language, else the OJS path (never an empty title). */
+/** The registry name in the UI language, else the other language, else the OJS path (`fallback`: no registry name). */
 export function journalName(j: Named, lang: Lang): ShownName {
-  const own = lang === 'en' ? j.name_en : j.name_th
-  const other = lang === 'en' ? j.name_th : j.name_en
-  if (own) return { text: own, lang: null, isPath: false }
-  if (other) return { text: other, lang: lang === 'en' ? 'th' : 'en', isPath: false }
-  return { text: j.path, lang: null, isPath: true }
+  return shownName(j.name_th, j.name_en, lang, j.path)
 }
 
 /** The name in the other language when both exist and differ (shown under the title). */
 export function otherJournalName(j: Named, lang: Lang): string {
-  const own = lang === 'en' ? j.name_en : j.name_th
-  const other = lang === 'en' ? j.name_th : j.name_en
-  return own && other && own !== other ? other : ''
+  return otherName(j.name_th, j.name_en, lang)
 }
 
 /** In-house share above journals.inhouse_flag_share (published in journals.json; null = no mark). Only a registry owner

@@ -1,14 +1,14 @@
 import { defineStrings } from './define'
 
-/** /changes (E5) and its link on /overview. */
+/**
+ * /changes (E5). Its link on /overview lives in overview.ts.
+ * Lazy pages only (read with useStrings) — kept out of the entry chunk.
+ */
 export const changes = defineStrings({
-  'nav.changes': { th: 'อะไรเปลี่ยน', en: 'What changed' },
   'ch.title': { th: 'อะไรเปลี่ยนไปจากรอบที่แล้ว', en: 'What changed since the last release' },
   'ch.lede': { th: 'เทียบข้อมูลรอบ {release} กับรอบ {prev} ว่ามีหัวข้อไหนใหม่ หัวข้อไหนหายไป หัวข้อไหนเปลี่ยนสถานะ และหัวข้อไหนสัดส่วนเปลี่ยนมากที่สุด', en: 'Release {release} compared with {prev}: new and vanished topics, status changes and the biggest movers.' },
   'ch.fromOutput': { th: 'หน้านี้เทียบกับไฟล์ที่เผยแพร่ของรอบ {prev} เพราะรอบนั้นยังไม่ได้เก็บข้อมูลไว้สำหรับเทียบ', en: 'Compared with the published files of {prev}, which predates the comparison snapshot.' },
   'ch.kpi.h': { th: 'ตัวเลขรวม', en: 'Totals' },
-  'ch.kpi.table': { th: 'ตัวเลขรวม เทียบกับรอบที่แล้ว', en: 'Totals compared with the last release' },
-  'kpi.assigned_articles': { th: 'บทความที่จัดหัวข้อได้', en: 'Articles with a topic' },
   'col.kpi': { th: 'ตัวเลข', en: 'Figure' },
   'col.previous': { th: 'รอบก่อน', en: 'Previous' },
   'col.current': { th: 'รอบนี้', en: 'This release' },
@@ -35,5 +35,4 @@ export const changes = defineStrings({
   'ch.journals.h': { th: 'วารสารที่เข้ามาใหม่', en: 'Newly covered journals' },
   'ch.noPrevious': { th: 'ยังไม่มีรอบก่อนให้เทียบ', en: 'No previous release to compare with' },
   'ch.noPreviousBody': { th: 'หน้านี้จะเริ่มแสดงการเปลี่ยนแปลงเมื่อมีข้อมูลรอบที่สอง', en: 'This page shows changes from the second release on.' },
-  'ov.changes': { th: 'ดูว่าอะไรเปลี่ยนไปจากรอบ {prev}', en: 'See what changed since {prev}' },
 })

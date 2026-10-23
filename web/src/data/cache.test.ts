@@ -38,4 +38,25 @@ describe('cachedLoader', () => {
     await get('docs-2') // was evicted: asked again
     expect(asked.filter((k) => k === 'docs-2')).toHaveLength(2)
   })
+
+  it('never drops a request still in flight: a, b, a with max 1 loads twice, then shrinks back once they settle', async () => {
+    const asked: string[] = []
+    const waiting: (() => void)[] = []
+    const load = (k: string) => {
+      asked.push(k)
+      return new Promise<string>((done) => waiting.push(() => done(k)))
+    }
+    const get = cachedLoader(load, { max: 1 })
+    const a1 = get('a')
+    get('b')
+    const a2 = get('a')
+    expect(a2).toBe(a1)
+    expect(asked).toEqual(['a', 'b'])
+    waiting.forEach((w) => w())
+    await a1
+    await Promise.resolve()
+    get('a') // the most recent settled key stays; the other was dropped
+    get('b')
+    expect(asked).toEqual(['a', 'b', 'b'])
+  })
 })

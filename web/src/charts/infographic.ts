@@ -33,12 +33,32 @@ export function waffleUnit(total: number): number {
   return WAFFLE_UNITS.find((k) => total / k <= WAFFLE_TARGET) ?? WAFFLE_UNITS[WAFFLE_UNITS.length - 1]
 }
 
-/** The squares of one status: its topics (strongest first) cut into runs of `unit`; the last square may stand for fewer. Any topic at all gives a square. */
-export function waffleCells(topics: readonly Topic[], unit: number): Topic[][] {
+/**
+ * Squares per status once a square stands for several topics: largest-remainder rounding of count ÷ unit, so each
+ * status keeps its share of the squares instead of every status rounding up (12 topics at 10 a square is 1 square,
+ * not 2). A status with any topic keeps at least one square. With unit 1 every topic is a square.
+ */
+export function waffleCounts(counts: readonly number[], unit: number): number[] {
   const k = Math.max(1, Math.floor(unit))
-  const cells: Topic[][] = []
-  for (let i = 0; i < topics.length; i += k) cells.push(topics.slice(i, i + k))
-  return cells
+  if (k === 1) return counts.map((c) => Math.max(0, c))
+  const exact = counts.map((c) => Math.max(0, c) / k)
+  const out = exact.map((e, i) => (counts[i] > 0 ? Math.max(1, Math.floor(e)) : 0))
+  const total = Math.round(exact.reduce((a, e) => a + e, 0))
+  const order = counts.map((_, i) => i).filter((i) => counts[i] > 0).sort((a, b) => exact[b] - Math.floor(exact[b]) - (exact[a] - Math.floor(exact[a])) || counts[b] - counts[a] || a - b)
+  for (let n = out.reduce((a, c) => a + c, 0), r = 0; n < total && order.length; n++, r++) out[order[r % order.length]] += 1
+  return out
+}
+
+/** The squares of one status: its topics (strongest first) split into `cells` runs as even as possible, larger runs first. Never loses a topic. */
+export function waffleCells(topics: readonly Topic[], cells: number): Topic[][] {
+  const n = Math.min(topics.length, Math.max(0, Math.floor(cells)))
+  const out: Topic[][] = []
+  for (let c = 0, at = 0; c < n; c++) {
+    const size = Math.floor(topics.length / n) + (c < topics.length % n ? 1 : 0)
+    out.push(topics.slice(at, at + size))
+    at += size
+  }
+  return out
 }
 
 /** Percent of `total`, rounded to a whole number for labels (never NaN). */

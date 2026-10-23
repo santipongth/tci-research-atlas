@@ -3,6 +3,13 @@ import type { Lang } from './i18n'
 /** Both languages use Arabic digits with en-US grouping, the true minus sign and Gregorian years (DESIGN.md). */
 export const MINUS = '−'
 export const DASH = '–'
+/** An en dash followed by a word joiner: a line may not break inside a year range ("2022–2024"). */
+export const RANGE_DASH = '–⁠'
+
+/** A year range that never breaks across lines: 2022, 2024 → "2022–2024" (en dash + word joiner). */
+export function yearSpan(from: number | string, to: number | string): string {
+  return `${from}${RANGE_DASH}${to}`
+}
 
 const formatters = new Map<number, Intl.NumberFormat>()
 function nf(digits: number): Intl.NumberFormat {
@@ -44,6 +51,7 @@ export function fmtShare(fraction: number | null | undefined, digits = 1): strin
 
 /** A change in percentage points, whole: "+3", "−2", "0"; a change that is real but under one point prints "+<1" / "−<1". */
 export function fmtPts(change: number): string {
+  if (!finite(change)) return DASH
   const d = Math.round(change * 100)
   if (d !== 0) return d > 0 ? `+${d}` : `${MINUS}${Math.abs(d)}`
   return change > 0 ? '+<1' : change < 0 ? `${MINUS}<1` : '0'

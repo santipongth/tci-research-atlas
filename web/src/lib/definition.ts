@@ -1,5 +1,5 @@
 import type { Topic } from '../data/types'
-import { fmtNum, fmtPct, fmtSignedPct } from './format'
+import { fmtNum, fmtPct, fmtSignedPct, yearSpan } from './format'
 
 /**
  * Emerging-definition constants shown in the UI. They mirror pipeline/config.example.yaml defaults
@@ -35,7 +35,7 @@ export function windows(lastCompleteYear: number): Windows {
   return { R: [L - recentYears + 1, L], B: [L - recentYears - baselineYears + 1, L - recentYears], W: [L - trendYears + 1, L] }
 }
 
-export const fmtWindow = (w: readonly [number, number]): string => `${w[0]}–${w[1]}`
+export const fmtWindow = (w: readonly [number, number]): string => yearSpan(w[0], w[1])
 
 /** Linear interpolation between closest ranks (pandas' default) on an ascending array. */
 export function quantile(sorted: readonly number[], q: number): number {
