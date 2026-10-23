@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
 import { OnThisPage } from '../components/OnThisPage'
@@ -10,11 +11,16 @@ import { fmtDate, fmtInt, fmtSignedPct, releaseQuarter } from '../lib/format'
 import { sortBy } from '../lib/sort'
 import { statusName } from '../lib/topicText'
 import { useI18n } from '../lib/i18n'
+import { pickFindings } from '../lib/findings'
+import { FindingCards } from './overview/FindingCards'
 import { Findings } from './overview/Findings'
 import { Headline } from './overview/Headline'
 import { KpiGrid } from './overview/KpiGrid'
-import { Portfolio } from './overview/Portfolio'
-import { StatusOverview } from './overview/StatusOverview'
+
+// The sections below the key figures load on demand (this page is in the entry chunk): the status waffle and forest
+// plot, and the size × growth matrix at the end of the page.
+const StatusOverview = lazy(() => import('./overview/StatusOverview').then((m) => ({ default: m.StatusOverview })))
+const Portfolio = lazy(() => import('./overview/Portfolio').then((m) => ({ default: m.Portfolio })))
 
 export default function OverviewPage() {
   const { t } = useI18n()
@@ -41,11 +47,13 @@ function Overview({ release }: { release: AtlasRelease }) {
     : t('ov.status.introPlain')
   const star = threshold === null ? undefined : sortBy(plotted.filter((tp) => quadrantOf(tp, threshold) === 'stars'), (tp) => tp.metrics.share_recent, 'desc')[0]
   const pfIntro = star ? t('ov.pf.intro', { topic: name(star) }) : t('ov.pf.introPlain')
+  const findings = pickFindings(release.topics)
+  const findingsTitle = findings.length === 3 ? t('ov.fc.h3') : t('ov.findings.h')
   const toc = [
+    ...(findings.length || bullets.length ? [{ id: 'findings', label: findingsTitle }] : []),
     { id: 'kpi', label: t('ov.kpi.h') },
-    ...(bullets.length ? [{ id: 'findings', label: t('ov.findings.h') }] : []),
-    ...(exec.length ? [{ id: 'policy', label: t('ov.exec.h') }] : []),
     ...(hasTopics ? [{ id: 'status', label: t('ov.status.h') }] : []),
+    ...(exec.length ? [{ id: 'policy', label: t('ov.exec.h') }] : []),
     ...(plotted.length ? [{ id: 'portfolio', label: t('ov.pf.h') }] : []),
   ]
   const kpiIntro = release.previousOverview
@@ -72,40 +80,63 @@ function Overview({ release }: { release: AtlasRelease }) {
         ]}
       >
         {trimmed.length ? <p className="note">{t('ov.trimmed', { years: trimmed.join(', ') })}</p> : null}
+        <p className="page-acts">
+          <Link className="btn-secondary" to="/brief">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+              <path d="M3.5 1.5h6l3 3v10h-9z M9.5 1.5v3h3 M5.5 8h5 M5.5 10.5h5 M5.5 13h3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+            </svg>
+            {t('ov.brief.btn')}
+          </Link>
+        </p>
       </PageHeader>
       <Headline release={release} />
       <div className="layout">
         <div className="main-col">
+          {findings.length ? (
+            <Section id="findings" title={findingsTitle} intro={t('ov.fc.intro')}>
+              <FindingCards release={release} findings={findings} />
+              {bullets.length ? (
+                <details className="more-points">
+                  <summary>{t('ov.fc.points', { n: bullets.length })}</summary>
+                  <Findings release={release} bullets={bullets} />
+                </details>
+              ) : null}
+            </Section>
+          ) : bullets.length ? (
+            <Section id="findings" title={findingsTitle}>
+              <Findings release={release} bullets={bullets} />
+            </Section>
+          ) : null}
           <Section id="kpi" title={t('ov.kpi.h')} intro={kpiIntro}>
             <KpiGrid release={release} />
             {hasModule(release, 'diff') && ov.previous_release ? (
               <p className="mt-2"><Link className="go-link" to="/changes">{t('ov.changes', { prev: ov.previous_release })}</Link></p>
             ) : null}
           </Section>
-          {bullets.length ? (
-            <Section id="findings" title={t('ov.findings.h')}>
-              <Findings release={release} bullets={bullets} />
-            </Section>
-          ) : null}
-          {exec.length ? (
-            <Section id="policy" title={t('ov.exec.h')} intro={t('brief.execNote')}>
-              <ul className="exec-points">
-                {exec.map((b, i) => (
-                  <li key={i}>{b}</li>
-                ))}
-              </ul>
-            </Section>
-          ) : null}
           {hasTopics ? (
             <Section id="status" title={t('ov.status.h')} intro={statusIntro}>
-              <StatusOverview release={release} />
+              <Suspense fallback={<p className="loading" role="status">{t('loading')}</p>}>
+                <StatusOverview release={release} />
+              </Suspense>
             </Section>
           ) : (
             <EmptyState title={t('empty.topics')} />
           )}
+          {exec.length ? (
+            <Section id="policy" title={t('ov.exec.h')}>
+              <ol className="policy-list">
+                {exec.map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ol>
+              <p className="policy-note">{t('brief.execNote')}</p>
+            </Section>
+          ) : null}
           {plotted.length && threshold !== null ? (
             <Section id="portfolio" title={t('ov.pf.h')} intro={pfIntro}>
-              <Portfolio release={release} topics={plotted} threshold={threshold} />
+              <Suspense fallback={<p className="loading" role="status">{t('loading')}</p>}>
+                <Portfolio release={release} topics={plotted} threshold={threshold} />
+              </Suspense>
             </Section>
           ) : null}
         </div>

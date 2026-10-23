@@ -28,20 +28,8 @@
   @media (max-width: 640px) { .kpis { grid-template-columns: 1fr 1fr; gap: 10px; } .kpi { padding: 12px; } }
 
   .points { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
-  .point { padding: 16px 20px; background: var(--surface); border-left: 4px solid var(--brand); }
+  .point { padding: 12px 0; border-top: 1px solid var(--border-2); }
   .point p { font-size: var(--fs-body); line-height: 1.7; max-width: var(--measure-body); }
-
-  .st-sum { margin: 18px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); }
-  .st-sum div { padding: 12px 14px 12px 0; border-bottom: 1px solid var(--border); min-width: 0; }
-  .st-sum div:not(:nth-child(3n+1)) { padding-left: 14px; border-left: 1px solid var(--border-2); }
-  .st-mean { display: block; margin-top: 4px; font-size: var(--fs-meta); line-height: 1.5; color: var(--ink-2); }
-  .st-sum dd { margin: 4px 0 0; font-size: var(--fs-tile); font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
-  .st-sum dd small { font-size: var(--fs-caption); font-weight: 400; color: var(--ink-2); margin-left: 6px; }
-  @media (max-width: 640px) {
-    .st-sum { grid-template-columns: 1fr 1fr; }
-    .st-sum div:not(:nth-child(3n+1)) { padding-left: 0; border-left: 0; }
-    .st-sum div:nth-child(even) { padding-left: 12px; border-left: 1px solid var(--border-2); }
-  }
   .flag { color: var(--ink-2); font-weight: 700; }
 
   .forest { margin-top: 6px; }
@@ -72,6 +60,13 @@
   .fr-val b { display: block; font-weight: 600; font-size: var(--fs-meta); line-height: 1.5; }
   .fr-val span { display: block; white-space: nowrap; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
   .fr-more { margin-top: 8px; font-size: var(--fs-meta); }
+  /* /emerging spans the full container: the whisker band takes the room the rail would have */
+  @media (min-width: 641px) {
+    .forest.is-wide .fr-axis, .forest.is-wide .fr-row { grid-template-columns: minmax(0, 21%) minmax(0, 1fr) 8.5rem; gap: 0 20px; }
+  }
+  .forest.is-wide .fr-plot { height: 30px; }
+  .em-steps { margin: var(--sp-block) 0; padding-top: var(--sp-group); border-top: 1px solid var(--border-2); }
+  .em-steps-h { font-size: var(--fs-lead); font-weight: 600; line-height: 1.5; }
   @media (max-width: 640px) {
     .fr-axis, .fr-row { grid-template-columns: minmax(0, 1fr) auto; }
     .fr-axislabel { display: none; }

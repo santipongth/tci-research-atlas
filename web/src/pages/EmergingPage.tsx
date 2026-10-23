@@ -6,7 +6,8 @@ import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { SourceLine } from '../components/SourceLine'
-import { StatusGlyph } from '../components/StatusGlyph'
+import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
+import { Steps } from '../components/Steps'
 import { Tabs } from '../components/Tabs'
 import { TopicLink } from '../components/TopicLink'
 import { ForestPlot } from '../charts/ForestPlot'
@@ -17,6 +18,7 @@ import { ciPct, DASH, fmtInt, fmtRatio, fmtSignedPct } from '../lib/format'
 import { forestSelection } from '../lib/forest'
 import { useI18n, type I18n } from '../lib/i18n'
 import { isSignal, isStatus, STATUSES, type StatusId } from '../lib/status'
+import { STATUS_STEPS, stepOf } from '../lib/statusSteps'
 import { withPrimary } from '../lib/columns'
 import { figureCsv } from '../lib/tableCsv'
 import { statusMeaning, statusName } from '../lib/topicText'
@@ -82,6 +84,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
   return (
     <div className="container">
       <PageHeader title={t('em.title')} lede={lede} />
+      {release.topics.length ? <StatusSteps current={stepOf(st)} level={level} /> : null}
       {release.topics.length === 0 ? (
         <EmptyState title={t('empty.topics')} />
       ) : (
@@ -98,7 +101,8 @@ function Emerging({ release }: { release: AtlasRelease }) {
             <b>{label}</b>
             <span>— {statusMeaning(t, st)}</span>
           </p>
-          <p className="rule">{ruleText(t, st, level)}</p>
+          {/* with a chart the full rule sits in its "วิธีอ่าน"; a table-only status keeps it here */}
+          {forest && forest.rows.length > 0 ? null : <p className="rule">{ruleText(t, st, level)}</p>}
           {st === 'WATCH' ? (
             <div className="inset">
               <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
@@ -115,6 +119,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
               toggle="buttons"
               how={
                 <>
+                  <p><b>{label}:</b> {ruleText(t, st, level)}</p>
                   <p>{t('em.how', { level, bar })}</p>
                   <p>{t('rule.how', { level })}</p>
                 </>
@@ -130,6 +135,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
                   axisLabel={t('ov.forest.axis')}
                   refLabel={t('ov.forest.bar', { v: bar })}
                   subtitle={(tp) => groupName(release, tp.group, lang)}
+                  wide
                 />
               }
               table={table}
@@ -150,6 +156,32 @@ function Emerging({ release }: { release: AtlasRelease }) {
       ) : null}
       <Keywords release={release} />
     </div>
+  )
+}
+
+/** The status rule as four numbered checks, in the order the definition applies them; the open tab's step is marked. */
+function StatusSteps({ current, level }: { current: number; level: number }) {
+  const { t } = useI18n()
+  const vars = ruleVars(level)
+  return (
+    <section className="em-steps" aria-labelledby="em-steps-h">
+      <h2 id="em-steps-h" className="em-steps-h">{t('steps.h')}</h2>
+      <Steps
+        label={t('steps.label')}
+        current={current}
+        items={STATUS_STEPS.map((s) => ({
+          title: t(`steps.${s.key}.t` as const),
+          body: t(`steps.${s.key}.b` as const, vars),
+          foot: s.outcomes.map((o) => (
+            <span className="step-o" key={o}>
+              <span>{t(`steps.o.${o}` as const, vars)}</span>
+              <span aria-hidden="true">→</span>
+              <StatusChip status={o} label={statusName(t, o)} small />
+            </span>
+          )),
+        }))}
+      />
+    </section>
   )
 }
 

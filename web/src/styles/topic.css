@@ -48,4 +48,17 @@
   .art-alt { display: block; font-size: var(--fs-meta); color: var(--ink-2); }
   .art-meta { display: block; font-size: var(--fs-meta); color: var(--ink-2); }
   .related { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+
+  /* hero: status + growth in one plain sentence (with its likely range) beside the share and articles tiles */
+  .tp-hero { margin-top: var(--sp-block); display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--sp-group) 40px; align-items: start; padding-top: var(--sp-group); border-top: 2px solid var(--ink); }
+  .tp-hero-st { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5; }
+  .tp-hero-g { margin-top: 10px; font-size: var(--fs-h2); font-weight: 600; line-height: 1.5; }
+  .tp-hero-ci { margin-top: 8px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; }
+  .tp-hero .whisker-fit { margin-top: 8px; max-width: 360px; }
+  .tp-hero .stats { margin-top: 0; }
+  .tp-eg { margin-top: var(--sp-group); max-width: var(--measure-body); font-size: var(--fs-body); line-height: 1.65; }
+  .tp-eg b { font-weight: 600; }
+  .tp-eg a { font-weight: 600; }
+  .tp-after { padding-top: var(--sp-block); }
+  @media (max-width: 899px) { .tp-hero { grid-template-columns: 1fr; } }
 }

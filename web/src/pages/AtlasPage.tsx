@@ -7,6 +7,7 @@ import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { SourceMore } from '../components/SourceLine'
 import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
+import { Steps } from '../components/Steps'
 import { TopicTip } from '../components/TopicTip'
 import { groupName, type AtlasRelease } from '../data/release'
 import { Gazetteer } from '../features/atlas/Gazetteer'
@@ -16,10 +17,43 @@ import { buildTerrain } from '../features/atlas/terrain'
 import { ciPct, fmtInt, fmtPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { prefersReducedMotion } from '../lib/scroll'
-import { STATUSES, type StatusId } from '../lib/status'
+import { glyphPath, SIGNAL_STATUSES, STATUSES, type StatusId } from '../lib/status'
 import { ciText, growthText, statusName } from '../lib/topicText'
 import { atlasCodec, LAYERS } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
+
+/** Step drawings for "read this map": contour rings on a field tint, the four signal glyphs, near and far dots. */
+function HillArt() {
+  return (
+    <svg width="64" height="36" viewBox="0 0 64 36" focusable="false">
+      <ellipse cx="30" cy="20" rx="27" ry="14" className="ra-tint" />
+      {[[27, 14], [19, 10], [11, 6]].map(([rx, ry], i) => (
+        <ellipse key={rx} cx={30 + i * 2} cy={20 - i * 1.5} rx={rx} ry={ry} className={i === 0 ? 'ra-contour is-heavy' : 'ra-contour'} />
+      ))}
+    </svg>
+  )
+}
+
+function SymbolArt() {
+  return (
+    <svg width="96" height="36" viewBox="0 0 96 36" focusable="false">
+      {SIGNAL_STATUSES.map((st, i) => (
+        <path key={st} className={`mk mk-${st}`} transform={`translate(${12 + i * 24},18)`} d={glyphPath(st, 4 + i)} />
+      ))}
+    </svg>
+  )
+}
+
+function NearArt() {
+  return (
+    <svg width="96" height="36" viewBox="0 0 96 36" focusable="false">
+      <circle cx="12" cy="18" r="5" className="ra-dot" />
+      <circle cx="26" cy="15" r="5" className="ra-dot" />
+      <path d="M38 18h30" className="ra-gap" />
+      <circle cx="84" cy="20" r="5" className="ra-dot" />
+    </svg>
+  )
+}
 
 export default function AtlasPage() {
   const { t } = useI18n()
@@ -67,6 +101,17 @@ function Atlas({ release }: { release: AtlasRelease }) {
   return (
     <div className="container wide">
       <PageHeader title={t('map.title')} lede={t('map.lede', { n: fmtInt(release.topics.length) })} />
+      <section className="map-read" aria-labelledby="map-read-h">
+        <h2 id="map-read-h" className="map-read-h">{t('map.read.h')}</h2>
+        <Steps
+          label={t('map.read.h')}
+          items={[
+            { title: t('map.read.1t'), body: t('map.read.1b'), art: <HillArt /> },
+            { title: t('map.read.2t'), body: t('map.read.2b'), art: <SymbolArt /> },
+            { title: t('map.read.3t'), body: t('map.read.3b'), art: <NearArt /> },
+          ]}
+        />
+      </section>
       <div className="atlas-grid">
         <figure className="atlas-fig" id="atlas-map" aria-labelledby="atlas-fig-title">
           <p className="figtitle" id="atlas-fig-title">{t('figure.n', { n: 1, title: t('map.fig', { release: release.overview.release }) })}</p>

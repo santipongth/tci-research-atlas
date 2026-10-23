@@ -29,7 +29,7 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 
 /** E1: KPI tiles — a KPI the release does not carry (e.g. P3 KPIs of an older release) is left out; Δ only when the
  *  previous release's overview carries it too. The article tile carries the yearly article count as a sparkline. */
-export function KpiGrid({ release }: { release: AtlasRelease }) {
+export function KpiGrid({ release, more: showMore = true }: { release: AtlasRelease; more?: boolean }) {
   const { t, lang } = useI18n()
   const now = release.overview.kpis
   const prev = release.previousOverview
@@ -57,7 +57,7 @@ export function KpiGrid({ release }: { release: AtlasRelease }) {
   return (
     <>
       <StatGrid cols={4}>{PRIMARY.map(tile)}</StatGrid>
-      {more.length ? (
+      {showMore && more.length ? (
         <details className="stats-more">
           <summary>{t('stat.more', { n: more.length })}</summary>
           <StatGrid cols={4}>{more.map(tile)}</StatGrid>

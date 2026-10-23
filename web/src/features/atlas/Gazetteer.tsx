@@ -1,18 +1,17 @@
 import { TopicName } from '../../components/TopicName'
 import { useMemo } from 'react'
-import { CiWhisker } from '../../components/CiWhisker'
 import { StatusGlyph } from '../../components/StatusGlyph'
 import { groupName, type AtlasRelease } from '../../data/release'
 import type { Topic } from '../../data/types'
 import { breadthText } from '../../lib/breadth'
 import { DEFINITION } from '../../lib/definition'
-import { ciPct, fmtInt, fmtSignedPct } from '../../lib/format'
+import { ciPct, DASH, fmtInt, fmtSignedPct } from '../../lib/format'
+import { hasCi } from '../../lib/forest'
 import { useI18n } from '../../lib/i18n'
 import { buildSearchIndex, searchTopics } from '../../lib/search'
 import { sortBy } from '../../lib/sort'
 import { SIGNAL_STATUSES } from '../../lib/status'
 import { statusName } from '../../lib/topicText'
-import { FOREST_DOMAIN } from '../../pages/topicColumns'
 import { gridRef, type MapPoint } from './mapSpace'
 
 /** The map in text: every signal topic by status with its grid reference and CI, plus a search over all topics. */
@@ -77,10 +76,8 @@ export function Gazetteer({ release, points, query, onQuery, onPick, selected }:
                       <span className="g-name">{name(tp)}</span>
                       <span className="g-ref">{refOf.get(tp.id) ?? ''}</span>
                       <span className="g-meta">
-                        <span className="g-wh">
-                          <CiWhisker status={tp.status} value={tp.metrics.share_growth} lo={tp.metrics.share_growth_lo} hi={tp.metrics.share_growth_hi} domain={FOREST_DOMAIN} refValue={DEFINITION.emergingMinGrowthLo} width={140} />
-                        </span>
-                        <span className="g-val">{fmtSignedPct(tp.metrics.share_growth)}</span>
+                        <span className="g-val">{tp.metrics.share_growth === null || tp.metrics.share_growth === undefined ? DASH : `${fmtSignedPct(tp.metrics.share_growth, 0)} ${t('perYear')}`}</span>
+                        {hasCi(tp) ? <span className="g-ci">({fmtSignedPct(tp.metrics.share_growth_lo, 0)} {t('to')} {fmtSignedPct(tp.metrics.share_growth_hi, 0)})</span> : null}
                       </span>
                       <span className="g-sub">
                         {groupName(release, tp.group, lang)}

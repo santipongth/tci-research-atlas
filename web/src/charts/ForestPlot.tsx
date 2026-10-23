@@ -32,7 +32,7 @@ const CAP: readonly [number, number] = [-1, 3]
  * grouped by status, with a dashed line at the EMERGING bar and a solid line at zero. Rows are links.
  * The axis covers every interval shown (plus zero and the bar) unless a `domain` is given.
  */
-export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base, domain, refValue = DEFINITION.emergingMinGrowthLo }: {
+export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base, domain, refValue = DEFINITION.emergingMinGrowthLo, wide = false }: {
   groups: readonly ForestGroup[]
   axisLabel: string
   refLabel: string
@@ -43,6 +43,8 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
   base: string
   domain?: readonly [number, number]
   refValue?: number
+  /** a full-width page (/emerging): narrower name and value columns, a taller whisker */
+  wide?: boolean
 }) {
   const [plotRef, { width }] = useElementSize<HTMLDivElement>()
   const { t, name } = useI18n()
@@ -50,7 +52,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
   const x = linear(dom[0], dom[1], 6, Math.max(width, 12) - 6)
   const ticks = niceTicks(dom[0], dom[1], width < 420 ? 4 : 6).filter((v) => v >= dom[0] && v <= dom[1])
   return (
-    <div className="forest">
+    <div className={wide ? 'forest is-wide' : 'forest'}>
       <div className="fr-axis" aria-hidden="true">
         <div className="fr-axislabel">{axisLabel}</div>
         <div className="fr-axis-plot" ref={plotRef}>
@@ -96,7 +98,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
                     </span>
                     <span className="fr-plot">
                       {ci ? (
-                        <CiWhisker status={tp.status} value={tp.metrics.share_growth} lo={tp.metrics.share_growth_lo} hi={tp.metrics.share_growth_hi} domain={dom} refValue={refValue} width={width} height={26} />
+                        <CiWhisker status={tp.status} value={tp.metrics.share_growth} lo={tp.metrics.share_growth_lo} hi={tp.metrics.share_growth_hi} domain={dom} refValue={refValue} width={width} height={wide ? 30 : 26} r={wide ? 5 : 4} />
                       ) : (
                         <span className="fr-noci">{t('noCi')}</span>
                       )}

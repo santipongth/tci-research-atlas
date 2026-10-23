@@ -71,6 +71,8 @@
 
   /* figure caption row: "แผนภูมิ n: …" left; view switch, "วิธีอ่าน" and CSV right; one 2 px ink rule under it */
   .fig { margin: 22px 0 0; }
+  /* a second figure in the same section starts a block step below the first (and its note) */
+  .fig ~ .fig { margin-top: var(--sp-block); }
   .fig-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 20px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
   .figtitle { font-weight: 700; font-size: var(--fs-body); line-height: 1.5; margin: 0; flex: 1 1 22rem; min-width: 0; max-width: var(--measure-body); }
   .fig-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }

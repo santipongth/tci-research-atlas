@@ -47,8 +47,13 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   overview: async (page) => {
     await expect(page.locator('.headline mark').first()).toBeVisible()
     await expect(page.getByRole('link', { name: /โมเดลภาษาขนาดใหญ่/ }).first()).toBeVisible()
+    // the front door: three finding cards (number, example topic link, sparkline) and the one-page brief button
+    await expect(page.locator('#findings .find')).toHaveCount(3)
+    await expect(page.locator('#findings .find-topic a').first()).toHaveAttribute('href', /#\/topics\/T\d{6}$/)
+    await expect(page.locator('#findings .find .spark')).toHaveCount(3)
+    await expect(page.getByRole('link', { name: 'สรุป 1 หน้า' })).toHaveAttribute('href', '#/brief')
     await expect(page.locator('#kpi .stat')).toHaveCount(8)
-    await expect(page.locator('#policy li')).toHaveCount(3)
+    await expect(page.locator('#policy ol.policy-list > li')).toHaveCount(3)
     await expect(page.locator('#kpi .stat-d').first()).toContainText('2026Q3')
     await expect(page.locator('.fr-row').first()).toBeVisible()
     // a topic new since the baseline is marked as such; the axis reaches its +129% upper bound instead of clipping it
@@ -67,16 +72,26 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
         .map((l) => l.textContent)
     })
     expect(onMarkers).toEqual([])
-    await page.getByRole('tab', { name: 'ตาราง' }).first().click()
-    await expect(page.getByRole('table').first()).toBeVisible()
-    await expect(page.getByRole('table').first()).toContainText('ใหม่ — ปี')
+    // status waffle: one square per topic, and its table tab with a row per status
+    await expect(page.locator('.wf-cell')).toHaveCount(48)
+    await page.locator('#fig-statusmix-tab-table').click()
+    await expect(page.locator('#fig-statusmix-panel tbody tr')).toHaveCount(6)
+    await expect(page).toHaveURL(/wf=table/)
+    await page.locator('#fig-status-tab-table').click()
+    await expect(page.locator('#fig-status-panel table')).toContainText('ใหม่ — ปี')
     await expect(page).toHaveURL(/st=table/)
   },
   emerging: async (page) => {
     await expect(page.getByRole('tab', { name: /กำลังเกิดใหม่/ })).toHaveAttribute('aria-selected', 'true')
+    // the rule as four checks; the open status's step is marked
+    await expect(page.locator('.em-steps .step')).toHaveCount(4)
+    await expect(page.locator('.em-steps .step.is-current')).toContainText('เล็กแต่โตเร็วจริงไหม')
+    await expect(page.locator('.forest.is-wide .fr-row').first()).toBeVisible()
     await page.getByRole('tab', { name: /จับตา/ }).click()
     await expect(page).toHaveURL(/status=WATCH/)
     await expect(page.locator('#em-status-panel .inset')).toBeVisible()
+    await page.locator('#em-status-panel').getByRole('button', { name: 'ตาราง', exact: true }).click()
+    await expect(page).toHaveURL(/view=table/)
     await page.locator('#em-status-panel').getByRole('button', { name: 'วารสาร' }).first().click()
     await expect(page.locator('#em-status-panel th[aria-sort="descending"]')).toContainText('วารสาร')
     await expect(page).toHaveURL(/sort=journals/)
@@ -85,9 +100,20 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   },
   topic: async (page) => {
     await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
-    await expect(page.locator('#numbers .stats')).toContainText('%')
+    // hero: status, the growth sentence, the share and articles tiles with sparklines, and an example article
+    await expect(page.locator('.tp-hero .chip')).toContainText('กำลังเกิดใหม่')
+    await expect(page.locator('.tp-hero-g')).toContainText('ต่อปี')
+    await expect(page.locator('.tp-hero .stat')).toHaveCount(2)
+    await expect(page.locator('.tp-hero .stat').first()).toContainText('%')
+    await expect(page.locator('.tp-hero .spark')).toHaveCount(2)
+    await expect(page.locator('.tp-eg a')).toHaveAttribute('href', /tci-thaijo\.org/)
     await expect(page.locator('svg.tr')).toBeVisible()
-    await expect(page.getByRole('link', { name: /AI เพื่อการศึกษา: กรณีศึกษาที่ 1/ })).toHaveAttribute('href', /tci-thaijo\.org/)
+    await expect(page.getByRole('link', { name: /AI เพื่อการศึกษา: กรณีศึกษาที่ 1/ }).first()).toHaveAttribute('href', /tci-thaijo\.org/)
+    // journals and institutions: a top-5 bar ranking with the full table behind its tab
+    await expect(page.locator('#journals .br-row').first()).toBeVisible()
+    await page.locator('#fig-journals-tab-table').click()
+    await expect(page.locator('#fig-journals-panel tbody tr').first()).toBeVisible()
+    await expect(page).toHaveURL(/jr=table/)
     await expect(page.locator('#related')).toBeVisible()
     // P4: glossary, cited-in-TCI figure (0 is a value, not a missing one), SDG goal chips, RIS export of the articles
     await expect(page.locator('#glossary tbody tr')).toHaveCount(2)
@@ -170,7 +196,10 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('[data-brief-ready="true"]')).toBeVisible()
     await expect(page.locator('h2#brief-exec')).toBeVisible()
     await expect(page.locator('.brief .headline mark').first()).toBeVisible()
-    await expect(page.locator('.brief-t').first().locator('tbody tr')).toHaveCount(7)
+    await expect(page.locator('.brief .stat')).toHaveCount(4)
+    await expect(page.locator('.brief .find')).toHaveCount(3)
+    await expect(page.locator('.brief .wf-cell')).toHaveCount(48)
+    await expect(page.locator('.brief .dp-row')).toHaveCount(7)
   },
   journals: async (page) => {
     const rows = page.locator('#journals tbody tr')

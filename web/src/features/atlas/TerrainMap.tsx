@@ -37,6 +37,8 @@ const ROW_H = MAP_H / ROWS
 const PRIORITY: Record<StatusId, number> = { EMERGING: 0, WATCH: 1, HOT: 2, DECLINING: 3, STABLE: 4, LOW_DATA: 5 }
 const PAN: Record<string, [number, number]> = { ArrowLeft: [60, 0], ArrowRight: [-60, 0], ArrowUp: [0, 60], ArrowDown: [0, -60] }
 const RESET: UserView = { s: 1, dx: 0, dy: 0 }
+/** Topic names tried on a phone-width sheet (the most important statuses first); collisions drop the rest. */
+const PHONE_NAMES = 10
 
 function rgb(value: string): [number, number, number] {
   const v = value.trim()
@@ -220,37 +222,33 @@ export function TerrainMap({ ref, points, groups, terrain, hidden, layers, selec
         : [],
     [view, points, hidden, selected, W, H],
   )
-  const fieldLabels = useMemo(
-    () =>
-      view
-        ? placeCentered(
-            groups
-              .map((g, gi) => ({ g, gi }))
-              .sort((a, b) => b.g.n - a.g.n)
-              .map(({ g, gi }) => ({ id: String(gi), text: g.name, width: textWidth(g.name, fieldSize, 700), height: fieldSize, x: g.cx * view.k + view.tx, y: g.cy * view.k + view.ty })),
-            { x: 20, y: 18, w: W - 26, h: H - 22 },
-            markers.map((m) => ({ x: m.sx - m.r, y: m.sy - m.r, w: 2 * m.r, h: 2 * m.r })),
-          )
-        : [],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fontsVersion re-measures text once Sarabun has loaded
-    [view, groups, markers, fieldSize, W, H, fontsVersion],
-  )
-  const nameLabels = useMemo(() => {
-    if (!view) return []
+  // On a phone sheet topic names go first (they are what the visitor came for) and field names fill the space left;
+  // on a wide sheet field names go first and topic names avoid them. Both never collide with markers or each other.
+  const { fieldLabels, nameLabels } = useMemo(() => {
+    if (!view) return { fieldLabels: [], nameLabels: [] }
+    const markerBoxes = markers.map((m) => ({ id: m.p.id, x: m.sx - m.r, y: m.sy - m.r, w: 2 * m.r, h: 2 * m.r }))
+    const fieldCands = groups
+      .map((g, gi) => ({ g, gi }))
+      .sort((a, b) => b.g.n - a.g.n)
+      .map(({ g, gi }) => ({ id: String(gi), text: g.name, width: textWidth(g.name, fieldSize, 700), height: fieldSize, x: g.cx * view.k + view.tx, y: g.cy * view.k + view.ty }))
     const force = new Set([selected, hover.id].filter((v): v is string => v !== null))
     const ranked = [...markers].sort((a, b) => PRIORITY[a.p.status] - PRIORITY[b.p.status] || b.p.share - a.p.share)
-    const named = [...ranked.filter((m) => force.has(m.p.id)), ...ranked.filter((m, i) => !force.has(m.p.id) && layers.has('names') && i < (small ? 4 : 25))]
-    return placeLabels(
-      named.map((m) => {
-        const text = names.get(m.p.id) ?? m.p.id
-        return { id: m.p.id, text, width: textWidth(text, LABEL_PX.label, 600), height: LABEL_PX.label, x: m.sx, y: m.sy, radius: m.r }
-      }),
-      [...markers.map((m) => ({ id: m.p.id, x: m.sx - m.r, y: m.sy - m.r, w: 2 * m.r, h: 2 * m.r })), ...fieldLabels.map((f) => f.box)],
-      { x: 18, y: 18, w: W - 22, h: H - 22 },
-      force,
-    )
+    const named = [...ranked.filter((m) => force.has(m.p.id)), ...ranked.filter((m, i) => !force.has(m.p.id) && layers.has('names') && i < (small ? PHONE_NAMES : 25))]
+    const nameCands = named.map((m) => {
+      const text = names.get(m.p.id) ?? m.p.id
+      return { id: m.p.id, text, width: textWidth(text, LABEL_PX.label, 600), height: LABEL_PX.label, x: m.sx, y: m.sy, radius: m.r }
+    })
+    const frame = { x: 18, y: 18, w: W - 22, h: H - 22 }
+    const fieldFrame = { x: 20, y: 18, w: W - 26, h: H - 22 }
+    if (small) {
+      const nameLabels = placeLabels(nameCands, markerBoxes, frame, force)
+      const fieldLabels = placeCentered(fieldCands, fieldFrame, [...markerBoxes, ...nameLabels.map((l) => l.box)])
+      return { fieldLabels, nameLabels }
+    }
+    const fieldLabels = placeCentered(fieldCands, fieldFrame, markerBoxes)
+    return { fieldLabels, nameLabels: placeLabels(nameCands, [...markerBoxes, ...fieldLabels.map((f) => f.box)], frame, force) }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fontsVersion re-measures text once Sarabun has loaded
-  }, [view, markers, fieldLabels, names, layers, selected, hover.id, small, W, H, fontsVersion])
+  }, [view, markers, groups, fieldSize, names, layers, selected, hover.id, small, W, H, fontsVersion])
   const zoom = (factor: number) => setUser((u) => zoomAt(u, factor, W / 2, H / 2, W, H))
   const enter = (p: MapPoint) => setHover({ id: p.id, group: p.groupIndex >= 0 ? p.groupIndex : null })
   const leave = () => setHover({ id: null, group: null })

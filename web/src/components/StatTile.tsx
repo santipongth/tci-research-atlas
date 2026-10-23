@@ -19,12 +19,12 @@ export function StatGrid({ cols = 3, children, className }: { cols?: 2 | 3 | 4; 
  * Ink-only sparkline: a 2 px line and the latest point, scaled to its own range. Decorative (aria-hidden):
  * the tile gives the same numbers in text (`trendText`).
  */
-export function Sparkline({ values }: { values: readonly (number | null)[] }) {
+export function Sparkline({ values, width = 120, height = 28 }: { values: readonly (number | null)[]; width?: number; height?: number }) {
   const pts = values.map((v, i) => (v === null || !Number.isFinite(v) ? null : { i, v }))
   const ok = pts.filter((p): p is { i: number; v: number } => p !== null)
   if (ok.length < 2) return null
-  const W = 120
-  const H = 28
+  const W = width
+  const H = height
   const lo = Math.min(...ok.map((p) => p.v))
   const hi = Math.max(...ok.map((p) => p.v))
   const x = (i: number) => 2 + (i / Math.max(1, values.length - 1)) * (W - 4)

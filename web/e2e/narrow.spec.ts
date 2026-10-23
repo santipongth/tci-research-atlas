@@ -52,6 +52,23 @@ test.describe('360 px', () => {
   })
 })
 
+test.describe('390 px atlas', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('the sheet takes the map\'s own shape and names more than one topic', async ({ page }) => {
+    await page.goto(`${EXAMPLE}#/atlas`)
+    await page.evaluate(() => document.fonts.ready)
+    await expect(page.locator('.map-read .step')).toHaveCount(3)
+    const sheet = (await page.locator('.sheet-in').boundingBox())!
+    // 1000 × 640 map plus the fit margin: no tall band of empty paper under it
+    expect(sheet.height / sheet.width).toBeLessThan(0.75)
+    await expect.poll(() => page.locator('.mlabel').count()).toBeGreaterThan(1)
+    // the gazetteer gives growth in words, not micro whiskers
+    await expect(page.locator('.gaz .g-val').first()).toContainText('ต่อปี')
+    await expect(page.locator('.gaz .whisker')).toHaveCount(0)
+  })
+})
+
 test.describe('390 × 844 phone chrome', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 

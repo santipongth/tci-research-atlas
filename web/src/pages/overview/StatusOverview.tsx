@@ -1,28 +1,28 @@
 import { DataTable } from '../../components/DataTable'
 import { Figure } from '../../components/Figure'
 import { Term } from '../../components/Term'
-import { StatusChip, StatusGlyph } from '../../components/StatusGlyph'
+import { StatusGlyph } from '../../components/StatusGlyph'
 import { ForestPlot, type ForestGroup } from '../../charts/ForestPlot'
 import { groupName, type AtlasRelease } from '../../data/release'
 import { DEFINITION, ruleVars } from '../../lib/definition'
 import { ciPct, fmtInt, fmtSignedPct } from '../../lib/format'
 import { forestSelection } from '../../lib/forest'
 import { useI18n } from '../../lib/i18n'
-import { SIGNAL_STATUSES, STATUSES } from '../../lib/status'
+import { SIGNAL_STATUSES } from '../../lib/status'
 import { withPrimary } from '../../lib/columns'
 import { figureCsv } from '../../lib/tableCsv'
-import { statusMeaning, statusName } from '../../lib/topicText'
+import { statusName } from '../../lib/topicText'
+import { StatusMix } from './StatusMix'
 import { overviewCodec } from '../../lib/urlState'
 import { useUrlState } from '../../lib/useUrlState'
 import { ciColumn, ciHighColumn, growthColumn, idColumn, journalsColumn, orgsColumn, ratioColumn, statusColumn, topicColumn, type ColumnContext, columnContext } from '../topicColumns'
 
 const PER_STATUS = 8
 
-/** E3: six-status summary + forest plot of the strongest signals (all rows in /emerging). */
+/** E3: every topic by status (waffle) + forest plot of the strongest signals (all rows in /emerging). */
 export function StatusOverview({ release }: { release: AtlasRelease }) {
   const { t, name, lang } = useI18n()
   const [state, update] = useUrlState(overviewCodec)
-  const counts = release.overview.status_counts
   const level = ciPct(release.ciLevel)
   const bar = fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0)
   const ctx: ColumnContext = columnContext(release, { t, name, lang })
@@ -46,29 +46,16 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
   }).filter((g) => g.rows.length > 0)
   const rows = groups.flatMap((g) => g.rows)
   const columns = withPrimary([idColumn(), topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)], ['status', 'growth', 'lo', 'journals'])
-  const tableTitle = t('table.n', { n: 1, title: t('ov.forest.table', { n: 1 }) })
+  const tableTitle = t('table.n', { n: 2, title: t('ov.forest.table', { n: 2 }) })
   const nUnverified = release.manifest.n_orgs_unverified ?? 0
   return (
     <>
-      <dl className="st-sum">
-        {STATUSES.map((st) => (
-          <div key={st}>
-            <dt>
-              <StatusChip status={st} label={statusName(t, st)} />
-              <span className="st-mean">{statusMeaning(t, st)}</span>
-            </dt>
-            <dd>
-              {fmtInt(counts[st] ?? 0)}
-              <small>{t('ov.status.of', { n: fmtInt(release.topics.length) })}</small>
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <StatusMix release={release} number={1} tableNo={1} view={state.wf} onView={(wf) => update({ wf })} />
       {nUnverified > 0 ? <p className="note">{t('ov.orgsNote', { n: fmtInt(nUnverified) })}</p> : null}
       {rows.length > 0 ? (
         <Figure
           id="fig-status"
-          number={1}
+          number={2}
           title={t('ov.forest.title', { level, n: PER_STATUS })}
           tableTitle={tableTitle}
           csv={figureCsv(`atlas-${release.overview.release}-status-intervals.csv`, rows, columns)}

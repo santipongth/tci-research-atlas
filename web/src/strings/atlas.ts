@@ -3,6 +3,13 @@ import { defineStrings } from './define'
 export const atlas = defineStrings({
   'map.title': { th: 'แผนที่หัวข้อวิจัย', en: 'Map of research topics' },
   'map.lede': { th: 'แผนที่นี้วาง {n} หัวข้อวิจัยเหมือนภูมิประเทศ หัวข้อที่อยู่ใกล้กันมีเนื้อหาคล้ายกัน สีพื้นบอกสาขา เส้นชั้นบอกว่าบทความหนาแน่นตรงไหน', en: 'This map lays out {n} research topics like terrain. Nearby topics have similar content; the tint shows the field and the contour lines show where articles are dense.' },
+  'map.read.h': { th: 'อ่านแผนที่นี้ใน 3 ขั้น', en: 'Read this map in 3 steps' },
+  'map.read.1t': { th: 'ภูเขา = เรื่องที่มีบทความมาก', en: 'Hills = many articles' },
+  'map.read.1b': { th: 'เส้นชั้นยิ่งถี่ ยิ่งมีบทความหนาแน่น สีพื้นบอกสาขา', en: 'The tighter the contour lines, the denser the articles; the tint shows the field.' },
+  'map.read.2t': { th: 'สัญลักษณ์ = สถานะ', en: 'Symbols = status' },
+  'map.read.2b': { th: 'รูปบอกสถานะ ขนาดบอกสัดส่วนบทความ กดสัญลักษณ์เพื่อดูหัวข้อ', en: 'The shape shows the status and the size the share of articles; press one to see the topic.' },
+  'map.read.3t': { th: 'ใกล้กัน = เนื้อหาคล้ายกัน', en: 'Close together = similar content' },
+  'map.read.3b': { th: 'ระยะบนแผนที่บอกว่าเนื้อหาคล้ายกันแค่ไหน ไม่ใช่ที่ตั้งจริง', en: 'Distance shows how alike the content is, not a real place.' },
   'map.fig': { th: 'ภูมิทัศน์หัวข้อวิจัย รอบข้อมูล {release}', en: 'Landscape of research topics, release {release}' },
   'map.aria': { th: 'แผนที่หัวข้อวิจัย', en: 'Map of research topics' },
   'map.desc': { th: 'ใช้ปุ่มลูกศรเลื่อนแผนที่ ปุ่ม + และ − ซูม และ 0 กลับมุมมองเริ่มต้น กด Tab และ Enter เพื่อเลือกหัวข้อที่มีสถานะเด่น ดัชนีหัวข้อด้านล่างมีหัวข้อเหล่านี้ครบ หัวข้ออื่นค้นได้จากช่องค้นหา', en: 'Use the arrow keys to pan, + and − to zoom and 0 to reset. Press Tab and Enter to choose a topic with a signal status. The topic index below lists all of them; find the others with search.' },
@@ -32,6 +39,6 @@ export const atlas = defineStrings({
   'map.gaz.search': { th: 'ค้นหาในดัชนีหัวข้อ', en: 'Search the topic index' },
   'map.gaz.results': { th: 'ผลการค้นหา {n} หัวข้อ', en: '{n} matching topics' },
   'map.gaz.none': { th: 'ไม่พบหัวข้อที่ตรงกับ “{q}”', en: 'No topics match “{q}”' },
-  'map.gaz.foot': { th: 'เส้นแนวนอน = ช่วงที่น่าจะเป็น ({level}%) · เส้นประ = เกณฑ์ {bar} ต่อปี · เส้นทึบ = ไม่โตไม่ลด', en: 'Horizontal line: likely range ({level}%) · dashed: the {bar}-a-year bar · solid: no change' },
+  'map.gaz.foot': { th: 'ตัวเลขคือสัดส่วนบทความเพิ่ม/ลดต่อปี ในวงเล็บคือช่วงที่น่าจะเป็น ({level}%) หัวข้อกำลังเกิดใหม่ต้องโตอย่างน้อย {bar} ต่อปีแม้คิดแบบระวังที่สุด', en: 'Figures are the yearly change in share of articles; in brackets, the likely range ({level}%). An emerging topic grows at least {bar} a year even on the most cautious reading.' },
   'map.empty': { th: 'รอบข้อมูลนี้ยังไม่มีหัวข้อให้วางบนแผนที่', en: 'This release has no topics to place on the map' },
 })

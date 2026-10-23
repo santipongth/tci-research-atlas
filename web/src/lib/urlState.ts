@@ -110,7 +110,7 @@ export const emergingCodec = makeCodec<EmergingUrlState>({
   status: oneOf('status', STATUSES, 'EMERGING'),
   sort: oneOf('sort', EMERGING_SORTS, 'growth'),
   dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
-  view: oneOf('view', VIEWS, 'table'),
+  view: oneOf('view', VIEWS, 'chart'),
 })
 
 export interface AtlasUrlState {
@@ -137,8 +137,8 @@ export const compareCodec = makeCodec<CompareUrlState>({
   view: oneOf('view', VIEWS, 'chart'),
 })
 
-export const overviewCodec = makeCodec<{ st: View; pf: View }>({ st: oneOf('st', VIEWS, 'chart'), pf: oneOf('pf', VIEWS, 'chart') })
-export const topicCodec = makeCodec<{ trend: View }>({ trend: oneOf('trend', VIEWS, 'chart') })
+export const overviewCodec = makeCodec<{ wf: View; st: View; pf: View }>({ wf: oneOf('wf', VIEWS, 'chart'), st: oneOf('st', VIEWS, 'chart'), pf: oneOf('pf', VIEWS, 'chart') })
+export const topicCodec = makeCodec<{ trend: View; jr: View; org: View }>({ trend: oneOf('trend', VIEWS, 'chart'), jr: oneOf('jr', VIEWS, 'chart'), org: oneOf('org', VIEWS, 'chart') })
 export const JOURNAL_SORTS = ['name', 'tier', 'articles', 'completeness', 'inhouse', 'orgs', 'foreign'] as const
 export type JournalSort = (typeof JOURNAL_SORTS)[number]
 export const TIERS = ['all', '1', '2', '3', 'none'] as const

@@ -9,7 +9,8 @@
   .sheet-in { position: relative; height: clamp(420px, 68vh, 760px); border: 1px solid var(--ink); overflow: hidden; touch-action: none; cursor: grab; background: var(--map-sheet); }
   .sheet-in:active { cursor: grabbing; }
   .sheet-in:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; box-shadow: inset 0 0 0 2px var(--focus-ink); }
-  @media (max-width: 520px) { .sheet-in { height: 380px; } }
+  /* phones: the sheet takes the map's own aspect (1000 × 640 plus the fit margin), so no band of empty paper is left */
+  @media (max-width: 520px) { .sheet-in { height: auto; aspect-ratio: 25 / 17; } }
   canvas.terrain { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .ov { position: absolute; inset: 0; overflow: visible; }
   .ov text { font-family: var(--font); }
@@ -73,9 +74,9 @@
   .grow:hover { background: var(--surface); }
   .grow[aria-pressed="true"] { background: var(--surface); box-shadow: inset 3px 0 0 var(--ink); }
   .g-name { font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; min-width: 0; display: inline-flex; gap: 6px; align-items: baseline; }
-  .g-meta { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
-  .g-wh { min-width: 0; height: 18px; overflow: hidden; }
-  .g-val { font-weight: 600; font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
+  .g-meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+  .g-val { font-weight: 600; font-size: var(--fs-meta); line-height: 1.5; font-variant-numeric: tabular-nums; }
+  .g-ci { font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; font-variant-numeric: tabular-nums; }
   .g-sub { grid-column: 1 / -1; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
   @media (max-width: 1099px) {
     .gaz { grid-template-columns: 1fr 1fr; }
@@ -86,4 +87,14 @@
     .gaz { grid-template-columns: 1fr; }
     .gcol + .gcol { border-left: 0; border-top: 1px solid var(--border-2); }
   }
+
+  /* "อ่านแผนที่นี้ใน 3 ขั้น" above the sheet */
+  .map-read { margin-top: var(--sp-group); }
+  .map-read-h { font-size: var(--fs-lead); font-weight: 600; line-height: 1.5; }
+  .map-read .steps { margin-top: 12px; }
+  .ra-tint { fill: var(--cat-05); opacity: 0.55; }
+  .ra-contour { fill: none; stroke: var(--map-contour); stroke-width: 1; }
+  .ra-contour.is-heavy { stroke-width: 1.6; }
+  .ra-dot { fill: var(--ink-2); }
+  .ra-gap { fill: none; stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 3 3; }
 }

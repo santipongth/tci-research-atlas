@@ -9,9 +9,11 @@
   .brief-sample { margin-top: 10px; padding: 8px 12px; border: 2px solid var(--st-WATCH); background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
   .brief-t { margin-top: 10px; font-size: var(--fs-meta); }
   .brief-t caption { text-align: left; }
-  .brief-points { margin: 8px 0 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  .brief-points { margin: 8px 0 0; padding-left: 1.2em; list-style: disc; display: grid; gap: 6px; max-width: var(--measure-body); }
   .brief-counts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: var(--fs-meta); }
   .brief-counts span { display: inline-flex; align-items: center; gap: 4px; }
+  .brief .stats, .brief .finds { margin-top: 12px; }
+  .brief .fig { margin-top: var(--sp-group); }
   .brief-foot { margin-top: 24px; padding-top: 10px; border-top: 1px solid var(--border); font-size: var(--fs-caption); color: var(--ink-2); display: grid; gap: 4px; }
 }
 
@@ -38,11 +40,45 @@
   .brief-t th, .brief-t td { padding: 3px 10px 3px 0; }
   .brief-t caption { padding-bottom: 2px; font-size: 10pt; }
   .brief-foot { margin-top: 12px; }
-  .brief-head, mark, .chip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .brief-head, mark, .chip, .wf-cell, .st-icon, .br-bar, .stat-d { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .fig-tools, .fig-how, .source-more { display: none !important; }
+  .fig-head { padding-bottom: 4px; }
+  /* the A4 width (≈ 690 px) is under the tablet breakpoints: keep the brief's four tiles and three findings in one row */
+  .brief .stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .brief .stat { padding: 8px 10px; }
+  .brief .stat-v { font-size: 19pt; margin-top: 0; }
+  .brief .stat-label, .brief .stat-d, .brief .stat-sub { font-size: 9pt; }
+  .brief .finds { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; }
+  .brief .find { display: flex; padding-top: 8px; }
+  .brief .find-num { font-size: 20pt; }
+  .brief .find-topic { margin-top: 6px; font-size: 11pt; }
+  .brief .find-s, .brief .find-k { font-size: 9.5pt; }
+  .brief .find-trend { margin-top: 0; padding-top: 8px; }
+  .brief .wf-name, .brief .dp-name, .brief .dp-val b { font-size: 9.5pt; }
+  .brief .dp-head, .brief .dp-row { grid-template-columns: minmax(0, 30%) minmax(0, 1fr) 15rem; }
+  .brief .dp-row { padding: 3px 0; }
+  .brief .dp-name small { display: none; }
+  .brief .dp-val { display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; }
+  .brief .dp-val small { white-space: nowrap; font-size: 8.5pt; }
+  .brief .dp-scale { height: 36px; }
+  .brief .dp-track { height: 20px; }
+  .brief .wf-row { padding: 2px 0; }
+  .brief .wf.is-compact .wf-cell { width: 12px; height: 12px; }
+  .brief .wf.is-compact .wf-cells { min-height: 12px; padding-top: 4px; }
+  .brief .fig { margin-top: 12px; }
+  .brief .source { margin-top: 4px; font-size: 8.5pt; }
+  .brief .note { font-size: 9pt; margin-top: 4px; }
+  .brief-foot p { font-size: 8.5pt; }
+  .brief .policy-list { margin-top: 6px; max-width: none; }
+  .brief .dp-val b { white-space: nowrap; }
+  .brief .policy-list > li { padding: 3px 0 3px 1.8rem; font-size: 9.5pt; line-height: 1.5; }
+  .brief .policy-list > li::before { top: 2px; font-size: 11pt; }
+  .brief .policy-note { margin-top: 4px; font-size: 8.5pt; }
   table, figure, .fr-group, .point { break-inside: avoid; }
   h1, h2, h3 { break-after: avoid; }
-  /* the status tables start on a fresh page, after the headline, KPIs and points */
-  .brief > section[aria-labelledby="brief-status"] { break-before: page; }
+  /* page 1: headline, key figures, findings and points; page 2: every topic by status, the movers, the policy notes */
+  .brief > .brief-p2 { break-before: page; }
+  .brief > .brief-p2 > h2 { margin-top: 0; }
   a { color: inherit; text-decoration: none; }
   .tabpanel { border: 0; padding: 0; }
 }

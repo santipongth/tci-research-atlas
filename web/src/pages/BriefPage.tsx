@@ -1,33 +1,34 @@
-import { TopicName } from '../components/TopicName'
+import { useState } from 'react'
 import { Wordmark } from '../brand/Wordmark'
 import { DataBanner } from '../components/DataBanner'
+import { DataTable } from '../components/DataTable'
+import { Figure } from '../components/Figure'
 import { SegmentText } from '../components/SegmentText'
-import { StatusGlyph } from '../components/StatusGlyph'
+import { DotPlot } from '../charts/DotPlot'
+import { topMovers } from '../charts/infographic'
 import { useAtlas } from '../data/atlasContext'
-import type { AtlasRelease } from '../data/release'
-import type { Kpis, Topic } from '../data/types'
+import { groupName, type AtlasRelease } from '../data/release'
 import { DEFINITION } from '../lib/definition'
-import { ciPct, fmtDate, fmtInt, fmtNum, fmtPct, fmtSignedPct, kpiDelta } from '../lib/format'
+import { pickFindings } from '../lib/findings'
+import { ciPct, fmtDate, fmtInt, fmtSignedPct } from '../lib/format'
 import { segmentHeadline } from '../lib/highlight'
 import { useI18n } from '../lib/i18n'
-import { sortBy } from '../lib/sort'
-import { STATUSES, type SignalStatus } from '../lib/status'
-import { statusName } from '../lib/topicText'
+import { hasCi } from '../lib/forest'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
-import type { StrKey } from '../strings'
+import type { View } from '../lib/urlState'
+import { FindingCards } from './overview/FindingCards'
+import { KpiGrid } from './overview/KpiGrid'
+import { StatusMix } from './overview/StatusMix'
+import { ciColumn, growthColumn, statusColumn, topicColumn, columnContext } from './topicColumns'
 
-const KPIS: readonly { key: keyof Kpis; label: StrKey; unit: 'count' | 'pct' }[] = [
-  { key: 'articles', label: 'kpi.articles', unit: 'count' },
-  { key: 'topics', label: 'kpi.topics', unit: 'count' },
-  { key: 'journals', label: 'kpi.journals', unit: 'count' },
-  { key: 'institutions', label: 'kpi.institutions', unit: 'count' },
-  { key: 'pct_abstract_en', label: 'kpi.abstractEn', unit: 'pct' },
-  { key: 'pct_international', label: 'kpi.international', unit: 'pct' },
-  { key: 'provinces', label: 'kpi.provinces', unit: 'count' },
-]
-const TOP = 5
+const UP = 4
+const DOWN = 3
 
-/** E4: one- to two-page A4 executive brief (printed to PDF by `npm run brief:pdf`); every number comes from the release. */
+/**
+ * E4: a one-page A4 infographic brief (two pages at most; printed to PDF by `npm run brief:pdf`): headline, four key
+ * figures, three findings, every topic by status, the top movers as a dot plot, the policy notes and the source.
+ * Every number comes from the release.
+ */
 export default function BriefPage() {
   const state = useAtlas()
   const { t } = useI18n()
@@ -42,18 +43,23 @@ export default function BriefPage() {
 }
 
 function Brief({ release }: { release: AtlasRelease }) {
-  const { t, lang } = useI18n()
+  const { t, lang, name } = useI18n()
+  const [views, setViews] = useState<{ wf: View; mv: View }>({ wf: 'chart', mv: 'chart' })
   const ov = release.overview
   const level = ciPct(release.ciLevel)
+  const bar = fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0)
   const brief = ov.brief
   const headline = brief ? (lang === 'en' ? brief.headline_en : brief.headline_th) : ''
   const bullets = brief ? ((lang === 'en' ? brief.bullets_en : brief.bullets_th) ?? []) : []
   const exec = ov.executive ? ((lang === 'en' ? ov.executive.bullets_en : ov.executive.bullets_th) ?? []) : []
-  const prev = release.previousOverview
-  const top = (st: SignalStatus): Topic[] =>
-    sortBy(release.topics.filter((tp) => tp.status === st && tp.metrics.share_growth != null), (tp) => tp.metrics.share_growth, st === 'DECLINING' ? 'asc' : 'desc').slice(0, TOP)
-  const tables = (['EMERGING', 'HOT', 'DECLINING'] as const).map((st) => ({ st, rows: top(st) })).filter((g) => g.rows.length > 0)
+  const findings = pickFindings(release.topics)
+  const movers = topMovers(release.topics, UP, DOWN)
+  const nUp = movers.filter((tp) => (tp.metrics.share_growth ?? 0) > 0).length
   const watch = ov.status_counts.WATCH ?? 0
+  const ctx = columnContext(release, { t, name, lang })
+  const moverCols = [topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx)]
+  const moversTable = t('table.n', { n: 2, title: t('brief.movers.table') })
+  const source = t('source.line', { release: ov.release })
   return (
     <main id="main" className="brief" data-brief-ready="true">
       <header className="brief-head">
@@ -74,29 +80,14 @@ function Brief({ release }: { release: AtlasRelease }) {
       <section aria-labelledby="brief-kpi">
         <h2 id="brief-kpi">{t('brief.kpi')}</h2>
         {release.previousMissing ? <p className="note">{t('prev.missing', { prev: release.previousMissing })}</p> : null}
-        <table className="t brief-t">
-          <thead>
-            <tr>
-              <th scope="col">{t('brief.kpi')}</th>
-              <th scope="col" className="num">{ov.release}</th>
-              {prev ? <th scope="col" className="num">{t('delta', { prev: prev.release })}</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {KPIS.filter((k) => typeof ov.kpis[k.key] === 'number').map((k) => {
-              const value = ov.kpis[k.key] as number
-              const before = prev ? prev.kpis[k.key] : null
-              return (
-                <tr key={k.key}>
-                  <th scope="row">{t(k.label)}</th>
-                  <td className="num">{k.unit === 'pct' ? `${fmtNum(value, 1)}%` : fmtInt(value)}</td>
-                  {prev ? <td className="num">{typeof before === 'number' ? (kpiDelta(value, before, k.unit, lang) ?? '') : ''}</td> : null}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <KpiGrid release={release} more={false} />
       </section>
+      {findings.length ? (
+        <section aria-labelledby="brief-find">
+          <h2 id="brief-find">{findings.length === 3 ? t('ov.fc.h3') : t('ov.findings.h')}</h2>
+          <FindingCards release={release} findings={findings} />
+        </section>
+      ) : null}
       {bullets.length ? (
         <section aria-labelledby="brief-points">
           <h2 id="brief-points">{t('brief.points')}</h2>
@@ -107,56 +98,58 @@ function Brief({ release }: { release: AtlasRelease }) {
           </ul>
         </section>
       ) : null}
+      {release.topics.length ? (
+        <section aria-labelledby="brief-status" className="brief-p2">
+          <h2 id="brief-status">{t('brief.status')}</h2>
+          <StatusMix release={release} number={1} tableNo={1} view={views.wf} onView={(wf) => setViews((v) => ({ ...v, wf }))} compact />
+          {watch > 0 ? <p className="note">{t('brief.watch', { n: fmtInt(watch) })}</p> : null}
+          {movers.length ? (
+            <Figure
+              id="fig-movers"
+              number={2}
+              title={t('brief.movers.title', { up: nUp, down: movers.length - nUp })}
+              tableTitle={moversTable}
+              how={<p>{t('brief.movers.how', { bar, level })}</p>}
+              source={source}
+              view={views.mv}
+              onView={(mv) => setViews((v) => ({ ...v, mv }))}
+              chart={
+                <DotPlot
+                  rows={movers.map((tp) => ({
+                    id: tp.id,
+                    label: name(tp),
+                    sub: groupName(release, tp.group, lang),
+                    status: tp.status,
+                    value: tp.metrics.share_growth ?? 0,
+                    text: `${fmtSignedPct(tp.metrics.share_growth, 0)} ${t('perYear')}`,
+                    ci: hasCi(tp) ? t('ciRange', { lo: fmtSignedPct(tp.metrics.share_growth_lo, 0), hi: fmtSignedPct(tp.metrics.share_growth_hi, 0) }) : null,
+                    href: `/topics/${tp.id}`,
+                  }))}
+                  axisLabel={t('ov.forest.axis')}
+                  tick={(v) => (v === 0 ? '0%' : fmtSignedPct(v, 0))}
+                  refValue={DEFINITION.emergingMinGrowthLo}
+                  refLabel={t('ov.forest.bar', { v: bar })}
+                />
+              }
+              table={<DataTable caption={moversTable} rows={movers} columns={moverCols} rowKey={(r) => r.id} stack={false} />}
+            />
+          ) : null}
+        </section>
+      ) : null}
       {exec.length ? (
         <section aria-labelledby="brief-exec">
           <h2 id="brief-exec">{t('brief.exec')}</h2>
-          <ul className="brief-points">
+          <ol className="policy-list">
             {exec.map((b, i) => (
               <li key={i}>{b}</li>
             ))}
-          </ul>
-          <p className="note">{t('brief.execNote')}</p>
+          </ol>
+          <p className="policy-note">{t('brief.execNote')}</p>
         </section>
       ) : null}
-      <section aria-labelledby="brief-status">
-        <h2 id="brief-status">{t('brief.status')}</h2>
-        <p className="brief-counts">
-          {STATUSES.map((st) => (
-            <span key={st}>
-              <StatusGlyph status={st} size={12} /> {statusName(t, st)} {fmtInt(ov.status_counts[st] ?? 0)}
-            </span>
-          ))}
-        </p>
-        {watch > 0 ? <p className="note">{t('brief.watch', { n: fmtInt(watch) })}</p> : null}
-        {tables.map(({ st, rows }) => (
-          <table key={st} className="t brief-t">
-            <caption>
-              <StatusGlyph status={st} size={12} /> {t('brief.top', { status: statusName(t, st), n: rows.length })}
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('col.topic')}</th>
-                <th scope="col" className="num">{t('col.share')}</th>
-                <th scope="col" className="num">{t('col.growth')}</th>
-                <th scope="col" className="num">{t('ciShort', { level })}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((tp) => (
-                <tr key={tp.id}>
-                  <th scope="row"><TopicName topic={tp} /></th>
-                  <td className="num">{fmtPct(tp.metrics.share_recent, 2)}</td>
-                  <td className="num">{fmtSignedPct(tp.metrics.share_growth)}</td>
-                  <td className="num">{fmtSignedPct(tp.metrics.share_growth_lo)} {t('to')} {fmtSignedPct(tp.metrics.share_growth_hi)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ))}
-      </section>
       <footer className="brief-foot">
-        <p>{t('brief.def', { v: release.definitionVersion, level, bar: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0) })}</p>
-        <p>{t('source.line', { release: ov.release })} · {t('source.def', { v: release.definitionVersion })}</p>
+        <p>{t('brief.def', { v: release.definitionVersion, level, bar })}</p>
+        <p>{source} · {t('source.def', { v: release.definitionVersion })}</p>
         <p>{t('brief.more')} · {t('footer.licence')}</p>
       </footer>
       <p className="no-print mt-6">

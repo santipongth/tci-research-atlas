@@ -18,13 +18,14 @@ import { TrendChart } from '../charts/TrendChart'
 import { NOWCAST_MARK } from '../lib/status'
 import { useTopicDetail } from '../data/atlasContext'
 import { groupName, hasModule, neighborsOf, seriesOf, type AtlasRelease } from '../data/release'
-import type { CountItem, Topic } from '../data/types'
+import type { Topic } from '../data/types'
 import { DEFINITION, fmtWindow, ruleVars, windows } from '../lib/definition'
 import { breadthText } from '../lib/breadth'
 import { forecastView } from '../lib/forecast'
-import { ciPct, DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
+import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
-import { ciText, growthText, lowDataText, ratioText, statusName } from '../lib/topicText'
+import { ciText, growthText, lowDataText, ratioText, statusMeaning, statusName } from '../lib/topicText'
+import { COMPACT_CHROME, useMediaQuery } from '../lib/useMediaQuery'
 import { figureCsv } from '../lib/tableCsv'
 import { topicCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
@@ -33,6 +34,7 @@ import { FOREST_DOMAIN } from './topicColumns'
 // SDG chips (they read sdg.json) and the RIS/BibTeX export load on demand: this page is in the entry chunk.
 const TopicSdg = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.TopicSdg })))
 const ArticleCite = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.ArticleCite })))
+const TopicRanking = lazy(() => import('./topic/TopicExtras').then((m) => ({ default: m.TopicRanking })))
 // The embed code and the topic's Atom feed link, also on demand.
 const EmbedSnippet = lazy(() => import('../embed/EmbedTools').then((m) => ({ default: m.EmbedSnippet })))
 const FeedLink = lazy(() => import('../embed/EmbedTools').then((m) => ({ default: m.FeedLink })))
@@ -77,6 +79,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
   const { t, name, other, otherLang, lang } = useI18n()
   const detail = useTopicDetail(topic.id)
   const [state, update] = useUrlState(topicCodec)
+  const compact = useMediaQuery(COMPACT_CHROME)
   const m = topic.metrics
   const level = ciPct(release.ciLevel)
   const w = windows(release.overview.last_complete_year)
@@ -140,18 +143,29 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
     ...(journals.length ? [{ id: 'journals', label: t('tp.journals.h') }] : []),
     ...(institutions.length ? [{ id: 'orgs', label: t('tp.orgs.h') }] : []),
   ]
-  const countTable = (id: string, title: string, rows: readonly CountItem[], header: string, base: string) => (
-    <DataTable
-      caption={title}
-      rows={rows}
-      rowKey={(r) => r.key}
-      stack={false}
-      csvFilename={`atlas-${release.overview.release}-${topic.id}-${id}.csv`}
-      columns={[
-        { key: 'key', csvHeader: 'name', header, rowHeader: true, cell: (r) => (r.id ? <Link to={`${base}/${r.id}`}>{r.key}</Link> : r.key), sortValue: (r) => r.key },
-        { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
-      ]}
-    />
+  const g = m.share_growth
+  const heroText =
+    g === null || g === undefined
+      ? t('tp.hero.none')
+      : Math.abs(g) < 0.005
+        ? t('tp.hero.flat')
+        : t(g > 0 ? 'tp.hero.up' : 'tp.hero.down', { g: g > 0 ? fmtSignedPct(g, 0) : fmtPct(Math.abs(g), 0) })
+  const eg = ready?.articles[0] ?? null
+  const total = counts.reduce((n, c) => n + (c ?? 0), 0)
+  // tiles after the hero: never a row that ends with one tile beside an empty cell
+  const nTiles = 3 + (cited !== null ? 1 : 0)
+  const asideExtra = (
+    <>
+      <p className="mt-6">
+        <Link className="btn-secondary" to={`/compare?ids=${topic.id}`}>{t('addToCompare')}</Link>
+      </p>
+      <p className="mt-2 hint">{t('tp.id', { id: topic.id })}</p>
+      {release.latest.feeds === true ? (
+        <Suspense fallback={null}>
+          <FeedLink release={release} kind="topic" topicId={topic.id} />
+        </Suspense>
+      ) : null}
+    </>
   )
 
   return (
@@ -159,7 +173,6 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
       <PageHeader title={name(topic)} titleLang={lang === 'en' && !topic.en ? 'th' : undefined} lede={topic.description || undefined}>
         <p className="tp-alt" lang={otherLang}>{other(topic)}</p>
         <div className="tp-tags">
-          <StatusChip status={topic.status} label={statusName(t, topic.status)} />
           <span className="tp-field">{t('tp.field', { f: group })}</span>
           {topic.subfield_en ? <span className="tp-sub" lang="en">{topic.subfield_en}</span> : null}
           {topic.cross_field ? <span className="tp-badge">{t('tp.crossField')}</span> : null}
@@ -182,6 +195,50 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
           })}
         </p>
       </PageHeader>
+      <section className="tp-hero" aria-label={t('tp.hero.label')}>
+        <div className="tp-hero-main">
+          <p className="tp-hero-st">
+            <StatusChip status={topic.status} label={statusName(t, topic.status)} />
+            <span>{statusMeaning(t, topic.status)}</span>
+          </p>
+          <p className="tp-hero-g">{heroText}</p>
+          {ci ? (
+            <>
+              <p className="tp-hero-ci"><Term term="shareGrowth">{t('tp.growth')}</Term> {growthText(t, m)} · {ci}</p>
+              <FitCiWhisker status={topic.status} value={m.share_growth} lo={m.share_growth_lo} hi={m.share_growth_hi} domain={FOREST_DOMAIN} refValue={DEFINITION.emergingMinGrowthLo} maxWidth={360} height={22} />
+            </>
+          ) : g === null || g === undefined ? (
+            <p className="tp-hero-ci">{lowDataText(t, m) ?? DASH}</p>
+          ) : null}
+        </div>
+        <StatGrid cols={2} className="tp-hero-tiles">
+          <StatTile
+            label={t('tp.share')}
+            value={fmtPct(m.share_recent, 2)}
+            sub={t('tp.inWindow', { w: fmtWindow(w.R) })}
+            trend={shareTrend}
+            trendText={t('stat.trend', { a: years[0], b: years[years.length - 1], values: shareTrend.map((v) => (v === null ? DASH : fmtPct(v, 2))).join(', ') })}
+          />
+          <StatTile
+            label={t('tp.articlesR', { w: fmtWindow(w.R) })}
+            value={fmtInt(m.count_recent)}
+            sub={counts.length ? t('tp.articlesSub', { n: fmtInt(total), a: years[0] }) : undefined}
+            trend={counts.length > 2 ? counts : undefined}
+            trendText={counts.length > 2 ? t('stat.trend', { a: years[0], b: years[years.length - 1], values: counts.map((v) => fmtInt(v)).join(', ') }) : undefined}
+          />
+        </StatGrid>
+      </section>
+      {eg ? (
+        <p className="tp-eg">
+          <b>{t('tp.eg')}</b>{' '}
+          {eg.url ? (
+            <a href={eg.url} target="_blank" rel="noopener noreferrer">{eg.title}<span className="sr-only"> {t('newTab')}</span></a>
+          ) : (
+            <span>{eg.title}</span>
+          )}
+          <span className="art-meta">{[eg.journal, eg.year ? String(eg.year) : ''].filter(Boolean).join(' · ')}</span>
+        </p>
+      ) : null}
       <div className="layout">
         <div className="main-col">
           {narrative ? (
@@ -199,31 +256,12 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 <p><strong>{breadthText(t, topic)}</strong></p>
               </div>
             ) : null}
-            <StatGrid cols={3}>
-              <StatTile
-                // growth leads; two columns wide unless that would leave the last row with one tile (always a full row on phones)
-                wide={cited === null ? true : 'phone'}
-                label={<Term term="shareGrowth">{t('tp.growth')}</Term>}
-                value={m.share_growth === null || m.share_growth === undefined ? (lowDataText(t, m) ?? DASH) : growthText(t, m)}
-                sub={ci ?? undefined}
-              >
-                {ci ? (
-                  <FitCiWhisker status={topic.status} value={m.share_growth} lo={m.share_growth_lo} hi={m.share_growth_hi} domain={FOREST_DOMAIN} refValue={DEFINITION.emergingMinGrowthLo} maxWidth={240} height={22} />
-                ) : null}
-              </StatTile>
-              <StatTile
-                label={t('tp.share')}
-                value={fmtPct(m.share_recent, 2)}
-                sub={t('tp.shareSub', { w: fmtWindow(w.R), n: fmtInt(m.count_recent) })}
-                trend={shareTrend}
-                trendText={t('stat.trend', { a: years[0], b: years[years.length - 1], values: shareTrend.map((v) => (v === null ? DASH : fmtPct(v, 2))).join(', ') })}
-              />
+            <StatGrid cols={nTiles === 4 ? 4 : 3}>
               <StatTile label={t('col.ratio', { base: fmtWindow(w.B) })} value={ratioText(t, m, fmtWindow(w.B))} sub={t('tp.ratioSub', { r: fmtWindow(w.R), b: fmtWindow(w.B) })} />
               <StatTile label={t('col.journals')} value={fmtInt(m.n_journals_R)} sub={t('tp.inWindow', { w: fmtWindow(w.R) })} />
-              <StatTile label={t('col.orgs')} value={fmtInt(m.n_orgs_R)} sub={m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })} />
+              <StatTile wide={nTiles === 3 ? 'phone' : false} label={t('col.orgs')} value={fmtInt(m.n_orgs_R)} sub={m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })} />
               {cited !== null ? (
                 <StatTile
-                  wide="phone"
                   label={t('tp.cited')}
                   value={t('tp.cited.v', { n: fmtInt(cited) })}
                   sub={
@@ -382,27 +420,25 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
 
           {journals.length ? (
             <Section id="journals" title={t('tp.journals.h')}>
-              {countTable('journals', t('table.n', { n: tableNo.journals, title: t('tp.journals.table') }), journals, t('col.journal'), '/journals')}
+              <Suspense fallback={null}>
+                <TopicRanking release={release} topicId={topic.id} kind="journals" rows={journals} number={2} tableNo={tableNo.journals} view={state.jr} onView={(jr) => update({ jr })} />
+              </Suspense>
             </Section>
           ) : null}
           {institutions.length ? (
             <Section id="orgs" title={t('tp.orgs.h')}>
-              {countTable('institutions', t('table.n', { n: orgsNo, title: t('tp.orgs.table') }), institutions, t('col.institution'), '/institutions')}
+              <Suspense fallback={null}>
+                <TopicRanking release={release} topicId={topic.id} kind="institutions" rows={institutions} number={journals.length ? 3 : 2} tableNo={orgsNo} view={state.org} onView={(org) => update({ org })} />
+              </Suspense>
             </Section>
           ) : null}
         </div>
         <aside className="rail" aria-label={t('onThisPage')}>
           <OnThisPage items={toc} />
-          <p className="mt-6">
-            <Link className="btn-secondary" to={`/compare?ids=${topic.id}`}>{t('addToCompare')}</Link>
-          </p>
-          <p className="mt-2 hint">{t('tp.id', { id: topic.id })}</p>
-          {release.latest.feeds === true ? (
-            <Suspense fallback={null}>
-              <FeedLink release={release} kind="topic" topicId={topic.id} />
-            </Suspense>
-          ) : null}
+          {compact ? null : asideExtra}
         </aside>
+        {/* on phones the compare button, id and feed link follow the content instead of sitting above it */}
+        {compact ? <div className="tp-after">{asideExtra}</div> : null}
       </div>
     </div>
   )
