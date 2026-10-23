@@ -445,7 +445,11 @@ def narrative_job(cfg: dict) -> LlmJob:
 def _checker(facts: str, names: list[str], fields: tuple[str, ...], **kw):
     def check(out: dict) -> str | None:
         texts = [t for f in fields for t in (out[f] if isinstance(out[f], list) else [out[f]])]
-        return grounding_error(texts, facts, names, **kw)
+        if err := grounding_error(texts, facts, names, **kw):
+            return err
+        bad = list(dict.fromkeys(j for t in texts for j in jargon_in(t, [*names, *kw.get("own_terms", [])])))
+        return f"plain language: remove these terms or status codes and say it in everyday words: {', '.join(bad)}" \
+            if bad else None                       # → one rewrite, then the template sentence (llm_runner)
     return check
 
 

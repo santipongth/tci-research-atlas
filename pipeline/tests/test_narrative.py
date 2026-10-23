@@ -103,7 +103,7 @@ class FakeWriter:
         elif "Print media" in p:
             out = {"th": "ลดลง 99% ต่อปี", "en": "down 99% a year"}                  # invented number
         elif "Large language models" in p:
-            out = {"th": "โมเดลภาษาขนาดใหญ่เป็นหัวข้อใหม่ที่ไม่มีฐานเปรียบเทียบ", "en": "A new topic with no baseline"}
+            out = {"th": "โมเดลภาษาขนาดใหญ่เป็นหัวข้อใหม่ที่เพิ่งเริ่มมีบทความ", "en": "A new topic that has only just appeared"}
         else:
             out = {"th": "การเรียนรู้ด้วย AI โต 35% ต่อปี (น่าจะอยู่ระหว่าง 20% ถึง 50%)",
                    "en": "AI-assisted learning grows 35% a year (likely between 20% and 50%)"}
@@ -303,3 +303,14 @@ def test_brief_words_watch_as_the_breadth_test(make_cfg, tmp_path):
     facts = brief_facts(cfg, labels, em, 2024)
     watch = [ln for ln in facts.splitlines() if "การปลูกข้าว" in ln][0]
     assert "ยังมาจากไม่กี่แหล่ง" in watch and "มาจาก 2 วารสาร" in watch
+
+
+def test_llm_text_with_jargon_or_status_codes_is_sent_back():
+    from atlas.narrative import _checker
+
+    check = _checker("- Embedding models\n- ปี 2017–2021: 0.40%\n- ปี 2022–2024: 1.20%", ["Embedding models"], ("th", "en"),
+                     own_terms=["Embedding models"])
+    ok = {"th": "ปี 2022–2024 หัวข้อนี้มี 1.20% ของบทความ", "en": "Embedding models: 1.20% of articles in 2022–2024"}
+    assert check(ok) is None                                     # a topic name is not jargon
+    err = check({**ok, "th": "สถานะ EMERGING ช่วงเชื่อมั่นกว้าง ปี 2022–2024 มี 1.20%"})
+    assert err and "EMERGING" in err and "ช่วงเชื่อมั่น" in err
