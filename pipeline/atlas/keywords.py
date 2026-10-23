@@ -118,7 +118,8 @@ def keywords(cfg: dict) -> pd.DataFrame:
         out = pd.DataFrame(columns=KEYWORD_COLUMNS)
         write_table(out, work / "07_keywords.parquet")
         return out
-    docs = read_table(work / "02_docs.parquet")
+    docs = read_table(work / "02_docs.parquet", ["article_id", "year", "journal_name", "journal_key",
+                                                 "keywords_th", "keywords_en"])
     meta = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
     totals = pd.Series({int(y): int(n) for y, n in meta["totals"].items()}).sort_index()
     try:

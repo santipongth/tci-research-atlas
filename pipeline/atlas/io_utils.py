@@ -104,11 +104,18 @@ def write_table(df: pd.DataFrame, path: str | Path) -> Path:
     return alt
 
 
-def read_table(path: str | Path) -> pd.DataFrame:
+def read_table(path: str | Path, columns: list[str] | None = None) -> pd.DataFrame:
+    """A checkpoint table. `columns` reads only those that exist (the big 01_articles / 02_docs tables carry
+    abstracts and doc_text — most steps need three or four columns); a missing one is left out, not an error."""
     path = Path(path)
     if path.exists():
-        return pd.read_parquet(path)
+        if columns is None:
+            return pd.read_parquet(path)
+        import pyarrow.parquet as pq
+        have = set(pq.read_schema(path).names)
+        return pd.read_parquet(path, columns=[c for c in columns if c in have])
     alt = path.with_suffix(".pkl")
     if alt.exists():
-        return pd.read_pickle(alt)
+        df = pd.read_pickle(alt)
+        return df if columns is None else df[[c for c in columns if c in df.columns]]
     raise FileNotFoundError(f"neither {path} nor {alt} exists — run the previous step first")

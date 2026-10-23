@@ -336,10 +336,11 @@ def executive_summary(files: dict[str, C._Model]) -> C.ExecutiveSummary | None:
     inst = files.get("institutions.json")
     if inst is not None and inst.pct_international is not None:
         cs, w = inst.countries[:3], inst.window
-        th.append(f"ปี {w.start}–{w.end} มีบทความ {_pct(inst.pct_international)} ที่นักวิจัยจากต่างประเทศร่วมเขียน"
+        th.append(f"ปี {w.start}–{w.end} ในบทความที่ระบุสถาบันของผู้เขียนได้ มี {_pct(inst.pct_international)} "
+                  "ที่นักวิจัยจากต่างประเทศร่วมเขียน"
                   + (f" โดยร่วมกับ {_and_list([c.name_th for c in cs], 'และ')} บ่อยที่สุด" if cs else ""))
-        en.append(f"{_pct(inst.pct_international)} of the articles of {w.start}–{w.end} were written with a "
-                  "researcher from abroad"
+        en.append(f"{_pct(inst.pct_international)} of the articles of {w.start}–{w.end} whose authors' institutions "
+                  "are known were written with a researcher from abroad"
                   + (f" — most often from {_and_list([c.name_en for c in cs], 'and')}" if cs else ""))
     sdg = files.get("sdg.json")
     goals = [g for g in sdg.goals if g.framework == "sdg"] if sdg is not None else []

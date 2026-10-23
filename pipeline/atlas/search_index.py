@@ -187,7 +187,7 @@ def doc_order(work: str | Path) -> pd.DataFrame:
     """ordinal, article_id, year, journal_name, doi, url + the indexed fields — the published articles in
     article_id order (dated in the analysed window, with a Thai or English title)."""
     work = Path(work)
-    arts = read_table(work / "01_articles.parquet")
+    arts = read_table(work / "01_articles.parquet", ["article_id", "year", *FIELDS, "journal_name", "doi", "url"])
     out = pd.DataFrame({"article_id": arts["article_id"].astype(str),
                         "year": pd.to_numeric(arts["year"], errors="coerce")})
     for col in (*FIELDS, "journal_name", "doi", "url"):
