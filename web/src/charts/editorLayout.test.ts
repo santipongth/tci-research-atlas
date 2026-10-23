@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { fmtBytes, utf8Bytes } from '../lib/bytes'
 import { CHECK_FULL, CHECK_NONE, checkState, galaxyPicks, labelOrder, periodMix, riserOf, scatterLayout, weightedMean, type ScatterPoint } from './editorLayout'
 
 const pt = (id: string, x: number, y: number, weight = 10, inferred = false): ScatterPoint => ({ id, label: id, x, y, weight, inferred })
@@ -93,15 +92,5 @@ describe('weighted mean', () => {
   it('weights by count and skips empty values', () => {
     expect(weightedMean([{ v: 0.4, w: 3 }, { v: 0.2, w: 1 }, { v: null, w: 9 }], (x) => x.v, (x) => x.w)).toBeCloseTo(0.35)
     expect(weightedMean([{ v: null, w: 1 }], (x) => x.v, (x) => x.w)).toBeNull()
-  })
-})
-
-describe('file sizes', () => {
-  it('prints sizes people read', () => {
-    expect(fmtBytes(200)).toBe('< 1 KB')
-    expect(fmtBytes(12_700)).toBe('12 KB')
-    expect(fmtBytes(1_468_006)).toBe('1.4 MB')
-    expect(fmtBytes(null)).toBe('–')
-    expect(utf8Bytes('ก')).toBe(3)
   })
 })

@@ -137,9 +137,11 @@ def search_files(cfg: dict, work: Path, code: dict[int, str]) -> tuple[dict[str,
         skipped["galaxy"] = str(gmeta.get("skipped") or "galaxy needs the search module")
         return files, skipped
     scfg = cfg["search"]
-    n_shards, per = int(scfg["index_shards"]), int(scfg["docs_per_shard"])
+    # no word index (search.word_index false): meta.json says 0 index shards and 0 tokens; the doc shards stay
+    word_index = bool(smeta.get("word_index", True))
+    n_shards, per = (int(scfg["index_shards"]) if word_index else 0), int(scfg["docs_per_shard"])
     docs = read_table(work / "20_docs.parquet")
-    postings = read_table(work / "20_postings.parquet")
+    postings = read_table(work / "20_postings.parquet") if word_index else pd.DataFrame({"token": [], "ordinal": []})
     n = len(docs)
 
     # ---- vocab + index shards: postings are sorted by (token, ordinal) and unique
@@ -156,7 +158,8 @@ def search_files(cfg: dict, work: Path, code: dict[int, str]) -> tuple[dict[str,
     shards: list[dict[str, list[int]]] = [{} for _ in range(n_shards)]
     for t, s, chunk in zip(vocab, shard_of, np.split(delta, starts[1:]) if len(starts) else []):
         shards[s][t] = chunk.tolist()
-    files["search/vocab.json"] = C.SearchVocab(tokens=vocab, df=df)
+    if word_index:
+        files["search/vocab.json"] = C.SearchVocab(tokens=vocab, df=df)
     for s, postings_s in enumerate(shards):
         files[f"search/idx-{s:03d}.json"] = C.SearchIndexShard(shard=s, postings=postings_s)
 

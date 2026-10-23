@@ -1,9 +1,24 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-23T06:27:08.768Z",
+  "generatedAt": "2026-10-23T19:27:46.993Z",
   "title": "Design System: TCI Research Atlas",
   "extensions": {
     "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "#f3f5fa",
+        "tonalRamp": [
+          "#0c111d",
+          "#1b2641",
+          "#2d3f6c",
+          "#3f5897",
+          "#5d78bc",
+          "#8c9fcf",
+          "#bbc6e3",
+          "#e9edf6"
+        ]
+      },
       "paper": {
         "role": "neutral",
         "displayName": "Paper",
@@ -169,6 +184,36 @@
           "#eceef8"
         ]
       },
+      "tci-blue-pale-ink": {
+        "role": "primary",
+        "displayName": "TCI Blue Pale Ink",
+        "canonical": "#dfe3f4",
+        "tonalRamp": [
+          "#0a0e1e",
+          "#172044",
+          "#273572",
+          "#374b9f",
+          "#546ac4",
+          "#8695d5",
+          "#b7c0e6",
+          "#e8ebf7"
+        ]
+      },
+      "tci-orange": {
+        "role": "secondary",
+        "displayName": "TCI Orange (logo)",
+        "canonical": "#f89020",
+        "tonalRamp": [
+          "#281501",
+          "#592f03",
+          "#944f05",
+          "#d06f07",
+          "#f89020",
+          "#fab061",
+          "#fcd0a1",
+          "#fef0e1"
+        ]
+      },
       "orange-mark": {
         "role": "secondary",
         "displayName": "Orange Mark",
@@ -182,6 +227,21 @@
           "#f38227",
           "#ffb98c",
           "#ffeadd"
+        ]
+      },
+      "orange-ink": {
+        "role": "secondary",
+        "displayName": "Orange Ink",
+        "canonical": "#a85400",
+        "tonalRamp": [
+          "#291400",
+          "#5c2e00",
+          "#994d00",
+          "#d66b00",
+          "#ff8c1a",
+          "#ffad5c",
+          "#ffcf9e",
+          "#fff0e0"
         ]
       },
       "context-grey": {
@@ -212,6 +272,21 @@
           "#67b88f",
           "#8ddfb4",
           "#c3ffdd"
+        ]
+      },
+      "tag-sample": {
+        "role": "neutral",
+        "displayName": "Sample Tag",
+        "canonical": "#e4e6ee",
+        "tonalRamp": [
+          "#101219",
+          "#232838",
+          "#3b425e",
+          "#535c83",
+          "#727da6",
+          "#9ba2c0",
+          "#c4c8da",
+          "#eceef3"
         ]
       },
       "status-emerging": {
@@ -801,45 +876,29 @@
       }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display",
-        "purpose": "The front door's question headline only."
-      },
       "h1": {
-        "displayName": "Headline",
-        "purpose": "Every other page's question headline (max 24ch)."
+        "displayName": "Page h1",
+        "purpose": "The page title in the page bar; one per page, with its (i)."
       },
-      "h2": {
-        "displayName": "Section",
-        "purpose": "Section headings (max 30ch)."
+      "card-title": {
+        "displayName": "Card title",
+        "purpose": "The h2 of every card and section card; the drawer title."
       },
-      "lead": {
-        "displayName": "Lead",
-        "purpose": "Ledes, the story answer, figure titles (700), h3."
+      "kpi-value": {
+        "displayName": "KPI value",
+        "purpose": "KPI card values and status-picker counts; 22 px on phones."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Prose, 19 px / 1.7, max 38em."
-      },
-      "body-phone": {
-        "displayName": "Body (phone)",
-        "purpose": "Prose under 641 px."
+        "purpose": "Prose inside cards (findings, policy notes, topic summaries), max 72ch."
       },
       "meta": {
         "displayName": "Meta",
-        "purpose": "Navigation, buttons, table cells, source lines, chart names and notes; the floor for meaning."
+        "purpose": "Sidebar links, buttons, ดูทั้งหมด, ranked-row names and values, popover text, chart titles in cards."
       },
       "caption": {
         "displayName": "Caption",
-        "purpose": "Chips, tags, tab counts, interval ranges, the licence line; never smaller."
-      },
-      "numeric-tile": {
-        "displayName": "Numeric tile",
-        "purpose": "Stat values and finding-card numbers."
-      },
-      "numeric-hero": {
-        "displayName": "Numeric hero",
-        "purpose": "One hero number per page, in TCI blue."
+        "purpose": "The 13 px floor for meaning: sub lines, chips, KPI changes, rank badges, keys, notes."
       },
       "tick": {
         "displayName": "Tick",
@@ -848,36 +907,46 @@
     },
     "shadows": [
       {
+        "name": "card-rest",
+        "value": "0 1px 2px rgba(20,24,43,.04), 0 4px 14px rgba(40,56,148,.05)",
+        "purpose": "Every card, KPI card, status-picker button and map card; no border."
+      },
+      {
+        "name": "card-lift",
+        "value": "0 2px 4px rgba(20,24,43,.05), 0 10px 24px rgba(40,56,148,.1)",
+        "purpose": "Hover on cards with ดูทั้งหมด and on status-picker buttons."
+      },
+      {
         "name": "floating",
         "value": "0 14px 36px rgba(20,24,43,.14), 0 2px 6px rgba(20,24,43,.06)",
-        "purpose": "Popovers, tooltip, search listbox, nav group menus, map zoom."
+        "purpose": "(i) popovers, the release notice, map zoom."
       },
       {
-        "name": "raised-segment",
+        "name": "drawer",
+        "value": "-12px 0 40px rgba(20,24,43,.16)",
+        "purpose": "Right drawer (mirrored for the left phone menu) over a rgba(20,24,43,.36) backdrop."
+      },
+      {
+        "name": "pressed-segment",
         "value": "0 1px 3px rgba(20,24,43,.12)",
-        "purpose": "The selected option of the chart/table switch and the language switch."
-      },
-      {
-        "name": "phone-menu",
-        "value": "0 12px 24px rgba(20,24,43,.08)",
-        "purpose": "The open navigation under 900 px."
+        "purpose": "Selected option of Segmented and the language switch."
       }
     ],
     "motion": [
       {
         "name": "ease-quiet",
-        "value": "120ms–160ms ease-out",
-        "purpose": "Link underline, button and border colour, tab and story-line state changes."
+        "value": "140ms ease-out",
+        "purpose": "Link, button, border, sidebar and card-shadow state changes."
       },
       {
         "name": "ease-out-expo",
         "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Disclosure chevrons and the story-line draw."
+        "purpose": "ดูทั้งหมด arrow nudge (160 ms), drawer slide (220 ms), focus-line draw."
       },
       {
-        "name": "story-draw",
+        "name": "focus-line-draw",
         "value": "1100ms cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Story chart lines draw once on entering the view; already drawn under reduced motion."
+        "purpose": "Overview chart lines draw once on arrival; none under reduced motion."
       }
     ],
     "focus": {
@@ -886,193 +955,196 @@
     },
     "breakpoints": [
       {
-        "name": "wordmark",
-        "value": "520px"
+        "name": "donut-stack",
+        "value": "360px"
+      },
+      {
+        "name": "row-sparkline",
+        "value": "480px"
+      },
+      {
+        "name": "compact-kpi",
+        "value": "560px"
       },
       {
         "name": "phone",
         "value": "640px"
       },
       {
-        "name": "finds",
-        "value": "700px"
-      },
-      {
-        "name": "fold",
+        "name": "one-column",
         "value": "760px"
       },
       {
-        "name": "nav",
-        "value": "900px"
+        "name": "shell",
+        "value": "1024px"
       },
       {
-        "name": "story",
+        "name": "kpi-row",
         "value": "1100px"
       },
       {
-        "name": "container",
-        "value": "1200px"
+        "name": "spans",
+        "value": "1279px"
+      },
+      {
+        "name": "content-max",
+        "value": "1480px"
       }
     ]
   },
   "components": [
     {
-      "name": "Primary Button",
-      "kind": "button",
-      "refersTo": "button-primary",
-      "description": "TCI-blue action button (downloads, open in ThaiJO).",
-      "html": "<button class=\"ds-btn\">ดาวน์โหลดข้อมูล</button>",
-      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 20px; border: 0; border-radius: 8px; background: #283894; color: #fff; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-weight: 700; font-size: 16px; cursor: pointer; transition: background-color 140ms ease-out; } .ds-btn:hover { background: #1a2466; } .ds-btn:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+      "name": "Dashboard Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "White card on the canvas: title + (i) left, \"ดูทั้งหมด\" right, then one chart or list. Lifts softly on hover when it links on.",
+      "html": "<div class=\"ds-canvas\"><section class=\"ds-card\"><div class=\"ds-head\"><h2>หัวข้อที่ขยับมากที่สุด <button class=\"ds-i\" aria-label=\"เกี่ยวกับการ์ดนี้\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5.5M12 7.5h.01\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"/></svg></button></h2><a class=\"ds-see\" href=\"#\">ดูทั้งหมด <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></a></div><p class=\"ds-txt\">ปัญญาประดิษฐ์ทางการแพทย์ <b>+36% ต่อปี</b></p></section></div>",
+      "css": ".ds-canvas { background: #f3f5fa; padding: 20px; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-card { width: 380px; padding: 20px; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(20,24,43,.04), 0 4px 14px rgba(40,56,148,.05); transition: box-shadow 160ms ease-out; } .ds-card:hover { box-shadow: 0 2px 4px rgba(20,24,43,.05), 0 10px 24px rgba(40,56,148,.1); } .ds-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; } .ds-head h2 { display: flex; align-items: center; gap: 2px; margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; color: #14182b; } .ds-i { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: none; color: #6b7088; cursor: pointer; } .ds-i:hover { background: #f3f5fa; color: #283894; } .ds-i:focus-visible, .ds-see:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; } .ds-see { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 8px; border-radius: 8px; color: #283894; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; } .ds-see svg { transition: transform 160ms cubic-bezier(0.16,1,0.3,1); } .ds-see:hover { background: #eef0fa; color: #1a2466; } .ds-see:hover svg { transform: translateX(2px); } .ds-txt { margin: 0; font-size: 14px; color: #14182b; } .ds-txt b { color: #283894; }"
     },
     {
-      "name": "Secondary Button",
-      "kind": "button",
-      "refersTo": "button-secondary",
-      "description": "Quiet outlined button; the pressed state fills TCI blue.",
-      "html": "<button class=\"ds-btn2\">สรุปผู้บริหาร</button> <button class=\"ds-btn2\" aria-pressed=\"true\">บทความต่อแสนคน</button>",
-      "css": ".ds-btn2 { display: inline-flex; align-items: center; min-height: 42px; padding: 4px 16px; border: 1px solid #c9cddb; border-radius: 8px; background: #fff; color: #14182b; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-weight: 600; font-size: 16px; cursor: pointer; transition: border-color 140ms ease-out, background-color 140ms ease-out; } .ds-btn2:hover { border-color: #283894; color: #283894; } .ds-btn2[aria-pressed=\"true\"] { background: #283894; border-color: #283894; color: #fff; } .ds-btn2:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+      "name": "KPI Card",
+      "kind": "card",
+      "refersTo": "kpi-card",
+      "description": "Drawn icon in a soft-blue circle, label, value, change since the previous release (green ▲ / grey ▼).",
+      "html": "<dl class=\"ds-kpi\"><span class=\"ds-kico\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" aria-hidden=\"true\"><path d=\"M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></span><dt>บทความ</dt><dd><span class=\"ds-kv\">60,773</span><span class=\"ds-kd\">▲ +1,850 (+3.1%)</span></dd></dl>",
+      "css": ".ds-kpi { display: grid; grid-template-columns: auto 1fr; grid-template-areas: \"ico label\" \"ico body\"; column-gap: 14px; width: 260px; margin: 0; padding: 16px 20px; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(20,24,43,.04), 0 4px 14px rgba(40,56,148,.05); font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-kico { grid-area: ico; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #eef0fa; color: #283894; } .ds-kpi dt { grid-area: label; font-size: 14px; line-height: 1.5; color: #4d536b; } .ds-kpi dd { grid-area: body; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; margin: 0; } .ds-kv { font-size: 26px; font-weight: 700; line-height: 1.5; color: #14182b; font-variant-numeric: tabular-nums; } .ds-kd { font-size: 13px; font-weight: 600; color: #0b6b46; }"
     },
     {
-      "name": "Topic Search",
-      "kind": "input",
-      "refersTo": "input-search",
-      "description": "Pill search field with a drawn magnifier.",
-      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\"><circle cx=\"7\" cy=\"7\" r=\"5\" fill=\"none\" stroke=\"#6b7088\" stroke-width=\"1.6\"/><path d=\"M11 11l3.5 3.5\" stroke=\"#6b7088\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg><input placeholder=\"ค้นหาหัวข้อ เช่น ไมโครพลาสติก\"></label>",
-      "css": ".ds-search { position: relative; display: block; width: 320px; } .ds-search svg { position: absolute; left: 14px; top: 14px; } .ds-search input { width: 100%; min-height: 44px; padding: 6px 14px 6px 40px; border: 1px solid #8a8fa6; border-radius: 999px; background: #fff; color: #14182b; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-size: 16px; transition: border-color 140ms ease-out; } .ds-search input:hover { border-color: #6b7088; } .ds-search input:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-color: #283894; } .ds-search input::placeholder { color: #6b7088; }"
-    },
-    {
-      "name": "Navigation Row",
+      "name": "Sidebar Navigation",
       "kind": "nav",
-      "refersTo": "nav-link",
-      "description": "Hairline navigation row; the current page TCI blue with a 3 px indicator.",
-      "html": "<nav class=\"ds-nav\"><a href=\"#\" aria-current=\"page\">ภาพรวม</a><a href=\"#\">สรุปผู้บริหาร</a><a href=\"#\">อะไรกำลังมา</a><a href=\"#\">ใครทำเรื่องอะไร</a></nav>",
-      "css": ".ds-nav { display: flex; gap: 4px; border-bottom: 1px solid #e6e8f0; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-nav a { position: relative; display: inline-flex; align-items: center; min-height: 52px; padding: 0 12px; font-weight: 600; font-size: 16px; color: #14182b; text-decoration: none; } .ds-nav a:hover, .ds-nav a[aria-current=\"page\"] { color: #283894; } .ds-nav a[aria-current=\"page\"]::after { content: \"\"; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: #283894; } .ds-nav a:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+      "refersTo": "side-link",
+      "description": "White sidebar: caption group heading, icon + name links; current page on a TCI Blue Soft pill.",
+      "html": "<nav class=\"ds-side\"><p>แดชบอร์ด</p><a href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" aria-hidden=\"true\"><path d=\"M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\"/></svg>ภาพรวม</a><a href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" aria-hidden=\"true\"><path d=\"M3 17l6-6 4 4 8-8M15 7h6v6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>หัวข้อวิจัย</a><a href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" aria-hidden=\"true\"><path d=\"M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5zM12 6v13.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\"/></svg>วารสาร</a></nav>",
+      "css": ".ds-side { display: grid; gap: 2px; width: 216px; padding: 16px; background: #fff; border-right: 1px solid #e6e8f0; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-side p { margin: 0 0 6px; padding: 0 12px; font-size: 13px; font-weight: 600; color: #6b7088; } .ds-side a { display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 6px 12px; border-radius: 10px; color: #4d536b; font-size: 14px; font-weight: 500; text-decoration: none; transition: background-color 140ms ease-out, color 140ms ease-out; } .ds-side a svg { color: #6b7088; } .ds-side a:hover { background: #f3f5fa; color: #14182b; } .ds-side a[aria-current=\"page\"] { background: #eef0fa; color: #283894; font-weight: 700; } .ds-side a[aria-current=\"page\"] svg { color: #283894; } .ds-side a:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
     },
     {
-      "name": "Chart / Table Switch",
+      "name": "Ranked Rows",
       "kind": "custom",
-      "refersTo": "view-switch",
-      "description": "Soft segmented control in every figure caption row.",
-      "html": "<div class=\"ds-seg\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">แผนภูมิ</button><button role=\"tab\" aria-selected=\"false\">ตาราง</button></div>",
-      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: #f5f6fa; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-seg button { min-height: 36px; padding: 2px 14px; border: 0; border-radius: 7px; background: transparent; color: #4d536b; font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; } .ds-seg button:hover:not([aria-selected=\"true\"]) { color: #14182b; } .ds-seg button[aria-selected=\"true\"] { background: #fff; color: #283894; box-shadow: 0 1px 3px rgba(20,24,43,.12); } .ds-seg button:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+      "refersTo": "rank-badge",
+      "description": "The shared dashboard list: rank badge (first in TCI blue), one-line name link, status chip, value; \"แสดงเพิ่ม\" below.",
+      "html": "<div class=\"ds-rr\"><ol><li><span class=\"n\">1</span><span class=\"m\"><a href=\"#\">ปัญญาประดิษฐ์ทางการแพทย์</a><span class=\"chip\">▲ กำลังเกิดใหม่</span></span><b>+36% ต่อปี</b></li><li><span class=\"n\">2</span><span class=\"m\"><a href=\"#\">ยานยนต์ไฟฟ้า</a><span class=\"chip\">▲ กำลังเกิดใหม่</span></span><b>+29% ต่อปี</b></li><li><span class=\"n\">3</span><span class=\"m\"><a href=\"#\">พลังงานแสงอาทิตย์</a><span class=\"chip hot\">● กำลังมาแรง</span></span><b>+7% ต่อปี</b></li></ol><button class=\"more\">แสดงเพิ่ม 6 (เหลือ 12)</button></div>",
+      "css": ".ds-rr { width: 360px; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-rr ol { margin: 0; padding: 0; list-style: none; } .ds-rr li { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #e6e8f0; } .ds-rr li:first-child { border-top: 0; } .ds-rr .n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: #eef0fa; color: #283894; font-size: 13px; font-weight: 700; } .ds-rr li:first-child .n { background: #283894; color: #fff; } .ds-rr .m { display: grid; gap: 2px; min-width: 0; } .ds-rr a { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 600; color: #14182b; text-decoration: none; } .ds-rr a:hover { color: #283894; text-decoration: underline; } .ds-rr a:focus-visible, .ds-rr .more:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; } .ds-rr .chip { justify-self: start; padding: 1px 6px 0 5px; background: #dcf3ec; color: #0a4a3e; font-size: 13px; font-weight: 700; } .ds-rr .chip.hot { background: #f9e2eb; color: #680b32; } .ds-rr b { font-size: 14px; color: #283894; font-variant-numeric: tabular-nums; } .ds-rr .more { margin-top: 6px; min-height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: #283894; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; } .ds-rr .more:hover { background: #eef0fa; }"
+    },
+    {
+      "name": "Segmented Switch",
+      "kind": "custom",
+      "refersTo": "segmented",
+      "description": "Two or three views of one card; aria-pressed buttons in a labelled group. Never chart ⇄ table.",
+      "html": "<div class=\"ds-seg\" role=\"group\" aria-label=\"มุมมอง\"><button aria-pressed=\"true\">กำลังมา</button><button aria-pressed=\"false\">ลดลง</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: #f3f5fa; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-seg button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 7px; background: transparent; color: #4d536b; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; } .ds-seg button:hover:not([aria-pressed=\"true\"]) { color: #14182b; } .ds-seg button[aria-pressed=\"true\"] { background: #fff; color: #283894; box-shadow: 0 1px 3px rgba(20,24,43,.12); } .ds-seg button:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+    },
+    {
+      "name": "Buttons",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Quiet page-bar action (white, hairline) and the rare primary (TCI blue).",
+      "html": "<div class=\"ds-btns\"><button class=\"q\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" aria-hidden=\"true\"><path d=\"M12 4v11M7.5 10.5 12 15l4.5-4.5M4.5 16.5V20h15v-3.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>พิมพ์ / บันทึก PDF</button><button class=\"p\">พิมพ์สรุปผู้บริหาร</button></div>",
+      "css": ".ds-btns { display: flex; gap: 10px; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-btns button { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.5; cursor: pointer; } .ds-btns .q { min-height: 36px; padding: 0 14px; border: 1px solid #e6e8f0; background: #fff; color: #14182b; transition: border-color 140ms ease-out, color 140ms ease-out; } .ds-btns .q:hover { border-color: #283894; color: #283894; } .ds-btns .p { min-height: 40px; padding: 4px 16px; border: 0; background: #283894; color: #fff; transition: background-color 140ms ease-out; } .ds-btns .p:hover { background: #1a2466; } .ds-btns button:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
     },
     {
       "name": "Status Chips",
       "kind": "chip",
       "refersTo": "chip-emerging",
-      "description": "Glyph + colour + Thai name; square corners.",
-      "html": "<span class=\"ds-chip ds-em\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><path d=\"M6 1l5 9H1z\" fill=\"#13a08a\"/></svg>กำลังเกิดใหม่</span> <span class=\"ds-chip ds-hot\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><circle cx=\"6\" cy=\"6\" r=\"5\" fill=\"#a3124f\"/></svg>กำลังมาแรง</span> <span class=\"ds-chip ds-low\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><circle cx=\"6\" cy=\"6\" r=\"4.5\" fill=\"#fff\" stroke=\"#6f777b\" stroke-width=\"1.6\" stroke-dasharray=\"2.2 1.6\"/></svg>ข้อมูลน้อย</span>",
-      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 1px 6px; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-weight: 700; font-size: 14px; line-height: 1.5; white-space: nowrap; } .ds-em { background: #dcf3ec; color: #0a4a3e; } .ds-hot { background: #f9e2eb; color: #680b32; } .ds-low { background: #fff; color: #4d536b; box-shadow: inset 0 0 0 1px #c9cddb; }"
+      "description": "Glyph + colour + Thai name; square corners; the only use of status colours.",
+      "html": "<span class=\"ds-chip em\"><svg width=\"12\" height=\"12\" viewBox=\"-8 -8 16 16\" aria-hidden=\"true\"><path d=\"M0-5.6L5.6 4.2H-5.6z\" fill=\"#13a08a\"/></svg>กำลังเกิดใหม่</span> <span class=\"ds-chip hot\"><svg width=\"12\" height=\"12\" viewBox=\"-8 -8 16 16\" aria-hidden=\"true\"><circle r=\"5\" fill=\"#a3124f\"/></svg>กำลังมาแรง</span> <span class=\"ds-chip low\"><svg width=\"12\" height=\"12\" viewBox=\"-8 -8 16 16\" aria-hidden=\"true\"><circle r=\"4.6\" fill=\"#fff\" stroke=\"#6f777b\" stroke-width=\"1.6\" stroke-dasharray=\"2.2 1.6\"/></svg>ข้อมูลน้อย</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 1px 6px; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-weight: 700; font-size: 13px; line-height: 1.5; white-space: nowrap; } .ds-chip.em { background: #dcf3ec; color: #0a4a3e; } .ds-chip.hot { background: #f9e2eb; color: #680b32; } .ds-chip.low { background: #fff; color: #4d536b; box-shadow: inset 0 0 0 1px #c9cddb; }"
     },
     {
-      "name": "Stat Tile",
-      "kind": "card",
-      "refersTo": "stat-value",
-      "description": "A number on a hairline: label, value, change, context. No box, no sparkline.",
-      "html": "<div class=\"ds-stat\"><span class=\"ds-l\">บทความทั้งหมด</span><span class=\"ds-v\">248,310</span><span class=\"ds-d\">▲ +4,120 จากรอบก่อน</span><span class=\"ds-s\">เช่น บทความในวารสาร TCI ปี 2000–2024</span></div>",
-      "css": ".ds-stat { display: flex; flex-direction: column; width: 240px; padding-top: 14px; border-top: 1px solid #e6e8f0; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-l { font-size: 16px; font-weight: 600; line-height: 1.5; color: #4d536b; } .ds-v { font-size: 40px; font-weight: 700; line-height: 1.5; color: #14182b; font-variant-numeric: tabular-nums; } .ds-d { font-size: 16px; font-weight: 600; color: #0b6b46; } .ds-s { margin-top: 4px; font-size: 16px; color: #4d536b; }"
-    },
-    {
-      "name": "Story Hero",
+      "name": "Page Bar",
       "kind": "custom",
-      "refersTo": "story-number",
-      "description": "Question, one-sentence answer, one TCI-blue number, byline.",
-      "html": "<section class=\"ds-story\"><h1>งานวิจัยไทย เรื่องไหนกำลังมา</h1><p class=\"ds-ans\">เรื่องที่โตเร็วที่สุดตอนนี้คือ <a href=\"#\">ไมโครพลาสติกในแหล่งน้ำ</a></p><p class=\"ds-num\"><span>2.1 เท่า</span><small>สัดส่วนบทความเรื่องนี้ เทียบกับปี 2017–2021</small></p><p class=\"ds-by\">248,310 บทความ · ข้อมูลถึงปี 2024</p></section>",
-      "css": ".ds-story { max-width: 400px; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; color: #14182b; } .ds-story h1 { margin: 0; font-size: 52px; font-weight: 700; line-height: 1.45; } .ds-ans { margin: 22px 0 0; font-size: 24px; line-height: 1.65; } .ds-ans a { color: #283894; font-weight: 700; text-underline-offset: 0.22em; text-decoration-color: rgba(40,56,148,.4); transition: text-decoration-color 120ms ease-out; } .ds-ans a:hover { color: #1a2466; text-decoration-color: currentColor; } .ds-ans a:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; } .ds-num { margin: 30px 0 0; display: grid; gap: 4px; } .ds-num span { font-size: 56px; font-weight: 700; line-height: 1.45; color: #283894; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; } .ds-num small { font-size: 16px; color: #4d536b; } .ds-by { margin: 26px 0 0; padding-top: 14px; border-top: 1px solid #e6e8f0; font-size: 16px; color: #6b7088; }"
-    },
-    {
-      "name": "Story Chart",
-      "kind": "custom",
-      "refersTo": "story-number",
-      "description": "Grey context lines, one TCI-blue focus line, one orange end dot, direct labels and an on-chart note.",
-      "html": "<svg class=\"ds-sl\" viewBox=\"0 0 440 200\" width=\"440\" height=\"200\" role=\"img\" aria-label=\"เรื่องที่โตเร็ว 3 เรื่อง\"><line x1=\"10\" x2=\"300\" y1=\"180\" y2=\"180\" class=\"b\"/><path d=\"M10 170 L100 160 L200 140 L300 120\" class=\"c\"/><path d=\"M10 175 L100 168 L200 150 L300 145\" class=\"c\"/><path d=\"M10 172 L100 150 L200 100 L300 40\" class=\"f\"/><circle cx=\"300\" cy=\"40\" r=\"6\" class=\"e\"/><text x=\"312\" y=\"45\" class=\"n\">ไมโครพลาสติก</text><text x=\"312\" y=\"125\" class=\"g\">พลังงานชุมชน</text><text x=\"312\" y=\"150\" class=\"g\">อาหารผู้สูงวัย</text><text x=\"40\" y=\"80\" class=\"note\">จาก 18 เป็น 95 เรื่อง</text></svg>",
-      "css": ".ds-sl { font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; overflow: visible; } .ds-sl .b { stroke: #c9cddb; } .ds-sl .c { fill: none; stroke: #b9bdcc; stroke-width: 2.25; stroke-linejoin: round; transition: stroke 160ms ease-out; } .ds-sl .c:hover { stroke: #283894; } .ds-sl .f { fill: none; stroke: #283894; stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; } .ds-sl .e { fill: #e07000; stroke: #fff; stroke-width: 3; } .ds-sl text { font-size: 16px; } .ds-sl .n { fill: #283894; font-weight: 700; } .ds-sl .g { fill: #6b7088; } .ds-sl .note { fill: #14182b; font-weight: 600; paint-order: stroke; stroke: #fff; stroke-width: 6px; stroke-linejoin: round; }"
+      "refersTo": "release-chip",
+      "description": "White bar opening every page: h1 + (i), one sub line; actions, release chip + tag, language switch.",
+      "html": "<header class=\"ds-pbar\"><div><h1>ภาพรวม <button class=\"ds-pi\" aria-label=\"เกี่ยวกับหน้านี้\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><path d=\"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5.5M12 7.5h.01\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"/></svg></button></h1><p>ข้อมูลถึงปี 2024 · ตัวเลขสีเขียวเทียบกับรอบ 2026Q3</p></div><div class=\"t\"><span class=\"rel\">รอบ 2026Q4</span><span class=\"tag\">ข้อมูลตัวอย่าง</span><span class=\"lang\"><button aria-pressed=\"true\">ไทย</button><button aria-pressed=\"false\">English</button></span></div></header>",
+      "css": ".ds-pbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 20px; width: 720px; padding: 14px 28px; background: #fff; border-bottom: 1px solid #e6e8f0; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-pbar h1 { display: flex; align-items: center; gap: 2px; margin: 0; font-size: 24px; font-weight: 700; line-height: 1.5; color: #14182b; } .ds-pi { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: none; color: #6b7088; cursor: pointer; } .ds-pi:hover { background: #f3f5fa; color: #283894; } .ds-pi:focus-visible, .ds-pbar .lang button:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; } .ds-pbar p { margin: 0; font-size: 13px; color: #4d536b; } .ds-pbar .t { display: flex; align-items: center; gap: 8px 10px; } .ds-pbar .rel { padding: 2px 12px; border-radius: 999px; background: #f3f5fa; color: #14182b; font-size: 13px; font-weight: 600; } .ds-pbar .tag { padding: 1px 10px; border-radius: 999px; background: #e4e6ee; color: #4d536b; font-size: 13px; font-weight: 700; } .ds-pbar .lang { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: #f5f6fa; } .ds-pbar .lang button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #4d536b; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; } .ds-pbar .lang button[aria-pressed=\"true\"] { background: #fff; color: #283894; box-shadow: 0 1px 3px rgba(20,24,43,.12); }"
     }
   ],
   "narrative": {
-    "northStar": "The Data Explainer",
-    "overview": "Every page is a short data story: a plain question as the headline, the answer in one sentence, one big number, then one large chart with its labels and notes written on the chart that proves it. The page is white, the type is Sarabun alone, and colour is spent like a newsroom spends it: TCI blue (from the logo) for the brand and for the data that answers the page's question, one orange mark for the single highlighted point, quiet greys for everything that is context. Numbers stand on the page with no boxes around them; structure comes from hairline rules and generous gaps, not from bands, boxed fields or card grids.\n\nThe front door (`/overview`) is the purest expression: the reader's question at display size, the answer, the hero number in TCI blue, a byline, then the fastest-rising topics drawn as one story chart. Tool pages (journals, institutions, search, the map) stay operate-clear inside the same world: the same hairlines, the same soft controls, the same chart/table figure. Specialists still find the table tab, the CSV, the \"ที่มา:\" line and the method behind \"วิธีอ่าน\" exactly where they were.\n\nThe world rejects two forms by name, both confirmed by the owner's choice (2026-10-23): the government statistical-release form (coloured header band, boxed fields, heavy ink rules, underlined links everywhere) and the SaaS dashboard (rows of bordered KPI cards, card grids, eyebrow chips over headings). There is one light theme; the dark theme was retired with the old world.",
+    "northStar": "The TCI Dashboard",
+    "overview": "Every page is a one-glance dashboard. The few facts that matter sit in white cards on a soft blue-grey canvas, held between a white sidebar on the left and a white page bar on top; everything else is one click away: \"ดูทั้งหมด\" to the dashboard or detail page that has the rest, \"แสดงเพิ่ม\" for the next rows of a ranked list, an (i) button for the explanation. The world refuses two things: the long scrolling data story the site used to be, and the dense BI wall where every number has the same weight.\n\nThe type is compact Sarabun (body 15 px) so a dashboard fits in about 1.5–2 screens at 1440 × 900. Colour is spent sparingly: TCI blue (from the logo) for the brand and for the data that answers a card's question, one orange mark per view, quiet greys for context, and six reserved status colours that always travel with a glyph and a Thai name. Depth is one soft shadow under each card on the canvas; nothing else on the page is raised except things that float (popovers, the drawer).\n\nFive dashboards (`/overview`, `/topics`, `/places`, `/journals`, `/goals`), four detail pages (`/topics/:id`, `/journals/:id`, `/institutions/:id`, `/province/:code`), the two maps (`/atlas`, `/galaxy`) and `/about` share one shell. The overview is also the executive brief: it prints as two A4 pages (`/brief` redirects to `/overview`).",
     "keyCharacteristics": [
-      "White ground, ink #14182b text, TCI blue for brand + answer data, one orange mark per view, grey context.",
-      "Question headline → one-sentence answer → one number → the chart that proves it.",
-      "Numbers on hairlines, never in boxes; no sparklines inside stat tiles.",
-      "Soft, quiet controls: 8 px controls, 12 px panels, pill toggles and the search field.",
-      "Every chart: chart/table switch, numbered caption, \"ที่มา:\" line, CSV.",
-      "Status always glyph + colour + Thai name.",
-      "One typeface (Sarabun 400/600/700), self-hosted."
+      "White sidebar (248 px) + white page bar + soft canvas (#f3f5fa) + white cards (16 px radius, one soft shadow, no border).",
+      "12-column card grid; cards span 3/4/5/6/7/8/12; one column under 760 px.",
+      "Compact Sarabun only: body 15 px, card titles 16 px/700, page h1 20–24 px/700, KPI values 22–26 px/700.",
+      "KPI cards: drawn icon in a soft-blue circle, label, value, change since the previous release.",
+      "Ranked rows with \"แสดงเพิ่ม\" in steps of 6–10; \"ดูทั้งหมด\" to the page with everything.",
+      "Explanations only behind (i) buttons (click/tap); no tabs, \"วิธีอ่าน\", CSV, source lines or figure numbers on the page; no search boxes.",
+      "Status always glyph + colour + Thai name; one light theme."
     ],
     "rules": [
       {
         "name": "The Answer Is Blue Rule",
-        "body": "In a chart, TCI blue marks the data that answers the page's question; everything else is grey context. If two things are blue, one of them is wrong.",
+        "body": "In a card's chart, TCI blue marks the data that answers the card's question; everything else is grey context. If two things are blue in one chart and they do not answer the same question, one of them is wrong.",
         "section": "colors"
       },
       {
         "name": "The One Orange Rule",
-        "body": "At most one orange highlight per view: a mark (dot, end point) in Orange Mark, never a fill. The logo orange (#f89020) never sits on white below 3:1.",
+        "body": "At most one orange mark per view, in Orange Mark (#e07000), as a dot or ring, never a fill or text. The logo orange stays in the logo.",
         "section": "colors"
       },
       {
         "name": "The Reserved Status Rule",
-        "body": "The six status colours mean status and nothing else; a status is never shown by colour alone — glyph + colour + Thai name, every time. Any colour change passes `web/src/styles/palette.test.ts` (CVD separation, contrast, one light theme only).",
+        "body": "The six status colours mean status and nothing else, and a status is never shown by colour alone: glyph (▲ กำลังเกิดใหม่ · ◆ จับตา · ● กำลังมาแรง · ▼ ลดลง · ■ คงที่ · dashed hollow circle ข้อมูลน้อย) + colour + Thai name, every time. Any colour change passes `web/src/styles/palette.test.ts` (CVD separation between status colours, text contrast of the chip ink on its tag, and no dark-theme block).",
         "section": "colors"
       },
       {
         "name": "The Token-Only Rule",
-        "body": "Components use `var(--token)` from `web/src/styles/tokens.css`; a hex value in a component is a bug. Group colours arrive from the data as token keys (`cat-07`), never hex.",
+        "body": "Components use `var(--token)` from `tokens.css`; a hex value in a component is a bug. Group colours arrive from the data as token keys (`cat-07`), never hex. No dynamic Tailwind colour classes; write every variant in CSS (`chip-${status}`).",
         "section": "colors"
       },
       {
-        "name": "The Terrain Is Not Data Rule",
-        "body": "Field tints are background terrain; fields are always named by labels and in the gazetteer.",
-        "section": "colors"
+        "name": "The Compact Floor Rule",
+        "body": "Nothing that carries meaning is set under 13 px (`--fs-caption`); only axis ticks use 12 px. Sizes come from `--fs-*` only.",
+        "section": "typography"
       },
       {
         "name": "The Thai Line-Height Rule",
-        "body": "Thai stacks marks above and below the line: body 1.7, headings ≥ 1.5, display headings ≥ 1.45; only English-only rules (`:lang(en)`) close up to 1.25–1.3. `web/src/styles/lineHeight.test.ts` enforces it.",
+        "body": "Thai stacks marks above and below the line: body 1.7, headings and labels ≥ 1.5; only English-only rules (`:lang(en)`) close headings to 1.3 with −0.01em tracking. `web/src/styles/lineHeight.test.ts` enforces it.",
         "section": "typography"
       },
       {
         "name": "The Upright Thai Rule",
-        "body": "Thai has no true italic: `em`, `i`, `cite`, `dfn`, `var`, `address` render upright; emphasis is weight 600/700. No letter-spacing and no case transforms on Thai — negative tracking and caps are English-only.",
+        "body": "Thai has no true italic: `em`, `i`, `cite`, `dfn`, `var`, `address` render upright; emphasis is weight 600/700. No letter-spacing and no case transforms on Thai.",
         "section": "typography"
       },
       {
         "name": "The Arabic Numerals Rule",
-        "body": "Both languages use Arabic digits with en-US grouping (248,310), the true minus sign (−), and Gregorian years (ค.ศ.), matching the data; numbers are tabular wherever they align.",
+        "body": "Both languages use Arabic digits with en-US grouping (60,773), the true minus sign (−), and Gregorian years; numbers that align are tabular.",
         "section": "typography"
       },
       {
-        "name": "The Flat Page Rule",
-        "body": "Stat tiles, finding cards, tables and figures never cast shadows; if something has a shadow it is temporary or selected.",
+        "name": "The One Step Rule",
+        "body": "A card has exactly one rest shadow and no border; nothing inside a card casts a shadow. In print the shadow becomes a 1 px Hairline border.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "**Do** open a page with the reader's question, answer it in one sentence, give one number, then show the chart that proves it.",
-      "**Do** keep TCI blue (#283894) for the brand and the answer data, grey (#b9bdcc) for context, and at most one orange (#e07000) mark per view.",
-      "**Do** pair every chart with the chart/table switch, a numbered caption (\"แผนภูมิ n\" / \"ตาราง n\"), a \"ที่มา:\" source line and CSV; tables sort (`aria-sort`).",
-      "**Do** label charts directly and write the one note on the chart; keep labels ≥ 14 px.",
-      "**Do** set numbers on hairlines (1 px #e6e8f0) with a short unit line, not in boxes.",
+      "**Do** open every page with one `PageBar`, then a `KpiRow` when the page has headline numbers, then `Card`/`Section` in a `DashGrid`; give each card a `span` and let it collapse by the table in Layout.",
+      "**Do** make each card answer one question with a chart or a ranked list, and send the rest to \"ดูทั้งหมด\" (the matching dashboard or detail page, or the drawer).",
+      "**Do** put every explanation (years, method, definitions) behind the (i) beside the page, card or KPI title; the full method lives on `/about`.",
+      "**Do** show long lists as `RankRows` with \"แสดงเพิ่ม\" in steps of 6–10, names on one line with the full name in `title`; use `limit` on any `DataTable` that could be long.",
+      "**Do** filter with buttons (`Segmented`, the status picker) or grouped lists (every province by region), with the state in the URL.",
+      "**Do** draw new chart forms as SVG in `web/src/charts/`, with layout maths in a tested `.ts` file: labels ≥ 13 px (`--fs-caption`; ticks 12 px), ink + one TCI blue + greys, status colours only for statuses, no data as a diagonal hatch or dashed outline (never the lightest ramp step), direct labels over legends, and the numbers printed beside the chart (labels, a list, a key) so nothing is hover-only.",
       "**Do** show status as glyph + colour + Thai name, and pass `palette.test.ts` for any colour change.",
-      "**Do** show uncertainty: intervals at `manifest.ci_level`, \"แนวโน้มไม่แน่นอน\" when a forecast is not shown, \"ใหม่ — ปี {base} ยังไม่มีงานเรื่องนี้\" when the baseline years had no articles.",
-      "**Do** set sizes only from `--fs-*`, spacing from `--sp-*`, colours from tokens; body 1.7, Thai headings ≥ 1.45/1.5.",
-      "**Do** keep 44 px controls and the 3 px TCI-blue focus ring on every interactive element.",
-      "**Do** lead with an example and plain words (Copy voice); put the exact rule behind \"วิธีอ่าน\", `HowNote` or a `Term`.",
-      "**Do** build new chart forms from the infographic kit's rules: table tab, direct labels, TCI blue + greys, hatch or dashed outline for no data."
+      "**Do** write on-page text in plain Thai (and English): short, example first (\"เช่น …\"), a unit on every number, years instead of windows (\"ปี 2022–2024\", \"ใหม่ — ปี 2016–2020 ยังไม่มีงานเรื่องนี้\"), Thai status names (กำลังเกิดใหม่ · จับตา · กำลังมาแรง · ลดลง · คงที่ · ข้อมูลน้อย); a necessary technical word is a `Term`.",
+      "**Do** keep the 3 px TCI-blue focus ring (2 px offset) on every interactive element, a skip link, real landmarks (`nav`, `main`, `section` labelled by its h2) and `dl` for KPI and fact pairs.",
+      "**Do** let a section shrink away when its data is missing; a page is never blank (`ErrorBoundary` in `Layout`, `ModuleFile` and skipped-module reasons).",
+      "**Do** keep the overview printable as the two-page A4 executive brief: shell, drawer, (i) buttons, \"ดูทั้งหมด\" and switches hidden; cards become 1 px Hairline boxes packed into a dense 12-column grid (wide cards across, the rest in halves), root size 12.5 px.",
+      "**Do** keep TCI · NECTEC · สวทช. logos in the footer and the TCI logo at the top of the sidebar/phone bar."
     ],
     "donts": [
-      "**Don't** bring back a coloured header band, boxed form fields, heavy ink rules or a dark theme.",
-      "**Don't** build rows of bordered KPI cards or card grids, or put eyebrow labels or kicker chips above headings.",
-      "**Don't** put a sparkline inside a stat tile; a trend gets its own figure.",
-      "**Don't** use a status colour for anything that is not a status, or a status without its glyph and name.",
+      "**Don't** put chart ⇄ table tabs, \"วิธีอ่าน\", CSV download buttons, \"ที่มา:\" source lines or figure numbers (\"แผนภูมิ n\", \"ตาราง n\") on a page.",
+      "**Don't** add a search box or search field anywhere (the e2e tests check).",
+      "**Don't** explain in hover-only tooltips; the (i) opens by click, tap or keyboard.",
+      "**Don't** add a dark theme or any second theme.",
+      "**Don't** put an eyebrow or kicker label above a heading, a thick coloured side border on a card or row, or gradient text.",
+      "**Don't** use a status colour for anything that is not a status, or show a status without its glyph and name.",
       "**Don't** colour context data blue, fill an area with orange, or put the logo orange (#f89020) on white as a mark or text.",
-      "**Don't** use italics, letter-spacing or case transforms on Thai text.",
-      "**Don't** add shadows to tiles, cards, tables or figures; shadows are for floating or selected things only.",
-      "**Don't** load fonts or anything else from a third-party server.",
+      "**Don't** set meaningful text under 13 px, use italics on Thai, or letter-space Thai.",
+      "**Don't** add borders to cards or shadows to anything inside a card.",
+      "**Don't** use in on-page text: ช่วงเชื่อมั่น, ช่วงฐาน, ช่วงล่าสุด, subfield, HHI, Jaccard, Jensen–Shannon, cosine, metadata, embedding, or status codes (EMERGING, LOW_DATA …) inside Thai sentences.",
+      "**Don't** load fonts or anything else from a third-party server at runtime.",
       "**Don't** show abstracts or author names, or rank individual people.",
-      "**Don't** put information only in a hover or only in colour, or jargon and status codes in a heading, lede or column header.",
-      "**Don't** use the official SDG colours or icons, stock illustration or emoji."
+      "**Don't** use stock illustration, emoji, icon fonts, or the official SDG colours and icons."
     ]
   }
 }

@@ -55,6 +55,7 @@ def _score(index: dict, text: str) -> list[tuple[float, int]]:
 @pytest.fixture
 def built(tmp_path):
     cfg = make_p2_work(tmp_path)
+    cfg["match"]["enabled"] = True                     # off by default since the dashboard redesign
     journals(cfg)
     return cfg, match(cfg)
 
@@ -76,7 +77,7 @@ def test_index_ranks_the_right_topic_and_lists_active_journals(built):
 
 def test_the_index_is_size_bounded_and_carries_no_text(tmp_path, capsys):
     cfg = make_p2_work(tmp_path)
-    cfg["match"].update(max_terms=100, min_terms=20, max_bytes=1_000)          # cannot fit: stops at min_terms
+    cfg["match"].update(enabled=True, max_terms=100, min_terms=20, max_bytes=1_000)          # cannot fit: stops at min_terms
     index = match(cfg)
     raw = (Path(cfg["pipeline"]["work_dir"]) / "14_match.json").read_bytes()
     assert index["bytes"] == len(raw)                                  # the size counts the "bytes" key too
@@ -99,6 +100,7 @@ def test_disabled_match_removes_the_index(built):
 
 def test_the_index_is_deterministic_and_needs_no_journals(tmp_path):
     cfg = make_p2_work(tmp_path)                                        # journals step not run: no 13_* tables
+    cfg["match"]["enabled"] = True
     first = match(cfg)
     raw = (Path(cfg["pipeline"]["work_dir"]) / "14_match.json").read_bytes()
     assert first["journals"] == [] and {t["topic_id"] for t in first["topics"]} == {1, 2, 3}

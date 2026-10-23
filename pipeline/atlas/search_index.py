@@ -257,9 +257,13 @@ def search(cfg: dict) -> dict:
     out = docs[["ordinal", "article_id", "title_th", "title_en", "year"]].assign(
         journal_index=docs["journal_name"].map(jindex).astype(np.int64),
         topic_id=docs["article_id"].map(topic_of).fillna(-1).astype(np.int64), doi=docs["doi"], url=docs["url"])
-    postings, vocab = build_postings(docs, int(scfg["max_token_chars"]), int(scfg["min_df"]))
+    # the word index only when asked (search.word_index): the galaxy needs the article rows, not the postings
+    if scfg["word_index"]:
+        postings, vocab = build_postings(docs, int(scfg["max_token_chars"]), int(scfg["min_df"]))
+        write_table(postings, work / "20_postings.parquet")
+    else:
+        postings, vocab = pd.DataFrame({"token": [], "ordinal": []}), pd.DataFrame({"token": [], "df": []})
     write_table(out, work / "20_docs.parquet")
-    write_table(postings, work / "20_postings.parquet")
     t_index = time.time() - t0
 
     lcfg = cfg["layout"]
@@ -277,12 +281,17 @@ def search(cfg: dict) -> dict:
     meta = {"n_docs": len(docs), "window": list(win) if win else None, "journals": journals,
             "years": sorted({int(y) for y in docs["year"]}),
             "search": {"published": True, "skipped": None, "tokenizer_version": TOKENIZER_VERSION,
-                       "n_tokens": len(vocab), "n_postings": len(postings)},
+                       "word_index": bool(scfg["word_index"]), "n_tokens": len(vocab), "n_postings": len(postings)},
             "galaxy": gal}
     meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     n_shards, per = int(scfg["index_shards"]), int(scfg["docs_per_shard"])
     shard_sizes = np.bincount(np.array([fnv1a32(t) % n_shards for t in vocab["token"]], dtype=np.int64),
                               minlength=n_shards)
+    if not scfg["word_index"]:
+        print(f"[search] {len(docs):,} article rows (search.word_index is false — no word index) in {t_index:.1f}s, "
+              f"{-(-len(docs) // per)} doc shards of ≤ {per:,}"
+              + (f"; galaxy: {gal['placed']:,} placed" if gal["published"] else f"; galaxy skipped: {gal['skipped']}"))
+        return meta
     print(f"[search] {len(docs):,} articles, {len(vocab):,} tokens, {len(postings):,} postings in {t_index:.1f}s — "
           f"{n_shards} index shards ({int(shard_sizes.min()) if len(vocab) else 0}–"
           f"{int(shard_sizes.max()) if len(vocab) else 0} tokens each), {-(-len(docs) // per)} doc shards of ≤ {per:,}"

@@ -5,10 +5,7 @@ import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
-import { SourceMore } from '../components/SourceLine'
 import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
-import { PhoneFold } from '../components/PhoneFold'
-import { Steps } from '../components/Steps'
 import { TopicTip } from '../components/TopicTip'
 import { groupName, type AtlasRelease } from '../data/release'
 import { Gazetteer } from '../features/atlas/Gazetteer'
@@ -18,44 +15,11 @@ import { buildTerrain } from '../features/atlas/terrain'
 import { ciPct, fmtInt, fmtShare } from '../lib/format'
 import { useI18n, useStrings, nameIn } from '../lib/i18n'
 import { prefersReducedMotion } from '../lib/scroll'
-import { glyphPath, SIGNAL_STATUSES, STATUSES, type StatusId } from '../lib/status'
+import { STATUSES, type StatusId } from '../lib/status'
 import { ciText, growthText, statusName } from '../lib/topicText'
 import { atlasCodec, LAYERS } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { atlas } from '../strings/atlas'
-
-/** Step drawings for "read this map": contour rings on a field tint, the four signal glyphs, near and far dots. */
-function HillArt() {
-  return (
-    <svg width="64" height="36" viewBox="0 0 64 36" focusable="false">
-      <ellipse cx="30" cy="20" rx="27" ry="14" className="ra-tint" />
-      {[[27, 14], [19, 10], [11, 6]].map(([rx, ry], i) => (
-        <ellipse key={rx} cx={30 + i * 2} cy={20 - i * 1.5} rx={rx} ry={ry} className={i === 0 ? 'ra-contour is-heavy' : 'ra-contour'} />
-      ))}
-    </svg>
-  )
-}
-
-function SymbolArt() {
-  return (
-    <svg width="96" height="36" viewBox="0 0 96 36" focusable="false">
-      {SIGNAL_STATUSES.map((st, i) => (
-        <path key={st} className={`mk mk-${st}`} transform={`translate(${12 + i * 24},18)`} d={glyphPath(st, 4 + i)} />
-      ))}
-    </svg>
-  )
-}
-
-function NearArt() {
-  return (
-    <svg width="96" height="36" viewBox="0 0 96 36" focusable="false">
-      <circle cx="12" cy="18" r="5" className="ra-dot" />
-      <circle cx="26" cy="15" r="5" className="ra-dot" />
-      <path d="M38 18h30" className="ra-gap" />
-      <circle cx="84" cy="20" r="5" className="ra-dot" />
-    </svg>
-  )
-}
 
 export default function AtlasPage() {
   const sa = useStrings(atlas)
@@ -103,20 +67,13 @@ function Atlas({ release }: { release: AtlasRelease }) {
   }
   return (
     <div className="container wide">
-      <PageHeader title={sa('map.title')} lede={sa('map.lede', { n: fmtInt(release.topics.length) })} />
-      <PhoneFold id="map-read-h" className="map-read" headingClass="map-read-h" heading={sa('map.read.h')}>
-        <Steps
-          label={sa('map.read.h')}
-          items={[
-            { title: sa('map.read.1t'), body: sa('map.read.1b'), art: <HillArt /> },
-            { title: sa('map.read.2t'), body: sa('map.read.2b'), art: <SymbolArt /> },
-            { title: sa('map.read.3t'), body: sa('map.read.3b'), art: <NearArt /> },
-          ]}
-        />
-      </PhoneFold>
+      <PageHeader
+        title={sa('map.title')}
+        lede={[sa('map.lede', { n: fmtInt(release.topics.length) }), `${sa('map.read.1t')}: ${sa('map.read.1b')}`, `${sa('map.read.2t')}: ${sa('map.read.2b')}`, `${sa('map.read.3t')}: ${sa('map.read.3b')}`, sa('map.scale'), sa('map.hint')].join(' · ')}
+      />
       <div className="atlas-grid">
         <figure className="atlas-fig" id="atlas-map" aria-labelledby="atlas-fig-title">
-          <p className="figtitle" id="atlas-fig-title">{t('figure.n', { n: 1, title: sa('map.fig', { release: release.overview.release }) })}</p>
+          <p className="figtitle" id="atlas-fig-title">{sa('map.fig', { release: release.overview.release })}</p>
           <p className="sr-only" id="atlas-desc">{sa('map.desc')}</p>
           <TerrainMap
             ref={mapRef}
@@ -137,10 +94,6 @@ function Atlas({ release }: { release: AtlasRelease }) {
             describedBy="atlas-desc"
             controls={{ zoomIn: sa('map.zoomIn'), zoomOut: sa('map.zoomOut'), reset: sa('map.reset'), group: sa('map.zoomGroup'), hint: sa('map.hint') }}
           />
-          <p className="source">
-            {t('source.line', { release: release.overview.release })} · {sa('map.scale')}
-            <SourceMore />
-          </p>
         </figure>
         <aside className="atlas-side" aria-label={sa('map.key.h')}>
           <section className="cart" id="atlas-selection" aria-labelledby="sel-h" aria-live="polite">
@@ -228,7 +181,7 @@ function Atlas({ release }: { release: AtlasRelease }) {
         </aside>
       </div>
       <Section id="gazetteer" title={sa('map.gaz.h')} intro={sa('map.gaz.intro', { level: ciPct(release.ciLevel) })}>
-        <Gazetteer release={release} points={points} query={state.q} onQuery={(q) => update({ q })} onPick={pick} selected={state.sel} />
+        <Gazetteer release={release} points={points} onPick={pick} selected={state.sel} />
       </Section>
     </div>
   )

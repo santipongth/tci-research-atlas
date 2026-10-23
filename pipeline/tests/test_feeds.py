@@ -61,7 +61,7 @@ def test_feeds_are_valid_atom_and_escape_markup_in_thai_and_english(tmp_path):
     assert root.find(f"{A}id").text == f"{URL}/data/feeds/releases.xml"
     assert root.find(f"{A}updated").text == "2026-02-01T00:00:00+00:00"            # newest manifest generated_at
     assert [e.find(f"{A}title").text for e in entries] == ["2026Q2", "2026Q1"]
-    assert entries[0].find(f"{A}link").get("href") == f"{URL}/#/changes"
+    assert entries[0].find(f"{A}link").get("href") == f"{URL}/#/topics"
     summary = entries[0].find(f"{A}summary").text
     assert f"{RICE} <b> & co" in summary and "Growth & <decline>" in summary
     assert "2 new topics" in summary and "1 gone" in summary and "1 changed status" in summary

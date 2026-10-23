@@ -3,7 +3,9 @@ import { defineStrings } from './define'
 export const topic = defineStrings({
   'tp.loadingTitle': { th: 'หัวข้อวิจัย', en: 'Research topic' },
   'tp.notFound': { th: 'ไม่พบหัวข้อ {id} ในรอบข้อมูลนี้', en: 'Topic {id} is not in this release' },
-  'tp.notFound.body': { th: 'หัวข้อนี้อาจรวมเข้ากับหัวข้ออื่นแล้ว หรือไม่มีในรอบนี้ ลองค้นหาจากชื่อดู', en: 'The topic may have been merged into another or retired in this release. Try searching by name.' },
+  'tp.kpiJournals': { th: 'ใน {n} วารสาร', en: 'in {n} journals' },
+  'tp.backTopics': { th: 'ไปหน้าหัวข้อวิจัยทั้งหมด', en: 'Go to every research topic' },
+  'tp.notFound.body': { th: 'หัวข้อนี้อาจรวมเข้ากับหัวข้ออื่นแล้ว หรือไม่มีในรอบนี้ ดูหัวข้อทั้งหมดได้ที่หน้าหัวข้อวิจัย', en: 'The topic may have been merged into another or retired in this release. Every topic is on the research topics page.' },
   'tp.field': { th: 'สาขา{f}', en: 'Field: {f}' },
   'tp.crossField': { th: 'คาบเกี่ยวหลายสาขา', en: 'Cross-field' },
   'tp.lineage.new': { th: 'หัวข้อใหม่ เริ่มมีในรอบ {born}', en: 'New topic, first seen in {born}' },

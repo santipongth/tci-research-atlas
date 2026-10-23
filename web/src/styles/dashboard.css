@@ -1,0 +1,424 @@
+/* The dashboard world (2026-10-24): white sidebar + page bar around a soft canvas, white cards in a 12-column grid.
+   Normative source: DESIGN.md. */
+@layer components {
+  body { background: var(--canvas); }
+
+  /* ── shell ─────────────────────────────────────────────────────────────── */
+  .app { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: 100vh; }
+  .app-col { min-width: 0; display: flex; flex-direction: column; }
+  .app-col > main { flex: 1 0 auto; }
+  /* the sidebar column stays white the whole height of a long page (the sidebar itself is sticky) */
+  @media (min-width: 1024px) { .app { background: linear-gradient(90deg, var(--bg) calc(var(--side-w) - 1px), var(--border-2) calc(var(--side-w) - 1px) var(--side-w), transparent var(--side-w)); } }
+  @media (max-width: 1023px) { .app { grid-template-columns: minmax(0, 1fr); } }
+
+  .side { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--bg); border-right: 1px solid var(--border-2); scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .side-in { display: flex; flex-direction: column; gap: 20px; min-height: 100%; padding: 20px 16px 20px; }
+  .side-wm, .side-wm:hover { display: block; padding: 2px 8px 6px; color: var(--ink); text-decoration: none; }
+  .side-wm .wm { gap: 12px; }
+  .side-wm .wm-logo, .mbar-wm .wm-logo { height: 38px; }
+  .side-wm .wm-text, .mbar-wm .wm-text { padding-left: 12px; }
+  .side-wm .wm-name, .mbar-wm .wm-name { font-size: var(--fs-meta); }
+  .side-wm .wm-sub, .mbar-wm .wm-sub { font-size: var(--fs-caption); line-height: 1.5; }
+  .side-sec + .side-sec { margin-top: 18px; }
+  .side-h { margin: 0 0 6px; padding: 0 12px; font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; color: var(--ink-3); }
+  .side-nav ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+  .side-link { display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 6px 12px; border-radius: 10px; color: var(--ink-2); font-size: var(--fs-meta); font-weight: 500; line-height: 1.5; text-decoration: none; transition: background-color 140ms ease-out, color 140ms ease-out; }
+  .side-link .ico { flex: none; color: var(--ink-3); transition: color 140ms ease-out; }
+  .side-link:hover { background: var(--canvas); color: var(--ink); }
+  .side-link:hover .ico { color: var(--ink-2); }
+  .side-link[aria-current="page"] { background: var(--brand-soft); color: var(--brand); font-weight: 700; }
+  .side-link[aria-current="page"] .ico { color: var(--brand); }
+  .side-foot { display: grid; gap: 14px; margin-top: auto; }
+  .side-brief { display: grid; gap: 4px; padding: 16px; border-radius: 14px; background: var(--brand-soft); }
+  .side-brief-h { font-weight: 700; font-size: var(--fs-meta); line-height: 1.5; color: var(--brand); }
+  .side-brief p:not(.side-brief-h) { font-size: var(--fs-caption); line-height: 1.6; color: var(--ink-2); }
+  .side-brief-btn { margin-top: 8px; justify-content: center; }
+  .side-foot .langsw { justify-self: start; }
+
+  .btn-primary { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 16px; border: 0; border-radius: var(--radius); background: var(--btn); color: var(--btn-ink); font-weight: 600; font-size: var(--fs-meta); line-height: 1.5; text-decoration: none; transition: background-color 140ms ease-out; }
+  .btn-primary:hover { background: var(--btn-hover); color: var(--btn-ink); }
+
+  /* phone / tablet top bar: menu, logo, language */
+  .mbar { position: sticky; top: 0; z-index: 70; display: flex; align-items: center; gap: 8px; padding: 8px max(12px, env(safe-area-inset-right, 0px)) 8px max(8px, env(safe-area-inset-left, 0px)); background: var(--bg); border-bottom: 1px solid var(--border-2); }
+  .mbar-wm, .mbar-wm:hover { flex: 1 1 auto; min-width: 0; color: var(--ink); text-decoration: none; }
+  .mbar-wm .wm-logo { height: 32px; }
+  .mbar .langsw button { min-height: 34px; min-width: 0; padding: 0 10px; font-size: var(--fs-caption); }
+  @media (max-width: 560px) { .mbar-wm .wm-text { display: none; } }
+
+  .icon-btn { display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); cursor: pointer; transition: background-color 140ms ease-out, color 140ms ease-out; }
+  .icon-btn:hover, .icon-btn[aria-expanded="true"] { background: var(--canvas); color: var(--ink); }
+  .mbar-menu { width: 44px; height: 44px; color: var(--ink); }
+
+  /* ── drawer (native modal dialog) ──────────────────────────────────────── */
+  .drawer { position: fixed; inset: 0 0 0 auto; width: min(560px, 94vw); max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: var(--bg); color: var(--ink); box-shadow: -12px 0 40px rgba(20, 24, 43, 0.16); }
+  .drawer-left { inset: 0 auto 0 0; width: min(300px, 86vw); box-shadow: 12px 0 40px rgba(20, 24, 43, 0.16); }
+  .drawer::backdrop { background: rgba(20, 24, 43, 0.36); }
+  .drawer[open] { animation: drawer-in 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .drawer-left[open] { animation-name: drawer-in-left; }
+  @keyframes drawer-in { from { transform: translateX(24px); opacity: 0.4; } }
+  @keyframes drawer-in-left { from { transform: translateX(-24px); opacity: 0.4; } }
+  @media (prefers-reduced-motion: reduce) { .drawer[open] { animation: none; } }
+  .drawer-in { display: flex; flex-direction: column; height: 100%; }
+  .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 12px 12px 20px; border-bottom: 1px solid var(--border-2); }
+  .drawer-head h2 { font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; }
+  .drawer-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 20px 24px; }
+  .drawer-left .drawer-body { padding: 0; }
+  .drawer-left .side-in { padding-top: 12px; min-height: 0; }
+
+  /* ── page bar ──────────────────────────────────────────────────────────── */
+  .pbar { background: var(--bg); border-bottom: 1px solid var(--border-2); }
+  .pbar-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; max-width: 1480px; padding: 14px 28px; }
+  .pbar h1 { font-size: var(--fs-h1); font-weight: 700; line-height: 1.5; color: var(--ink); }
+  .pbar-sub { font-size: var(--fs-caption); line-height: 1.5; color: var(--ink-2); }
+  .pbar-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .pbar-notice { position: relative; }
+  .pbar-notice summary { display: flex; align-items: center; gap: 6px; min-height: 36px; cursor: pointer; list-style: none; border-radius: 999px; }
+  .pbar-notice summary::-webkit-details-marker { display: none; }
+  .rel-chip { display: inline-block; padding: 2px 12px; border-radius: 999px; background: var(--canvas); color: var(--ink); font-weight: 600; font-size: var(--fs-caption); line-height: 1.7; font-variant-numeric: tabular-nums; }
+  .pbar-notice summary:hover .rel-chip { background: var(--border-2); }
+  .pbar-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; display: grid; gap: 8px; width: min(380px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 12px; background: var(--bg); box-shadow: var(--shadow); font-size: var(--fs-meta); line-height: 1.65; }
+  .pbar-pop p:first-child { font-weight: 600; }
+  @media (max-width: 760px) {
+    .pbar-in { padding: 12px 16px; }
+    .pbar-pop { right: auto; left: 0; }
+  }
+
+  /* ── dashboard canvas and grid ─────────────────────────────────────────── */
+  .dash { max-width: 1480px; padding: 24px 28px 4px; }
+  @media (max-width: 760px) { .dash { padding: 12px 12px 4px; } }
+  .dgrid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--card-gap); align-items: stretch; }
+  .dash > * + * { margin-top: var(--card-gap); }
+  .span-3 { grid-column: span 3; }
+  .span-4 { grid-column: span 4; }
+  .span-5 { grid-column: span 5; }
+  .span-6 { grid-column: span 6; }
+  .span-7 { grid-column: span 7; }
+  .span-8 { grid-column: span 8; }
+  .span-12 { grid-column: span 12; }
+  @media (max-width: 1279px) {
+    .span-3, .span-4 { grid-column: span 6; }
+    .span-5, .span-7, .span-8 { grid-column: span 12; }
+  }
+  @media (max-width: 760px) {
+    .dgrid { grid-template-columns: minmax(0, 1fr); }
+    .dgrid > * { grid-column: 1 / -1; }
+  }
+
+  /* ── cards ─────────────────────────────────────────────────────────────── */
+  .card { display: flex; flex-direction: column; min-width: 0; margin: 0; padding: var(--card-pad); border-radius: var(--card-radius); background: var(--bg); box-shadow: var(--card-shadow); }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px 12px; margin-bottom: 12px; }
+  .card-titles { min-width: 0; }
+  .card-title { font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; color: var(--ink); text-wrap: balance; }
+  .card-tools { display: flex; flex: none; align-items: center; gap: 2px; margin: -4px -8px 0 0; }
+  .card-note { margin-top: auto; padding-top: 12px; font-size: var(--fs-caption); line-height: 1.6; color: var(--ink-3); }
+  .see-all { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--link); font: inherit; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; white-space: nowrap; text-decoration: none; cursor: pointer; }
+  .see-all .ico { transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .see-all:hover { background: var(--brand-soft); color: var(--link-hover); }
+  .see-all:hover .ico { transform: translateX(2px); }
+
+  .card-empty { padding: 12px 0; font-size: var(--fs-meta); line-height: 1.6; color: var(--ink-2); }
+  .card-center > .dn { margin-block: auto; }
+
+  /* a two- or three-way switch inside a card */
+  .seg { display: inline-flex; gap: 2px; margin: -2px 0 10px; padding: 3px; border-radius: 10px; background: var(--canvas); }
+  .seg button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font: inherit; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; cursor: pointer; }
+  .seg button:hover:not([aria-pressed="true"]) { color: var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--bg); color: var(--brand); box-shadow: 0 1px 3px rgba(20, 24, 43, 0.12); }
+
+  /* a quiet page-bar action */
+  .btn-quiet { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border: 1px solid var(--border-2); border-radius: var(--radius); background: var(--bg); color: var(--ink); font: inherit; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; cursor: pointer; transition: border-color 140ms ease-out, color 140ms ease-out; }
+  .btn-quiet:hover { border-color: var(--brand); color: var(--brand); }
+
+  /* ── KPI cards ─────────────────────────────────────────────────────────── */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--card-gap); margin: 0; }
+  .kpi { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ico label" "ico body"; column-gap: 14px; align-items: center; min-width: 0; padding: 16px 20px; border-radius: var(--card-radius); background: var(--bg); box-shadow: var(--card-shadow); }
+  .kpi-ico { grid-area: ico; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); }
+  .kpi-label { grid-area: label; align-self: end; font-size: var(--fs-meta); line-height: 1.5; color: var(--ink-2); }
+  .kpi-body { grid-area: body; align-self: start; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; margin: 0; min-width: 0; }
+  .kpi-v { font-size: var(--fs-tile); font-weight: 700; line-height: 1.5; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .kpi-d { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 4px; font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; color: var(--up); }
+  .kpi-d svg { width: 9px; height: 9px; flex: none; }
+  .kpi-d.is-down { color: var(--ink-2); }
+  .kpi-sub { font-weight: 400; font-size: var(--fs-caption); line-height: 1.5; color: var(--ink-3); }
+  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* phones: a compact tile (small icon beside the label, the value, the change without its reference, said once under the row) */
+  @media (max-width: 560px) {
+    .kpi { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ico label" "body body"; column-gap: 8px; row-gap: 2px; padding: 12px 14px; }
+    .kpi-ico { width: 28px; height: 28px; }
+    .kpi-ico .ico { width: 16px; height: 16px; }
+    .kpi-label { align-self: center; font-size: var(--fs-caption); }
+    .kpi-v { font-size: 1.375rem; }
+  }
+
+  /* ── overview cards ────────────────────────────────────────────────────── */
+  .rise { display: grid; margin: 0; padding: 0; list-style: none; }
+  .rise li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border-2); }
+  .rise li:first-child { border-top: 0; padding-top: 2px; }
+  .rise-n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
+  .rise li:first-child .rise-n { background: var(--brand); color: var(--brand-ink); }
+  .rise-main { display: grid; gap: 2px; min-width: 0; }
+  .rise-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-weight: 600; font-size: var(--fs-meta); line-height: 1.5; color: var(--ink); text-decoration: none; }
+  .rise-name:hover { color: var(--link); text-decoration: underline; text-underline-offset: 0.18em; }
+  .rise-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+  .rise-g { font-size: var(--fs-caption); font-weight: 700; line-height: 1.5; color: var(--brand); font-variant-numeric: tabular-nums; }
+  .rise-g.is-down { color: var(--ink-2); }
+  .rise .spark { margin: 0; }
+
+  .dn { display: grid; grid-template-columns: 136px minmax(0, 1fr); align-items: center; gap: 16px; }
+  .dn-ring { display: block; width: 136px; height: 136px; }
+  .dn-seg { stroke: var(--bg); stroke-width: 2; stroke-dasharray: none; }
+  .dn-hatch-bg { fill: var(--bg); }
+  .dn-hatch-line { stroke: var(--st-LOW_DATA); stroke-width: 1.4; }
+  .dn-total { font-family: var(--font); font-size: 26px; font-weight: 700; fill: var(--ink); font-variant-numeric: tabular-nums; }
+  .dn-unit { font-family: var(--font); font-size: 13px; fill: var(--ink-2); }
+  .dn-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .dn-list li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto 2.6em; align-items: center; gap: 6px; min-height: 26px; font-size: var(--fs-meta); line-height: 1.5; }
+  .dn-name { min-width: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dn-n { font-weight: 700; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  .dn-pct { font-size: var(--fs-caption); color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
+  @media (max-width: 360px) { .dn { grid-template-columns: minmax(0, 1fr); justify-items: center; } .dn-list { width: 100%; } }
+
+  /* map left; the top 5 and the colour key right (the map component's key and outline join this grid) */
+  .pv-mini { display: grid; grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.2fr); grid-template-areas: "map top" "map key"; gap: 12px 16px; align-items: start; }
+  .pv-mini-map { display: contents; }
+  .pv-mini-map .pmap { grid-area: map; width: 100%; max-height: 280px; }
+  .pv-mini-map .pkey { grid-area: key; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; font-size: var(--fs-caption); }
+  .pv-mini-top { grid-area: top; min-width: 0; }
+  .pv-mini-h { margin-bottom: 6px; font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; color: var(--ink-2); }
+  .card .br-row { font-size: var(--fs-meta); }
+
+
+  .pol { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .pol li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .pol-n { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: var(--fs-caption); }
+  .pol p { font-size: var(--fs-body); line-height: 1.7; max-width: 72ch; }
+
+  .facts { display: grid; margin: 0; }
+  .facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border-2); }
+  .facts > div:first-child { border-top: 0; padding-top: 0; }
+  .facts dt { font-size: var(--fs-meta); line-height: 1.5; color: var(--ink-2); }
+  .facts dd { display: flex; align-items: baseline; gap: 8px; margin: 0; white-space: nowrap; }
+  .facts b { font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .facts-d { font-size: var(--fs-caption); font-weight: 600; color: var(--up); }
+  .facts-d.is-down { color: var(--ink-2); }
+
+  /* footer on the canvas: small partner logos and the licence line */
+  .ftr { margin-top: 24px; padding-block: 20px 24px; border-top: 1px solid var(--border-2); }
+  .ftr .container { max-width: 1480px; margin: 0; padding-inline: 28px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 32px; text-align: left; }
+  .ftr-partners { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .ftr-partners p { font-size: var(--fs-caption); }
+  .ftr-logos { margin: 0; justify-content: flex-start; gap: 12px 24px; }
+  .ftr-logos img { height: 34px; }
+  .licence { margin: 0; padding: 0; border: 0; justify-content: flex-start; gap: 2px 16px; font-size: var(--fs-caption); }
+  @media (max-width: 760px) { .ftr .container { padding-inline: 16px; } .ftr-logos img { height: 28px; } }
+}
+
+/* Printing a dashboard (the overview is the executive brief): no shell, cards as plain bordered boxes, A4 portrait. */
+@media print {
+  @page { size: A4 portrait; margin: 12mm; }
+  body { background: #fff; }
+  .app { display: block; background: none; }
+  .side, .mbar, .drawer, .no-print, .see-all, .seg, .ftr .licence { display: none !important; }
+  .pbar { border: 0; }
+  .pbar-in, .dash { padding: 0 0 8px; max-width: none; }
+  .pbar-notice summary { pointer-events: none; }
+  .card, .kpi { box-shadow: none; border: 1px solid var(--border-2); break-inside: avoid; }
+  .dgrid { gap: 10px; }
+  .dash > * + * { margin-top: 10px; }
+  .kpi-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .ftr { margin-top: 8px; padding-block: 8px 0; }
+}
+
+@layer components {
+  /* the sidebar wordmark: the TCI logo above the product name, so neither wraps */
+  .side-wm .wm { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .side-wm .wm-text { padding-left: 0; border-left: 0; }
+  .side-wm .wm-logo { height: 44px; }
+}
+
+@layer components {
+  /* long topic and institution names stay on one line in a card; the full name is the link's title and its own page */
+  .rise-name { -webkit-line-clamp: 1; }
+  .card .br-name a { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+  /* the province colour key runs as one wrapped line under the map and the top 5 */
+  .pv-mini { grid-template-areas: "map top" "key key"; }
+  .pv-mini-map .pkey { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+}
+
+@layer components {
+  .card-titles { display: flex; align-items: center; gap: 2px; }
+  .card-info .pop-btn { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border-radius: 8px; color: var(--ink-3); text-decoration: none; }
+  .card-info .pop-btn:hover, .card-info .pop-btn[aria-expanded="true"] { background: var(--canvas); color: var(--brand); }
+  .card-info .pop-panel { font-weight: 400; }
+}
+
+/* ── every page on the canvas (2026-10-24): the old `.container` pages become a column of cards ─────────── */
+@layer components {
+  main > .container, main .container:has(> .pbar) { max-width: 1480px; margin: 0; padding: 0 28px 4px; }
+  main .container > .pbar:first-child { margin: 0 -28px 24px; }
+  main .container > .card + .card, main .container > .card + .dgrid, main .container > .dgrid + .card, main .container > .dgrid + .dgrid { margin-top: var(--card-gap); }
+  @media (max-width: 760px) {
+    main > .container, main .container:has(> .pbar) { padding: 0 12px 4px; }
+    main .container > .pbar:first-child { margin: 0 -12px 12px; }
+  }
+  .sec.card { padding-top: var(--card-pad); scroll-margin-top: 16px; }
+  .sec.card > .card-head { margin-bottom: 12px; }
+  /* a chart inside a card: its title is a quiet sub-heading, no rule under it */
+  .card .fig { margin: 0; }
+  .card .fig + .fig, .card > * + .fig { margin-top: 18px; }
+  .card .figtitle { max-width: none; font-size: var(--fs-meta); font-weight: 600; color: var(--ink-2); }
+  .card .chart-box { margin-top: 10px; }
+  .card > .fig:first-child > .figtitle:only-of-type { margin-top: -4px; }
+  .pbar-h { display: flex; align-items: center; gap: 2px; }
+
+  /* the status picker on /topics: six buttons, each a glyph, a name, a count and what it means */
+  .st-pick { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .st-pick-b { display: grid; gap: 2px; align-content: start; min-width: 0; padding: 12px 14px; border: 2px solid transparent; border-radius: 14px; background: var(--bg); box-shadow: var(--card-shadow); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: border-color 140ms ease-out, box-shadow 140ms ease-out; }
+  .st-pick-b:hover { box-shadow: var(--card-shadow-hover); }
+  .st-pick-b[aria-pressed="true"] { border-color: var(--brand); }
+  .st-pick-name { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; }
+  .st-pick-n { font-size: var(--fs-tile); font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  .st-pick-m { font-size: var(--fs-caption); line-height: 1.5; color: var(--ink-2); }
+  @media (max-width: 1279px) { .st-pick { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 560px) {
+    .st-pick { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .st-pick-m { display: none; }
+    .st-pick-n { font-size: 1.25rem; }
+  }
+
+  /* ranked rows: the shared list of every dashboard */
+  .rise li { grid-template-columns: 26px minmax(0, 1fr) auto; }
+  .rise.is-plain li { grid-template-columns: minmax(0, 1fr) auto; }
+  .rise-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-caption); line-height: 1.5; color: var(--ink-2); }
+  .rise-meta { flex-wrap: nowrap; min-width: 0; }
+  .rise-end { display: flex; align-items: center; gap: 12px; justify-self: end; }
+  .rise-v { white-space: nowrap; text-align: right; }
+  .rise-a { font-size: var(--fs-meta); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .rise-v .rise-g { font-size: var(--fs-meta); }
+  .more-rows { margin-top: 6px; }
+  .moved { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--ink-3); }
+  @media (max-width: 480px) { .rise-end .spark { display: none; } }
+
+  .card-h3 { margin: 14px 0 4px; font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; color: var(--ink-2); }
+  .mini-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+  .mini-stats > div { padding: 10px 12px; border-radius: 12px; background: var(--canvas); }
+  .mini-stats dt { font-size: var(--fs-caption); line-height: 1.5; color: var(--ink-2); }
+  .mini-stats dd { margin: 0; font-size: 1.375rem; font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
+
+  /* /places: the big map beside its top 10; every province by region in columns */
+  .pv-big { display: grid; grid-template-columns: minmax(160px, 0.9fr) minmax(0, 1.1fr); grid-template-areas: "map top" "key key"; gap: 12px 20px; align-items: start; }
+  .pv-big .pmap { grid-area: map; width: 100%; max-height: 420px; }
+  .pv-big .pkey { grid-area: key; margin: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: var(--fs-caption); }
+  .prov-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 20px; }
+  .prov-cols .card-h3 { margin-top: 0; }
+  .prov-cols ul { margin: 0; padding: 0; list-style: none; }
+  .prov-cols li { display: flex; justify-content: space-between; gap: 8px; min-height: 26px; font-size: var(--fs-meta); line-height: 1.5; }
+  .prov-cols li span { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+}
+
+@layer components {
+  /* short cards stacked in one grid column; the last one takes the rest of the row's height */
+  .dstack { display: flex; flex-direction: column; gap: var(--card-gap); min-width: 0; }
+  .dstack > .card:last-child { flex: 1 1 auto; }
+  @media (max-width: 1279px) { .dstack.span-4, .dstack.span-5 { grid-column: span 12; } }
+  @media (max-width: 760px) { .dstack { grid-column: 1 / -1; } }
+  /* goal tiles inside a card: smaller tiles, more per row */
+  .card .gt { grid-template-columns: repeat(auto-fill, minmax(8.25rem, 1fr)); gap: 8px; }
+  .card .gt-tile summary { padding: 10px 30px 10px 12px; }
+  .card .gt-static { padding: 10px 12px; }
+}
+
+@layer components {
+  .dash-back { margin-top: var(--card-gap); }
+  .card-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-bottom: 10px; padding: 8px 10px; border-radius: 10px; background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; }
+  .card .kw-list { margin: 0; }
+  .gloss { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+  .gloss li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--fs-meta); line-height: 1.6; }
+  .gloss li span[aria-hidden] { color: var(--ink-3); }
+  .pv-locate { display: grid; place-items: center; }
+  .pv-locate svg { max-height: 360px; width: auto; max-width: 100%; }
+  .card .articles { margin: 0; }
+  .card .opp-list { margin: 0; }
+  .card .tp-narr { font-size: var(--fs-body); line-height: 1.7; }
+  .card .tp-sdg { margin: 12px 0 0; }
+}
+
+@layer components {
+  /* the two maps: the map and its side panel as cards on the canvas */
+  .atlas-grid { gap: var(--card-gap); }
+  .atlas-fig, .atlas-side > .cart, .gx-sec { margin: 0; padding: var(--card-pad); border: 0; border-radius: var(--card-radius); background: var(--bg); box-shadow: var(--card-shadow); }
+  .atlas-side { display: grid; gap: var(--card-gap); align-content: start; }
+  .atlas-fig > .figtitle { margin-bottom: 10px; }
+}
+
+@layer components {
+  main .container > .prose > * + * { margin-top: var(--card-gap); }
+}
+
+@layer components {
+  /* phones: the topic map takes the card's whole width (its labels need every pixel) */
+  @media (max-width: 760px) { .atlas-fig { padding: 8px; } }
+}
+
+/* print (the overview is the executive brief): two columns on A4 — wide cards across, the rest side by side; charts
+   drawn for the screen scale down to their card; no (i) buttons */
+@media print {
+  html { font-size: 12.5px; }
+  /* every card in one grid, packed densely, so a half-width card never sits alone on its row */
+  .dash { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 8px; }
+  .dash > * + * { margin-top: 0; }
+  .dash > .kpi-row { grid-column: 1 / -1; }
+  .dash > .dgrid { display: contents; }
+  .dgrid { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; gap: 8px; }
+  .span-7, .span-8, .span-12 { grid-column: span 12 !important; }
+  .span-3, .span-4, .span-5, .span-6, .dstack, .span-8:has(.pol) { grid-column: span 6 !important; }
+  .kpi-row { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .card svg { max-width: 100%; height: auto; }
+  .card-info, .pop { display: none !important; }
+  .card { padding: 10px 12px; }
+  .card-head { margin-bottom: 4px; }
+  .rise li { padding: 5px 0; }
+  .pol { gap: 6px; }
+}
+
+@layer components {
+  /* review 2026-10-24 */
+  /* phones: a stacked column always takes the whole row (its 1279 px span rule is more specific than the stacking rule) */
+  @media (max-width: 760px) { .dgrid > .dstack { grid-column: 1 / -1; } }
+  /* KPI cards: top-aligned, the sub line one line long */
+  .kpi { align-items: start; }
+  .kpi-label { display: flex; align-items: center; gap: 2px; align-self: start; }
+  .kpi-sub { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kpi-body { align-self: start; }
+  @media (min-width: 1101px) { .kpi-row { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); } }
+  /* the donut sits under its card head, not floating mid-card */
+  .card-center > .dn { margin-block: 4px 0; }
+  /* phones: the big province map above its top 10; bar lists stay one line (name · bar · number) */
+  @media (max-width: 560px) {
+    .pv-big { grid-template-columns: minmax(0, 1fr); grid-template-areas: "map" "top" "key"; }
+    .pv-big .pmap { max-height: 260px; }
+  }
+  @media (max-width: 640px) {
+    .card .br-row { grid-template-columns: minmax(0, 46%) minmax(0, 1fr) max-content; gap: 4px 10px; padding: 7px 0; }
+    .card .br-name { grid-column: auto; }
+  }
+  /* every province by region: even columns, one-line region names */
+  .prov-cols { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px 28px; }
+  .prov-cols .card-h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* the maps' keyboard hints stay for screen readers only (the page (i) says the same) */
+  .map-hint { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* topic map: side panels as cards; a gap before the index card */
+  main .atlas-side > .cart { border: 0; border-radius: var(--card-radius); background: var(--bg); box-shadow: var(--card-shadow); padding: var(--card-pad); }
+  main .atlas-grid { margin-bottom: var(--card-gap); }
+  /* galaxy: the filters inside the map card */
+  .gx-sec > .gx-filters { margin: 0 0 8px; }
+  .gx-sec > .gx-count { margin: 0 0 12px; font-size: var(--fs-caption); color: var(--ink-2); }
+  /* cards that are links lift a little on hover */
+  .card:has(> .card-head .see-all):hover { box-shadow: var(--card-shadow-hover); }
+}
+
+@layer components {
+  /* parts of a card that only the printed brief shows */
+  .print-only { display: none; }
+  @media print { .print-only { display: block; } p.print-only { display: block; } }
+}

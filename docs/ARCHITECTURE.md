@@ -97,6 +97,7 @@
 [methods]      atlas/methods.py — วิธีวิจัย (lexicon TH/EN + ขนาดตัวอย่าง) รายบทความ/หัวข้อ/ปี (+ บันทึก LLM ถ้าเปิด) → work/12_*
 [journals]     atlas/journals.py (+ journal_metrics, journal_topics, registry) — D1–D5, D7, สัดส่วนหัวข้อรายปี   → work/13_*
 [match]        atlas/matcher.py — ดัชนี trigram สำหรับ "วางบทคัดย่อ" (เก็บแค่น้ำหนัก ไม่มีข้อความ)          → work/14_match.json
+               ปิดโดยค่าเริ่มต้น (`match.enabled: false`) ตั้งแต่ 2026-10-24 เพราะเว็บไม่มีหน้าวางบทคัดย่อแล้ว
         ▼
 [institutions] atlas/institutions.py (+ institutions_ref, places, orgs) — สถาบัน (alias → ประเทศ → ROR → ชื่อตามที่เขียน),
                เครือข่ายความร่วมมือ, ประเทศคู่, จังหวัด + หัวข้อเด่นรายจังหวัด, ข้อเสนอคู่ร่วมมือ         → work/15_*
@@ -105,7 +106,8 @@
 [gaps]         atlas/gaps.py — ช่องว่างงานวิจัย R5 + ความเสี่ยงกระจุกตัว E10                              → work/18_*
         ▼
 [references]   atlas/references.py — แนวปฏิบัติการอ้างอิงรายวารสาร D7 + "ถูกอ้างใน TCI" R12                 → work/19_*
-[search]       atlas/search_index.py — ดัชนีค้นหาแบบแบ่ง shard (ชื่อเรื่อง + คำสำคัญผู้แต่ง) + จุดกาแล็กซี     → work/20_*
+[search]       atlas/search_index.py — แถวบทความแบ่ง shard (ชื่อเรื่อง ปี วารสาร หัวข้อ) + จุดกาแล็กซี; ดัชนีคำ
+               (ชื่อเรื่อง + คำสำคัญผู้แต่ง) สร้างเฉพาะเมื่อ `search.word_index: true` (ค่าเริ่มต้น false)  → work/20_*
 [kwtrends]     atlas/kwtrends.py — แนวโน้มคำสำคัญรายปี + อภิธานศัพท์ไทย↔อังกฤษ                           → work/21_*
         ▼
 [export]       atlas/export.py → atlas_data.json (1.1) + export_v2.write_release → output/data/<release>/ (contract v2)
@@ -135,7 +137,7 @@
 
 - ตอนนี้ `SCHEMA_VERSION = "2.5.0"` (เพิ่มอย่างเดียวทุกขั้น: 2.1 ไฟล์ของบรรณาธิการ · 2.2 ผู้บริหาร · 2.3 นักวิจัย · 2.4 สัดส่วนหัวข้อรายปีของวารสาร · 2.5 หัวข้อเด่นรายจังหวัด `ProvinceStat.topics` ใน `regions.json`); `definition_version` ของนิยามสถานะยังเป็น 3
 - ไฟล์หลัก (ทุกรอบมี): `manifest.json`, `overview.json`, `taxonomy.json`, `topics.json`, `topics/<id>.json`, `series.json`, `edges.json` (+ `keywords.json` เมื่อ step keywords มีผล)
-- ไฟล์เสริม (optional) ประกาศใน `manifest.modules`: `journals` (+ `journals/<id>.json`), `methods`, `diff`, `match`, `institutions` (+ `institutions/<id>.json`), `regions`, `sdg`, `global`, `gaps`, `references`, `search` (`search/meta.json`, `vocab.json`, `idx-<NNN>.json`, `docs-<NNN>.json`), `galaxy`, `kwtrends` — โมดูลที่ข้ามบอกเหตุผลใน `manifest.skipped_modules`
+- ไฟล์เสริม (optional) ประกาศใน `manifest.modules`: `journals` (+ `journals/<id>.json`), `methods`, `diff`, `match`, `institutions` (+ `institutions/<id>.json`), `regions`, `sdg`, `global`, `gaps`, `references`, `search` (`search/meta.json`, `docs-<NNN>.json` + `vocab.json`, `idx-<NNN>.json` เฉพาะเมื่อเปิดดัชนีคำ), `galaxy`, `kwtrends` — โมดูลที่ข้ามบอกเหตุผลใน `manifest.skipped_modules` · ค่าเริ่มต้นตั้งแต่ 2026-10-24: ไม่สร้าง `match.json` (`match.enabled: false`) และไม่สร้างดัชนีคำ (`search.word_index: false` — `search/meta.json` บอก 0 คำ 0 index shard; `docs-*.json` กับ `galaxy.json` ยังสร้างเพราะ `/galaxy` ใช้) เปิดคืนได้ใน `config.yaml` โดย contract ไม่เปลี่ยน
 - แก้ contract = `uv run atlas schema` แล้ว `npm run gen:types` ใน `web/` (CI ตรวจ drift ทั้งสองขั้น) — สเปกเต็มอยู่ใน `docs/DATA_SPEC.md`
 
 ### 5.2 `atlas validate` (`atlas/validate.py`) — exit 0 = ผ่าน, 1 = มีคำเตือน, 2 = มี error
@@ -143,7 +145,7 @@
 1. **integrity** — manifest อ่านได้, ทุกไฟล์มีอยู่จริงและขนาด/sha256 ตรง
 2. **schema** — ทุกไฟล์ผ่าน pydantic model ของ contract
 3. **coherence** — ID หัวข้อไม่ซ้ำ มีไฟล์รายหัวข้อครบ, การอ้างถึงหัวข้อ/วารสาร/สถาบันในไฟล์เสริมชี้ไปของที่มีอยู่จริง, กลุ่มมีใน taxonomy; ไฟล์ใหญ่เกิน `validation.max_file_bytes` = คำเตือน
-4. **P4 cross-checks** (`_check_research`) — จำนวน doc shard ตรงกับ `n_docs`/`docs_per_shard`, ordinal เริ่มถูกที่, จำนวนแถวรวมตรง, หัวข้อในแถวบทความมีจริง, index shard ครบ, vocab ตรง `n_tokens` (vocab ใหญ่ = เตือนให้ตั้ง `search.min_df: 2`), จำนวนจุดกาแล็กซีเท่าจำนวนบทความในดัชนีค้นหา
+4. **P4 cross-checks** (`_check_research`) — จำนวน doc shard ตรงกับ `n_docs`/`docs_per_shard`, ordinal เริ่มถูกที่, จำนวนแถวรวมตรง, หัวข้อในแถวบทความมีจริง, (เมื่อเปิดดัชนีคำ) index shard ครบ, vocab ตรง `n_tokens` (vocab ใหญ่ = เตือนให้ตั้ง `search.min_df: 2`), จำนวนจุดกาแล็กซีเท่าจำนวนแถวบทความ (`n_docs`)
 5. **diff กับรอบก่อน** — จำนวนหัวข้อเปลี่ยนมาก, ID เดิมเหลือน้อย, สถานะเปลี่ยนมาก, คลังหดตัว (เกณฑ์ใน `validation.*`)
 6. **LLM** — ชื่อหัวข้อ/ข้อความที่ตกไปใช้คำสำคัญหรือประโยคแม่แบบ = คำเตือนให้รัน `atlas llm` อีกครั้ง
 7. **ด่าน PDPA** (`atlas/privacy.py` `scan_release`, เป็น error) — หาอีเมลและ ORCID ในทุกไฟล์ของรอบ (รวม search shard และฟีด) และหาชื่อเต็มของผู้แต่งในคลังที่ไปปนในชื่อสถาบัน/รายชื่อสถาบันของหัวข้อ/เจ้าของและผู้จัดพิมพ์วารสาร; ชื่อผู้แต่งอ่านจาก `work/01_authors` เพื่อตรวจเท่านั้น ข้อความ error อ้างไฟล์และชื่อหน่วยงาน ไม่อ้างชื่อบุคคล; ชื่อหน่วยงานที่คนตรวจแล้วว่าไม่ใช่ชื่อคนใส่ใน `validation.privacy_allow`
@@ -223,27 +225,27 @@ HttpSource (src/data/source.ts)          EmbeddedSource (src/data/source.ts)
 
 - โหลดไม่ได้ / schema ผิด major / ไฟล์เสีย → แถบแจ้งเหตุผล (`DataError` 4 ชนิด: missing, network, parse, schema) — **ไม่มีข้อมูลสำรองฝังในเว็บ**
 - ชื่อรอบใน `latest.json` ถูกตรวจรูปแบบ (ชี้ออกนอก `data/` ไม่ได้)
-- หน้าที่ใช้ไฟล์เสริมเรนเดอร์ผ่าน `ModuleFile`: ไม่มีโมดูล = h1 + เหตุผล (จาก `manifest.skipped_modules` ถ้ามี) ไม่ใช่หน้าขาว
+- หน้าที่ใช้ไฟล์เสริมไฟล์เดียว (`/journals`, `/galaxy`) เรนเดอร์ผ่าน `ModuleFile`: ไม่มีโมดูล = h1 + เหตุผล (จาก `manifest.skipped_modules` ถ้ามี) ไม่ใช่หน้าขาว; dashboard ที่ใช้หลายไฟล์ (`/overview`, `/places`, `/goals`) แสดงเฉพาะการ์ดของไฟล์ที่มี และบอกเหตุผลเมื่อไม่มีสักไฟล์
 - ชนิดข้อมูลมาจาก `src/data/contract.ts` ที่ generate เท่านั้น ผ่าน `src/data/types.ts`
 
 ### 9.2 Routes (`src/App.tsx`)
 
 | กลุ่ม | route | โหลด |
 |---|---|---|
-| หลัก | `/overview` (หน้าแรก; `/` ส่งต่อมาที่นี่), `/topics/:id`, `/emerging`, `/compare`, `/data`, `/about`, `*` (ไม่พบหน้า) | อยู่ใน entry chunk |
-| สรุป/เรื่องเล่า | `/brief`, `/story`, `/atlas` | lazy |
-| บรรณาธิการ (P2) | `/journals`, `/journals/:id`, `/methods`, `/changes`, `/match` | lazy |
-| ผู้บริหาร (P3) | `/institutions`, `/institutions/:id`, `/regions`, `/province`, `/province/:code`, `/sdg`, `/global`, `/gaps`, `/ideas` | lazy |
-| นักวิจัย (P4) | `/search`, `/galaxy`, `/keywords`, `/references` | lazy |
+| หลัก | `/overview` (หน้าแรก; `/` ส่งต่อมาที่นี่ — เป็นสรุปผู้บริหารด้วย พิมพ์ได้ A4 2 หน้า), `/about`, `*` (ไม่พบหน้า) | อยู่ใน entry chunk |
+| dashboard | `/topics`, `/places`, `/journals`, `/goals` | lazy |
+| หน้ารายละเอียด | `/topics/:id`, `/journals/:id`, `/institutions/:id`, `/province/:code` | lazy |
+| แผนที่ | `/atlas`, `/galaxy` | lazy |
 | กราฟฝัง | `/embed/topic/:id`, `/embed/emerging` (`/embed/*` อื่น = กราฟหัวข้อ) — นอก app shell ไม่มีเมนู/ส่วนท้าย | lazy |
+| หน้าที่เลิกใช้ (2026-10-24) | `MovedTo` เปลี่ยนทางไปหน้าที่รับเนื้อหาแทน: `/emerging` → `/topics` (คง `?status=`) · `/changes` `/gaps` `/ideas` `/keywords` → `/topics` · `/story` `/brief` → `/overview` · `/institutions` `/regions` `/province` → `/places` · `/methods` `/references` → `/journals` · `/sdg` `/global` → `/goals` · `/search` `/compare` `/match` `/data` → `/overview` | — |
 
-เมนูจัดตามคำถามของผู้อ่าน (`src/components/Header.tsx`): ภาพรวม · สรุปผู้บริหาร · **อะไรกำลังมา** · **ใครทำเรื่องอะไร** · **ไทยอยู่ตรงไหน** · **หางานวิจัย** · ข้อมูลเปิด · อ่านตัวเลขอย่างไร
+เมนูซ้ายสีขาว (`src/components/dashboard/SideNav.tsx` ใน `Layout`; มือถือเปิดเป็น drawer): **แดชบอร์ด** (ภาพรวม · หัวข้อวิจัย · สถาบันและจังหวัด · วารสาร · เป้าหมายชาติและโลก) · **แผนที่** (แผนที่หัวข้อ · แผนที่บทความทุกเรื่อง) · **คำอธิบาย** (อ่านตัวเลขอย่างไร) · ทุกหน้าเปิดด้วยแถบหัว `PageBar` (ชื่อหน้า · บรรทัดย่อ · ปุ่ม · ป้ายรอบ + ทดลองใช้/ข้อมูลตัวอย่าง)
 
 ### 9.3 ความทนทานและขนาด
 
 - **Error boundary 3 ชั้น** (`src/components/ErrorBoundary.tsx`): ครอบทั้งแอปใน `main.tsx` · ครอบพื้นที่หน้าใน `Layout` (หัวและเมนูยังอยู่; ล้างเองเมื่อเปลี่ยนหน้าหรือ query) · ครอบกราฟฝังด้วย `EmbedBoundary` · chunk หายหลัง deploy ใหม่ = reload ให้ 1 ครั้ง
-- **งบ bundle**: entry ≤ 180 KB gzip (`npm run check:bundle` ตรวจงบและตรวจว่าทุก `lazy(() => import(…))` ใน `App.tsx` เป็น chunk แยก; ตอนนี้ ≈ 167 KB) · ข้อความของหน้า lazy อยู่ในไฟล์ `src/strings/<หน้า>.ts` ของตัวเอง (`useStrings`) · เส้นขอบจังหวัดอยู่ใน chunk ของหน้าแผนที่จังหวัดเท่านั้น
-- **ข้อมูลขนาดจริง** (~1,500 หัวข้อ, ~2,000 วารสาร, ~10,000 สถาบัน, 500K บทความ): ตาราง/รายการมีเพดาน (`DataTable` `limit`, `ListMore`, `useCapped`) และบอกจำนวนที่ตรงกับที่แสดง; `/search` โหลด doc shard ≤ 6 ไฟล์ต่อคำค้น (LRU cache) และบอกเมื่อผลมาจากบางส่วน
+- **งบ bundle**: entry ≤ 180 KB gzip (`npm run check:bundle` ตรวจงบและตรวจว่าทุก `lazy(() => import(…))` ใน `App.tsx` เป็น chunk แยก; ตอนนี้ ≈ 147 KB) · ข้อความของหน้า lazy อยู่ในไฟล์ `src/strings/<หน้า>.ts` ของตัวเอง (`useStrings`) · เส้นขอบจังหวัดอยู่ใน chunk lazy เท่านั้น (การ์ดจังหวัดของภาพรวม, `/places`, `/province/:code`)
+- **ข้อมูลขนาดจริง** (~1,500 หัวข้อ, ~2,000 วารสาร, ~10,000 สถาบัน, 500K บทความ): รายการจัดอันดับแสดงทีละ 6–10 รายการแล้ว "แสดงเพิ่ม" (`RankRows` + `usePaged`/`MoreRows`), ตารางมีเพดาน (`DataTable` `limit`); dashboard สูงไม่เกินราว 1.5–2 จอบนเดสก์ท็อป
 - **SEO** (ปลั๊กอิน `atlasSeo` ใน `web/vite.config.ts`, ใช้ `ATLAS_SITE_URL`): canonical, Open Graph/Twitter card, schema.org WebSite + Organization + Dataset, `robots.txt`, `sitemap.xml` (มีแค่หน้าแรกเพราะ HashRouter) · `offline-template.html` และเว็บสาธิตเป็น noindex
 
 ### 9.4 โครงโค้ด
@@ -251,12 +253,12 @@ HttpSource (src/data/source.ts)          EmbeddedSource (src/data/source.ts)
 | ที่ | หน้าที่ |
 |---|---|
 | `src/data/` | `source.ts` · `release.ts` · `contract.ts` (generated) · `types.ts` |
-| `src/pages/` | หน้าตาม §9.2 (+ ส่วนย่อยใน `overview/`, `topic/`, `about/`, `data/`) |
-| `src/components/` | Figure · StatTile/StatGrid · DataTable · Term/InfoPop · HowNote · SourceLine · CsvButton · ModuleFile · ProvinceMap · ErrorBoundary ฯลฯ |
-| `src/charts/` | กราฟ SVG เขียนเอง (forest, portfolio, trend, multi-line + ชุด infographic) — คณิตการจัดวางแบบ pure อยู่ใน `infographic.ts` / `execLayout.ts` / `editorLayout.ts` (มี test) |
-| `src/features/atlas/` | แผนที่หัวข้อ (canvas ภูมิประเทศ + SVG overlay, กริดอ้างอิง 10 × 6 A–J/1–6) + ดัชนีค้นหาหัวข้อ (`Gazetteer`) |
-| `src/lib/` | `searchTokens.ts` (ต้องตรง `pipeline/tests/fixtures/search_parity.json`) · `matcher.ts` (ต้องตรง `match_parity.json`; ข้อความที่วางไม่ออกจากเบราว์เซอร์) · `citation.ts` (RIS/BibTeX ไม่มีผู้แต่ง) · `galaxyGl.ts` (WebGL2) · `urlState.ts` (ตัวกรองอยู่ใน URL) ฯลฯ |
-| `src/embed/` | กราฟฝัง + ปุ่มคัดลอก `<iframe>` + ลิงก์ฟีด (แสดงเมื่อ `latest.feeds === true`) |
+| `src/pages/` | หน้าตาม §9.2 (+ ส่วนย่อยใน `overview/`, `topic/`, `about/`) |
+| `src/components/` | `Layout` (เมนูซ้าย / แถบบนมือถือ + drawer) · `dashboard/` (`SideNav` · `PageBar` · `Card`/`DashGrid`/`DashStack`/`SeeAll` · `KpiCard`/`KpiRow` · `RankRows`/`MoreRows` · `Segmented` · `Drawer` · `Icon`) · Figure (กราฟอย่างเดียว) · Section (= การ์ด) · DataTable · Term/InfoPop (ปุ่ม ⓘ) · ModuleFile · MovedTo · ProvinceMap · ErrorBoundary ฯลฯ |
+| `src/charts/` | กราฟ SVG เขียนเอง (forest, portfolio, trend, multi-line, donut สถานะ + ชุด infographic) — คณิตการจัดวางแบบ pure อยู่ใน `infographic.ts` / `execLayout.ts` / `editorLayout.ts` / `donut.ts` (มี test) |
+| `src/features/atlas/` | แผนที่หัวข้อ (canvas ภูมิประเทศ + SVG overlay, กริดอ้างอิง 10 × 6 A–J/1–6) + รายชื่อหัวข้อตามสถานะพร้อมพิกัดกริด (`Gazetteer`, ไม่มีช่องค้นหา) |
+| `src/lib/` | `galaxyDocs.ts` (แถวบทความของ `/galaxy` จาก `search/meta.json` + `docs-*.json`) · `galaxyGl.ts` (WebGL2) · `citation.ts` ("อ้างอิง Atlas นี้" ใน `/about`, ไม่มีผู้แต่ง) · `usePaged.ts` · `urlState.ts` (ตัวกรองอยู่ใน URL) ฯลฯ |
+| `src/embed/` | กราฟฝัง + ลิงก์ฟีด `FeedLink` (แถบหัวของ `/topics` และหน้าหัวข้อ แสดงเมื่อ `latest.feeds === true`) |
 | `src/strings/` | ข้อความไทย+อังกฤษทุกตัว (`i18n.test.ts` ตรวจครบคู่) |
 | `src/styles/tokens.css` | design tokens (ธีมสว่างธีมเดียว) |
 | `src/geo/thProvinces.ts` | เส้นขอบ 77 จังหวัด (Natural Earth) |
@@ -264,13 +266,13 @@ HttpSource (src/data/source.ts)          EmbeddedSource (src/data/source.ts)
 
 ### 9.5 ระบบดีไซน์
 
-กฎดีไซน์ทั้งหมดอยู่ใน `DESIGN.md` (ชนะ catalog ทั่วไปเสมอ) และค่า token อยู่ใน `web/src/styles/tokens.css` — โลกดีไซน์ "ข่าวข้อมูล" (data explainer): พื้นขาวธีมเดียว ไม่มีโหมดมืด, ฟอนต์ Sarabun (self-hosted), น้ำเงิน TCI `#283894`, ส้ม TCI `--accent-mark` เฉพาะจุดเน้นจุดเดียว, ข้อมูลประกอบเป็นเทา; สถานะแสดงด้วยรูปทรง + สี + ชื่อเสมอ (ตรวจ CVD + contrast ด้วย `palette.test.ts`); ข้อความ 2 ชั้นตาม "Copy voice" และ pipeline ใช้ชุดคำต้องห้ามเดียวกัน (`narrative.jargon_in`) · ทิศทางและข้อมูลผลิตภัณฑ์: `.impeccable/surfaces/web-src.md`, `PRODUCT.md`
+กฎดีไซน์ทั้งหมดอยู่ใน `DESIGN.md` (ชนะ catalog ทั่วไปเสมอ) และค่า token อยู่ใน `web/src/styles/tokens.css` — โลกดีไซน์ "TCI dashboard" (เจ้าของเลือก 2026-10-24 แทน "ข่าวข้อมูล"): เมนูซ้ายและแถบหัวสีขาว การ์ดขาวมุมโค้งบนพื้นเทาอมฟ้า (`--canvas` `#f3f5fa`) ในกริด 12 คอลัมน์ ตัวอักษรขนาดกะทัดรัด, ธีมสว่างธีมเดียว ไม่มีโหมดมืด, ฟอนต์ Sarabun (self-hosted), น้ำเงิน TCI `#283894`, ส้ม TCI `--accent-mark` เฉพาะจุดเน้นจุดเดียว, ข้อมูลประกอบเป็นเทา; สถานะแสดงด้วยรูปทรง + สี + ชื่อเสมอ (ตรวจ CVD + contrast ด้วย `palette.test.ts`); บนหน้ามีแค่ชื่อการ์ด กราฟ/รายการ และ "ดูทั้งหมด" คำอธิบายอยู่หลังปุ่ม ⓘ และที่ `/about`; pipeline ใช้ชุดคำต้องห้ามเดียวกับเว็บ (`narrative.jargon_in`) · ทิศทางและข้อมูลผลิตภัณฑ์: `.impeccable/surfaces/web-src.md`, `PRODUCT.md`
 
 ## 10. ทำไมไม่มี backend
 
 - ข้อมูลเปลี่ยนปีละ 4 ครั้ง ไม่ต้องการ API แบบ real-time
 - static hosting ถูกกว่า เสถียรกว่า และย้าย host ได้ทันที (คัดลอกโฟลเดอร์)
-- ค้นหาบทความทั้งคลังก็ไม่ต้องมี backend: ดัชนีเป็นไฟล์ static แบ่ง shard ที่เบราว์เซอร์โหลดเฉพาะส่วนที่ต้องใช้; "วางบทคัดย่อ" คำนวณในเบราว์เซอร์ล้วน
+- แม้แต่ข้อมูลรายบทความก็ไม่ต้องมี backend: `/galaxy` โหลดแถวบทความเป็นไฟล์ static แบ่ง shard (ดัชนีคำสำหรับค้นหาบทความกับ "วางบทคัดย่อ" ซึ่งคำนวณในเบราว์เซอร์ล้วน เคยทำแบบเดียวกัน และเปิดคืนได้ใน pipeline — ดู §5.1)
 - ถ้าต้องการบัญชีผู้ใช้, การแจ้งเตือนส่วนตัว หรือค้นหาบทคัดย่อเต็ม ค่อยเพิ่ม backend (ดู `docs/ROADMAP.md`)
 
 ## 11. ข้อจำกัดที่รับรู้ไว้
@@ -279,4 +281,4 @@ HttpSource (src/data/source.ts)          EmbeddedSource (src/data/source.ts)
 - **score เป็น percentile ภายในรอบ** — เทียบข้ามรอบไม่ได้ ใช้มิติดิบถ้าจะเทียบ
 - **แผนที่นิ่งข้ามรอบ** — หัวข้อเดิมอยู่ที่เดิมด้วย UMAP เริ่มจากรอบก่อน + Procrustes + anchor แต่ตอน fit ใหม่ทั้งก้อน (`topics.refit_every_releases`, ดีฟอลต์ทุก 4 รอบ) หัวข้อแตก/รวมได้ และ lineage บอกว่าไปไหน
 - **HashRouter** — ลิงก์ทุกหน้าใช้ได้และแชร์ได้ แต่ search engine เก็บได้เป็นหลักแค่หน้าแรก
-- **HTML ออฟไลน์** ไม่มีค้นหา กาแล็กซี วางบทคัดย่อ และกราฟฝัง (ขนาดไฟล์) และอาจไม่มีไฟล์รายละเอียดบางส่วนเมื่อเกินงบ `offline_max_mb`
+- **HTML ออฟไลน์** ไม่มีแผนที่บทความทุกเรื่อง (กาแล็กซี) และกราฟฝัง (ขนาดไฟล์) และอาจไม่มีไฟล์รายละเอียดบางส่วนเมื่อเกินงบ `offline_max_mb`

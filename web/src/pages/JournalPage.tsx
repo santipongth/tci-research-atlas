@@ -1,32 +1,25 @@
 import { Link, useParams } from 'react-router'
 import { ChecklistBars, type CheckRow } from '../charts/ChecklistBars'
-import { CHECK_FULL, CHECK_NONE, checkState, periodMix, type PeriodRow } from '../charts/editorLayout'
-import { MultiLineChart } from '../charts/MultiLineChart'
+import { checkState, periodMix } from '../charts/editorLayout'
 import { PeriodMix } from '../charts/PeriodMix'
 import SmallMultiples from '../charts/SmallMultiples'
-import { tickDecimals } from '../charts/scale'
-import { DataTable, type Column } from '../components/DataTable'
-import { Figure } from '../components/Figure'
-import { HowNote } from '../components/HowNote'
-import { JournalLink } from '../components/JournalLink'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
-import { StatGrid, StatTile } from '../components/StatTile'
-import { Term } from '../components/Term'
-import { ShareBar } from '../components/ShareBar'
+import { BarRank } from '../charts/BarRank'
+import { rankBars } from '../charts/infographic'
+import { DashGrid } from '../components/dashboard/Card'
+import { KpiCard, KpiRow } from '../components/dashboard/KpiCard'
+import { PageBar } from '../components/dashboard/PageBar'
+import { RankRows } from '../components/dashboard/RankRows'
 import { TopicLink } from '../components/TopicLink'
 import { useReleaseFile } from '../data/atlasContext'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
-import type { CompletenessItem, DriftPoint, JournalDetail, JournalSummary, JournalsFile, MethodShare, MethodsFile, Topic, TopicShare } from '../data/types'
+import type { CompletenessItem, JournalDetail, JournalSummary, JournalsFile, MethodsFile, Topic } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct, fmtPts, fmtShare, yearSpan } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
-import { withPrimary } from '../lib/columns'
-import { figureCsv } from '../lib/tableCsv'
-import { inhouseFlag, inhouseGap, journalName, otherJournalName } from '../lib/journals'
-import { journalCodec } from '../lib/urlState'
-import { useUrlState } from '../lib/useUrlState'
+import { inhouseGap, journalName, otherJournalName } from '../lib/journals'
 import { editorViz } from '../strings/editorViz'
 import { journals } from '../strings/journals'
 
@@ -64,17 +57,14 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const s = useStrings(editorViz)
   const detailFile = useReleaseFile<JournalDetail>(`journals/${journal.id}.json`)
   const detail = detailFile.status === 'ready' ? detailFile.data : null
-  const [state, update] = useUrlState(journalCodec)
   const methodsFile = useReleaseFile<MethodsFile>(hasModule(release, 'methods') ? MODULE_FILES.methods : null)
   const methodInfo = new Map((methodsFile.status === 'ready' ? methodsFile.data.methods : []).map((m) => [m.key, m]))
   const w = file.window
   const shown = journalName(journal, lang)
   const other = otherJournalName(journal, lang)
-  const source = t('source.line', { release: release.overview.release })
   const topicOf = (tid: string): Topic | undefined => release.topicById.get(tid)
   const byId = new Map(file.journals.map((j) => [j.id, j]))
   const topics = (detail?.topics ?? []).filter((s) => topicOf(s.topic))
-  const drift = detail?.drift ?? []
   const comp = detail?.completeness ?? []
   const methods = detail?.methods ?? []
   const peers = (detail?.peers ?? []).filter((p) => byId.has(p.id))
@@ -85,7 +75,6 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const ty = detail?.topic_years ?? null
   const tyTopics = (ty?.topics ?? []).filter((x) => topicOf(x.topic))
   const hasTy = ty !== null && tyTopics.length > 0 && ty.years.length > 1
-  const hasDrift = drift.some((d) => d.distance != null)
   const recentSpan = yearSpan(file.recent.start, file.recent.end)
   const baseSpan = yearSpan(file.baseline.start, file.baseline.end)
   const owner = journal.owner || ''
@@ -94,42 +83,12 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const inhouseSub = journal.inhouse_share == null && inhouseGap(journal) === 'owner_not_found'
     ? sj('jr.ownerNotFound')
     : owner ? sj(journal.owner_source === 'inferred' ? 'jr.inhouseSubInferred' : 'jr.inhouseSub', { o: owner }) : sj('jr.noOwner')
-  const share = (s: TopicShare) => s.share
   const topTopic = topics.length ? topicOf(topics.reduce((a, b) => (b.count > a.count ? b : a)).topic) : undefined
-  const topicColumns: Column<TopicShare>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s.topic) as Topic} showStatus />, sortValue: (s) => name(topicOf(s.topic) as Topic), csv: (s) => s.topic },
-    { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (s) => fmtInt(s.count), sortValue: (s) => s.count },
-    { key: 'share', csvHeader: 'share', header: t('col.share'), numeric: true, cell: (s) => <ShareBar value={s.share} max={Math.max(...topics.map(share), 0.0001)} />, sortValue: share },
-  ]
-  const driftColumns: Column<DriftPoint>[] = [
-    { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (d) => String(d.year), sortValue: (d) => d.year },
-    { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (d) => fmtInt(d.articles), sortValue: (d) => d.articles },
-    { key: 'distance', csvHeader: 'distance', header: sj('col.distance'), numeric: true, cell: (d) => fmtNum(d.distance ?? null, 2), sortValue: (d) => d.distance ?? null },
-  ]
-  const compColumns: Column<CompletenessItem>[] = [
-    { key: 'key', csvHeader: 'element', header: sj('col.element'), rowHeader: true, cell: (c) => sj(`comp.${c.key}` as keyof typeof journals), csv: (c) => c.key },
-    { key: 'rate', csvHeader: 'rate', header: sj('col.rate'), numeric: true, cell: (c) => (c.rate == null ? <span className="sbar-na">{sj('jr.unknown')}</span> : <ShareBar value={c.rate} />), sortValue: (c) => c.rate ?? null },
-    { key: 'n', csvHeader: 'articles', header: sj('col.n'), numeric: true, cell: (c) => fmtInt(c.n), sortValue: (c) => c.n },
-  ]
   const mixName = (tid: string) => {
     const tp = topicOf(tid)
     return tp ? name(tp) : tid
   }
   const pts = (before: number, after: number) => s('pm.pts', { d: fmtPts(after - before) })
-  const mixColumns: Column<PeriodRow>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (r) => (topicOf(r.topic) ? <TopicLink topic={topicOf(r.topic) as Topic} showStatus /> : r.topic), csv: (r) => r.topic },
-    { key: 'before', csvHeader: 'share_before', header: s('pm.col.before', { b: baseSpan }), numeric: true, cell: (r) => fmtShare(r.before, 0), sortValue: (r) => r.before },
-    { key: 'after', csvHeader: 'share_after', header: s('pm.col.after', { r: recentSpan }), numeric: true, cell: (r) => fmtShare(r.after, 0), sortValue: (r) => r.after },
-    { key: 'change', csvHeader: 'change', header: s('pm.col.change'), unit: s('pm.ptsUnit'), numeric: true, cell: (r) => pts(r.before, r.after), sortValue: (r) => r.after - r.before, csv: (r) => Math.round((r.after - r.before) * 1e4) / 1e4 },
-  ]
-  type TyRow = { year: number; articles: number; shares: (number | null)[]; other: number | null }
-  const tyRows: TyRow[] = ty ? ty.years.map((year, k) => ({ year, articles: ty.articles[k], shares: tyTopics.map((x) => x.shares[k] ?? null), other: ty.other[k] ?? null })) : []
-  const tyColumns: Column<TyRow>[] = [
-    { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => String(r.year), sortValue: (r) => r.year },
-    { key: 'articles', csvHeader: 'articles', header: s('ty.col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), sortValue: (r) => r.articles },
-    ...tyTopics.map((x, i): Column<TyRow> => ({ key: x.topic, csvHeader: x.topic, header: mixName(x.topic), numeric: true, cell: (r) => fmtShare(r.shares[i], 0), sortValue: (r) => r.shares[i], csv: (r) => r.shares[i] })),
-    { key: 'other', csvHeader: 'other', header: s('ty.col.other'), numeric: true, cell: (r) => fmtShare(r.other, 0), sortValue: (r) => r.other, csv: (r) => r.other },
-  ]
   const thinYears = ty ? ty.years.filter((_, k) => ty.articles[k] < ty.min_articles) : []
   /** the example: the largest topic, from its first to its last year with a share */
   const tyLead = (() => {
@@ -140,246 +99,141 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
     const [a, b] = [known[0], known[known.length - 1]]
     return s('ty.lead', { t: mixName(first.topic), a: fmtShare(first.shares[a] ?? null, 0), y1: ty.years[a], b: fmtShare(first.shares[b] ?? null, 0), y2: ty.years[b] })
   })()
-  // figures and tables are numbered in reading order, counting only those on the page
-  const numbered = (shown: [string, boolean][]): Record<string, number> => Object.fromEntries(shown.filter(([, on]) => on).map(([k], i) => [k, i + 1]))
-  const figNo = numbered([['ty', hasTy], ['mix', mix.rows.length > 0], ['drift', hasDrift], ['comp', comp.length > 0]])
-  const tabNo = numbered([['topics', topics.length > 0], ['ty', hasTy], ['mix', mix.rows.length > 0], ['drift', hasDrift], ['comp', comp.length > 0], ['peers', peers.length > 0], ['methods', methods.length > 0]])
   const moved = mix.rows.length ? mix.rows.reduce((a, b) => (Math.abs(b.after - b.before) > Math.abs(a.after - a.before) ? b : a)) : null
   const checks: CheckRow[] = comp.map((c) => ({
     key: c.key, name: sj(`comp.${c.key}` as keyof typeof journals), rate: c.rate ?? null, state: checkState(c.rate), value: c.rate == null ? sj('jr.unknown') : fmtPct(c.rate, 0),
   }))
   const nFull = checks.filter((c) => c.state === 'full').length
   const weakest = comp.filter((c) => c.rate != null).reduce<CompletenessItem | null>((a, b) => (a === null || (b.rate as number) < (a.rate as number) ? b : a), null)
-  const gapOf = (j: JournalSummary) => (j.low_data ? sj('jr.lowData') : sj('jr.unknown'))
-  type PeerRow = { journal: JournalSummary; similarity: number | null }
-  const peerRows: PeerRow[] = [{ journal, similarity: null }, ...peers.map((p) => ({ journal: byId.get(p.id) as JournalSummary, similarity: p.similarity }))]
-  const peerColumns: Column<PeerRow>[] = withPrimary<PeerRow>([
-    { key: 'name', csvHeader: 'journal_id', header: t('col.journal'), rowHeader: true, cell: (r) => (r.similarity === null ? <strong>{sj('jr.this')}</strong> : <JournalLink journal={r.journal} />), csv: (r) => r.journal.id },
-    { key: 'sim', csvHeader: 'similarity', header: sj('col.similarity'), numeric: true, cell: (r) => (r.similarity === null ? DASH : fmtNum(r.similarity, 2)), csv: (r) => r.similarity },
-    { key: 'articles', csvHeader: 'articles_window', header: sj('col.articlesW'), numeric: true, cell: (r) => fmtInt(r.journal.articles_window), csv: (r) => r.journal.articles_window },
-    { key: 'completeness', csvHeader: 'completeness', header: sj('col.completeness'), numeric: true, cell: (r) => (r.journal.completeness == null ? gapOf(r.journal) : fmtNum(r.journal.completeness, 1)), csv: (r) => r.journal.completeness ?? null },
-    { key: 'inhouse', csvHeader: 'inhouse_share', header: sj('col.inhouse'), numeric: true, cell: (r) => (r.journal.inhouse_share == null ? gapOf(r.journal) : fmtPct(r.journal.inhouse_share, 0)), csv: (r) => r.journal.inhouse_share ?? null },
-    { key: 'orgs', csvHeader: 'effective_orgs', header: sj('col.effOrgs'), numeric: true, cell: (r) => (r.journal.effective_orgs == null ? gapOf(r.journal) : fmtNum(r.journal.effective_orgs, 1)), csv: (r) => r.journal.effective_orgs ?? null },
-    { key: 'foreign', csvHeader: 'foreign_share', header: sj('col.foreign'), numeric: true, cell: (r) => (r.journal.foreign_share == null ? gapOf(r.journal) : fmtPct(r.journal.foreign_share, 0)), csv: (r) => r.journal.foreign_share ?? null },
-  ], ['sim', 'articles', 'completeness'])
   const methodName = (key: string) => {
     const m = methodInfo.get(key)
     return m ? (lang === 'en' ? m.en : m.th) : key
   }
-  const methodColumns: Column<MethodShare>[] = [
-    { key: 'method', csvHeader: 'method', header: sj('col.method'), rowHeader: true, cell: (m) => methodName(m.method), csv: (m) => m.method },
-    { key: 'count', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (m) => fmtInt(m.count), sortValue: (m) => m.count },
-    { key: 'share', csvHeader: 'share', header: t('col.share'), numeric: true, cell: (m) => <ShareBar value={m.share} />, sortValue: (m) => m.share },
-  ]
-  const rel = release.overview.release
   return (
-    <div className="container">
-      <PageHeader title={shown.text} titleLang={shown.lang ?? undefined}>
-        {other ? <p className="tp-alt" lang={lang === 'en' ? 'th' : 'en'}>{other}</p> : null}
-        <div className="j-tags">
-          {journal.tci_tier ? <span className="tp-badge">{sj('jr.tier.n', { n: journal.tci_tier })}</span> : null}
-          <span className="tp-sub">{shown.fallback ? sj('jr.noName') : sj('jr.ojs', { path: journal.path })}</span>
-          {journal.issn ? <span>ISSN {journal.issn}</span> : null}
-          {journal.eissn ? <span>e-ISSN {journal.eissn}</span> : null}
-          {journal.publisher ? <span>{sj('jr.publisher', { p: journal.publisher })}</span> : null}
-          {journal.first_year && journal.last_year ? <span>{sj('jr.years', { a: journal.first_year, b: journal.last_year })}</span> : null}
-          {journal.url ? <a href={journal.url} target="_blank" rel="noopener noreferrer">{sj('jr.site')}<span className="sr-only"> {t('newTab')}</span></a> : null}
-        </div>
-      </PageHeader>
-      <div className="layout">
-        <div className="main-col">
-          <Section id="numbers" title={sj('jr.numbers.h')}>
-            {journal.low_data ? <p className="note">{sj('jr.lowDataBody', { a: w.start, b: w.end, n: fmtInt(file.min_articles) })}</p> : null}
-            <StatGrid cols={3}>
-              <StatTile
-                wide
-                label={sj('col.articlesW')}
-                value={fmtInt(journal.articles_window)}
-                sub={sj('jr.articlesSub', { a: w.start, b: w.end, all: fmtInt(journal.articles) })}
+    <>
+      <PageBar
+        title={shown.text}
+        titleLang={shown.lang ?? undefined}
+        sub={[
+          other ?? '',
+          journal.tci_tier ? sj('jr.tier.n', { n: journal.tci_tier }) : '',
+          journal.publisher ? sj('jr.publisher', { p: journal.publisher }) : '',
+          journal.first_year && journal.last_year ? sj('jr.years', { a: journal.first_year, b: journal.last_year }) : '',
+          journal.issn ? `ISSN ${journal.issn}` : '',
+        ].filter(Boolean).join(' · ')}
+        info={journal.low_data ? sj('jr.lowDataBody', { a: w.start, b: w.end, n: fmtInt(file.min_articles) }) : undefined}
+        actions={journal.url ? <a className="see-all" href={journal.url} target="_blank" rel="noopener noreferrer">{sj('jr.site')}<span className="sr-only"> {t('newTab')}</span></a> : null}
+      />
+      <div className="dash">
+        <KpiRow>
+          <KpiCard icon="articles" label={sj('col.articlesW')} value={fmtInt(journal.articles_window)} sub={sj('jr.articlesSub', { a: w.start, b: w.end, all: fmtInt(journal.articles) })} />
+          <KpiCard icon="layers" label={sj('col.completeness')} value={journal.completeness == null ? gap : fmtNum(journal.completeness, 0)} info={sj('jr.completenessSub')} />
+          <KpiCard icon="building" label={sj('col.inhouse')} value={journal.inhouse_share == null ? gap : fmtPct(journal.inhouse_share, 0)} info={inhouseSub} />
+          <KpiCard
+            icon="goals"
+            label={sj('col.foreign')}
+            value={journal.foreign_share == null ? gap : fmtPct(journal.foreign_share, 0)}
+            sub={sj('jr.orgsSubN', { n: fmtInt(journal.n_orgs ?? 0) })}
+            info={<>{sj('jr.foreignSub')}. {journal.effective_orgs == null ? null : sj('jr.orgsSub', { n: fmtInt(journal.n_orgs ?? 0), e: fmtNum(journal.effective_orgs, 1) })}</>}
+          />
+        </KpiRow>
+        {topics.length ? (
+          <DashGrid>
+            <Section id="topics" span={hasTy ? 5 : 12} title={sj('jr.topics.h')} intro={sj('jr.topics.intro', { a: w.start, b: w.end, topic: topTopic ? name(topTopic) : DASH })}>
+              <BarRank
+                rows={rankBars(topics.map((x) => ({ key: topicOf(x.topic) ? name(topicOf(x.topic) as Topic) : x.topic, id: x.topic, count: x.count })), 8).rows}
+                href={(r) => (r.id && topicOf(r.id) ? `/topics/${r.id}` : null)}
+                value={(r) => fmtInt(r.count)}
+                label={sj('jr.topics.h')}
               />
-              <StatTile label={sj('col.completeness')} value={journal.completeness == null ? gap : fmtNum(journal.completeness, 1)} sub={sj('jr.completenessSub')} />
-              <StatTile label={sj('col.inhouse')} value={journal.inhouse_share == null ? gap : fmtPct(journal.inhouse_share, 0)} sub={inhouseSub}>
-                {journal.owner_source === 'inferred' && journal.inhouse_share != null ? <span className="flag">{sj('jr.inferred')}</span> : null}
-                {inhouseFlag(journal, file.inhouse_flag_share) ? <span className="flag">{sj('jr.flag')}</span> : null}
-              </StatTile>
-              <StatTile
-                label={sj('col.effOrgs')}
-                value={journal.effective_orgs == null ? gap : fmtNum(journal.effective_orgs, 1)}
-                sub={journal.effective_orgs == null ? sj('jr.orgsSubN', { n: fmtInt(journal.n_orgs ?? 0) }) : sj('jr.orgsSub', { n: fmtInt(journal.n_orgs ?? 0), e: fmtNum(journal.effective_orgs, 1) })}
-              />
-              <StatTile
-                label={sj('col.foreign')}
-                value={journal.foreign_share == null ? gap : fmtPct(journal.foreign_share, 0)}
-                sub={`${sj('jr.foreignSub')}${journal.affiliation_coverage == null ? '' : ` · ${sj('jr.coverageSub', { p: fmtPct(journal.affiliation_coverage, 0) })}`}`}
-              />
-            </StatGrid>
-          </Section>
-
-          {topics.length ? (
-            <Section id="topics" title={sj('jr.topics.h')} intro={sj('jr.topics.intro', { a: w.start, b: w.end, topic: topTopic ? name(topTopic) : DASH })}>
-              <DataTable caption={t('table.n', { n: tabNo.topics, title: sj('jr.topics.table') })} rows={topics} columns={topicColumns} rowKey={(x) => x.topic} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${rel}-${journal.id}-topics.csv`} limit={25} />
-              {hasTy && ty ? (
-                <Figure
-                  id="fig-topic-years"
-                  number={figNo.ty}
-                  title={s('ty.fig', { n: fmtInt(tyTopics.length), a: ty.years[0], b: ty.years[ty.years.length - 1] })}
-                  tableTitle={t('table.n', { n: tabNo.ty, title: s('ty.table') })}
-                  csv={figureCsv(`atlas-${rel}-${journal.id}-topics-by-year.csv`, tyRows, tyColumns)}
-                  how={<p>{s('ty.how')}</p>}
-                  note={
-                    tyLead || thinYears.length ? (
-                      <>
-                        {tyLead ? <p className="note">{tyLead}</p> : null}
-                        {/* a blank year must never read as zero: say so beside the chart, not only under "how to read" */}
-                        {thinYears.length ? <p className="note">{s('ty.thin', { m: fmtInt(ty.min_articles), years: thinYears.join(', ') })}</p> : null}
-                      </>
-                    ) : undefined
-                  }
-                  source={source}
-                  view={state.ty}
-                  onView={(v) => update({ ty: v })}
-                  chart={
-                    <SmallMultiples
-                      years={ty.years}
-                      series={tyTopics.map((x) => ({ id: x.topic, label: mixName(x.topic), values: x.shares.map((v) => v ?? null) }))}
-                      format={(v) => fmtShare(v, 0)}
-                      axisFormat={(v) => fmtShare(v, 0)}
-                      mono
-                    />
-                  }
-                  table={<DataTable caption={t('table.n', { n: tabNo.ty, title: s('ty.table') })} rows={tyRows} columns={tyColumns} rowKey={(r) => String(r.year)} stack={false} />}
+            </Section>
+            {hasTy && ty ? (
+              <Section id="topic-years" span={7} title={s('ty.fig', { n: fmtInt(tyTopics.length), a: ty.years[0], b: ty.years[ty.years.length - 1] })} intro={[s('ty.how'), tyLead, thinYears.length ? s('ty.thin', { m: fmtInt(ty.min_articles), years: thinYears.join(', ') }) : ''].filter(Boolean).join(' ')}>
+                <SmallMultiples
+                  years={ty.years}
+                  series={tyTopics.map((x) => ({ id: x.topic, label: mixName(x.topic), values: x.shares.map((v) => v ?? null) }))}
+                  format={(v) => fmtShare(v, 0)}
+                  axisFormat={(v) => fmtShare(v, 0)}
+                  mono
                 />
-              ) : null}
-            </Section>
-          ) : null}
-
-          {hasDrift || mix.rows.length ? (
-            <Section
-              id="drift"
-              title={sj('jr.drift.h')}
-              intro={moved ? s('pm.lead', { t: mixName(moved.topic), a: fmtShare(moved.before, 0), b: fmtShare(moved.after, 0) }) : sj('jr.drift.intro', { n: fmtInt(file.drift_reference_years ?? 0) })}
-            >
-              {mix.rows.length ? (
-                <Figure
-                  id="fig-mix"
-                  number={figNo.mix}
-                  title={s('pm.fig', { b: baseSpan, r: recentSpan })}
-                  tableTitle={t('table.n', { n: tabNo.mix, title: s('pm.table') })}
-                  csv={figureCsv(`atlas-${rel}-${journal.id}-topic-shift.csv`, mix.rows, mixColumns)}
-                  how={<p>{s('pm.how', { b: baseSpan, r: recentSpan })}</p>}
-                  source={source}
-                  view={state.mix}
-                  onView={(v) => update({ mix: v })}
-                  chart={
-                    <PeriodMix
-                      rows={mix.rows}
-                      other={mix.other}
-                      periods={[baseSpan, recentSpan]}
-                      name={(tid) => (topicOf(tid) ? <TopicLink topic={topicOf(tid) as Topic} /> : tid)}
-                      fmt={(v) => fmtShare(v, 0)}
-                      change={pts}
-                      otherName={s('pm.other')}
-                      label={s('pm.label', {
-                        b: baseSpan,
-                        r: recentSpan,
-                        x: mix.rows.map((r) => `${mixName(r.topic)} ${fmtShare(r.before, 0)}`).join(', '),
-                        y: mix.rows.map((r) => `${mixName(r.topic)} ${fmtShare(r.after, 0)}`).join(', '),
-                      })}
-                    />
-                  }
-                  table={<DataTable caption={t('table.n', { n: tabNo.mix, title: s('pm.table') })} rows={mix.rows} columns={mixColumns} rowKey={(r) => r.topic} defaultSort={{ key: 'change', dir: 'desc' }} limit={25} />}
+              </Section>
+            ) : null}
+          </DashGrid>
+        ) : null}
+        {mix.rows.length || comp.length ? (
+          <DashGrid>
+            {mix.rows.length ? (
+              <Section
+                id="drift"
+                span={comp.length ? 6 : 12}
+                title={sj('jr.drift.h')}
+                intro={<>{moved ? s('pm.lead', { t: mixName(moved.topic), a: fmtShare(moved.before, 0), b: fmtShare(moved.after, 0) }) : null} {s('pm.how', { b: baseSpan, r: recentSpan })}</>}
+              >
+                <PeriodMix
+                  rows={mix.rows}
+                  other={mix.other}
+                  periods={[baseSpan, recentSpan]}
+                  name={(tid) => (topicOf(tid) ? <TopicLink topic={topicOf(tid) as Topic} /> : tid)}
+                  fmt={(v) => fmtShare(v, 0)}
+                  change={pts}
+                  otherName={s('pm.other')}
+                  label={s('pm.label', {
+                    b: baseSpan,
+                    r: recentSpan,
+                    x: mix.rows.map((r) => `${mixName(r.topic)} ${fmtShare(r.before, 0)}`).join(', '),
+                    y: mix.rows.map((r) => `${mixName(r.topic)} ${fmtShare(r.after, 0)}`).join(', '),
+                  })}
                 />
-              ) : null}
-              {hasDrift ? (
-                <Figure
-                  id="fig-drift"
-                  number={figNo.drift}
-                  title={sj('jr.drift.fig')}
-                  tableTitle={t('table.n', { n: tabNo.drift, title: sj('jr.drift.fig') })}
-                  csv={figureCsv(`atlas-${rel}-${journal.id}-drift.csv`, drift, driftColumns)}
-                  how={
-                    <>
-                      <p>{sj('jr.drift.intro', { n: fmtInt(file.drift_reference_years ?? 0) })}</p>
-                      <p>{sj('jr.drift.how', { n: fmtInt(file.drift_reference_years ?? 0) })}</p>
-                      <p className="how-terms">
-                        <span>{t('glossary.terms')}:</span>
-                        <Term term="jsd" />
-                      </p>
-                    </>
-                  }
-                  source={source}
-                  view={state.drift}
-                  onView={(v) => update({ drift: v })}
-                  chart={<MultiLineChart years={drift.map((d) => d.year)} series={[{ id: 'drift', label: sj('jr.drift.series'), values: drift.map((d) => d.distance ?? null) }]} format={(v) => fmtNum(v, 2)} axisFormat={(v, step) => fmtNum(v, tickDecimals(step))} label={sj('jr.drift.fig')} />}
-                  table={<DataTable caption={t('table.n', { n: tabNo.drift, title: sj('jr.drift.fig') })} rows={drift} columns={driftColumns} rowKey={(d) => String(d.year)} stack={false} />}
+              </Section>
+            ) : null}
+            {comp.length ? (
+              <Section
+                id="completeness"
+                span={mix.rows.length ? 6 : 12}
+                title={sj('jr.comp.h')}
+                intro={<>{weakest && nFull < checks.length ? s('ck.lead', { k: fmtInt(nFull), n: fmtInt(checks.length), item: sj(`comp.${weakest.key}` as keyof typeof journals), p: fmtPct(weakest.rate ?? null, 0) }) : s('ck.leadAll', { n: fmtInt(checks.length) })} {sj('jr.comp.intro')}</>}
+              >
+                <ChecklistBars rows={checks} words={{ full: s('ck.full'), partial: s('ck.partial'), none: s('ck.none'), unknown: s('ck.unknown') }} label={s('ck.label', { n: fmtInt(checks.length) })} />
+              </Section>
+            ) : null}
+          </DashGrid>
+        ) : null}
+        {peers.length || methods.length || opps.length ? (
+          <DashGrid>
+            {peers.length ? (
+              <Section id="peers" span={4} title={sj('jr.peers.h')} intro={sj('jr.peers.intro')}>
+                <RankRows
+                  numbered={false}
+                  label={sj('jr.peers.h')}
+                  rows={peers.map((p) => {
+                    const j = byId.get(p.id) as JournalSummary
+                    const n = journalName(j, lang)
+                    return { key: p.id, to: `/journals/${p.id}`, name: n.text, nameLang: n.lang ?? undefined, value: <b className="rise-a">{fmtInt(j.articles_window)}</b> }
+                  })}
                 />
-              ) : null}
-            </Section>
-          ) : null}
-
-          {comp.length ? (
-            <Section
-              id="completeness"
-              title={sj('jr.comp.h')}
-              intro={weakest && nFull < checks.length
-                ? s('ck.lead', { k: fmtInt(nFull), n: fmtInt(checks.length), item: sj(`comp.${weakest.key}` as keyof typeof journals), p: fmtPct(weakest.rate ?? null, 0) })
-                : s('ck.leadAll', { n: fmtInt(checks.length) })}
-            >
-              <Figure
-                id="fig-comp"
-                number={figNo.comp}
-                title={s('ck.fig')}
-                tableTitle={t('table.n', { n: tabNo.comp, title: sj('jr.comp.table') })}
-                csv={figureCsv(`atlas-${rel}-${journal.id}-completeness.csv`, comp, compColumns)}
-                how={
-                  <>
-                    <p>{sj('jr.comp.intro')}</p>
-                    <p>{s('ck.how', { full: fmtPct(CHECK_FULL, 0), none: fmtPct(CHECK_NONE, 0) })}</p>
-                  </>
-                }
-                source={source}
-                view={state.comp}
-                onView={(v) => update({ comp: v })}
-                chart={<ChecklistBars rows={checks} words={{ full: s('ck.full'), partial: s('ck.partial'), none: s('ck.none'), unknown: s('ck.unknown') }} label={s('ck.label', { n: fmtInt(checks.length) })} />}
-                table={<DataTable caption={t('table.n', { n: tabNo.comp, title: sj('jr.comp.table') })} rows={comp} columns={compColumns} rowKey={(c) => c.key} stack={false} />}
-              />
-            </Section>
-          ) : null}
-
-          {peers.length ? (
-            <Section id="peers" title={sj('jr.peers.h')} intro={sj('jr.peers.intro')}>
-              <DataTable caption={t('table.n', { n: tabNo.peers, title: sj('jr.peers.table') })} rows={peerRows} columns={peerColumns} rowKey={(r) => r.journal.id} csvFilename={`atlas-${rel}-${journal.id}-peers.csv`} limit={25} />
-              <HowNote>
-                <p className="how-terms">
-                  <span>{t('glossary.terms')}:</span>
-                  <Term term="cosine" />
-                </p>
-              </HowNote>
-            </Section>
-          ) : null}
-
-          {methods.length ? (
-            <Section id="methods" title={sj('jr.methods.h')} intro={sj('jr.methods.intro', { p: fmtPct(journal.methods_coverage ?? null, 0) })}>
-              <DataTable caption={t('table.n', { n: tabNo.methods, title: sj('jr.methods.table') })} rows={methods} columns={methodColumns} rowKey={(m) => m.method} stack={false} csvFilename={`atlas-${rel}-${journal.id}-methods.csv`} limit={25} />
-            </Section>
-          ) : null}
-
-          {opps.length ? (
-            <Section id="opportunities" title={sj('jr.opp.h')} intro={sj('jr.opp.intro')}>
-              <ul className="opp-list">
-                {opps.map((o) => (
-                  <li key={o.topic}>
-                    <TopicLink topic={topicOf(o.topic) as Topic} showStatus />
-                    <span className="topic-sub">{sj(o.reason === 'in_scope' ? 'jr.opp.in_scope' : 'jr.opp.adjacent', { n: fmtInt(o.journal_articles), h: fmtInt(o.hosts) })}</span>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          ) : null}
-          {detailFile.status === 'loading' ? <p className="loading" role="status">{t('loading')}</p> : null}
-        </div>
-        <p className="page-back"><Link to="/journals">{sj('jr.back')}</Link></p>
+              </Section>
+            ) : null}
+            {methods.length ? (
+              <Section id="methods" span={4} title={sj('jr.methods.h')} intro={sj('jr.methods.intro', { p: fmtPct(journal.methods_coverage ?? null, 0) })}>
+                <BarRank rows={rankBars(methods.map((x) => ({ key: methodName(x.method), id: x.method, count: x.share })), 6).rows} value={(r) => fmtPct(r.count, 0)} label={sj('jr.methods.h')} />
+              </Section>
+            ) : null}
+            {opps.length ? (
+              <Section id="opportunities" span={4} title={sj('jr.opp.h')} intro={sj('jr.opp.intro')}>
+                <RankRows
+                  numbered={false}
+                  label={sj('jr.opp.h')}
+                  rows={opps.map((o) => {
+                    const tp = topicOf(o.topic) as Topic
+                    return { key: o.topic, to: `/topics/${tp.id}`, name: name(tp), meta: <span className="rise-sub">{sj(o.reason === 'in_scope' ? 'jr.opp.in_scope' : 'jr.opp.adjacent', { n: fmtInt(o.journal_articles), h: fmtInt(o.hosts) })}</span> }
+                  })}
+                />
+              </Section>
+            ) : null}
+          </DashGrid>
+        ) : null}
+        {detailFile.status === 'loading' ? <p className="loading" role="status">{t('loading')}</p> : null}
       </div>
-    </div>
+    </>
   )
 }

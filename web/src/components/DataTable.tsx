@@ -1,12 +1,9 @@
 import { useId, useMemo, useState, type ReactNode } from 'react'
-import { toCsv, type CsvColumn } from '../lib/csv'
-import { useFigureFrame } from '../lib/figureContext'
+import type { CsvColumn } from '../lib/csv'
 import { fmtInt } from '../lib/format'
-import { tableCsvColumns } from '../lib/tableCsv'
 import { useI18n } from '../lib/i18n'
 import { nextSort, type SortDir } from '../lib/sort'
 import { tableView, useRowLimit } from '../lib/tableRows'
-import { CsvButton } from './CsvButton'
 
 export interface Column<R> {
   key: string
@@ -55,7 +52,7 @@ const headText = <R,>(c: Column<R>) => (c.unit ? `${c.header} (${c.unit})` : c.h
  * and (stack) label/value cards under 640 px. Sort is controlled (URL state) when `sort`/`onSort` are given.
  * Inside a `Figure` the caption row carries the numbered title and the CSV button, so the table leaves them out.
  */
-export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, defaultSort, csvFilename, stack = true, wide = false, selectedKey = null, empty, footnote, limit }: {
+export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, defaultSort, stack = true, wide = false, selectedKey = null, empty, footnote, limit }: {
   caption: string
   rows: readonly R[]
   columns: readonly Column<R>[]
@@ -77,7 +74,6 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
   limit?: number
 }) {
   const { t } = useI18n()
-  const frame = useFigureFrame()
   const tableId = useId()
   const [own, setOwn] = useState<SortState | null>(defaultSort ?? null)
   const [all, setAll] = useState(false)
@@ -101,7 +97,6 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
   const nExtra = shown.some((c) => c.primary) ? shown.filter(isExtra).length : 0
   const collapsed = nExtra > 0 && !all
   const rowToggle = collapsed && stack
-  const csvColumns = tableCsvColumns(columns)
   const choose = (key: string) => {
     const col = columns.find((c) => c.key === key)
     const next = nextSort(active, key, col?.firstDir ?? (col?.numeric ? 'desc' : 'asc'))
@@ -116,22 +111,20 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
       return n
     })
   const cellClass = (c: Column<R>, base?: string) => [base ?? '', c.numeric ? 'num' : '', c.className ?? '', nExtra && isExtra(c) ? 'col-extra' : ''].join(' ').trim() || undefined
-  const showCsv = Boolean(csvFilename) && rows.length > 0 && !frame.csv
   return (
     <div className="tbl">
-      {showCsv || nExtra ? (
+      {nExtra ? (
         <div className="tbl-tools">
           {nExtra ? (
             <button type="button" className="linkbtn tbl-cols" aria-expanded={all} aria-controls={tableId} onClick={() => setAll((a) => !a)}>
               {all ? t('table.fewCols') : t('table.allCols', { n: shown.length })}
             </button>
           ) : null}
-          {showCsv && csvFilename ? <CsvButton filename={csvFilename} text={() => toCsv(sorted, csvColumns)} /> : null}
         </div>
       ) : null}
       <div className="tscroll">
         <table id={tableId} className={`t${stack ? ' stack' : ''}${wide && !collapsed ? ' wide' : ''}${collapsed ? ' is-collapsed' : ''}`}>
-          <caption className={frame.titled ? 'sr-only' : undefined}>{caption}</caption>
+          <caption className="sr-only">{caption}</caption>
           <thead>
             <tr>
               {shown.map((c) => {

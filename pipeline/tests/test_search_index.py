@@ -77,11 +77,11 @@ def test_parity_fixture_regenerates_identically():
 
 
 # ---------------------------------------------------------------- the step + export on a tiny work dir
-def _work(tmp_path, galaxy=True):
+def _work(tmp_path, galaxy=True, word_index=True):
     cfg = load_config(None)
     work = tmp_path / "work"
     cfg["pipeline"].update(work_dir=str(work), output_dir=str(tmp_path / "out"), state_dir=str(tmp_path / "state"))
-    cfg["search"].update(index_shards=4, docs_per_shard=2)
+    cfg["search"].update(index_shards=4, docs_per_shard=2, word_index=word_index)
     arts = pd.DataFrame([
         {"article_id": "so02:J:5", "year": 2021, "title_th": "การตลาดเพื่อสังคม", "title_en": "Social marketing",
          "keywords_th": "การตลาด; สังคม", "keywords_en": "marketing", "doi": "10.1/x5", "url": "https://so02/5"},
@@ -196,6 +196,23 @@ def test_an_empty_window_publishes_empty_but_valid_files(tmp_path):
     files, skipped = search_files(cfg, work, CODE)
     assert skipped == {} and files["search/meta.json"].doc_shards == 0 and files["galaxy.json"].n == 0
     assert len([k for k in files if "/idx-" in k]) == 4 and not [k for k in files if "/docs-" in k]
+
+
+def test_without_the_word_index_the_galaxy_keeps_its_article_rows(tmp_path):
+    """search.word_index false (the default since the dashboard redesign): no vocab / index shards, meta says 0
+    tokens and 0 index shards, and the doc shards + galaxy.json are written as before."""
+    assert load_config(None)["search"]["word_index"] is False
+    cfg, work = _work(tmp_path, word_index=False)
+    meta = search(cfg)
+    assert meta["search"]["published"] and meta["search"]["word_index"] is False and meta["search"]["n_tokens"] == 0
+    assert not (work / "20_postings.parquet").exists()
+    files, skipped = search_files(cfg, work, CODE)
+    assert skipped == {}
+    assert not [k for k in files if "/idx-" in k] and "search/vocab.json" not in files
+    sm = files["search/meta.json"]
+    assert sm.n_tokens == 0 and sm.n_postings == 0 and sm.index_shards == 0 and sm.n_docs == 3
+    assert [k for k in files if "/docs-" in k] == ["search/docs-000.json", "search/docs-001.json"]
+    assert files["galaxy.json"].n == 3
 
 
 def test_contract_paths_steps_and_offline_exclusion(tmp_path):

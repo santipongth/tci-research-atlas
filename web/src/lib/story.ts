@@ -47,7 +47,8 @@ export function spreadLabels(ys: readonly number[], gap: number, lo: number, hi:
   return out
 }
 
-/** As `spreadLabels`, but label `pin` stays exactly at its line: the others above it stack upwards, the rest downwards. */
+/** As `spreadLabels`, but label `pin` stays at its line when there is room: the others above it stack upwards, the rest
+ *  downwards; when the stack under it would run past `hi`, the pinned label moves up only as far as it must. */
 function pinnedLabels(ys: readonly number[], gap: number, lo: number, hi: number, pin: number): number[] {
   const out = [...ys]
   const at = Math.min(hi, Math.max(lo, ys[pin]))
@@ -70,8 +71,24 @@ function pinnedLabels(ys: readonly number[], gap: number, lo: number, hi: number
   below.unshift(...spill.reverse())
   prev = at
   for (const o of below) {
-    out[o.i] = Math.min(hi, Math.max(o.y, prev + gap))
+    out[o.i] = Math.max(o.y, prev + gap)
     prev = out[o.i]
+  }
+  // the stack under the pinned label ran past `hi` (a short chart, labels crowded at the bottom): pull it back up
+  // from the bottom, moving the pinned label up as far as it must, then the labels above it after it
+  if (below.length && prev > hi) {
+    const chain = [pin, ...below.map((o) => o.i)]
+    let next = hi + gap
+    for (let k = chain.length - 1; k >= 0; k--) {
+      out[chain[k]] = Math.min(out[chain[k]], next - gap)
+      next = out[chain[k]]
+    }
+    let up = out[pin]
+    for (const o of above) {
+      if (spill.includes(o)) continue
+      out[o.i] = Math.max(lo, Math.min(out[o.i], up - gap))
+      up = out[o.i]
+    }
   }
   return out
 }

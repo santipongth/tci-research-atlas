@@ -1,9 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { useLocation } from 'react-router'
 import { BRAND } from '../brand/brand'
-import { HowNote } from '../components/HowNote'
 import { PageHeader } from '../components/PageHeader'
 import { Section } from '../components/Section'
+import { DashGrid } from '../components/dashboard/Card'
 import { StatusGlyph } from '../components/StatusGlyph'
 import { CHANGELOG } from '../content/changelog'
 import { METHOD } from '../content/method'
@@ -38,21 +38,22 @@ export default function AboutPage() {
   return (
     <div className="container">
       <PageHeader title={t('about.title')} lede={t('about.lede')} />
-      <div className="layout">
-        <div className="main-col prose">
+      <div className="prose">
           <Section id="flow" title={t('about.flow.h')}>
             <Suspense fallback={null}>
               <PipelineSteps release={release} />
             </Suspense>
           </Section>
+          <DashGrid>
           {METHOD.map((m) => (
-            <Section key={m.id} id={`m-${m.id}`} title={pick(m.h.th, m.h.en)}>
+            <Section key={m.id} id={`m-${m.id}`} span={6} title={pick(m.h.th, m.h.en)}>
               {m.body.map((p, i) => (
                 <p key={i}>{fill(lang === 'en' ? p.en : p.th)}</p>
               ))}
-              {m.how ? <HowNote><p>{fill(lang === 'en' ? m.how.en : m.how.th)}</p></HowNote> : null}
+              {m.how ? <p className="note">{fill(lang === 'en' ? m.how.en : m.how.th)}</p> : null}
             </Section>
           ))}
+          </DashGrid>
           <Section id="definition" title={t('about.def.h')} intro={t('about.def.intro', { v: version, level })}>
             <Suspense fallback={null}>
               <StatusDecision level={level} topics={release?.topics ?? []} />
@@ -72,11 +73,12 @@ export default function AboutPage() {
             <p className="note">{t('rule.how', { level })}</p>
             <p className="note">{t('about.def.order')}</p>
           </Section>
-          <Section id="privacy" title={t('about.privacy.h')}>
+          <DashGrid>
+          <Section id="privacy" span={6} title={t('about.privacy.h')}>
             <p>{t('about.privacy.body')}</p>
             {BRAND.temporary ? <p className="note">{t('wordmarkNote')}</p> : null}
           </Section>
-          <Section id="cite" title={t('about.cite.h')}>
+          <Section id="cite" span={6} title={t('about.cite.h')}>
             <details className="how cite-fold" open={citeOpen || undefined}>
               <summary>{t('about.cite.show')}</summary>
               <div>
@@ -86,6 +88,7 @@ export default function AboutPage() {
               </div>
             </details>
           </Section>
+          </DashGrid>
           <Section id="changelog" title={t('about.log.h')} intro={t('about.log.intro')}>
             <ol className="changelog">
               {changes.map((c) => (
@@ -97,7 +100,6 @@ export default function AboutPage() {
               ))}
             </ol>
           </Section>
-        </div>
       </div>
     </div>
   )

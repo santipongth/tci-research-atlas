@@ -26,9 +26,9 @@ export default function SmallMultiples({ years, series, format, axisFormat, mono
   const step = ticks.length > 1 ? ticks[1] - ticks[0] : 0
   if (step > 0 && ticks[ticks.length - 1] < maxV) ticks.push(Math.round((ticks[ticks.length - 1] + step) * 1e9) / 1e9)
   const yMax = Math.max(ticks[ticks.length - 1] ?? 1, maxV) || 1
-  const cols = W >= 640 ? 2 : 1
+  const cols = W >= 520 ? 2 : 1
   const pw = W > 0 ? Math.floor((W - (cols - 1) * 24) / cols) : 0
-  const ph = 150
+  const ph = 130
   const M = { t: 10, r: 64, b: 24, l: 44 }
   const x = (i: number) => M.l + (years.length > 1 ? (i / (years.length - 1)) * (pw - M.l - M.r) : 0)
   const y = (v: number) => M.t + (ph - M.t - M.b) * (1 - v / yMax)
@@ -86,7 +86,7 @@ export default function SmallMultiples({ years, series, format, axisFormat, mono
           })}
         </ul>
       ) : null}
-      <p className="note">{s('sm.same')}</p>
+      <p className="sr-only">{s('sm.same')}</p>
     </div>
   )
 }

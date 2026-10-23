@@ -24,7 +24,7 @@ function topSignals(topics: readonly Topic[], n = TOP): Topic[] {
 
 /** /embed/emerging — the top 10 EMERGING / WATCH topics of the latest release, for an <iframe>. */
 export default function EmbedEmerging() {
-  return <EmbedFrame full={() => '/emerging'}>{(release) => <EmergingWidget release={release} />}</EmbedFrame>
+  return <EmbedFrame full={() => '/topics'}>{(release) => <EmergingWidget release={release} />}</EmbedFrame>
 }
 
 function EmergingWidget({ release }: { release: AtlasRelease }) {
@@ -57,7 +57,7 @@ function EmergingWidget({ release }: { release: AtlasRelease }) {
           </ol>
           {all.length > rows.length ? (
             <p className="embed-more">
-              <Link to={`/emerging?lang=${lang}`} target="_blank" rel="noopener noreferrer">
+              <Link to={`/topics?lang=${lang}`} target="_blank" rel="noopener noreferrer">
                 {s('em.more', { n: fmtInt(all.length) })}
                 <span className="sr-only"> {t('newTab')}</span>
               </Link>

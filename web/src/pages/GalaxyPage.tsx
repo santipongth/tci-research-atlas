@@ -21,8 +21,7 @@ import {
 import { useI18n, useStrings, nameIn } from '../lib/i18n'
 import { textWidth } from '../lib/measure'
 import { LABEL_PX } from '../lib/labelSizes'
-import { rowToDoc } from '../lib/searchClient'
-import { docShardOf } from '../lib/searchTokens'
+import { docShardOf, rowToDoc } from '../lib/galaxyDocs'
 import { useTheme } from '../lib/theme'
 import { galaxyCodec } from '../lib/urlState'
 import { useElementSize } from '../lib/useElementSize'
@@ -192,38 +191,40 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
 
   return (
     <div className="container">
-      <PageHeader title={s('q')} lede={s('lede', { release: release.overview.release, n: fmtInt(points.total) })} />
-      <fieldset className="j-tools gx-filters">
-        <legend className="sr-only">{s('f.h')}</legend>
-        <label>
-          {s('f.from')}
-          <select value={state.from ?? ''} onChange={(e) => update({ from: e.target.value ? Number(e.target.value) : null })}>
-            <option value="">{s('f.any')}</option>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </label>
-        <label>
-          {s('f.to')}
-          <select value={state.to ?? ''} onChange={(e) => update({ to: e.target.value ? Number(e.target.value) : null })}>
-            <option value="">{s('f.any')}</option>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </label>
-        <label>
-          {s('f.group')}
-          <select value={slot === null ? '' : state.g} onChange={(e) => update({ g: e.target.value })}>
-            <option value="">{s('f.any')}</option>
-            {fields.map((f) => <option key={f.g.id} value={f.g.id}>{`${nameIn(f.g, lang)} (${fmtInt(f.n)})`}</option>)}
-          </select>
-        </label>
-        {filtering ? <button type="button" className="btn-secondary" onClick={() => update({ from: null, to: null, g: '' })}>{s('f.reset')}</button> : null}
-      </fieldset>
-      <p className="gx-count" role="status">
-        {filtering ? s('shown', { shown: fmtInt(shown), n: fmtInt(points.count) }) : s('shownAll', { n: fmtInt(points.count) })}
-      </p>
-      {points.total > points.count ? <p className="hint">{s('noCoord', { n: fmtInt(points.total - points.count) })}</p> : null}
-
+      <PageHeader
+        title={s('q')}
+        lede={<>{s('lede', { release: release.overview.release, n: fmtInt(points.total) })} {points.total > points.count ? s('noCoord', { n: fmtInt(points.total - points.count) }) : null} {s('hint')}</>}
+      />
       <div className="gx-sec">
+        <fieldset className="j-tools gx-filters">
+          <legend className="sr-only">{s('f.h')}</legend>
+          <label>
+            {s('f.from')}
+            <select value={state.from ?? ''} onChange={(e) => update({ from: e.target.value ? Number(e.target.value) : null })}>
+              <option value="">{s('f.any')}</option>
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </label>
+          <label>
+            {s('f.to')}
+            <select value={state.to ?? ''} onChange={(e) => update({ to: e.target.value ? Number(e.target.value) : null })}>
+              <option value="">{s('f.any')}</option>
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </label>
+          <label>
+            {s('f.group')}
+            <select value={slot === null ? '' : state.g} onChange={(e) => update({ g: e.target.value })}>
+              <option value="">{s('f.any')}</option>
+              {fields.map((f) => <option key={f.g.id} value={f.g.id}>{`${nameIn(f.g, lang)} (${fmtInt(f.n)})`}</option>)}
+            </select>
+          </label>
+          {filtering ? <button type="button" className="btn-secondary" onClick={() => update({ from: null, to: null, g: '' })}>{s('f.reset')}</button> : null}
+        </fieldset>
+        <p className="gx-count" role="status">
+          {filtering ? s('shown', { shown: fmtInt(shown), n: fmtInt(points.count) }) : s('shownAll', { n: fmtInt(points.count) })}
+        </p>
+
         <Figure
           id="gx"
           number={1}
@@ -231,8 +232,6 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
           csv={figureCsv(`atlas-${rel}-galaxy-topics.csv`, tableRows, columns)}
           how={<p>{s('fig.how')}</p>}
           source={t('source.line', { release: rel })}
-          view={state.view}
-          onView={(v) => update({ view: v })}
           chart={
             <div className="gx-layout">
               <Stage

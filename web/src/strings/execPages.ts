@@ -5,6 +5,7 @@ import { defineStrings } from './define'
  * Lazy pages only (read with useStrings) — kept out of the entry chunk.
  */
 export const execPages = defineStrings({
+  'in.kpiTopics': { th: 'ทำ {n} หัวข้อ', en: 'in {n} topics' },
   'in.title': { th: 'สถาบัน', en: 'Institutions' },
   'in.lede': { th: 'ข้อมูลรอบ {release} มี {k} สถาบันที่มีบทความอย่างน้อย {n} เรื่อง (ปี {a}–{b}) ดูได้ว่าแต่ละแห่งมีบทความกี่เรื่อง ทำงานร่วมกับใคร และทำเรื่องอะไร', en: 'Release {release} has {k} institutions with at least {n} articles in {a}–{b}: how much each writes, with whom and on what.' },
   'ex.most': { th: 'เช่น {x} มีบทความมากที่สุด {k} เรื่อง', en: 'For example, {x} has the most articles: {k}.' },

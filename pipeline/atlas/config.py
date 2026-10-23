@@ -383,7 +383,8 @@ class MethodsCfg(_Strict):
 
 class MatchCfg(_Strict):
     """'Match my abstract' index: char-trigram TF-IDF vectors per topic, matched in the browser (R3/R4)."""
-    enabled: bool = True
+    # off since the 2026-10-24 dashboard redesign: the web has no "paste your abstract" page any more
+    enabled: bool = False
     docs_per_topic: int = Field(100, ge=1)
     abstract_chars: int = Field(600, ge=0)
     min_df: int = Field(3, ge=1)
@@ -481,6 +482,9 @@ class SearchCfg(_Strict):
     """R2 whole-corpus article search (sharded static index over titles + author keywords) and the R8 galaxy
     points that share its doc ordinals (P4); the galaxy also needs layout.galaxy."""
     enabled: bool = True
+    # the word index (search/vocab.json + search/idx-*.json) behind the article search page; the web has no search
+    # box since the 2026-10-24 redesign, so it is off — meta.json and the doc shards (the galaxy's article rows) stay
+    word_index: bool = False
     index_shards: int = Field(64, ge=1)                  # token → shard fnv1a32(token) % index_shards
     docs_per_shard: int = Field(2000, ge=1)              # doc rows per search/docs-<NNN>.json
     min_df: int = Field(1, ge=1)                         # tokens in fewer articles are left out of the index

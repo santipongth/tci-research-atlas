@@ -15,10 +15,10 @@ export interface StorySeries {
 /**
  * The front door's story chart: every series as a quiet grey line, the one in focus in TCI blue with an orange end
  * mark, and a direct label at the end of each line (no legend). Pointing at a line or label, or tabbing to a label,
- * moves the focus; the figure's table tab carries the same numbers for keyboard and screen-reader users. The lines
+ * moves the focus; each end label (a button) carries its series' name and last value for keyboard and screen-reader users. The lines
  * draw once on arrival (already drawn under reduced motion).
  */
-export function StoryLines({ years, series, initial, format, label, note }: {
+export function StoryLines({ years, series, initial, format, label, note, height }: {
   years: readonly number[]
   series: readonly StorySeries[]
   /** the series in focus before the reader points anywhere (the answer) */
@@ -27,13 +27,15 @@ export function StoryLines({ years, series, initial, format, label, note }: {
   label: string
   /** one short line written on the chart beside the focused series' end */
   note?: (s: StorySeries, last: number) => string
+  /** the chart's height in px (default 420, 300 when narrow) */
+  height?: number
 }) {
   const [ref, { width }] = useElementSize<HTMLDivElement>()
   const [focus, setFocus] = useState(initial)
   useFontsVersion() // end labels are measured in Sarabun: measure again once it has loaded
   const narrow = width > 0 && width < 560
   const W = width
-  const H = narrow ? 300 : 420
+  const H = height ?? (narrow ? 300 : 420)
   const M = { t: 24, r: narrow ? 12 : 250, b: 34, l: 44 }
   const values = series.flatMap((s) => s.values.filter((v): v is number => v !== null))
   const max = Math.max(1, ...values)
@@ -101,7 +103,7 @@ export function StoryLines({ years, series, initial, format, label, note }: {
                 const e = ends[k]
                 if (!e) return null
                 // a long name (60–90 Thai characters) is cut with "…" inside the plot's right gutter; the value always shows
-                // and the full name is in the label's <title> and the table tab
+                // and the full name is in the label's <title>
                 const value = ` ${format(e.v)}`
                 const room = W - (x(e.i) + 24) - 4 - textWidth(value, LABEL_PX.strong, 700)
                 const name = fitText(s.label, room, LABEL_PX.strong, 700)

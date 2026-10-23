@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import type { Topic } from '../data/types'
-import { pickFindings } from '../lib/findings'
-import { stepOf, STATUS_STEPS } from '../lib/statusSteps'
 import { STATUSES } from '../lib/status'
 import { dotDomain, pctAt, percentOf, rankBars, topMovers, waffleCells, waffleCounts, waffleGroups, waffleUnit } from './infographic'
 
@@ -111,23 +109,5 @@ describe('rankBars', () => {
   })
   it('handles an empty list', () => {
     expect(rankBars([])).toEqual({ rows: [], rest: 0 })
-  })
-})
-
-describe('pickFindings', () => {
-  it('picks the strongest emerging, the largest hot and the fastest-shrinking topic', () => {
-    expect(pickFindings(TOPICS).map((f) => [f.kind, f.topic.id])).toEqual([['emerging', 'e2'], ['large', 'h1'], ['decline', 'd2']])
-  })
-  it('leaves out a kind the release does not have', () => {
-    expect(pickFindings(TOPICS.filter((t) => t.status !== 'DECLINING')).map((f) => f.kind)).toEqual(['emerging', 'large'])
-    expect(pickFindings([])).toEqual([])
-  })
-})
-
-describe('status steps', () => {
-  it('puts every status on exactly one step, low data first', () => {
-    for (const s of STATUSES) expect(STATUS_STEPS[stepOf(s)].outcomes).toContain(s)
-    expect(stepOf('LOW_DATA')).toBe(0)
-    expect(STATUS_STEPS.flatMap((s) => s.outcomes).sort()).toEqual([...STATUSES].sort())
   })
 })

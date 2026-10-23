@@ -51,6 +51,15 @@ describe('spreadLabels', () => {
     // the pinned label (index 1) stays at 52; the one just above it moves up, the one just below moves down
     expect(spreadLabels([50, 52, 60], 20, 0, 200, 1)).toEqual([32, 52, 72])
   })
+  it('never stacks labels past the bottom: the stack under the pinned label is pulled back up', () => {
+    // pinned at 90 with three labels crowded at 95–100 and hi = 100: nothing may overlap or pass 100
+    const out = spreadLabels([95, 90, 98, 100, 20], 10, 0, 100, 1)
+    const sorted = [...out].sort((a, b) => a - b)
+    for (let k = 1; k < sorted.length; k++) expect(sorted[k] - sorted[k - 1]).toBeGreaterThanOrEqual(10 - 1e-9)
+    expect(Math.max(...out)).toBeLessThanOrEqual(100)
+    expect(out[4]).toBe(20)
+  })
+
   it('moves a label under the pinned one when there is no room above it', () => {
     // pinned at 15 near the top (lo = 10): the label at 12 cannot sit 20 above, so it goes 20 below
     expect(spreadLabels([12, 15, 80], 20, 10, 200, 1)).toEqual([35, 15, 80])

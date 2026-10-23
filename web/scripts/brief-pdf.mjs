@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Print the executive brief (#/brief) to A4 PDFs in Thai and English with Playwright's Chromium.
+// Print the executive brief — the overview dashboard's print layout (#/overview) — to A4 PDFs in Thai and English
+// with Playwright's Chromium.
 //   npm run build && npm run brief:pdf -- [--site dist] [--data <release data folder>] [--out dist]
 // Without --data the site's own data/ folder is used (after `uv run atlas publish --site dist`);
 // for a local try-out with the synthetic release: npm run brief:pdf -- --data fixtures/example/data
@@ -48,8 +49,10 @@ try {
   for (const lang of ['th', 'en']) {
     const page = await browser.newPage()
     await page.emulateMedia({ media: 'print', colorScheme: 'light', reducedMotion: 'reduce' })
-    await page.goto(`${base}/#/brief?lang=${lang}`)
-    await page.waitForSelector('[data-brief-ready="true"]', { timeout: 20_000 })
+    await page.goto(`${base}/#/overview?lang=${lang}`)
+    await page.waitForSelector('.kpi', { timeout: 20_000 })
+    // the province map and institution cards load on demand: wait until no card still says "loading"
+    await page.waitForFunction(() => !document.querySelector('main [role="status"].loading'), null, { timeout: 20_000 })
     await page.evaluate(async () => {
       await document.fonts.ready
       return true

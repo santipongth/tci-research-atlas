@@ -11,9 +11,9 @@ test.describe('360 px', () => {
   test.use({ viewport: { width: 360, height: 800 } })
 
   for (const lang of ['th', 'en'] as const) {
-    test(`overview portfolio matrix: no overlapping text or text over markers (${lang})`, async ({ page }) => {
+    test(`topics portfolio matrix: no overlapping text or text over markers (${lang})`, async ({ page }) => {
       await page.addInitScript((l) => localStorage.setItem('atlas-lang', l), lang)
-      await page.goto(`${EXAMPLE}#/overview`)
+      await page.goto(`${EXAMPLE}#/topics`)
       await page.evaluate(() => document.fonts.ready)
       const pf = page.locator('svg.pf')
       await pf.scrollIntoViewIfNeeded()
@@ -26,9 +26,8 @@ test.describe('360 px', () => {
         const texts = [...document.querySelectorAll('svg.pf text')].map((e) => ({ s: e.textContent ?? '', r: box(e) }))
         const marks = [...document.querySelectorAll('svg.pf .pf-node .mk')].map((e) => box(e))
         const svg = box(document.querySelector('svg.pf') as Element)
-        return { texts, marks, svg, legend: document.querySelectorAll('.pf-quads li').length }
+        return { texts, marks, svg }
       })
-      expect(found.legend).toBe(4)
       const clashes: string[] = []
       found.texts.forEach((a, i) => {
         found.texts.slice(i + 1).forEach((b) => overlap(a.r, b.r) && clashes.push(`${a.s} x ${b.s}`))
@@ -38,7 +37,6 @@ test.describe('360 px', () => {
       expect(clashes).toEqual([])
       const scroll = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
       expect(scroll).toBeLessThanOrEqual(0)
-      await pf.screenshot({ path: `test-results/pf-360-${lang}.png` })
     })
   }
 
@@ -50,7 +48,6 @@ test.describe('360 px', () => {
     const [z, sheet] = await Promise.all([zoom.boundingBox(), page.locator('.sheet-in').boundingBox()])
     expect(z && sheet && z.y >= sheet.y + sheet.height - 1).toBe(true)
     expect(await page.locator('.fieldkey li .swatch').count()).toBeGreaterThanOrEqual(2)
-    await page.locator('.sheet').screenshot({ path: 'test-results/atlas-360.png' })
   })
 })
 
@@ -60,47 +57,42 @@ test.describe('390 px atlas', () => {
   test('the sheet takes the map\'s own shape and names more than one topic', async ({ page }) => {
     await page.goto(`${EXAMPLE}#/atlas`)
     await page.evaluate(() => document.fonts.ready)
-    await expect(page.locator('.map-read .step')).toHaveCount(3)
     const sheet = (await page.locator('.sheet-in').boundingBox())!
     // 1000 × 640 map plus the fit margin: no tall band of empty paper under it
     expect(sheet.height / sheet.width).toBeLessThan(0.75)
     await expect.poll(() => page.locator('.mlabel').count()).toBeGreaterThan(1)
-    // the gazetteer gives growth in words, not micro whiskers
     await expect(page.locator('.gaz .g-val').first()).toContainText('ต่อปี')
-    await expect(page.locator('.gaz .whisker')).toHaveCount(0)
   })
 })
 
 test.describe('390 × 844 phone chrome', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('the overview h1 starts high, and one menu button opens and closes the whole navigation', async ({ page }) => {
+  test('the h1 starts high, and the menu button opens the page list in a drawer that Escape closes', async ({ page }) => {
     await page.goto(`${EXAMPLE}#/overview`)
     await page.evaluate(() => document.fonts.ready)
     const h1 = page.locator('h1').first()
     await expect(h1).toBeVisible()
-    expect((await h1.boundingBox())!.y).toBeLessThan(300)
-    await expect(page.locator('.phase-tag.is-sample')).toBeVisible()
+    expect((await h1.boundingBox())!.y).toBeLessThan(160)
+    await expect(page.locator('.pbar .phase-tag.is-sample')).toBeVisible()
+    // phones skip the line chart: the ranked list beside it carries the same topics
+    await expect(page.locator('.sl-series')).toHaveCount(0)
 
-    const nav = page.locator('#site-nav')
     const menu = page.getByRole('button', { name: 'เมนู', exact: true })
-    await expect(nav).toBeHidden()
+    const drawer = page.getByRole('dialog', { name: 'เมนูหลัก' })
+    await expect(drawer).toBeHidden()
     await expect(menu).toHaveAttribute('aria-expanded', 'false')
-    await expect(menu).toHaveAttribute('aria-controls', 'site-nav')
     await menu.click()
-    await expect(menu).toHaveAttribute('aria-expanded', 'true')
-    await expect(nav.getByRole('combobox', { name: 'ค้นหาหัวข้อวิจัย' })).toBeVisible()
-    await expect(nav.getByRole('link', { name: 'วารสาร', exact: true })).toBeVisible()
-    await expect(nav.getByRole('button', { name: 'English' })).toBeVisible()
+    await expect(drawer).toBeVisible()
+    await expect(drawer.getByRole('link', { name: 'วารสาร', exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(menu).toHaveAttribute('aria-expanded', 'false')
+    await expect(drawer).toBeHidden()
     await expect(menu).toBeFocused()
-    await expect(nav).toBeHidden()
 
     await menu.click()
-    await nav.getByRole('link', { name: 'วารสาร', exact: true }).click()
+    await drawer.getByRole('link', { name: 'วารสาร', exact: true }).click()
     await expect(page).toHaveURL(/#\/journals$/)
-    await expect(nav).toBeHidden()
+    await expect(drawer).toBeHidden()
     await expect(menu).toHaveAttribute('aria-expanded', 'false')
   })
 })

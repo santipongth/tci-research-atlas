@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AtlasRelease } from '../data/release'
-import { useI18n, useStrings } from '../lib/i18n'
+import { useStrings } from '../lib/i18n'
 import { embed } from '../strings/embed'
-import { embedSrc, feedHref, iframeSnippet, siteUrl } from './embedUrl'
+import { feedHref } from './embedUrl'
 
-/*
- * Small sharing tools loaded on demand by the topic, emerging, changes and about pages: a read-only text box with a
- * copy button, the "embed this chart" disclosure and the Atom feed link.
- */
+/* Small sharing tools: a read-only text box with a copy button (the citation on /about) and the Atom feed link. */
 
 /** Read-only text (embed code, a citation) with a copy button; when the clipboard is blocked the text is selected
  *  so Ctrl+C works, and the status line says so. */
@@ -48,39 +45,19 @@ export function CopyField({ id, label, text, rows = 3 }: { id: string; label: st
   )
 }
 
-/** "ฝังกราฟ / Embed" — the <iframe> code for a widget of this site. Hidden in the offline file (no public address).
- *  `title` (the iframe's accessible name) defaults to the widget's own heading. */
-export function EmbedSnippet({ kind, path, title, height }: { kind: 'topic' | 'emerging'; path: string; title?: string; height: number }) {
-  const s = useStrings(embed)
-  const { lang } = useI18n()
-  const site = siteUrl()
-  if (!site) return null
-  const code = iframeSnippet({ src: embedSrc(site, path, lang), title: title ?? `${s('em.title')} — TCI Research Atlas`, width: 640, height })
-  return (
-    <details className="embed-snip no-print">
-      <summary>{s(kind === 'topic' ? 'snip.topic' : 'snip.emerging')}</summary>
-      <div className="embed-snip-body">
-        <p>{s('snip.intro')}</p>
-        <CopyField id={`embed-code-${kind}`} label={s('snip.label')} text={code} rows={4} />
-        <p className="hint">{s('snip.lang')}</p>
-      </div>
-    </details>
-  )
-}
-
 /** Atom feed of new releases or of one topic — shown only when `atlas publish` wrote the feeds (latest.json.feeds). */
 export function FeedLink({ release, kind, topicId }: { release: AtlasRelease; kind: 'releases' | 'topic'; topicId?: string }) {
   const s = useStrings(embed)
   if (release.latest.feeds !== true || (kind === 'topic' && !topicId)) return null
   const href = feedHref(kind === 'releases' ? 'releases.xml' : `topics/${topicId}.xml`)
+  // a page-bar link; its title says what a feed reader does with it
   return (
-    <p className="feed-link no-print">
+    <a className="see-all no-print" href={href} type="application/atom+xml" title={s('feed.hint')}>
       <svg className="feed-ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
         <circle cx="3" cy="13" r="2" />
         <path d="M1 7.5a7.5 7.5 0 0 1 7.5 7.5M1 2a13 13 0 0 1 13 13" />
       </svg>
-      <a href={href} type="application/atom+xml">{s(kind === 'releases' ? 'feed.releases' : 'feed.topic')}</a>
-      <span className="hint">{s('feed.hint')}</span>
-    </p>
+      {s(kind === 'releases' ? 'feed.releases' : 'feed.topic')}
+    </a>
   )
 }

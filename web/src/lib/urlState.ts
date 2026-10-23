@@ -70,16 +70,6 @@ export function setOf<V extends string>(key: string, values: readonly V[], def: 
 
 const TOPIC_ID = /^T\d{6}$/
 
-/** Ordered topic ids, deduplicated, invalid ids dropped, at most `max`. */
-export function topicList(key: string, max: number): Field<string[]> {
-  return {
-    key,
-    def: [],
-    parse: (raw) => [...new Set((raw ?? '').split(',').map((s) => s.trim()).filter((s) => TOPIC_ID.test(s)))].slice(0, max),
-    write: (v) => (v.length ? v.join(',') : null),
-  }
-}
-
 export function optionalTopic(key: string): Field<string | null> {
   return { key, def: null, parse: (raw) => (raw && TOPIC_ID.test(raw) ? raw : null), write: (v) => v }
 }
@@ -93,173 +83,58 @@ export function text(key: string, maxLength: number): Field<string> {
   return { key, def: '', parse: (raw) => (raw ?? '').slice(0, maxLength), write: (v) => (v ? v.slice(0, maxLength) : null) }
 }
 
-export const VIEWS = ['chart', 'table'] as const
-export type View = (typeof VIEWS)[number]
-export const EMERGING_SORTS = ['growth', 'lo', 'share', 'ratio', 'journals', 'orgs', 'score', 'articles', 'name'] as const
-export type EmergingSort = (typeof EMERGING_SORTS)[number]
-export const LAYERS = ['contours', 'tints', 'names'] as const
-export type Layer = (typeof LAYERS)[number]
+/** The chart ⇄ table view some older components still accept (no page shows the switch since 2026-10-24). */
+export type View = 'chart' | 'table'
 
-export interface EmergingUrlState {
-  status: StatusId
-  sort: EmergingSort
-  dir: 'asc' | 'desc'
-  view: View
-}
-export const emergingCodec = makeCodec<EmergingUrlState>({
-  status: oneOf('status', STATUSES, 'EMERGING'),
-  sort: oneOf('sort', EMERGING_SORTS, 'growth'),
-  dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
-  view: oneOf('view', VIEWS, 'chart'),
+/** /overview: the rising / falling list and the findings / policy switch. */
+export const MOVES = ['up', 'down'] as const
+export const POINTS = ['find', 'policy'] as const
+export const overviewCodec = makeCodec<{ mv: (typeof MOVES)[number]; pt: (typeof POINTS)[number] }>({
+  mv: oneOf('mv', MOVES, 'up'),
+  pt: oneOf('pt', POINTS, 'find'),
 })
 
+/** /topics: the status shown and how its topics are ranked (an old /emerging?status=… link keeps its status). */
+export const TOPIC_BY = ['growth', 'size'] as const
+export const topicsCodec = makeCodec<{ status: StatusId; by: (typeof TOPIC_BY)[number] }>({
+  status: oneOf('status', STATUSES, 'EMERGING'),
+  by: oneOf('by', TOPIC_BY, 'growth'),
+})
+
+/** /places: what the province map measures (per 100,000 people only when the release has the population table). */
+export const REGION_METRICS = ['articles', 'per100k'] as const
+export const placesCodec = makeCodec<{ m: (typeof REGION_METRICS)[number] }>({ m: oneOf('m', REGION_METRICS, 'articles') })
+
+/** /journals: how the journal list is ranked. */
+export const JOURNAL_BY = ['articles', 'complete'] as const
+export const journalsCodec = makeCodec<{ by: (typeof JOURNAL_BY)[number] }>({ by: oneOf('by', JOURNAL_BY, 'articles') })
+
+/** /goals: the goal framework shown in the tiles. */
+export const goalsCodec = makeCodec<{ fw: string }>({ fw: text('fw', 24) })
+
+/** /atlas: the selected topic, hidden statuses and map layers. */
+export const LAYERS = ['contours', 'tints', 'names'] as const
+export type Layer = (typeof LAYERS)[number]
 export interface AtlasUrlState {
   sel: string | null
   hide: StatusId[]
   layers: Layer[]
-  q: string
 }
 export const atlasCodec = makeCodec<AtlasUrlState>({
   sel: optionalTopic('sel'),
   hide: setOf('hide', STATUSES, []),
   layers: setOf('layers', LAYERS, LAYERS),
-  q: text('q', 80),
 })
 
-export interface CompareUrlState {
-  ids: string[]
-  metric: 'share' | 'count'
-  view: View
-  /** one chart with every line, or one small chart per topic on a shared scale */
-  layout: 'one' | 'grid'
-}
-export const compareCodec = makeCodec<CompareUrlState>({
-  ids: topicList('ids', 4),
-  metric: oneOf('metric', ['share', 'count'] as const, 'share'),
-  view: oneOf('view', VIEWS, 'chart'),
-  layout: oneOf('layout', ['one', 'grid'] as const, 'one'),
-})
-
-export const overviewCodec = makeCodec<{ sto: View; wf: View; st: View; pf: View }>({ sto: oneOf('sto', VIEWS, 'chart'), wf: oneOf('wf', VIEWS, 'chart'), st: oneOf('st', VIEWS, 'chart'), pf: oneOf('pf', VIEWS, 'chart') })
-export const topicCodec = makeCodec<{ trend: View; jr: View; org: View }>({ trend: oneOf('trend', VIEWS, 'chart'), jr: oneOf('jr', VIEWS, 'chart'), org: oneOf('org', VIEWS, 'chart') })
-export const JOURNAL_SORTS = ['name', 'tier', 'articles', 'completeness', 'inhouse', 'orgs', 'foreign'] as const
-export type JournalSort = (typeof JOURNAL_SORTS)[number]
-export const TIERS = ['all', '1', '2', '3', 'none'] as const
-export interface JournalsUrlState {
-  q: string
-  tier: (typeof TIERS)[number]
-  sort: JournalSort
-  dir: 'asc' | 'desc'
-  view: View
-}
-export const journalsCodec = makeCodec<JournalsUrlState>({
-  q: text('q', 80),
-  tier: oneOf('tier', TIERS, 'all'),
-  sort: oneOf('sort', JOURNAL_SORTS, 'articles'),
-  dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
-  view: oneOf('view', VIEWS, 'chart'),
-})
-export const journalCodec = makeCodec<{ ty: View; drift: View; mix: View; comp: View }>({ ty: oneOf('ty', VIEWS, 'chart'), drift: oneOf('drift', VIEWS, 'chart'), mix: oneOf('mix', VIEWS, 'chart'), comp: oneOf('comp', VIEWS, 'chart') })
-export const methodsCodec = makeCodec<{ trend: View; corpus: View; mono: 'all' | 'only' }>({ trend: oneOf('trend', VIEWS, 'chart'), corpus: oneOf('corpus', VIEWS, 'chart'), mono: oneOf('mono', ['all', 'only'] as const, 'all') })
-export const referencesCodec = makeCodec<{ jr: View; flow: View }>({ jr: oneOf('jr', VIEWS, 'chart'), flow: oneOf('flow', VIEWS, 'chart') })
-export const INST_SORTS = ['name', 'province', 'articles', 'recent', 'intl', 'partners'] as const
-export type InstSort = (typeof INST_SORTS)[number]
-export const INST_TYPE_FILTERS = ['all', 'university', 'rajabhat', 'rajamangala', 'hospital', 'government', 'research', 'company', 'other'] as const
-export interface InstitutionsUrlState {
-  q: string
-  type: (typeof INST_TYPE_FILTERS)[number]
-  sort: InstSort
-  dir: 'asc' | 'desc'
-  /** the partnership arcs and the partner-country bars: chart or table */
-  net: View
-  ctry: View
-}
-export const institutionsCodec = makeCodec<InstitutionsUrlState>({
-  q: text('q', 80),
-  type: oneOf('type', INST_TYPE_FILTERS, 'all'),
-  sort: oneOf('sort', INST_SORTS, 'articles'),
-  dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
-  net: oneOf('net', VIEWS, 'chart'),
-  ctry: oneOf('ctry', VIEWS, 'chart'),
-})
-/** One institution's page: yearly columns, topic mix, partners, partner countries. */
-export const institutionCodec = makeCodec<{ yr: View; mix: View; ptn: View; ctry: View }>({
-  yr: oneOf('yr', VIEWS, 'chart'),
-  mix: oneOf('mix', VIEWS, 'chart'),
-  ptn: oneOf('ptn', VIEWS, 'chart'),
-  ctry: oneOf('ctry', VIEWS, 'chart'),
-})
-export const REGION_METRICS = ['articles', 'per100k'] as const
-export const regionsCodec = makeCodec<{ m: (typeof REGION_METRICS)[number]; view: View; rv: View }>({
-  m: oneOf('m', REGION_METRICS, 'articles'),
-  view: oneOf('view', VIEWS, 'chart'),
-  rv: oneOf('rv', VIEWS, 'chart'),
-})
-export const sdgCodec = makeCodec<{ fw: string; view: View }>({ fw: text('fw', 24), view: oneOf('view', VIEWS, 'chart') })
-export const globalCodec = makeCodec<{ view: View }>({ view: oneOf('view', VIEWS, 'chart') })
-export const changesCodec = makeCodec<{ flow: View }>({ flow: oneOf('flow', VIEWS, 'chart') })
-export interface SearchUrlState {
-  q: string
-  from: number | null
-  to: number | null
-  topic: string | null
-  journal: string
-}
-export const searchCodec = makeCodec<SearchUrlState>({
-  q: text('q', 200),
-  from: optionalYear('from'),
-  to: optionalYear('to'),
-  topic: optionalTopic('topic'),
-  journal: text('journal', 300),
-})
-export const gapsCodec = makeCodec<{ all: 'no' | 'yes'; w: View; f: View; b: View; c: View }>({
-  all: oneOf('all', ['no', 'yes'] as const, 'no'),
-  w: oneOf('w', VIEWS, 'chart'),
-  f: oneOf('f', VIEWS, 'chart'),
-  b: oneOf('b', VIEWS, 'chart'),
-  c: oneOf('c', VIEWS, 'chart'),
-})
+/** /galaxy: the year range and the field in focus. */
 export interface GalaxyUrlState {
   from: number | null
   to: number | null
   /** taxonomy group id (F… OpenAlex field, G… fallback group); '' = every field */
   g: string
-  view: View
 }
 export const galaxyCodec = makeCodec<GalaxyUrlState>({
   from: optionalYear('from'),
   to: optionalYear('to'),
   g: text('g', 24),
-  view: oneOf('view', VIEWS, 'chart'),
 })
-/** Keyword picks of /keywords: "<lang>:<term>" items joined by "|". null (no k in the URL) = the page's default pick;
- *  "" = the visitor removed every keyword. */
-export function keywordList(key: string, max: number): Field<string[] | null> {
-  return {
-    key,
-    def: null,
-    parse: (raw) =>
-      raw === null
-        ? null
-        : [...new Set(raw.split('|').map((s) => s.trim()).filter((s) => /^(th|en):\S/.test(s) && s.length <= 160))].slice(0, max),
-    write: (v) => (v === null ? null : v.join('|')),
-  }
-}
-export const KEYWORD_MAX = 4
-export interface KeywordsUrlState {
-  k: string[] | null
-  view: View
-  /** glossary filter */
-  gq: string
-}
-export const keywordsCodec = makeCodec<KeywordsUrlState>({
-  k: keywordList('k', KEYWORD_MAX),
-  view: oneOf('view', VIEWS, 'chart'),
-  gq: text('gq', 80),
-})
-
-/** /ideas: the chosen field (a taxonomy group id; '' = all fields). */
-export const ideasCodec = makeCodec<{ g: string }>({ g: text('g', 40) })
-
-/** /province/:code: the topics figure's view. */
-export const provinceCodec = makeCodec<{ v: View }>({ v: oneOf('v', VIEWS, 'chart') })

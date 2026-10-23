@@ -2,7 +2,7 @@
 
   <site>/data/feeds/releases.xml         one entry per release on the site, newest first (≤ publish.feed_max_entries):
                                          title = release, summary = overview headline (TH, EN) + what changed
-                                         (new / gone / status changes from diff.json when present), link #/changes
+                                         (new / gone / status changes from diff.json when present), link #/topics
   <site>/data/feeds/topics/<id>.xml      one feed per topic of the newest release on the site; entries = the releases
                                          (newest first, same cap) where the topic exists: status, articles in the
                                          recent window, share growth; link #/topics/<id>
@@ -145,9 +145,9 @@ def write_feeds(site: str | Path, site_url: str, max_entries: int = 12, recent_w
     stamp = {r: str((_read(data / r / "manifest.json") or {}).get("generated_at", "")) for r in releases}
     feeds = data / FEEDS_DIR
     entries = [{"id": f"{base}data/{r}/manifest.json", "title": r, "updated": stamp[r],
-                "link": f"{base}#/changes", "summary": _release_summary(data / r)} for r in shown]
+                "link": f"{base}#/topics", "summary": _release_summary(data / r)} for r in shown]
     _write(feeds / "releases.xml", _feed(f"{base}data/{FEEDS_DIR}/releases.xml", "TCI Research Atlas — releases",
-                                         stamp[releases[0]], f"{base}#/changes", entries))
+                                         stamp[releases[0]], f"{base}#/topics", entries))
 
     topics_by_release, years = {}, {r: _years(data / r, recent_window) for r in shown}
     for r in shown:

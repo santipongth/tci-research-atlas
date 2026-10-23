@@ -12,33 +12,20 @@ const PORT = Number(process.env.ATLAS_E2E_PORT ?? 4173)
 const EXAMPLE = `http://127.0.0.1:${PORT}/`
 const EMPTY = `http://127.0.0.1:${PORT + 1}/`
 
+/** The five dashboards, their detail pages, the two maps, the reading guide and the two embeddable widgets. */
 const ROUTES = [
   { name: 'overview', path: '/overview' },
-  { name: 'atlas', path: '/atlas' },
-  { name: 'topic', path: '/topics/T000201' },
-  { name: 'emerging', path: '/emerging' },
-  { name: 'compare', path: '/compare?ids=T000201,T000701' },
-  { name: 'data', path: '/data' },
-  { name: 'about', path: '/about' },
-  { name: 'brief', path: '/brief' },
+  { name: 'topics', path: '/topics' },
+  { name: 'places', path: '/places' },
   { name: 'journals', path: '/journals' },
+  { name: 'goals', path: '/goals' },
+  { name: 'topic', path: '/topics/T000201' },
   { name: 'journal', path: '/journals/so02.example0' },
-  { name: 'methods', path: '/methods' },
-  { name: 'changes', path: '/changes' },
-  { name: 'match', path: '/match' },
-  { name: 'institutions', path: '/institutions' },
   { name: 'institution', path: '/institutions/mu-a' },
-  { name: 'regions', path: '/regions' },
-  { name: 'sdg', path: '/sdg' },
-  { name: 'global', path: '/global' },
-  { name: 'gaps', path: '/gaps' },
-  { name: 'search', path: '/search' },
-  { name: 'galaxy', path: '/galaxy' },
-  { name: 'keywords', path: '/keywords' },
-  { name: 'references', path: '/references' },
-  { name: 'story', path: '/story' },
-  { name: 'ideas', path: '/ideas' },
   { name: 'province', path: '/province/TH-50' },
+  { name: 'atlas', path: '/atlas' },
+  { name: 'galaxy', path: '/galaxy' },
+  { name: 'about', path: '/about' },
   { name: 'embedTopic', path: '/embed/topic/T000201' },
   { name: 'embedEmerging', path: '/embed/emerging' },
 ] as const
@@ -46,114 +33,141 @@ const ROUTES = [
 type RouteName = (typeof ROUTES)[number]['name']
 type Check = (page: Page) => Promise<void>
 
-/** Page-specific checks against the example release; each page task adds one line between the markers. */
+/** Page-specific checks against the example release. */
 const CHECKS: Partial<Record<RouteName, Check>> = {
-  // checks:start
   overview: async (page) => {
-    // the front door is a data story: the question, the answer (its topic links), one number and the chart
-    await expect(page.locator('h1')).toHaveText('งานวิจัยไทย เรื่องไหนกำลังมา')
-    await expect(page).toHaveTitle(/งานวิจัยไทย เรื่องไหนกำลังมา/)
-    await expect(page.locator('.story-answer a')).toHaveText('ปัญญาประดิษฐ์ทางการแพทย์') // the leader is a confirmed riser with a baseline: the no-baseline LLM topic is not
-    await expect(page.locator('.story-answer a')).toHaveAttribute('href', /#\/topics\/T\d{6}$/)
-    await expect(page.locator('.story-big')).toHaveText('+36%')                         // share growth +36%/yr (under +100%, so as a percent)
-    await expect(page.locator('#fig-story-panel .sl-series')).toHaveCount(5)
-    await expect(page.locator('#fig-story-panel .sl-series.is-on')).toHaveCount(1)
-    // pointing at another name moves the focus line; the table tab carries the same numbers
-    await page.locator('#fig-story-panel .sl-lab').nth(1).focus()
-    await expect(page.locator('#fig-story-panel .sl-lab').nth(1)).toHaveAttribute('aria-pressed', 'true')
-    await page.locator('#fig-story-tab-table').click()
-    await expect(page).toHaveURL(/sto=table/)
-    await expect(page.locator('#fig-story-panel tbody tr')).toHaveCount(10)
-    await page.locator('#fig-story-tab-chart').click()
-    // three findings, each led by its topic (a link); no sparklines beside the numbers
-    await expect(page.locator('#findings .find')).toHaveCount(3)
-    await expect(page.locator('#findings .find-topic a').first()).toHaveAttribute('href', /#\/topics\/T\d{6}$/)
-    await expect(page.locator('#findings .spark, #kpi .spark')).toHaveCount(0)
-    await expect(page.getByRole('link', { name: 'สรุป 1 หน้า' })).toHaveAttribute('href', '#/brief')
-    await expect(page.locator('#kpi .stat')).toHaveCount(8)
-    await expect(page.locator('#policy ol.policy-list > li')).toHaveCount(3)
-    await expect(page.locator('#kpi .stat-d').first()).toContainText('2026Q3')
-    await expect(page.locator('.fr-row').first()).toBeVisible()
-    // a topic new since the baseline is marked as such; the axis reaches its +129% upper bound instead of clipping it
-    await expect(page.locator('.fr-row', { hasText: 'โมเดลภาษาขนาดใหญ่' }).first()).toContainText('ใหม่ — ปี')
-    await expect(page.locator('.fr-axis').first()).toContainText('+120%')
-    // portfolio labels sit beside the markers, never on one
-    await page.evaluate(() => document.fonts.ready)
-    await expect(page.locator('.pf-ltext').first()).toBeVisible()
-    const onMarkers = await page.evaluate(() => {
-      const marks = [...document.querySelectorAll('.pf-node .mk')].map((m) => m.getBoundingClientRect())
-      return [...document.querySelectorAll('.pf-ltext')]
-        .filter((l) => {
-          const r = l.getBoundingClientRect()
-          return marks.some((m) => r.left + 1 < m.right && m.left < r.right - 1 && r.top + 1 < m.bottom && m.top < r.bottom - 1)
-        })
-        .map((l) => l.textContent)
-    })
-    expect(onMarkers).toEqual([])
-    // status waffle: one square per topic, and its table tab with a row per status
-    await expect(page.locator('.wf-cell')).toHaveCount(48)
-    await page.locator('#fig-statusmix-tab-table').click()
-    await expect(page.locator('#fig-statusmix-panel tbody tr')).toHaveCount(6)
-    await expect(page).toHaveURL(/wf=table/)
-    await page.locator('#fig-status-tab-table').click()
-    await expect(page.locator('#fig-status-panel table')).toContainText('ใหม่ — ปี')
-    await expect(page).toHaveURL(/st=table/)
+    await expect(page.locator('h1')).toHaveText('ภาพรวม')
+    await expect(page).toHaveTitle(/ภาพรวม/)
+    // four KPI cards, each with its change since the last release
+    await expect(page.locator('.kpi')).toHaveCount(4)
+    await expect(page.locator('.kpi-d').first()).toContainText('+')
+    await expect(page.locator('.pbar-sub')).toContainText('2026Q3')
+    // the rising topics: the line chart and the ranked list beside it; the list switches to falling topics (in the URL)
+    await expect(page.locator('.sl-series')).toHaveCount(4)                 // the small risers; the large hot one is left out of the chart
+    await expect(page.locator('.rise').first().locator('li')).toHaveCount(5)
+    await expect(page.locator('.rise-name').first()).toHaveAttribute('href', /#\/topics\/T\d{6}$/)
+    await page.getByRole('button', { name: 'ลดลง', exact: true }).click()
+    await expect(page).toHaveURL(/mv=down/)
+    await expect(page.locator('.rise').first().locator('.chip-DECLINING').first()).toBeVisible()
+    // every topic by status: the ring and a row per status with glyph, name, count and share
+    await expect(page.locator('.dn-list li')).toHaveCount(6)
+    await expect(page.locator('.dn-total')).toHaveText('48')
+    // where: the province map and the institutions (lazy cards)
+    await expect(page.locator('.pv-mini .pmap')).toBeVisible()
+    await expect(page.locator('a[href$="/institutions/mu-a"]').first()).toBeVisible()
+    // this release in brief: findings, and the notes for policy makers behind the switch
+    await expect(page.locator('.pol li').first()).toBeVisible()
+    await page.getByRole('button', { name: 'สำหรับผู้วางนโยบาย' }).click()
+    await expect(page).toHaveURL(/pt=policy/)
+    await expect(page.getByRole('button', { name: 'พิมพ์ / บันทึก PDF' })).toBeVisible()
+    // no chart ⇄ table tabs, "how to read" or CSV buttons on a dashboard (owner 2026-10-24)
+    await expect(page.getByRole('tab')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /CSV/ })).toHaveCount(0)
+    // an explanation opens from the (i) beside a card title, by click
+    const info = page.getByRole('button', { name: /เกี่ยวกับ5 จังหวัด|เกี่ยวกับหัวข้อที่ขยับมากที่สุด/ }).first()
+    await info.click()
+    await expect(info).toHaveAttribute('aria-expanded', 'true')
   },
-  emerging: async (page) => {
-    await expect(page.getByRole('tab', { name: /กำลังเกิดใหม่/ })).toHaveAttribute('aria-selected', 'true')
-    // the rule as four checks; the open status's step is marked
-    // the rule as a decision diagram: four questions; the open tab's status is marked, with its count and an example
-    await expect(page.locator('.em-steps .sfc-row')).toHaveCount(4)
-    await expect(page.locator('.em-steps .sfc-out.is-current')).toContainText('กำลังเกิดใหม่')
-    await expect(page.locator('.em-steps .sfc-out.is-current')).toContainText('5 หัวข้อ')
-    await expect(page.locator('.forest.is-wide .fr-row').first()).toBeVisible()
-    await page.getByRole('tab', { name: /จับตา/ }).click()
+  topics: async (page) => {
+    await expect(page.locator('h1')).toHaveText('หัวข้อวิจัย')
+    // six status buttons: glyph, name, count; the emerging ones open first
+    await expect(page.locator('.st-pick-b')).toHaveCount(6)
+    await expect(page.locator('.st-pick-b.is-EMERGING')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.dgrid .rise').first().locator('li')).toHaveCount(5)
+    await page.locator('.st-pick-b.is-WATCH').click()
     await expect(page).toHaveURL(/status=WATCH/)
-    await expect(page.locator('#em-status-panel .inset')).toBeVisible()
-    await page.locator('#em-status-panel').getByRole('button', { name: 'ตาราง', exact: true }).click()
-    await expect(page).toHaveURL(/view=table/)
-    await page.locator('#em-status-panel').getByRole('button', { name: 'วารสาร' }).first().click()
-    await expect(page.locator('#em-status-panel th[aria-sort="descending"]')).toContainText('วารสาร')
-    await expect(page).toHaveURL(/sort=journals/)
-    await expect(page.locator('#em-status-panel').getByRole('button', { name: 'ดาวน์โหลด CSV' })).toBeVisible()
-    await expect(page.locator('#keywords')).toContainText('chatgpt')
+    await expect(page.locator('.card-title').first()).toContainText('จับตา')
+    // a long status shows ten rows at a time
+    await page.locator('.st-pick-b.is-STABLE').click()
+    await expect(page.locator('.dgrid .rise').first().locator('li')).toHaveCount(10)
+    await page.getByRole('button', { name: /แสดงเพิ่มอีก 10/ }).click()
+    await expect(page.locator('.dgrid .rise').first().locator('li')).toHaveCount(20)
+    await page.getByRole('button', { name: 'บทความมากที่สุด' }).click()
+    await expect(page).toHaveURL(/by=size/)
+    // what changed since 2026Q3, the portfolio, rising keywords, few-institution topics and the fields
+    await expect(page.locator('.mini-stats > div')).toHaveCount(3)
+    await expect(page.locator('svg.pf .pf-node').first()).toBeVisible()
+    await expect(page.locator('.rise-name', { hasText: 'chatgpt' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'หัวข้อในแต่ละสาขาหลัก' })).toBeVisible()
+  },
+  places: async (page) => {
+    await expect(page.locator('h1')).toHaveText('สถาบันและจังหวัด')
+    await expect(page.locator('.kpi')).toHaveCount(4)
+    await expect(page.locator('.pv-big .pmap')).toBeVisible()
+    await expect(page.locator('.prov-cols a').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'ใครเขียนร่วมกับใคร' })).toBeVisible()
+    await page.locator('.prov-cols').getByRole('link', { name: 'เชียงใหม่' }).click()
+    await expect(page).toHaveURL(/#\/province\/TH-50$/)
+  },
+  journals: async (page) => {
+    await expect(page.locator('h1')).toHaveText('วารสาร')
+    await expect(page.locator('.kpi').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: /วารสารแต่ละฉบับ/ })).toBeVisible()
+    const list = page.locator('.card', { has: page.getByRole('heading', { name: 'วารสารทั้งหมด' }) })
+    await expect(list.locator('.rise li')).toHaveCount(6)
+    await page.getByRole('button', { name: 'ข้อมูลครบที่สุด' }).click()
+    await expect(page).toHaveURL(/by=complete/)
+    await expect(list.locator('.rise-name').first()).toHaveAttribute('href', /#\/journals\//)
+    await expect(page.getByRole('heading', { name: 'วิธีวิจัยที่ใช้บ่อยที่สุด' })).toBeVisible()
+  },
+  goals: async (page) => {
+    await expect(page.locator('h1')).toHaveText('เป้าหมายชาติและโลก')
+    await expect(page.locator('.gt-tile')).toHaveCount(10)                  // the SDGs with research; the 7 without are listed beside them
+    await expect(page.locator('.gt-tile.is-empty')).toHaveCount(0)
+    await page.locator('.seg').getByRole('button').nth(1).click()
+    await expect(page).toHaveURL(/fw=/)
+    await expect(page.locator('svg.oq')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'เรื่องที่พึ่งสถาบันหรือวารสารเดียว' })).toBeVisible()
   },
   topic: async (page) => {
     await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
-    // hero: status, the growth sentence, the share and articles tiles with sparklines, and an example article
-    await expect(page.locator('.tp-hero .chip')).toContainText('กำลังเกิดใหม่')
-    await expect(page.locator('.tp-hero-g')).toContainText('ต่อปี')
-    await expect(page.locator('.tp-hero .stat')).toHaveCount(2)
-    await expect(page.locator('.tp-hero .stat').first()).toContainText('%')
-    await expect(page.locator('.tp-hero .spark')).toHaveCount(0)                    // numbers stand alone; the trend is figure 1
-    await expect(page.locator('.tp-eg a')).toHaveAttribute('href', /tci-thaijo\.org/)
+    await expect(page.locator('.pbar .chip')).toContainText('กำลังเกิดใหม่')
+    await expect(page.locator('.kpi')).toHaveCount(4)
+    await expect(page.locator('.kpi').first()).toContainText('ต่อปี')
     await expect(page.locator('svg.tr')).toBeVisible()
     await expect(page.getByRole('link', { name: /AI เพื่อการศึกษา: กรณีศึกษาที่ 1/ }).first()).toHaveAttribute('href', /tci-thaijo\.org/)
-    // journals and institutions: a top-5 bar ranking with the full table behind its tab
-    await expect(page.locator('#journals .br-row').first()).toBeVisible()
-    await page.locator('#fig-journals-tab-table').click()
-    await expect(page.locator('#fig-journals-panel tbody tr').first()).toBeVisible()
-    await expect(page).toHaveURL(/jr=table/)
-    await expect(page.locator('#related')).toBeVisible()
-    // P4: glossary, cited-in-TCI figure (0 is a value, not a missing one), SDG goal chips, RIS export of the articles
-    await expect(page.locator('#glossary tbody tr')).toHaveCount(2)
-    await expect(page.locator('#glossary')).toContainText('generative AI')
-    await expect(page.locator('#numbers .stats')).toContainText('บทความอื่นอ้างถึง')
+    await expect(page.locator('.br-row').first()).toBeVisible()
+    await expect(page.locator('.gloss')).toContainText('generative AI')
     await expect(page.locator('.tp-sdg-chip')).toContainText('SDG 4')
-    const ris = page.waitForEvent('download')
-    await page.getByRole('button', { name: /บทความตัวแทน 4 เรื่องเป็น RIS/ }).click()
-    expect((await ris).suggestedFilename()).toBe('atlas-2026Q4-T000201-articles.ris')
-    // P4: fixtures have latest.feeds false → no feed link; the embed code points at this site's widget
-    await expect(page.locator('.feed-link')).toHaveCount(0)
-    await page.locator('.embed-snip summary').click()
-    await expect(page.locator('#embed-code-topic')).toHaveValue(new RegExp(`^<iframe src="http://127\\.0\\.0\\.1:${PORT}/#/embed/topic/T000201\\?lang=th" title="AI เพื่อการศึกษา — TCI Research Atlas"`))
+    await expect(page.locator('.tp-sdg-chip').first()).toHaveAttribute('href', '#/goals')
+    // no compare button, RIS/BibTeX or embed code any more; fixtures have no feeds → no feed link
+    await expect(page.getByRole('link', { name: /เปรียบเทียบ/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /RIS|BibTeX/ })).toHaveCount(0)
+    await expect(page.locator('a[type="application/atom+xml"]')).toHaveCount(0)
     await page.goto(`${EXAMPLE}#/topics/T000701`)
-    await expect(page.locator('.uncertain')).toContainText('แนวโน้มไม่แน่นอน')
-    await expect(page.locator('.uncertain')).not.toContainText('บทความยังน้อย')
     await expect(page.locator('.tr-band')).toHaveCount(0)
-    await expect(page.locator('#numbers .stats')).toContainText('ใหม่ — ปี')
     await page.goto(`${EXAMPLE}#/topics/T123456`)
     await expect(page.locator('h1')).toContainText('T123456')
+    await expect(page.getByRole('link', { name: 'ไปหน้าหัวข้อวิจัยทั้งหมด' })).toHaveAttribute('href', '#/topics')
+  },
+  journal: async (page) => {
+    await expect(page.locator('h1')).toHaveText('วารสารวิชาการตัวอย่าง ก')
+    await expect(page.locator('.kpi')).toHaveCount(4)
+    await expect(page.locator('#topics .br-row').first()).toBeVisible()
+    await expect(page.locator('#topic-years .smx-panel')).toHaveCount(4)
+    await expect(page.locator('#drift .pm-row')).toHaveCount(2)
+    await expect(page.locator('#completeness .ck-row')).toHaveCount(7)
+    await expect(page.locator('#peers')).toContainText('example2')
+    await expect(page.locator('#opportunities')).toContainText('ยานยนต์ไฟฟ้า')
+    await page.goto(`${EXAMPLE}#/journals/so02.nowhere`)
+    await expect(page.locator('h1')).toContainText('so02.nowhere')
+  },
+  institution: async (page) => {
+    await expect(page.locator('h1')).toHaveText('มหาวิทยาลัยตัวอย่าง ก')
+    await expect(page.locator('.kpi')).toHaveCount(4)
+    await expect(page.locator('#years .cc-col')).toHaveCount(10)
+    await expect(page.locator('#topics .mx-seg')).toHaveCount(5)                  // 4 topics + "อื่น ๆ"
+    await expect(page.locator('#partners .br-row')).toHaveCount(3)
+    await expect(page.locator('#suggested')).toContainText('มหาวิทยาลัยเทคโนโลยีราชมงคลตัวอย่าง')
+    await page.goto(`${EXAMPLE}#/institutions/nowhere`)
+    await expect(page.locator('h1')).toContainText('nowhere')
+  },
+  province: async (page) => {
+    await expect(page.locator('h1')).toHaveText('งานวิจัยในเชียงใหม่')
+    await expect(page.locator('.kpi')).toHaveCount(4)
+    await expect(page.locator('svg.plc path.is-on')).toHaveCount(1)
+    await expect(page.locator('.dgrid .br-row')).toHaveCount(5)
+    await expect(page.getByRole('combobox')).toHaveCount(0)
   },
   atlas: async (page) => {
     await expect(page.locator('canvas.terrain')).toBeVisible()
@@ -165,312 +179,16 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.getByRole('button', { name: 'ขยาย', exact: true }).click()
     await page.getByLabel('เส้นชั้น', { exact: true }).uncheck()
     await expect(page).toHaveURL(/layers=/)
-    await page.getByRole('searchbox', { name: 'ค้นหาในดัชนีหัวข้อ' }).fill('ข้าว')
-    await page.getByRole('button', { name: /การปลูกข้าว/ }).click()
-    await expect(page).toHaveURL(/sel=T000401/)
-  },
-  compare: async (page) => {
-    await expect(page.locator('.cmp-chip')).toHaveCount(2)
-    await expect(page.locator('svg.ml path.ml-line')).toHaveCount(2)
-    await page.getByLabel('แยกทีละหัวข้อ').check()
-    await expect(page).toHaveURL(/layout=grid/)
-    await expect(page.locator('.smx-panel')).toHaveCount(2)
-    await page.getByLabel('กราฟเดียว').check()
-    await expect(page.locator('svg.ml path.ml-line')).toHaveCount(2)
-    const add = page.getByRole('combobox', { name: 'เพิ่มหัวข้อเข้าแผนภูมิ' })
-    await add.fill('ยานยนต์')
-    await add.press('Enter')
-    await expect(page).toHaveURL(/ids=T000201%2CT000701%2CT000502/)
-    await page.getByLabel('จำนวนบทความ', { exact: true }).check()
-    await expect(page).toHaveURL(/metric=count/)
-    await page.getByRole('button', { name: 'เอาออก: AI เพื่อการศึกษา' }).click()
-    await expect(page.locator('.cmp-chip')).toHaveCount(2)
-    // focus follows the change: the next chip's remove button, then the "max 4" hint when the picker fills up
-    await expect(page.locator('.cmp-remove').first()).toBeFocused()
-    await add.fill('ข้าว')
-    await add.press('Enter')
-    await add.fill('ผู้สูงอายุ')
-    await add.press('Enter')
-    await expect(page.locator('.cmp-chip')).toHaveCount(4)
-    await expect(add).toBeDisabled()
-    await expect(page.locator('p.hint', { hasText: /4/ })).toBeFocused()
-    await page.locator('.cmp-remove').last().click()
-    await expect(page.locator('.cmp-remove').last()).toBeFocused()
-    await expect(add).toBeEnabled()
-  },
-  data: async (page) => {
-    await expect(page.locator('#csv .ez-card')).toHaveCount(3)
-    await expect(page.locator('#csv .ez-card').first()).toContainText('KB')
-    await expect(page.locator('#developers #downloads')).toBeVisible()
-    await expect(page.locator('#quality .qc-row').first()).toBeVisible()
-    await expect(page.locator('#downloads .dl-list li')).toHaveCount(7)
-    await expect(page.locator('#downloads a[download]').first()).toHaveAttribute('href', /data\/2026Q4\/manifest\.json$/)
-    await expect(page.locator('#quality')).toContainText('2025')
-    await expect(page.locator('#dictionary table')).toBeVisible()
-    await expect(page.locator('#modules .dl-list li')).toHaveCount(13)
-    const download = page.waitForEvent('download')
-    await page.locator('#csv').getByRole('button', { name: 'ดาวน์โหลด CSV' }).first().click()
-    expect((await download).suggestedFilename()).toBe('atlas-2026Q4-topics.csv')
-  },
-  about: async (page) => {
-    await expect(page.locator('#flow .afl-st')).toHaveCount(5)
-    await expect(page.locator('#definition .ab-tree .sfc-row')).toHaveCount(4)
-    await expect(page.locator('.defs > div')).toHaveCount(6)
-    await expect(page.locator('#changelog li')).toHaveCount(2)
-    await expect(page.locator('#definition')).toContainText('+10%')
-    // cite this atlas (folded until asked): APA-like text and BibTeX for the current release, organisation as author
-    await expect(page.locator('#cite details')).not.toHaveAttribute('open')
-    await page.locator('#cite summary').click()
-    await expect(page.locator('#cite-apa')).toHaveValue(/ศูนย์ดัชนีการอ้างอิงวารสารไทย \(TCI\)\. \(\d{4}\)\. .*รอบข้อมูล 2026Q4/)
-    await expect(page.locator('#cite-bib')).toHaveValue(/^@misc\{tci-atlas-2026q4,[\s\S]*author = \{\{Thai-Journal Citation Index Centre \(TCI\)\}\}/)
-    await expect(page.locator('#cite').getByRole('button', { name: 'คัดลอก แบบ APA' })).toBeVisible()
-  },
-  brief: async (page) => {
-    await expect(page.locator('[data-brief-ready="true"]')).toBeVisible()
-    await expect(page.locator('h2#brief-exec')).toBeVisible()
-    await expect(page.locator('.brief .headline mark').first()).toBeVisible()
-    await expect(page.locator('.brief .stat')).toHaveCount(4)
-    await expect(page.locator('.brief .find')).toHaveCount(3)
-    await expect(page.locator('.brief .wf-cell')).toHaveCount(48)
-    await expect(page.locator('.brief .dp-row')).toHaveCount(7)
-  },
-  journals: async (page) => {
-    await expect(page.locator('#scatter svg.js .js-pt')).toHaveCount(5)
-    await expect(page.locator('#scatter svg.js .oq-zone')).toHaveCount(1)
-    await expect(page.locator('#scatter .oq-label').first()).toBeVisible()
-    await page.locator('#fig-journals-tab-table').click()
-    await expect(page).toHaveURL(/view=table/)
-    await expect(page.locator('#fig-journals-panel tbody tr')).toHaveCount(5)
-    await expect(page.locator('#special-issues .si-card')).toHaveCount(3)
-    const rows = page.locator('#journals tbody tr')
-    await expect(rows).toHaveCount(6)
-    await expect(page.locator('#journals')).toContainText('example2')          // no registry name → the OJS name
-    await expect(page.locator('#journals .flag', { hasText: 'อนุมาน' }).first()).toBeVisible()
-    await page.getByLabel('ค้นหาวารสาร (ชื่อหรือ ISSN)').fill('example5')
-    await expect(rows).toHaveCount(1)
-    await expect(page).toHaveURL(/q=example5/)
-    await page.getByLabel('ค้นหาวารสาร (ชื่อหรือ ISSN)').fill('')
-    await page.getByLabel('กลุ่มวารสาร TCI').selectOption('1')
-    await expect(rows).toHaveCount(2)
-    await expect(page.locator('#special-issues')).toContainText('ไมโครพลาสติก')
-    await page.locator('#journals').getByRole('link', { name: 'วารสารวิชาการตัวอย่าง ก' }).click()
-    await expect(page).toHaveURL(/#\/journals\/so02\.example0$/)
-  },
-  journal: async (page) => {
-    await expect(page.locator('h1')).toHaveText('วารสารวิชาการตัวอย่าง ก')
-    await expect(page.locator('#topics table')).toBeVisible()
-    await expect(page.locator('#peers')).toContainText('example2')
-    await expect(page.locator('#numbers .spark')).toHaveCount(0)
-    await expect(page.locator('#fig-mix-panel .pm-row')).toHaveCount(2)
-    await expect(page.locator('#fig-mix-panel .pm-key li')).toHaveCount(3)              // 2 topics + "เรื่องอื่น"
-    await expect(page.locator('#fig-topic-years-panel .smx-panel')).toHaveCount(4)     // the journal's 4 largest topics, year by year
-    await expect(page.locator('#fig-topic-years-panel .note').filter({ hasText: 'เช่น' })).toContainText('ในปี 2020')
-    await expect(page.locator('#fig-topic-years-panel')).not.toContainText('เว้นว่าง')   // example0 has no thin year
-    await page.locator('#fig-topic-years-tab-table').click()
-    await expect(page).toHaveURL(/ty=table/)
-    await expect(page.locator('#fig-topic-years-panel tbody tr')).toHaveCount(5)
-    await expect(page.locator('#fig-comp-panel .ck-row')).toHaveCount(7)
-    await expect(page.locator('#completeness')).toContainText('DOI')
-    await expect(page.locator('#opportunities')).toContainText('ยานยนต์ไฟฟ้า')
-    await page.locator('#fig-drift-tab-table').click()
-    await expect(page).toHaveURL(/drift=table/)
-    await page.locator('#fig-comp-tab-table').click()
-    await expect(page.locator('#fig-comp-panel tbody tr')).toHaveCount(7)
-    await page.goto(`${EXAMPLE}#/journals/so02.nowhere`)
-    await expect(page.locator('h1')).toContainText('so02.nowhere')
-  },
-  story: async (page) => {
-    await expect(page.locator('.fact')).toHaveCount(5)
-    await expect(page.locator('.fact-big').first()).toHaveText('+36%')
-    await expect(page.getByRole('button', { name: 'ดาวน์โหลดภาพสำหรับแชร์' })).toHaveCount(5)
-  },
-  ideas: async (page) => {
-    await expect(page.locator('.idea')).toHaveCount(8)
-    await page.getByLabel('สาขา').selectOption({ index: 1 })
-    await expect(page).toHaveURL(/g=/)
-    await expect(page.locator('#bridges, .empty-state, .idea').first()).toBeVisible()
-  },
-  province: async (page) => {
-    await expect(page.locator('h1')).toHaveText('งานวิจัยในเชียงใหม่')
-    await expect(page.locator('#fig-pv-topics-panel .br-row')).toHaveCount(5)
-    await expect(page.locator('svg.plc path.is-on')).toHaveCount(1)
-    await page.locator('#fig-pv-topics-tab-table').click()
-    await expect(page.locator('#fig-pv-topics-panel tbody tr')).toHaveCount(5)
-    await expect(page).toHaveURL(/v=table/)
-    await page.getByLabel('ดูจังหวัดอื่น').selectOption('TH-10')
-    await expect(page).toHaveURL(/#\/province\/TH-10$/)
-  },
-  methods: async (page) => {
-    await expect(page.locator('svg.ml path.ml-line')).toHaveCount(4)
-    await expect(page.locator('#corpus .br > .br-row')).toHaveCount(16)                  // 6 shown + 10 folded
-    await expect(page.locator('#corpus .br-rest')).not.toHaveAttribute('open')
-    await page.locator('#fig-corpus-tab-table').click()
-    await expect(page).toHaveURL(/corpus=table/)
-    await expect(page.locator('#lexicon li')).toHaveCount(16)
-    await page.getByLabel('แสดงเฉพาะหัวข้อที่ใช้วิธีเดียวเป็นหลัก').check()
-    await expect(page).toHaveURL(/mono=only/)
-    await expect(page.locator('#topics tbody tr')).toHaveCount(2)
-  },
-  changes: async (page) => {
-    await expect(page.locator('.ch-lead')).toContainText('+3')
-    // status changes as a flow (one band per transition) with the topic list behind its table tab
-    await expect(page.locator('#status svg path.sf-band')).toHaveCount(5)
-    await expect(page.locator('#status .sf-node').first()).toBeVisible()
-    await page.locator('#status').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page).toHaveURL(/flow=table/)
-    await expect(page.locator('#status tbody tr')).toHaveCount(5)
-    await expect(page.locator('#lineage .lk-item')).toHaveCount(4)
-    await expect(page.locator('#kpis .stat')).toHaveCount(5)
-    await expect(page.locator('#new li')).toHaveCount(3)
-    await expect(page.locator('#retired')).toContainText('หนังสือพิมพ์รายวัน')
-    await expect(page.locator('#retired')).toContainText('รวมเข้ากับ')                 // merged_into is never a plain disappearance
-    await expect(page.locator('#restructured li')).toHaveCount(2)
-    await expect(page.locator('#movers table')).toBeVisible()
-    await expect(page.locator('#journals')).toContainText('example5')
-    await expect(page.locator('.feed-link')).toHaveCount(0)
-  },
-  match: async (page) => {
-    await expect(page.locator('.privacy')).toBeVisible()
-    await expect(page.locator('.ms-steps .step')).toHaveCount(3)
-    const sent: string[] = []
-    page.on('request', (r) => sent.push(`${r.url()} ${r.postData() ?? ''}`))
-    await page.getByRole('button', { name: 'ลองด้วยตัวอย่าง' }).click()
-    await expect(page.getByLabel('ข้อความของคุณ')).toHaveValue(/ผู้สูงอายุในชุมชน/)
-    await expect(page.locator('#match-results')).toBeFocused()
-    await expect(page.locator('.ms-card').first()).toBeVisible()
-    await expect(page.locator('.ms-card .ms-bar').first()).toBeVisible()
-    const sample = ['ผู้ดูแลในครอบครัว', encodeURIComponent('ผู้ดูแลในครอบครัว'), 'อาสาสมัครสาธารณสุข', encodeURIComponent('อาสาสมัคร')]
-    expect(sent.filter((r) => sample.some((w) => r.includes(w)))).toEqual([])     // no request carries the text
-    expect(page.url()).not.toContain(encodeURIComponent('ผู้ดูแล'))
-    const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }))
-    expect(stored).not.toContain('ผู้ดูแลในครอบครัว')
-    await page.getByRole('button', { name: 'ล้างข้อความ' }).click()
-    const box = page.getByLabel('ข้อความของคุณ')
-    await box.fill('AI')
-    await page.getByRole('button', { name: 'หาหัวข้อที่ใกล้ที่สุด' }).click()
-    await expect(page.getByRole('alert')).toContainText('อย่างน้อย')
-    const text = 'AI เพื่อการศึกษา ปัญญาประดิษฐ์ การเรียนการสอน generative AI teaching'
-    await box.fill(text)
-    await page.getByRole('button', { name: 'หาหัวข้อที่ใกล้ที่สุด' }).click()
-    await expect(page.locator('#match-results')).toBeFocused()
-    await expect(page.locator('.ms-card .topic-link').first()).toContainText('AI เพื่อการศึกษา')
-    await expect(page.locator('#match-journals')).toBeVisible()
-    expect(page.url()).not.toContain('generative')                       // the pasted text never enters the URL
-    expect(page.url()).not.toContain(encodeURIComponent('ปัญญา'))
-  },
-  institutions: async (page) => {
-    const rows = page.locator('#institutions tbody tr')
-    await expect(rows).toHaveCount(8)
-    await page.getByLabel('ประเภทสถาบัน').selectOption('rajabhat')
-    await expect(rows).toHaveCount(1)
-    await expect(page).toHaveURL(/type=rajabhat/)
-    await page.getByLabel('ประเภทสถาบัน').selectOption('all')
-    await expect(page.locator('#glance .stat')).toHaveCount(2)
-    // partnerships as an arc diagram (one arc per pair), every pair in the table view
-    await expect(page.locator('#partnerships svg.an-svg path.an-link')).toHaveCount(6)
-    await page.locator('#partnerships').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.locator('#partnerships tbody tr')).toHaveCount(6)
-    await expect(page.locator('#countries .br-row')).toHaveCount(5)
-    await expect(page.locator('#countries')).toContainText('ญี่ปุ่น')
-    await page.locator('#institutions').getByRole('link', { name: 'มหาวิทยาลัยตัวอย่าง ก' }).click()
-    await expect(page).toHaveURL(/#\/institutions\/mu-a$/)
-  },
-  institution: async (page) => {
-    await expect(page.locator('h1')).toHaveText('มหาวิทยาลัยตัวอย่าง ก')
-    await expect(page.locator('#years .cc-col')).toHaveCount(10)
-    await expect(page.locator('#topics .mx-seg')).toHaveCount(5)                  // 4 topics + "อื่น ๆ"
-    await expect(page.locator('#partners .br-row')).toHaveCount(3)
-    await page.locator('#topics').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.locator('#topics tbody tr')).toHaveCount(5)
-    await expect(page.locator('#suggested')).toContainText('มหาวิทยาลัยเทคโนโลยีราชมงคลตัวอย่าง')
-    await page.goto(`${EXAMPLE}#/topics/T000101`)
-    await expect(page.locator('#orgs a[href$="/institutions/mu-a"]').first()).toBeVisible()
-    await page.goto(`${EXAMPLE}#/institutions/nowhere`)
-    await expect(page.locator('h1')).toContainText('nowhere')
-  },
-  regions: async (page) => {
-    await expect(page.locator('svg.pmap path')).toHaveCount(77)
-    await expect(page.locator('svg.pmap path.pv-none')).toHaveCount(65)          // 12 provinces have data
-    await expect(page.locator('.pkey li')).toHaveCount(6)                         // 5 classes + no data
-    await expect(page.locator('#map .rg-top .br-row')).toHaveCount(10)            // the top provinces beside the map
-    await page.getByLabel('บทความต่อประชากรแสนคน').check()
-    await expect(page).toHaveURL(/m=per100k/)
-    await expect(page.locator('svg.pmap path.pv-none')).toHaveCount(67)          // two have no population
-    await page.locator('#map').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.locator('#map tbody tr')).toHaveCount(12)
-    await expect(page.locator('#by-region .br-row')).toHaveCount(5)
-    await page.locator('#by-region').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.locator('#by-region tbody tr')).toHaveCount(5)
-  },
-  sdg: async (page) => {
-    await expect(page.getByRole('tab', { name: /SDGs/ })).toHaveAttribute('aria-selected', 'true')
-    // 17 goal tiles; goals without a topic are outlined and say so; a tile opens to list its topics
-    await expect(page.locator('#goals .gt-tile')).toHaveCount(17)
-    await expect(page.locator('#goals .gt-tile.is-empty')).toHaveCount(7)
-    await expect(page.locator('#goals .gt-tile.is-empty').first()).toContainText('ยังไม่พบหัวข้อ')
-    await page.locator('#goals .gt-tile summary').filter({ hasText: 'สุขภาพ' }).click()
-    await expect(page.locator('#goals .gt-tile details[open] .gt-topics li')).toHaveCount(6)
-    await page.locator('#goals').getByRole('button', { name: 'ตาราง' }).click()
-    await expect(page.locator('#goals tbody tr')).toHaveCount(17)
-    await page.getByRole('tab', { name: 'โมเดลเศรษฐกิจ BCG' }).click()
-    await expect(page).toHaveURL(/fw=bcg/)
-    await expect(page.locator('#goals tbody tr')).toHaveCount(3)
-  },
-  global: async (page) => {
-    // the opportunity quadrant: every subfield a dot, the three opportunities filled inside the shaded zone
-    await expect(page.locator('#opportunities svg.oq .oq-pt')).toHaveCount(11)
-    await expect(page.locator('#opportunities svg.oq .oq-pt.is-hot')).toHaveCount(3)
-    await expect(page.locator('#opportunities svg.oq .oq-zone')).toHaveCount(1)
-    await page.locator('#opportunities').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.locator('#opportunities tbody tr')).toHaveCount(3)
-    await expect(page.locator('#opportunities')).toContainText('Artificial Intelligence')
-    await expect(page.locator('#all tbody tr')).toHaveCount(11)
-  },
-  gaps: async (page) => {
-    await expect(page.locator('#world svg.oq .oq-pt.is-hot')).toHaveCount(3)
-    await page.locator('#world').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.locator('#world tbody tr')).toHaveCount(3)
-    await expect(page.locator('#few .few-row')).toHaveCount(2)
-    await page.locator('#few').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.locator('#few tbody tr')).toHaveCount(2)
-    await expect(page.locator('#bridges .bp-row')).toHaveCount(2)
-    await expect(page.locator('#bridges .bp-row.is-none')).toHaveCount(1)          // no institution works on both
-    await page.locator('#bridges').getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.locator('#bridges tbody tr')).toHaveCount(2)
-    await expect(page.locator('#risk .rk-row')).toHaveCount(2)
-    await page.getByLabel('แสดงทุกรายการ รวมที่ไม่ได้พึ่งแหล่งเดียว').check()
-    await expect(page.locator('#risk .rk-row')).toHaveCount(4)
-    await page.locator('#risk').getByRole('tab', { name: 'ตาราง' }).click()
-    const risk = page.locator('#risk tbody tr')
-    await expect(risk).toHaveCount(4)
-    await expect(page).toHaveURL(/all=yes/)
-    await expect(page.locator('#risk')).toContainText('มหาวิทยาลัยราชภัฏตัวอย่าง')
-  },
-  search: async (page) => {
-    await expect(page.locator('#srch-tips-h')).toBeVisible()                      // an empty query shows how to search
-    const box = page.getByLabel('คำค้น', { exact: true })
-    await box.fill('ผู้สูงอายุควอนตัม')
-    await box.press('Enter')
-    await expect(page).toHaveURL(/q=/)
-    await expect(page.locator('#srch-topics-h')).toBeVisible()
-    await expect(page.locator('.srch-tp').first()).toContainText('การดูแลผู้สูงอายุในชุมชน')
-    expect(await page.locator('.srch-tp').count()).toBeLessThanOrEqual(5)
-    await expect(page.locator('.srch-count')).toContainText('พบ')
-    await expect(page.locator('.srch-hit').first()).toBeVisible()
-    await expect(page.locator('.srch-unknown')).toContainText('ไม่พบคำว่า “ควอนตัม”')   // an unknown word is named
-    await expect(page.locator('.srch-hit .topic-link').first()).toContainText('การดูแลผู้สูงอายุในชุมชน')
-    await page.getByLabel('ตั้งแต่ปี').selectOption('2020')
-    await expect(page).toHaveURL(/from=2020/)
-    const download = page.waitForEvent('download')
-    await page.getByRole('button', { name: /เป็น RIS$/ }).click()
-    expect((await download).suggestedFilename()).toBe('atlas-2026Q4-search.ris')
+    // the gazetteer lists the topics by status; there is no search box (owner 2026-10-24)
+    await expect(page.locator('.gaz .gcol')).toHaveCount(4)
+    await page.locator('.gaz .grow').first().click()
+    await expect(page).toHaveURL(/sel=T\d{6}/)
   },
   galaxy: async (page) => {
     // headless Chromium normally has WebGL2 (SwiftShader); without it the page explains itself — either is fine
     const canvas = page.locator('canvas.gx-canvas')
     await expect(canvas.or(page.getByText('เบราว์เซอร์นี้วาดแผนที่บทความไม่ได้'))).toBeVisible()
     if (!(await canvas.isVisible())) return
-    await expect(page.locator('.lede')).toContainText('600')
     await expect(page.locator('.gx-keys li').first()).toBeVisible()
     // click one article's dot (screen position from galaxy.json and the fitted view) → its card
     const gx = bundleOf('example').files['galaxy.json'] as GalaxyFile
@@ -490,114 +208,37 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.mouse.click(box.x + 1 + spot.sx, box.y + 1 + spot.sy)
     await expect(page.locator('.gx-title')).toBeVisible()
     await expect(page.locator('.gx-card a.btn')).toHaveAttribute('href', /tci-thaijo\.org/)
-    await expect(page.locator('.gx-card .topic-link')).toBeVisible()
     await page.getByRole('button', { name: 'ล้างการเลือก' }).click()
-    await expect(page.locator('.gx-card-empty')).toBeVisible()
     await expect(page.locator('.gx-try-btn')).toHaveCount(3)
-    await page.locator('.gx-try-btn').first().click()
-    await expect(page.locator('.gx-card .topic-link')).toBeVisible()
-    await page.getByRole('button', { name: 'ล้างการเลือก' }).click()
-    // keyboard: the sheet takes focus, zooms and picks the dot in the middle (or says there is none)
-    await stage.focus()
-    await page.keyboard.press('+')
-    await page.keyboard.press('Enter')
-    await expect(page.locator('.gx-title').or(page.locator('.gx-card-empty'))).toBeVisible()
-    await page.keyboard.press('0')
     await page.getByLabel('ตั้งแต่ปี').selectOption('2020')
     await expect(page).toHaveURL(/from=2020/)
-    await page.getByRole('combobox', { name: /สาขาวิชา/ }).selectOption({ index: 1 })
-    await expect(page).toHaveURL(/g=F\d+/)
-    await expect(page.locator('.gx-count')).toContainText('เน้น')
-    await page.getByRole('tab', { name: 'ตาราง' }).click()
-    await expect(page.getByRole('table')).toBeVisible()
-    await expect(page.getByRole('table').locator('.topic-link').first()).toBeVisible()
-    await expect(page).toHaveURL(/view=table/)
-    await page.getByRole('tab', { name: 'แผนภูมิ' }).click()
-    await expect(canvas).toBeVisible()
+    await expect(page.getByRole('tab')).toHaveCount(0)
   },
-  keywords: async (page) => {
-    // opens on the most used keywords, led by a plain sentence about the first one
-    await expect(page.locator('.cmp-chip')).toHaveCount(3)
-    await expect(page.locator('.kw-insight')).toContainText('digital marketing')
-    await expect(page.locator('svg.ml')).toBeVisible()
-    await expect(page.locator('.kr-chip').first()).toBeVisible()
-    await expect(page.locator('.kr-chip .kr-d').first()).toBeVisible() // the change in share as numbers; the trend itself stays in the chart
-    await expect(page.locator('#kw-glossary tbody tr')).toHaveCount(10)
-    const box = page.getByRole('combobox', { name: 'เพิ่มคำสำคัญ (ไทยหรืออังกฤษ)' })
-    await box.fill('ผู้สูงอายุ')
-    await expect(page.getByRole('option').first()).toBeVisible()
-    await box.press('ArrowDown')
-    await box.press('Enter')
-    await expect(page).toHaveURL(/k=/)
-    await expect(page.locator('.cmp-chip')).toHaveCount(4)
-    await expect(page.getByText('เลือกได้ครั้งละ 4 คำ')).toBeFocused()
-    await expect(box).toBeDisabled()
-    await page.getByRole('button', { name: /^เอา “digital marketing” ออก$/ }).click()
-    await expect(page.locator('.cmp-chip')).toHaveCount(3)
-    await page.locator('#fig-kw-tab-table').click()
-    await expect(page).toHaveURL(/view=table/)
-    await expect(page.locator('#fig-kw-panel table')).toContainText('2024')
-    // glossary: filter, sort, CSV
-    await page.getByLabel('กรองคำ').fill('solar')
-    await expect(page).toHaveURL(/gq=solar/)
-    await expect(page.locator('#kw-glossary tbody')).toContainText('เซลล์แสงอาทิตย์')
-    await page.locator('#kw-glossary').getByRole('button', { name: 'คำอังกฤษ' }).click()
-    await expect(page.locator('#kw-glossary th[aria-sort="ascending"]')).toContainText('คำอังกฤษ')
-    const csv = page.waitForEvent('download')
-    await page.locator('#kw-glossary').getByRole('button', { name: 'ดาวน์โหลด CSV' }).click()
-    expect((await csv).suggestedFilename()).toBe('atlas-2026Q4-glossary.csv')
-  },
-  references: async (page) => {
-    await expect(page.locator('.lede')).toContainText('72%')
-    await expect(page.locator('.ref-kpis .stat')).toHaveCount(3)
-    await expect(page.locator('#ref-journals .sb')).toHaveCount(5)
-    await page.locator('#fig-refs-tab-table').click()
-    await expect(page).toHaveURL(/jr=table/)
-    await expect(page.locator('#ref-journals tbody tr')).toHaveCount(5)
-    await expect(page.locator('#ref-journals').getByRole('link').first()).toHaveAttribute('href', /#\/journals\/so02\./)
-    await page.locator('#ref-journals').getByRole('button', { name: 'มี DOI' }).click()
-    await expect(page.locator('#ref-journals th[aria-sort="descending"]')).toContainText('มี DOI')
-    await expect(page.locator('#ref-top .rc-card')).toHaveCount(10)
-    await expect(page.locator('#ref-top .rc-card .rc-n').first()).toContainText('9')
-    const ris = page.waitForEvent('download')
-    await page.getByRole('button', { name: /เป็น RIS$/ }).click()
-    expect((await ris).suggestedFilename()).toBe('atlas-2026Q4-most-cited.ris')
-    await expect(page.locator('#ref-flows .bp-row')).toHaveCount(5)
-    await page.locator('#fig-flows-tab-table').click()
-    await expect(page.locator('#ref-flows tbody tr')).toHaveCount(5)
-    await expect(page.locator('#ref-topics tbody tr')).toHaveCount(10)
-    await expect(page.locator('#ref-topics tbody tr').first().locator('.topic-link')).toBeVisible()
-    await page.locator('#ref-topics').getByRole('button', { name: 'แสดงทั้งหมด (41 แถว)' }).click()
-    await expect(page.locator('#ref-topics tbody tr')).toHaveCount(41)
+  about: async (page) => {
+    await expect(page.locator('#flow .afl-st')).toHaveCount(5)
+    await expect(page.locator('#definition .ab-tree .sfc-row')).toHaveCount(4)
+    await expect(page.locator('.defs > div')).toHaveCount(6)
+    await expect(page.locator('#changelog li')).toHaveCount(2)
+    await page.locator('#cite summary').click()
+    await expect(page.locator('#cite-apa')).toHaveValue(/ศูนย์ดัชนีการอ้างอิงวารสารไทย \(TCI\)\. \(\d{4}\)\. .*รอบข้อมูล 2026Q4/)
   },
   embedTopic: async (page) => {
     await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
     await expect(page.locator('.embed-status .chip')).toBeVisible()
     await expect(page.locator('svg.tr')).toBeVisible()
-    await expect(page.locator('header, nav, footer')).toHaveCount(0)
+    await expect(page.locator('aside, footer')).toHaveCount(0)
     await expect(page.locator('.embed-sample .phase-tag.is-sample')).toBeVisible()
-    const attr = page.getByRole('link', { name: /TCI Research Atlas/ })
-    await expect(attr).toHaveAttribute('target', '_blank')
-    await expect(attr).toHaveAttribute('href', /#\/topics\/T000201\?lang=th$/)
-    await page.goto(`${EXAMPLE}#/embed/topic/T999999`)
-    await expect(page.locator('h1')).toHaveText('ไม่พบหัวข้อ T999999')
-    await expect(page.getByRole('link', { name: /TCI Research Atlas/ })).toHaveAttribute('href', /#\/overview\?lang=th$/)
+    await expect(page.getByRole('link', { name: /TCI Research Atlas/ })).toHaveAttribute('href', /#\/topics\/T000201\?lang=th$/)
   },
   embedEmerging: async (page) => {
     await expect(page.locator('h1')).toHaveText('หัวข้อที่กำลังเกิดใหม่และควรจับตา')
-    await expect(page.locator('header, nav, footer')).toHaveCount(0)
+    await expect(page.locator('aside, footer')).toHaveCount(0)
     const items = page.locator('.embed-list li')
     expect(await items.count()).toBeGreaterThan(0)
     expect(await items.count()).toBeLessThanOrEqual(10)
-    await expect(items.first().locator('.chip')).toContainText('กำลังเกิดใหม่')
-    await expect(items.first().getByRole('link')).toHaveAttribute('target', '_blank')
-    await expect(page.getByRole('link', { name: /TCI Research Atlas/ })).toHaveAttribute('href', /#\/emerging\?lang=th$/)
+    await expect(page.getByRole('link', { name: /TCI Research Atlas/ })).toHaveAttribute('href', /#\/topics\?lang=th$/)
   },
-  // checks:end
 }
-
-/** Routes that must not scroll sideways at 360 px. */
-const PHONE = ['/overview', '/emerging', '/topics/T000201', '/atlas', '/compare?ids=T000201,T000701', '/data', '/about', '/journals', '/journals/so02.example0', '/methods', '/changes', '/match', '/institutions', '/institutions/mu-a', '/regions', '/sdg', '/global', '/gaps', `/search?q=${encodeURIComponent('ผู้สูงอายุ')}`, '/galaxy', '/keywords', '/references', '/embed/topic/T000201', '/embed/emerging']
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = []
@@ -613,6 +254,16 @@ async function seriousA11yViolations(page: Page): Promise<string[]> {
   return result.violations
     .filter((v) => v.impact === 'serious' || v.impact === 'critical')
     .map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)
+}
+
+function offlineFile(info: { outputPath: (n: string) => string }, name: string, bundle: ReturnType<typeof bundleOf>): string {
+  const template = readFileSync('dist/offline-template.html', 'utf8')
+  const slot = '<script type="application/json" id="atlas-data">null</script>'
+  expect(template.split(slot)).toHaveLength(2)
+  const file = info.outputPath(name)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
+  return pathToFileURL(file).href
 }
 
 for (const route of ROUTES) {
@@ -634,6 +285,43 @@ for (const route of ROUTES) {
   })
 }
 
+test('there is no search box on any page', async ({ page }) => {
+  for (const route of ROUTES) {
+    await page.goto(`${EXAMPLE}#${route.path}`)
+    await expect(page.locator('h1').first()).toBeVisible()
+    await expect(page.locator('input[type="search"], [role="combobox"][aria-autocomplete], [role="searchbox"]'), route.path).toHaveCount(0)
+  }
+})
+
+test('old links land on the dashboard that carries their content', async ({ page }) => {
+  const moves: [string, RegExp][] = [
+    ['/emerging?status=HOT', /#\/topics\?status=HOT$/],
+    ['/changes', /#\/topics$/],
+    ['/gaps', /#\/topics$/],
+    ['/keywords', /#\/topics$/],
+    ['/regions', /#\/places$/],
+    ['/institutions', /#\/places$/],
+    ['/province', /#\/places$/],
+    ['/methods', /#\/journals$/],
+    ['/references', /#\/journals$/],
+    ['/sdg', /#\/goals$/],
+    ['/global', /#\/goals$/],
+    ['/brief', /#\/overview$/],
+    ['/story', /#\/overview$/],
+    ['/search?q=x', /#\/overview$/],
+    ['/compare?ids=T000201', /#\/overview$/],
+    ['/match', /#\/overview$/],
+    ['/data', /#\/overview$/],
+  ]
+  for (const [from, to] of moves) {
+    await page.goto(`${EXAMPLE}#${from}`)
+    await expect(page, from).toHaveURL(to)
+    await expect(page.locator('h1').first()).toBeVisible()
+  }
+  await page.goto(`${EXAMPLE}#/emerging?status=HOT`)
+  await expect(page.locator('.st-pick-b.is-HOT')).toHaveAttribute('aria-pressed', 'true')
+})
+
 test('a missing data release shows a banner, not a white page', async ({ page }) => {
   await page.route('**/data/latest.json', (r) => r.fulfill({ status: 404, body: 'not found' }))
   await page.goto(`${EXAMPLE}#/overview`)
@@ -641,53 +329,37 @@ test('a missing data release shows a banner, not a white page', async ({ page })
   await expect(page.locator('h1').first()).toBeVisible()
 })
 
-test('a sample release is labelled as sample data', async ({ page }) => {
-  await page.goto(`${EXAMPLE}#/overview`)
-  await expect(page.locator('.phase-tag.is-sample')).toBeVisible()
+test('a sample release is labelled as sample data on every page bar', async ({ page }) => {
+  for (const path of ['/overview', '/topics', '/topics/T000201']) {
+    await page.goto(`${EXAMPLE}#${path}`)
+    await expect(page.locator('.pbar .phase-tag.is-sample')).toBeVisible()
+  }
 })
 
 test('pages do not scroll sideways on a 360 px phone', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 })
-  for (const path of PHONE) {
-    await page.goto(`${EXAMPLE}#${path}`)
+  for (const route of ROUTES) {
+    await page.goto(`${EXAMPLE}#${route.path}`)
     await expect(page.locator('h1').first()).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-    expect(overflow, path).toBeLessThanOrEqual(0)
+    expect(overflow, route.path).toBeLessThanOrEqual(0)
   }
 })
 
-test('the header search finds a Thai topic typed without tone marks and opens it with the keyboard', async ({ page }) => {
-  await page.goto(`${EXAMPLE}#/overview`)
-  const box = page.getByRole('combobox', { name: 'ค้นหาหัวข้อวิจัย' })
-  await box.fill('ผูสูงอายุ')
-  await expect(page.getByRole('option').first()).toContainText('การดูแลผู้สูงอายุในชุมชน')
-  await box.press('Enter')
-  await expect(page).toHaveURL(/#\/topics\/T000101$/)
-})
-
-test('the printable brief shows the data banner when the release cannot load', async ({ page }) => {
-  await page.route('**/data/latest.json', (r) => r.fulfill({ status: 404, body: 'not found' }))
-  await page.goto(`${EXAMPLE}#/brief`)
-  await expect(page.getByRole('alert')).toContainText('latest.json')
-  await expect(page.locator('h1').first()).toBeVisible()
-})
-
-test('the offline file without the match index explains that /match needs the web edition', async ({ page }, info) => {
-  const template = readFileSync('dist/offline-template.html', 'utf8')
-  const slot = '<script type="application/json" id="atlas-data">null</script>'
-  const bundle = bundleOf('example')
-  delete bundle.files['match.json']                                         // export.offline_exclude (default)
-  const file = info.outputPath('atlas-offline-nomatch.html')
-  mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
-  await page.goto(`${pathToFileURL(file).href}#/match`)
-  await expect(page.locator('h1')).toHaveText('วางบทคัดย่อของคุณ')
-  await expect(page.locator('.empty-state')).toContainText('ฉบับออฟไลน์ไม่มีส่วนนี้')
-  await expect(page.locator('.empty-state')).toContainText('ต้องใช้เว็บไซต์ออนไลน์')
+test('the sidebar names every page and marks the current one', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto(`${EXAMPLE}#/topics/T000201`)
+  const nav = page.getByRole('navigation', { name: 'เมนูหลัก' })
+  await expect(nav.getByRole('link')).toHaveCount(8)
+  await expect(nav.getByRole('link', { name: 'หัวข้อวิจัย' })).toHaveAttribute('aria-current', 'page')
+  await nav.getByRole('link', { name: 'วารสาร' }).click()
+  await expect(page).toHaveURL(/#\/journals$/)
+  await expect(page.locator('h1')).toHaveText('วารสาร')
+  await expect(page.locator('main')).toBeFocused()
 })
 
 test('a chart tooltip is linked to its marker and Escape dismisses it', async ({ page }) => {
-  await page.goto(`${EXAMPLE}#/overview`)
+  await page.goto(`${EXAMPLE}#/topics`)
   const node = page.locator('.pf-node[tabindex="0"]').first()
   await node.focus()
   await expect(page.getByRole('tooltip')).toBeVisible()
@@ -697,21 +369,14 @@ test('a chart tooltip is linked to its marker and Escape dismisses it', async ({
 })
 
 test('the offline file works from file:// without a single network request', async ({ page }, info) => {
-  const template = readFileSync('dist/offline-template.html', 'utf8')
-  const slot = '<script type="application/json" id="atlas-data">null</script>'
-  expect(template.split(slot)).toHaveLength(2)
-  const payload = JSON.stringify(bundleOf('example')).replaceAll('</', '<\\/')
-  const file = info.outputPath('atlas-offline.html')
-  mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${payload}</script>`))
+  const url = offlineFile(info, 'atlas-offline.html', bundleOf('example'))
   const remote: string[] = []
   page.on('request', (r) => {
     if (!/^(file|data|blob):/.test(r.url())) remote.push(r.url())
   })
   const errors = collectErrors(page)
-  const url = pathToFileURL(file).href
   await page.goto(`${url}#/overview`)
-  await expect(page.locator('.story-big')).toBeVisible()
+  await expect(page.locator('.kpi').first()).toBeVisible()
   await page.goto(`${url}#/topics/T000201`)
   await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
   await page.goto(`${url}#/atlas`)
@@ -722,67 +387,18 @@ test('the offline file works from file:// without a single network request', asy
   expect(errors).toEqual([])
 })
 
-test('the question navigation opens with the keyboard, closes with Escape and marks the current group', async ({ page }) => {
-  await page.goto(`${EXAMPLE}#/overview`)
-  const coming = page.getByRole('button', { name: 'อะไรกำลังมา' })
-  await expect(coming).toHaveAttribute('aria-expanded', 'false')
-  await coming.focus()
-  await page.keyboard.press('Enter')
-  await expect(coming).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#nav-coming-menu a')).toHaveCount(6)
-  // the page name stays the link's name; the question it answers is its description
-  await expect(page.locator('#nav-coming-menu').getByRole('link', { name: 'สถานะหัวข้อ', exact: true })).toHaveAccessibleDescription('เรื่องไหนกำลังโต เรื่องไหนลดลง')
-  await page.keyboard.press('Escape')
-  await expect(coming).toHaveAttribute('aria-expanded', 'false')
-  await expect(coming).toBeFocused()
-  const who = page.getByRole('button', { name: 'ใครทำเรื่องอะไร' })
-  await who.click()
-  await page.locator('#nav-who-menu').getByRole('link', { name: 'วารสาร', exact: true }).click()
-  await expect(page).toHaveURL(/#\/journals$/)
-  await expect(page.getByRole('button', { name: 'ใครทำเรื่องอะไร' })).toHaveClass(/is-active/)
-  await expect(page.locator('#nav-who-menu')).toBeHidden()
-  // the row wraps differently at each width: no menu may leave the screen on either side
-  for (const [width, group, count] of [[1280, 'ไทยอยู่ตรงไหน', 4], [1280, 'หางานวิจัย', 5], [900, 'หางานวิจัย', 5], [1000, 'ไทยอยู่ตรงไหน', 4]] as const) {
-    await page.setViewportSize({ width, height: 800 })
-    await page.getByRole('button', { name: group }).click()
-    const menu = page.locator('.nav-menu:not([hidden])')
-    await expect(menu.locator('a')).toHaveCount(count)
-    const box = (await menu.boundingBox())!
-    expect(box.x).toBeGreaterThanOrEqual(0)
-    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
-    await page.keyboard.press('Escape')
-  }
-})
-
-test('the footer is the partner logos and the licence line; no next-steps block', async ({ page }) => {
+test('the footer is the partner logos and the licence line', async ({ page }) => {
   await page.goto(`${EXAMPLE}#/overview`)
   const footer = page.locator('footer')
   await expect(footer.locator('.ftr-logos img')).toHaveCount(3)
-  await expect(footer.getByRole('heading')).toHaveCount(0)
   await expect(footer.getByRole('link')).toHaveCount(1) // "อ้างอิง Atlas นี้", in the licence line
   await expect(footer.locator('.licence').getByRole('link', { name: 'อ้างอิง Atlas นี้' })).toHaveAttribute('href', '#/about')
   await expect(footer.locator('.licence')).toContainText('CC BY 4.0')
 })
 
-test('article search explains itself on a release without it and in the offline file', async ({ page }, info) => {
-  await page.goto(`${EMPTY}#/search`)
-  await expect(page.locator('h1')).toHaveText('ค้นหาบทความ')
-  await expect(page.locator('.empty-state')).toContainText('รอบข้อมูลนี้ไม่มีส่วนนี้')
-  const template = readFileSync('dist/offline-template.html', 'utf8')
-  const slot = '<script type="application/json" id="atlas-data">null</script>'
-  const bundle = bundleOf('example')
-  for (const path of Object.keys(bundle.files)) if (path.startsWith('search/')) delete bundle.files[path]   // export.offline_exclude
-  const file = info.outputPath('atlas-offline-nosearch.html')
-  mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
-  await page.goto(`${pathToFileURL(file).href}#/search`)
-  await expect(page.locator('h1')).toHaveText('ค้นหาบทความ')
-  await expect(page.locator('.empty-state')).toContainText('ฉบับออฟไลน์ไม่มีส่วนนี้')
-})
-
 test('a module the pipeline skipped says why', async ({ page }) => {
-  await page.goto(`${EMPTY}#/global`)
-  await expect(page.locator('h1')).toHaveText('ไทยเทียบโลก')
+  await page.goto(`${EMPTY}#/goals`)
+  await expect(page.locator('h1')).toHaveText('เป้าหมายชาติและโลก')
   await expect(page.locator('.empty-state')).toContainText('ATLAS_OFFLINE')
 })
 
@@ -790,60 +406,19 @@ test('the article galaxy explains itself on a release without it and in the offl
   await page.goto(`${EMPTY}#/galaxy`)
   await expect(page.locator('h1')).toHaveText('แผนที่บทความทุกเรื่อง')
   await expect(page.locator('.empty-state')).toContainText('รอบข้อมูลนี้ไม่มีส่วนนี้')
-  const template = readFileSync('dist/offline-template.html', 'utf8')
-  const slot = '<script type="application/json" id="atlas-data">null</script>'
   const bundle = bundleOf('example')
   delete bundle.files['galaxy.json']   // export.offline_exclude
-  const file = info.outputPath('atlas-offline-nogalaxy.html')
-  mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
-  await page.goto(`${pathToFileURL(file).href}#/galaxy`)
+  await page.goto(`${offlineFile(info, 'atlas-offline-nogalaxy.html', bundle)}#/galaxy`)
   await expect(page.locator('h1')).toHaveText('แผนที่บทความทุกเรื่อง')
   await expect(page.locator('.empty-state')).toContainText('ฉบับออฟไลน์ไม่มีส่วนนี้')
 })
 
-test('keyword trends and references explain themselves on a release without them', async ({ page }) => {
-  for (const [path, h1] of [['/keywords', 'แนวโน้มคำสำคัญ'], ['/references', 'การอ้างอิง']]) {
-    await page.goto(`${EMPTY}#${path}`)
-    await expect(page.locator('h1')).toHaveText(h1)
-    await expect(page.locator('.empty-state')).toContainText('รอบข้อมูลนี้ไม่มีส่วนนี้')
-  }
-})
-
-test('references: a skipped module gives its coverage reason; too few internal matches are explained in words', async ({ page }, info) => {
-  const template = readFileSync('dist/offline-template.html', 'utf8')
-  const slot = '<script type="application/json" id="atlas-data">null</script>'
-  const write = (name: string, bundle: ReturnType<typeof bundleOf>) => {
-    const file = info.outputPath(name)
-    mkdirSync(dirname(file), { recursive: true })
-    writeFileSync(file, template.replace(slot, () => `<script type="application/json" id="atlas-data">${JSON.stringify(bundle).replaceAll('</', '<\\/')}</script>`))
-    return pathToFileURL(file).href
-  }
-  // low coverage: the pipeline leaves the module out and says why (Review Focus 3)
-  const skipped = bundleOf('example')
-  const manifest = skipped.files['manifest.json'] as { modules: string[]; skipped_modules?: Record<string, string> }
-  manifest.modules = manifest.modules.filter((m) => m !== 'references')
-  manifest.skipped_modules = { ...(manifest.skipped_modules ?? {}), references: 'reference coverage 31% of 18,234 articles 2020–2024 (< references.min_coverage 50%)' }
-  delete skipped.files['references.json']
-  await page.goto(`${write('atlas-offline-refs-skipped.html', skipped)}#/references`)
-  await expect(page.locator('h1')).toHaveText('การอ้างอิง')
-  await expect(page.locator('.empty-state')).toContainText('reference coverage 31%')
-  // coverage fine, but too few citations inside the collection: those sections give way to a plain explanation
-  const few = bundleOf('example')
-  Object.assign(few.files['references.json'] as object, { internal: null, internal_reason: '12 references matched a corpus article (< references.min_internal_matches 20)' })
-  await page.goto(`${write('atlas-offline-refs-few.html', few)}#/references`)
-  await expect(page.locator('#ref-journals .sb')).toHaveCount(5)                     // the split bars; the table is behind its tab
-  await expect(page.locator('#ref-internal .empty-state')).toContainText('จับคู่รายการอ้างอิงกับบทความในคลังได้น้อยเกินไป')
-  await expect(page.locator('#ref-internal .empty-state')).toContainText('12 references matched')
-  await expect(page.locator('#ref-flows')).toHaveCount(0)
-})
-
-test('feed links appear on /changes and the topic page when the site has Atom feeds', async ({ page }) => {
+test('feed links appear on /topics and the topic page when the site has Atom feeds', async ({ page }) => {
   await page.route('**/data/latest.json', async (route) => {
     const res = await route.fetch()
     await route.fulfill({ response: res, json: { ...(await res.json()), feeds: true } })
   })
-  await page.goto(`${EXAMPLE}#/changes`)
+  await page.goto(`${EXAMPLE}#/topics`)
   await expect(page.getByRole('link', { name: 'ติดตามรอบใหม่ (Atom/RSS)' })).toHaveAttribute('href', './data/feeds/releases.xml')
   await page.goto(`${EXAMPLE}#/topics/T000201`)
   await expect(page.getByRole('link', { name: 'ติดตามหัวข้อนี้ (Atom/RSS)' })).toHaveAttribute('href', './data/feeds/topics/T000201.xml')

@@ -389,7 +389,7 @@ PDPA: ตัวเลขของวารสารเป็นยอดรว�
 
 | ไฟล์ | เนื้อหา |
 |---|---|
-| `<site>/data/feeds/releases.xml` | หนึ่ง entry ต่อรอบที่อยู่บนเว็บ ใหม่สุดก่อน (≤ `publish.feed_max_entries`, 12): title = รอบ, summary = headline ของ overview (TH, EN) + สิ่งที่เปลี่ยน (ใหม่/หายไป/เปลี่ยนสถานะ จาก `diff.json` เมื่อมี), ลิงก์ `<site_url>#/changes` |
+| `<site>/data/feeds/releases.xml` | หนึ่ง entry ต่อรอบที่อยู่บนเว็บ ใหม่สุดก่อน (≤ `publish.feed_max_entries`, 12): title = รอบ, summary = headline ของ overview (TH, EN) + สิ่งที่เปลี่ยน (ใหม่/หายไป/เปลี่ยนสถานะ จาก `diff.json` เมื่อมี), ลิงก์ `<site_url>#/topics` |
 | `<site>/data/feeds/topics/<id>.xml` | หนึ่งฟีดต่อหัวข้อของรอบใหม่สุด; entry = รอบที่มีหัวข้อนั้น (ชื่อ, ชื่อสถานะไทย/อังกฤษ, บทความในช่วง R เขียนเป็นปี, อัตราโตของสัดส่วน), ลิงก์ `<site_url>#/topics/<id>`; ฟีดของหัวข้อที่ไม่อยู่ในรอบใหม่สุดถูกลบ |
 
 สร้างจากไฟล์ที่อยู่บนเว็บเท่านั้น (`manifest.json`, `overview.json`, `diff.json`, `topics.json` ของแต่ละรอบ — ไฟล์ที่การลดขนาดรอบเก่าเก็บไว้) → รันซ้ำได้ไบต์เดิม; `<updated>` = `generated_at` ของ manifest; XML escape เอง (`xml.sax.saxutils.escape`) และตัดอักขระควบคุมที่ XML 1.0 ไม่รับ

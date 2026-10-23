@@ -2,6 +2,10 @@ import { defineStrings } from './define'
 
 /** "งานวิจัยในจังหวัดของฉัน" (/province, /province/:code). Lazy page only (read with useStrings). */
 export const province = defineStrings({
+  'pv.f.rankShort': { th: 'อันดับ {r}', en: 'No. {r}' },
+  'pv.f.rankOf': { th: 'จาก {n} จังหวัด', en: 'of {n} provinces' },
+  'pv.p.sub': { th: 'บทความปี {a}–{b} ของสถาบันในจังหวัดนี้', en: 'Articles {a}–{b} by institutions in this province' },
+  'pv.f.per100kShort': { th: '{v} บทความต่อประชากรแสนคน', en: '{v} articles per 100,000 people' },
   'pv.title': { th: 'งานวิจัยในจังหวัดของฉัน', en: 'Research in my province' },
   'pv.lede': {
     th: 'เลือกจังหวัด แล้วดูว่าคนในจังหวัดนั้นทำวิจัยเรื่องอะไรมากที่สุด มีสถาบันไหนบ้าง และงานวิจัยในจังหวัดนี้มีมากแค่ไหนเมื่อเทียบกับทั้งประเทศ',

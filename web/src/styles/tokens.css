@@ -1,11 +1,20 @@
-/* TCI Research Atlas design tokens ("data explainer" world, 2026-10-23). Normative source: DESIGN.md (repo root).
-   One light theme on a white page: TCI blue (#283894, from the logo) for the brand and for the data that answers a
-   page's question, TCI orange for the one highlighted mark per view, quiet greys for context.
+/* TCI Research Atlas design tokens ("TCI dashboard" world, 2026-10-24). Normative source: DESIGN.md (repo root).
+   One light theme: white cards on a soft blue-grey canvas, a white sidebar and page bar. TCI blue (#283894, from the
+   logo) for the brand and for the data that answers a card's question, TCI orange for the one highlighted mark per
+   view, quiet greys for context.
    Group colours from the data are token keys cat-01 to cat-12. */
 :root {
   color-scheme: light;
   --bg: #ffffff;
   --surface: #f5f6fa;
+  /* the work area behind the cards; the sidebar and the page bar stay white */
+  --canvas: #f3f5fa;
+  --card-radius: 16px;
+  --card-pad: 20px;
+  --card-gap: 20px;
+  --card-shadow: 0 1px 2px rgba(20, 24, 43, 0.04), 0 4px 14px rgba(40, 56, 148, 0.05);
+  --card-shadow-hover: 0 2px 4px rgba(20, 24, 43, 0.05), 0 10px 24px rgba(40, 56, 148, 0.1);
+  --side-w: 248px;
   --ink: #14182b;
   --ink-2: #4d536b;
   --ink-3: #6b7088;
@@ -82,24 +91,24 @@
   --font: "Sarabun", "Noto Sans Thai", "Leelawadee UI", system-ui, sans-serif;
 }
 
-/* Type, rhythm and measure.
+/* Type, rhythm and measure — compact for dashboards (owner 2026-10-24: smaller type, more on one screen).
    Six text steps + two numeric display steps. Nothing that carries meaning is set under --fs-caption;
-   SVG axis ticks use --fs-tick. Phone values come from the clamps and the 640 px override below. */
+   SVG axis ticks use --fs-tick. */
 :root {
-  --fs-caption: 0.875rem;                                  /* 14: chips, tags, counts, CI ranges, stacked-table labels */
-  --fs-meta: 1rem;                                         /* 16: secondary text, source lines, table cells, nav, buttons */
-  --fs-body: 1.1875rem;                                    /* 19 (17 on phones): prose */
-  --fs-lead: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);       /* 20 → 24: lede, h3, card titles */
-  --fs-h2: clamp(1.5rem, 1.25rem + 0.9vw, 1.875rem);       /* 24 → 30, weight 600 */
-  --fs-h1: clamp(2rem, 1.2rem + 2.6vw, 3rem);              /* 32 → 48 */
-  --fs-display: clamp(2.25rem, 1.3rem + 3vw, 3.25rem);     /* 36 → 52: the front door's question headline */
-  --fs-tile: clamp(2rem, 1.5rem + 1.2vw, 2.5rem);          /* 32 → 40: KPI values, the headline sentence */
-  --fs-hero: clamp(2.5rem, 1.6rem + 2.6vw, 3.5rem);        /* 40 → 56: one hero number per page */
-  --fs-tick: 13px;                                         /* SVG axis ticks only */
+  --fs-caption: 0.8125rem;                                 /* 13: chips, tags, counts, the smallest text that carries meaning */
+  --fs-meta: 0.875rem;                                     /* 14: secondary text, table cells, nav, buttons */
+  --fs-body: 0.9375rem;                                    /* 15: prose */
+  --fs-lead: 1rem;                                         /* 16: lede, card titles, h3 */
+  --fs-h2: 1.125rem;                                       /* 18: section titles inside a page */
+  --fs-h1: clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem);         /* 20 → 24: the page title in the page bar */
+  --fs-display: clamp(1.375rem, 1.2rem + 0.6vw, 1.75rem);  /* 22 → 28 */
+  --fs-tile: clamp(1.375rem, 1.2rem + 0.5vw, 1.625rem);    /* 22 → 26: KPI values */
+  --fs-hero: clamp(1.625rem, 1.35rem + 0.9vw, 2rem);       /* 26 → 32: one hero number per page */
+  --fs-tick: 13px;                                         /* SVG axis ticks only (= LABEL_PX.tick in lib/labelSizes.ts) */
 
-  --sp-group: 24px;                                        /* heading → its content, between related blocks */
-  --sp-block: 36px;                                        /* between figures and sub-blocks of a section */
-  --sp-section: 64px;                                      /* between sections; above the footer */
+  --sp-group: 12px;                                        /* heading → its content, between related blocks */
+  --sp-block: 20px;                                        /* between figures and sub-blocks of a card */
+  --sp-section: 32px;                                      /* between sections of a long page; above the footer */
 
   --measure-lede: 32em;
   --measure-body: 38em;
@@ -108,9 +117,8 @@
 
 @media (max-width: 640px) {
   :root {
-    --fs-body: 1.0625rem;
-    --sp-group: 16px;
-    --sp-block: 28px;
-    --sp-section: 48px;
+    --card-pad: 16px;
+    --card-gap: 12px;
+    --sp-section: 24px;
   }
 }

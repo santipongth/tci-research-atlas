@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { DASH, fmtCompact, fmtDate, fmtInt, fmtPct, fmtPp, fmtPts, fmtRatio, fmtShare, fmtSignedInt, fmtSignedPct, kpiDelta, kpiDir } from './format'
-import { segmentHeadline, type Segment } from './highlight'
 
 describe('number formatting', () => {
   it('groups integers the same way in both languages and uses the true minus', () => {
@@ -80,43 +79,5 @@ describe('number formatting', () => {
     expect(kpiDir(100.4, 100, 'count')).toBe(0)
     expect(kpiDir(10, 8, 'count')).toBe(1)
     expect(kpiDir(10, null, 'count')).toBe(0)
-  })
-})
-
-describe('segmentHeadline', () => {
-  const topics = [{ id: 'T000201', th: 'AI เพื่อการศึกษา', en: 'AI in education' }]
-  const kinds = (segs: Segment[], kind: Segment['kind']) => segs.filter((s) => s.kind === kind).map((s) => s.text)
-
-  it('marks figures and links topic names, but not years or numbers inside words', () => {
-    const text = 'รอบ 2026Q4 มีหัวข้อกำลังเกิดใหม่ 5 หัวข้อ และAI เพื่อการศึกษาโตเร็วที่สุด +38.0% ต่อปี'
-    const segs = segmentHeadline(text, topics)
-    expect(segs.map((s) => s.text).join('')).toBe(text)
-    expect(kinds(segs, 'figure')).toEqual(['5', '+38.0%'])
-    expect(segs.find((s) => s.kind === 'topic')).toMatchObject({ id: 'T000201', text: 'AI เพื่อการศึกษา' })
-  })
-
-  it('matches English names case-insensitively and skips COVID-19 style numbers', () => {
-    const segs = segmentHeadline('ai in education grew 12% while COVID-19 papers fell −3.1% since 2020', topics)
-    expect(kinds(segs, 'topic')).toEqual(['ai in education'])
-    expect(kinds(segs, 'figure')).toEqual(['12%', '−3.1%'])
-  })
-
-  it('does not link a short Thai name (8 letters is the minimum), which turns up inside unrelated words', () => {
-    const short = [{ id: 'T1', th: 'การเงิน', en: '' }, { id: 'T2', th: 'การแพทย์ทางไกล', en: '' }]
-    const segs = segmentHeadline('การเงินและการแพทย์ทางไกลโตเร็ว', short)
-    expect(kinds(segs, 'topic')).toEqual(['การแพทย์ทางไกล'])
-  })
-
-  it('does not cut a Thai syllable: no link right after a leading vowel, or that starts on a vowel mark', () => {
-    const t = [{ id: 'T1', th: 'ตัวอย่างหัวข้อ', en: '' }, { id: 'T2', th: 'ิตัวอย่างหัวข้อสอง', en: '' }]
-    expect(kinds(segmentHeadline('ไตัวอย่างหัวข้อ', t), 'topic')).toEqual([])
-    expect(kinds(segmentHeadline('ซิตัวอย่างหัวข้อสอง', [t[1]]), 'topic')).toEqual([])
-    expect(kinds(segmentHeadline('มีตัวอย่างหัวข้อ', t), 'topic')).toEqual(['ตัวอย่างหัวข้อ'])
-  })
-
-  it('can link names without marking figures, and ignores very short names', () => {
-    const segs = segmentHeadline('AI เพื่อการศึกษา 5 หัวข้อ', [...topics, { id: 'T000999', th: 'AI', en: 'AI' }], { figures: false })
-    expect(kinds(segs, 'figure')).toEqual([])
-    expect(kinds(segs, 'topic')).toEqual(['AI เพื่อการศึกษา'])
   })
 })

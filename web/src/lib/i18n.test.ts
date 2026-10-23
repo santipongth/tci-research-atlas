@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Region, Source1, Type } from '../data/contract'
 import { PARTS, STR } from '../strings'
 import { atlas } from '../strings/atlas'
-import { brief } from '../strings/brief'
-import { changes } from '../strings/changes'
+import { dashPages } from '../strings/dashPages'
 import { embed } from '../strings/embed'
 import { editorViz } from '../strings/editorViz'
 import { execPages } from '../strings/execPages'
@@ -11,25 +10,18 @@ import { execViz } from '../strings/execViz'
 import { galaxy } from '../strings/galaxy'
 import { glossaryDefs } from '../strings/glossaryDefs'
 import { journals } from '../strings/journals'
-import { keywords } from '../strings/keywords'
-import { match } from '../strings/match'
-import { methods } from '../strings/methods'
 import { openViz } from '../strings/openViz'
 import { province } from '../strings/province'
-import { ideas } from '../strings/ideas'
-import { story } from '../strings/story'
-import { references } from '../strings/references'
-import { search } from '../strings/search'
 import { topicExtra } from '../strings/topicExtra'
 import { yearSpan } from './format'
 import { fillVars, missingKey, translate } from './i18n'
-import { INST_TYPE_FILTERS } from './urlState'
 
+/** the institution-type filter values the old /institutions page offered; their names still label institutions */
+const INST_TYPE_FILTERS = ['all', 'university', 'rajabhat', 'rajamangala', 'hospital', 'government', 'research', 'company', 'other'] as const
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
 /** Strings files of lazy pages: not in STR (entry budget), read with useStrings. */
 const LAZY = {
-  search, galaxy, keywords, references, topicExtra, embed, glossaryDefs, execViz, editorViz, openViz, province, ideas, story,
-  execPages, journals, atlas, brief, changes, match, methods,
+  galaxy, topicExtra, embed, glossaryDefs, execViz, editorViz, openViz, province, execPages, journals, atlas, dashPages,
 } as const
 const ALL = { ...STR, ...Object.fromEntries(Object.entries(LAZY).flatMap(([file, d]) => Object.entries(d).map(([k, e]) => [`${file}:${k}`, e]))) }
 

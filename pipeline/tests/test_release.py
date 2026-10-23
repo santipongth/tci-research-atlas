@@ -25,6 +25,8 @@ def two_releases(tmp_path_factory):
         cfg["embedding"]["provider"] = "lite"
         cfg["clustering"]["reducer"] = "pca"
         cfg["institutions"]["min_articles"] = 1        # an 11-article fixture: every named institution is publishable
+        cfg["match"]["enabled"] = True                 # the full release: the modules the web no longer shows are still valid
+        cfg["search"]["word_index"] = True
         run(cfg, STEPS)
     return root, cfg
 
