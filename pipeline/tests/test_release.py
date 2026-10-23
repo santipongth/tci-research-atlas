@@ -503,7 +503,7 @@ def test_editor_modules_are_published_and_valid(two_releases):
     root, _ = two_releases
     rel = root / "out" / "data" / "2026Q2"
     man = Manifest.model_validate_json((rel / "manifest.json").read_text(encoding="utf-8"))
-    assert man.schema_version == "2.3.0"
+    assert man.schema_version == "2.4.0"
     assert {"journals", "journal_detail", "methods", "match", "diff"} <= set(man.modules)
     paths = {f.path for f in man.files}
     assert {"journals.json", "journals/so02.BECJournal.json", "methods.json", "match.json", "diff.json"} <= paths
@@ -513,6 +513,8 @@ def test_editor_modules_are_published_and_valid(two_releases):
     j = jf["journals"][0]
     assert j["id"] == "so02.BECJournal" and j["path"] == "BECJournal" and j["name_th"] == ""
     assert j["low_data"] is True and j["inhouse_share"] is None      # 11 articles < journals.min_articles
+    jd = json.loads((rel / "journals/so02.BECJournal.json").read_text(encoding="utf-8"))
+    assert jd["topic_years"] is None                                 # no topic mix by year for a low-data journal
     topics = json.loads((rel / "topics.json").read_text(encoding="utf-8"))["topics"]
     detail = json.loads((rel / f"topics/{topics[0]['id']}.json").read_text(encoding="utf-8"))
     assert detail["journals"][0]["id"] == "so02.BECJournal" and detail["journals"][0]["key"] == "BECJournal"

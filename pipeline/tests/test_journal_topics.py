@@ -10,6 +10,7 @@ from atlas.journal_topics import (
     special_issue,
     topic_mix,
     topic_shifts,
+    topic_years,
 )
 
 
@@ -48,6 +49,22 @@ def test_scope_drift_is_zero_for_a_steady_journal_and_high_for_a_new_scope():
     assert 0 < b[2022] < 1                                         # its reference years now mix both topics
     small = scope_drift(_jt({("C", 1, 2020): 3, ("C", 1, 2019): 30}), [2020], 3, 10)
     assert small["articles"].tolist() == [3] and np.isnan(small["distance"].iloc[0])
+
+
+def test_topic_years_follow_the_largest_topics_and_leave_thin_years_empty():
+    jt = _jt({("A", 1, 2021): 6, ("A", 2, 2021): 3, ("A", 3, 2021): 1, ("A", 1, 2022): 2, ("A", 2, 2022): 8,
+              ("A", 1, 2023): 3, ("B", 1, 2022): 20})
+    mix = topic_mix(jt, 2021, 2023)
+    t = topic_years(jt, mix, [2021, 2022, 2023], {"A"}, topics_per_journal=2, min_articles=5)
+    assert set(t["journal_key"]) == {"A"}                           # B is not eligible
+    wide = t.pivot(index="year", columns="topic_id", values="share")
+    assert list(t.drop_duplicates("topic_id")["topic_id"]) == [1, 2, -1]   # 11 vs 11 articles: ties by topic id, then other
+    assert wide.loc[2021, 1] == pytest.approx(0.6) and wide.loc[2021, -1] == pytest.approx(0.1)
+    assert wide.loc[2022, 2] == pytest.approx(0.8) and wide.loc[2022, -1] == 0
+    assert wide.loc[2023].isna().all()                              # 3 articles < 5: no shares, not zeros
+    assert t.drop_duplicates("year").set_index("year")["articles"].tolist() == [10, 10, 3]
+    assert wide.loc[[2021, 2022]].sum(axis=1).round(9).eq(1).all()
+    assert topic_years(jt, mix, [2021], {"A"}, topics_per_journal=0, min_articles=1).empty
 
 
 def test_topic_shifts_list_gains_and_losses():

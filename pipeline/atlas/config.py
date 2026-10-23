@@ -328,6 +328,8 @@ class JournalsCfg(_Strict):
     drift_reference_years: int = Field(3, ge=1)
     drift_min_articles: int = Field(10, ge=1)
     shift_topics: int = Field(5, ge=0)
+    year_mix_topics: int = Field(4, ge=0, le=4)        # the web draws one panel per topic in its 4 series styles
+    year_mix_min_articles: int = Field(10, ge=1)
     special_issue_statuses: list[Literal["EMERGING", "WATCH", "HOT"]] = Field(
         default_factory=lambda: ["EMERGING", "WATCH"])
     special_issue_min_host_articles: int = Field(3, ge=1)

@@ -46,6 +46,21 @@ def _int_or_none(v) -> int | None:
     return int(v) if v is not None and pd.notna(v) else None
 
 
+def _topic_years(t, code: dict, min_articles: int) -> C.JournalTopicYears | None:
+    """13_journal_topic_years rows of one journal → per-year shares of its largest topics (None: not published)."""
+    if t is None or t.empty:
+        return None
+    wide = t.pivot(index="year", columns="topic_id", values="share").sort_index()
+    years = [int(y) for y in wide.index]
+    articles = t.drop_duplicates("year").set_index("year")["articles"].reindex(wide.index).astype(int).tolist()
+    order = t.drop_duplicates("topic_id")["topic_id"].astype(int).tolist()       # largest first, as the step wrote them
+    return C.JournalTopicYears(
+        years=years, articles=articles, min_articles=min_articles,
+        topics=[C.JournalTopicLine(topic=code[tid], shares=[_f(v) for v in wide[tid]]) for tid in order
+                if tid != -1 and tid in code],
+        other=[_f(v) for v in wide[-1]] if -1 in wide.columns else [None] * len(years))
+
+
 def journal_files(cfg: dict, work: Path, code: dict[int, str], topic_group: dict[int, str]
                   ) -> tuple[dict[str, C._Model], dict[str, str], dict[str, str]]:
     """({path: model}, {journal_key: id}, {journal_key: display name}) — empty when the journals step did not run."""
@@ -64,7 +79,8 @@ def journal_files(cfg: dict, work: Path, code: dict[int, str], topic_group: dict
         "peers": read_table(work / "13_journal_peers.parquet"),
         "comp": read_table(work / "13_journal_completeness.parquet"),
         "methods": read_table(work / "13_journal_methods.parquet"),
-        "opps": read_table(work / "13_journal_opportunities.parquet")}.items()}
+        "opps": read_table(work / "13_journal_opportunities.parquet"),
+        "tyears": read_table(work / "13_journal_topic_years.parquet")}.items()}
     groups = {k: dict(tuple(g)) for k, g in by.items()}
     group_of = {}
     for jk, g in groups["mix"].items():
@@ -113,7 +129,8 @@ def journal_files(cfg: dict, work: Path, code: dict[int, str], topic_group: dict
             if g["methods"] is not None else [],
             opportunities=[C.JournalOpportunity(topic=code[int(o.topic_id)], reason=o.reason,
                                                 journal_articles=int(o.journal_articles), hosts=int(o.hosts))
-                           for o in g["opps"].itertuples() if int(o.topic_id) in code] if g["opps"] is not None else [])
+                           for o in g["opps"].itertuples() if int(o.topic_id) in code] if g["opps"] is not None else [],
+            topic_years=_topic_years(g["tyears"], code, int(jcfg["year_mix_min_articles"])))
     si = read_table(work / "13_special_issue.parquet")
     w = meta["windows"]
     files["journals.json"] = C.JournalsFile(

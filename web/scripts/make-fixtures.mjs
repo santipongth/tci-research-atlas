@@ -8,6 +8,7 @@
 // the quarter diff and the match index — the empty release has none of them (pages explain the missing module).
 // P3 (contract 2.2): institutions, regions, SDG/BCG, global benchmark, gaps. P4 (contract 2.3): references, the sharded
 // article search (600 synthetic articles), galaxy points, keyword trends, topic glossaries and cited-in-TCI counts.
+// Contract 2.4: each journal's topic mix by year (one journal has a thin year → null shares).
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -15,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures')
 const GENERATED_AT = '2026-10-01T00:00:00+00:00'
-const SCHEMA = '2.3.0'
+const SCHEMA = '2.4.0'
 const RELEASE = '2026Q4'
 const PREVIOUS = '2026Q3'
 const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
@@ -405,6 +406,15 @@ function buildEditors(files, previousOverview) {
   }
   const PEERS = { 0: [[2, 0.82], [1, 0.35]], 1: [[5, 0.64], [0, 0.35]], 2: [[0, 0.82]], 3: [], 4: [], 5: [[1, 0.64]] }
   const OPPS = { 0: [['T000502', 'adjacent', 0, 1]], 1: [['T000305', 'in_scope', 2, 1]], 2: [], 3: [['T000406', 'in_scope', 5, 2], ['T000502', 'adjacent', 0, 1]], 4: [], 5: [] }
+  // the journal's 4 largest topics per year: the first grows, the last shrinks; a thin year (< 10 articles) has no shares
+  const topicYears = (s, tl, weights, wsum, thinFirstYear) => {
+    const n = W.map((y, k) => (y < s.first_year ? 0 : thinFirstYear && k === 0 ? 6 : Math.round((s.articles_window / 5) * (0.85 + 0.075 * k))))
+    const top = tl.slice(0, 4)
+    const drift = (i, k) => (i === 0 ? 0.025 * k : i === top.length - 1 ? -0.015 * k : 0.004 * (k % 2))
+    const topics = top.map((t, i) => ({ topic: t.id, shares: W.map((_, k) => (n[k] < 10 ? null : r4(Math.max(0.02, weights[i] / wsum + drift(i, k))))) }))
+    const other = W.map((_, k) => (n[k] < 10 ? null : r4(Math.max(0, 1 - sum(topics.map((x) => x.shares[k]))))))
+    return { years: W, articles: n, min_articles: 10, topics, other }
+  }
   const COMPLETE = ['abstract_en', 'title_en', 'keywords_en', 'doi', 'references', 'refs_romanized', 'affiliations']
   JOURNALS.forEach((_, j) => {
     const s = summaries[j]
@@ -424,6 +434,7 @@ function buildEditors(files, previousOverview) {
       completeness: s.low_data ? [] : COMPLETE.map((key, k) => ({ key, rate: key === 'refs_romanized' && j === 3 ? null : r4(0.55 + ((j + k) % 5) * 0.1), n: key === 'refs_romanized' && j === 3 ? 0 : s.articles_window })),
       methods: s.low_data ? [] : [['survey', 0.52], ['descriptive_stats', 0.47], ['interview', 0.21], ['inferential', 0.19]].map(([m, sh]) => ({ method: m, count: Math.round(s.articles_window * s.methods_coverage * sh), share: sh })),
       opportunities: OPPS[j].map(([topic, reason, n, hosts]) => ({ topic, reason, journal_articles: n, hosts })),
+      topic_years: s.low_data ? null : topicYears(s, tl, weights, wsum, j === 2),
     }
   })
   // topic details link their journals by id

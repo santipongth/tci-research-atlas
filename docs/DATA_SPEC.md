@@ -198,7 +198,7 @@
 | ไฟล์ | step | เนื้อหา |
 |---|---|---|
 | `12_methods_articles` · `12_methods_topics` · `12_methods_notes` · `12_methods_meta.json` | `methods` | วิธีวิจัยรายบทความ (article_id, year, topic_id, methods, sample_size) · ต่อหัวข้อที่มี ≥ `methods.min_articles` บทความในหน้าต่าง · บันทึกหัวข้อ (เฉพาะ `methods.provider: llm`) · เวอร์ชัน lexicon, หน้าต่าง, สัดส่วนทั้งคลัง/รายปี |
-| `13_journals` · `13_journal_years` · `13_journal_topics` · `13_journal_drift` · `13_journal_shifts` · `13_journal_peers` · `13_journal_completeness` · `13_journal_methods` · `13_special_issue` · `13_journal_opportunities` · `13_journals_meta.json` | `journals` | ตัวตนวารสาร (+ทะเบียน), ความครบถ้วน D2, เจ้าของ/สัดส่วนในสถาบัน D3, ความหลากหลายสถาบัน, ผู้แต่งต่างประเทศ (สัดส่วน), drift D1, เพื่อน D4, ช่องว่างฉบับพิเศษ D5, วิธีวิจัย D7 — อ่านแถวผู้แต่งที่ step นี้เท่านั้น |
+| `13_journals` · `13_journal_years` · `13_journal_topics` · `13_journal_drift` · `13_journal_shifts` · `13_journal_topic_years` · `13_journal_peers` · `13_journal_completeness` · `13_journal_methods` · `13_special_issue` · `13_journal_opportunities` · `13_journals_meta.json` | `journals` | ตัวตนวารสาร (+ทะเบียน), ความครบถ้วน D2, เจ้าของ/สัดส่วนในสถาบัน D3, ความหลากหลายสถาบัน, ผู้แต่งต่างประเทศ (สัดส่วน), drift D1, เพื่อน D4, ช่องว่างฉบับพิเศษ D5, วิธีวิจัย D7 — อ่านแถวผู้แต่งที่ step นี้เท่านั้น |
 | `14_match.json` | `match` | ดัชนี trigram: gram, idf, น้ำหนักต่อหัวข้อ, สัดส่วนหัวข้อของแต่ละวารสาร |
 | `state_dir/releases/<release>/snapshot.json` | `export` | สรุปย่อของรอบ (หัวข้อ + KPI + รายชื่อวารสาร) ที่รอบถัดไปใช้ทำ `diff.json`; รอบก่อน P2 ที่ไม่มี snapshot ใช้ `output/data/<prev>/` แทน (`previous_source: output`) |
 
@@ -207,7 +207,7 @@
 | ไฟล์ | model | เนื้อหา |
 |---|---|---|
 | `journals.json` | `JournalsFile` | `window`/`recent`/`baseline`, `min_articles`, `completeness_weights`, `inhouse_flag_share` (null = ไม่มีเครื่องหมาย), เกณฑ์ special issue (`special_issue_statuses`, `_max_hosts`, `_min_host_articles`), `drift_reference_years`; `journals[]` = `JournalSummary`; `special_issue[]` = `SpecialIssueTopic` (topic, hosts, top_host_share, articles_recent) |
-| `journals/<id>.json` | `JournalDetail` | `years`, `topics` (TopicShare), `drift` (DriftPoint, distance = Jensen–Shannon), `gained`/`lost` (TopicShift), `peers` (cosine ของสัดส่วนหัวข้อ), `completeness` (7 องค์ประกอบ: abstract_en, title_en, keywords_en, doi, references, refs_romanized, affiliations), `methods`, `opportunities` (`in_scope` \| `adjacent`) |
+| `journals/<id>.json` | `JournalDetail` | `years`, `topics` (TopicShare), `drift` (DriftPoint, distance = Jensen–Shannon), `gained`/`lost` (TopicShift), `peers` (cosine ของสัดส่วนหัวข้อ), `completeness` (7 องค์ประกอบ: abstract_en, title_en, keywords_en, doi, references, refs_romanized, affiliations), `methods`, `opportunities` (`in_scope` \| `adjacent`), `topic_years` (2.4: ดู §10) |
 | `methods.json` | `MethodsFile` | `lexicon_version`, `window`, `methods[]` (key/th/en), `corpus` + `by_year` (สัดส่วนวิธีต่อปี), `topics[]` = `TopicMethods` (ครอบคลุม, สัดส่วนวิธี, ควอร์ไทล์ขนาดตัวอย่าง, `monoculture` + `monoculture_share`, `note` เมื่อใช้ LLM) |
 | `diff.json` | `DiffFile` | `previous_release`, `previous_source` (`state` \| `output`), `kpis`, `new_topics` (event new/split/merge + parents), `retired` (`merged_into` เฉพาะที่ lineage ระบุว่ารวมเข้า), `restructured` (หัวข้อที่คงรหัสผ่านการรวม/แยก), `status_changes`, `movers`, `journals_compared`, `new_journals` |
 | `match.json` | `MatchIndex` | `analyzer: char_wb3`, `fold: atlas-fold-1`, `grams` + `idf`, `topics[]` (terms, weights), `journals[]` (topics, shares), `min_similarity`, `fit_topics`, `min_query_chars` — ไม่มีข้อความบทความ; ไม่อยู่ใน HTML ออฟไลน์ |
@@ -284,3 +284,17 @@ PDPA: ตัวเลขของวารสารเป็นยอดรว�
 | `<site>/data/feeds/topics/<id>.xml` | หนึ่งฟีดต่อหัวข้อของรอบใหม่สุด; entry = รอบที่มีหัวข้อนั้น (สถานะ, บทความในช่วงล่าสุด, อัตราโตของสัดส่วน), ลิงก์ `<site_url>#/topics/<id>`; ฟีดของหัวข้อที่ไม่อยู่ในรอบใหม่สุดถูกลบ |
 
 สร้างจากไฟล์ที่อยู่บนเว็บเท่านั้น (`manifest.json`, `overview.json`, `diff.json`, `topics.json` ของแต่ละรอบ) → รันซ้ำได้ไบต์เดิม; `<updated>` = `generated_at` ของ manifest; XML escape เอง (`xml.sax.saxutils.escape`)
+
+## 10. สัดส่วนหัวข้อรายปีของวารสาร (contract 2.4, เพิ่มอย่างเดียว)
+
+`SCHEMA_VERSION = "2.4.0"` — `JournalDetail.topic_years` (`JournalTopicYears` หรือ **null = ไม่เผยแพร่**: วารสารข้อมูลน้อย (< `journals.min_articles` ในช่วง W), `journals.year_mix_topics: 0`, หรือรอบที่ออกก่อน 2.4)
+
+| ฟิลด์ | ความหมาย |
+|---|---|
+| `years` | ทุกปีในช่วง W (เช่น 2020–2024) |
+| `articles` | บทความของวารสารที่เข้าหัวข้อ ต่อปี |
+| `min_articles` | = `journals.year_mix_min_articles` — ปีที่ `articles` น้อยกว่านี้มีสัดส่วนเป็น null ทุกเส้น (ไม่ใช่ศูนย์) |
+| `topics[]` | `JournalTopicLine` = `topic` + `shares` (ต่อปี) ของ `journals.year_mix_topics` หัวข้อที่ใหญ่ที่สุดของวารสารในช่วง W (มากไปน้อย, เสมอกันเรียงตาม id) |
+| `other` | สัดส่วนของหัวข้ออื่นทั้งหมดรวมกัน ต่อปี — ปีที่มีค่า: `sum(topics[].shares[k]) + other[k] = 1` |
+
+ทุกอาร์เรย์ยาวเท่า `years` (validator ตรวจ). Checkpoint: `13_journal_topic_years` (journal_key, year, topic_id (-1 = อื่น ๆ), articles, share) จาก `journal_topics.topic_years`. เว็บ: หน้า `/journals/:id` ส่วน "ตีพิมพ์เรื่องอะไรบ้าง" แสดงเป็น small multiples (ช่องละหัวข้อ แกนตั้งเดียวกัน) + แท็บตาราง (ปี × หัวข้อ + เรื่องอื่น) + ประโยคตัวอย่าง และบอกปีที่เว้นว่างใต้กราฟ

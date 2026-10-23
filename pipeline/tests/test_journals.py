@@ -4,6 +4,7 @@ import json
 import pandas as pd
 import pytest
 
+from atlas.export_editors import journal_files
 from atlas.io_utils import read_table
 from atlas.journals import journals
 from atlas.methods import methods
@@ -55,6 +56,22 @@ def test_topics_peers_drift_and_special_issue(work):
     assert set(meth["method"]) >= {"survey", "interview"}
     meta = json.loads((w / "13_journals_meta.json").read_text(encoding="utf-8"))
     assert meta["windows"]["W"] == [2020, 2024] and meta["windows"]["R"] == [2022, 2024]
+
+
+def test_topic_mix_by_year_is_published_for_eligible_journals_only(work):
+    cfg, w = work
+    ty = read_table(w / "13_journal_topic_years.parquet")
+    assert set(ty["journal_key"]) == {"so02:J1", "so03:J2"}          # J3 is low data
+    assert sorted(ty["year"].unique()) == [2020, 2021, 2022, 2023, 2024]
+    topics = sorted(int(t) for t in read_table(w / "04_fine_topics.parquet")["fine_topic"].unique() if t >= 0)
+    files, _, _ = journal_files(cfg, w, {t: f"T{t:06d}" for t in topics}, {t: "g" for t in topics})
+    j1 = files["journals/so02.J1.json"].topic_years
+    assert j1 is not None and j1.years == [2020, 2021, 2022, 2023, 2024] and j1.min_articles == 10
+    assert 1 <= len(j1.topics) <= 4 and all(len(t.shares) == 5 for t in j1.topics)
+    for k, n in enumerate(j1.articles):                              # a year either sums to one or is empty
+        vals = [t.shares[k] for t in j1.topics] + [j1.other[k]]
+        assert all(v is None for v in vals) if n < 10 else sum(vals) == pytest.approx(1, abs=1e-3)
+    assert files["journals/so04.J3.json"].topic_years is None
 
 
 def test_registry_names_the_journal_and_its_owner(tmp_path):

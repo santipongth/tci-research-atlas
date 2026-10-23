@@ -466,7 +466,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -561,7 +561,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -813,7 +813,7 @@
           "type": "integer"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -922,7 +922,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -993,7 +993,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1192,7 +1192,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1432,7 +1432,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -1582,9 +1582,21 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
+        },
+        "topic_years": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/JournalTopicYears"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "2.4: share of the journal's largest topics per year; null = not published (low data)"
         },
         "topics": {
           "items": {
@@ -1979,6 +1991,94 @@
       "title": "JournalSummary",
       "type": "object"
     },
+    "JournalTopicLine": {
+      "additionalProperties": false,
+      "properties": {
+        "shares": {
+          "description": "share of the journal's articles per year; null = too few articles",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Shares",
+          "type": "array"
+        },
+        "topic": {
+          "pattern": "^T\\d{6}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "shares"
+      ],
+      "title": "JournalTopicLine",
+      "type": "object"
+    },
+    "JournalTopicYears": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "description": "the journal's articles assigned to a topic, per year",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Articles",
+          "type": "array"
+        },
+        "min_articles": {
+          "description": "years with fewer articles carry null shares",
+          "title": "Min Articles",
+          "type": "integer"
+        },
+        "other": {
+          "description": "share of every other topic together, per year",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Other",
+          "type": "array"
+        },
+        "topics": {
+          "description": "the journal's largest topics over the window, largest first",
+          "items": {
+            "$ref": "#/definitions/JournalTopicLine"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "years": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Years",
+          "type": "array"
+        }
+      },
+      "required": [
+        "years",
+        "articles",
+        "min_articles",
+        "topics",
+        "other"
+      ],
+      "title": "JournalTopicYears",
+      "type": "object"
+    },
     "JournalYear": {
       "additionalProperties": false,
       "properties": {
@@ -2044,7 +2144,7 @@
           "$ref": "#/definitions/YearWindow"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2146,7 +2246,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -2307,7 +2407,7 @@
           "type": "integer"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2429,7 +2529,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -2613,7 +2713,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2711,7 +2811,7 @@
           "type": "number"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -2940,7 +3040,7 @@
           "title": "Monoculture Share"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3160,7 +3260,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3398,7 +3498,7 @@
           "type": "integer"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3508,7 +3608,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3698,7 +3798,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3781,7 +3881,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3818,7 +3918,7 @@
           "type": "object"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3898,7 +3998,7 @@
           "type": "integer"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3954,7 +4054,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -3984,7 +4084,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -4280,7 +4380,7 @@
           "title": "Holdout Accuracy Subfield"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -4591,7 +4691,7 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         }
@@ -5075,7 +5175,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "2.3.0",
+          "default": "2.4.0",
           "title": "Schema Version",
           "type": "string"
         },

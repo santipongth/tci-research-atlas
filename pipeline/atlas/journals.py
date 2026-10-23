@@ -12,6 +12,7 @@ R / B = the emerging recent / baseline windows (topic shifts, special issues).
   13_journal_topics        journal_key, topic_id, count, share (W, every topic — export keeps the top ones)
   13_journal_drift         journal_key, year, articles, distance (D1)
   13_journal_shifts        journal_key, topic_id, kind, share_before, share_after (B → R)
+  13_journal_topic_years   journal_key, year, topic_id (-1 = other), articles, share (W, eligible journals, top topics)
   13_journal_peers         journal_key, peer_key, similarity (D4)
   13_journal_completeness  journal_key, component, rate, n (D2)
   13_journal_methods       journal_key, method, count, share (D7, share of the articles naming a method)
@@ -38,6 +39,7 @@ from atlas.journal_topics import (
     special_issue,
     topic_mix,
     topic_shifts,
+    topic_years,
 )
 from atlas.methods import shares_of
 from atlas.orgs import org_display_names
@@ -125,6 +127,8 @@ def journals(cfg: dict) -> pd.DataFrame:
     drift = scope_drift(jt, list(range(W[0], W[1] + 1)), int(jcfg["drift_reference_years"]),
                         int(jcfg["drift_min_articles"]))
     shifts = topic_shifts(jt, B, R, int(jcfg["shift_topics"]), int(jcfg["min_articles"]))
+    tyears = topic_years(jt, mix, list(range(W[0], W[1] + 1)), eligible, int(jcfg["year_mix_topics"]),
+                         int(jcfg["year_mix_min_articles"]))
     status = read_table(work / "07_emerging.parquet").set_index("topic_id")["status"]
     edges = _optional(work / "09_edges.parquet", ["s", "t", "w"])
     opps = special_issue(in_years(jt, *R), status, list(jcfg["special_issue_statuses"]),
@@ -182,6 +186,7 @@ def journals(cfg: dict) -> pd.DataFrame:
     write_table(mix, work / "13_journal_topics.parquet")
     write_table(drift, work / "13_journal_drift.parquet")
     write_table(shifts, work / "13_journal_shifts.parquet")
+    write_table(tyears, work / "13_journal_topic_years.parquet")
     write_table(pd.DataFrame(peer_rows, columns=["journal_key", "peer_key", "similarity"]),
                 work / "13_journal_peers.parquet")
     write_table(comp_long[comp_long["journal_key"].isin(eligible)], work / "13_journal_completeness.parquet")

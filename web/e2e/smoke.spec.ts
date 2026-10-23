@@ -243,6 +243,12 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#numbers .spark')).toHaveCount(1)
     await expect(page.locator('#fig-mix-panel .pm-row')).toHaveCount(2)
     await expect(page.locator('#fig-mix-panel .pm-key li')).toHaveCount(3)              // 2 topics + "เรื่องอื่น"
+    await expect(page.locator('#fig-topic-years-panel .smx-panel')).toHaveCount(4)     // the journal's 4 largest topics, year by year
+    await expect(page.locator('#fig-topic-years-panel .note').filter({ hasText: 'เช่น' })).toContainText('ในปี 2020')
+    await expect(page.locator('#fig-topic-years-panel')).not.toContainText('เว้นว่าง')   // example0 has no thin year
+    await page.locator('#fig-topic-years-tab-table').click()
+    await expect(page).toHaveURL(/ty=table/)
+    await expect(page.locator('#fig-topic-years-panel tbody tr')).toHaveCount(5)
     await expect(page.locator('#fig-comp-panel .ck-row')).toHaveCount(7)
     await expect(page.locator('#completeness')).toContainText('DOI')
     await expect(page.locator('#opportunities')).toContainText('ยานยนต์ไฟฟ้า')

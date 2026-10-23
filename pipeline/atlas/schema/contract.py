@@ -19,7 +19,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "2.3.0"                  # 2.1: editors' modules; 2.2: executives' modules; 2.3: researchers' modules
+SCHEMA_VERSION = "2.4.0"                  # 2.1: editors' modules; 2.2: executives' modules; 2.3: researchers' modules; 2.4: journal topic mix by year
 Status = Literal["EMERGING", "WATCH", "HOT", "DECLINING", "STABLE", "LOW_DATA"]
 TOPIC_ID = r"^T\d{6}$"
 GROUP_ID = r"^[FG]\d{2,}$"                # F = OpenAlex field id, G = agglomerative fallback group
@@ -446,6 +446,26 @@ class TopicShift(_Model):
     share_after: float
 
 
+class JournalTopicLine(_Model):
+    topic: str = Field(pattern=TOPIC_ID)
+    shares: list[float | None] = Field(description="share of the journal's articles per year; null = too few articles")
+
+
+class JournalTopicYears(_Model):
+    years: list[int]
+    articles: list[int] = Field(description="the journal's articles assigned to a topic, per year")
+    min_articles: int = Field(description="years with fewer articles carry null shares")
+    topics: list[JournalTopicLine] = Field(description="the journal's largest topics over the window, largest first")
+    other: list[float | None] = Field(description="share of every other topic together, per year")
+
+    @model_validator(mode="after")
+    def _aligned(self):
+        n = len(self.years)
+        if len(self.articles) != n or len(self.other) != n or any(len(t.shares) != n for t in self.topics):
+            raise ValueError("topic_years: every series must have one value per year")
+        return self
+
+
 class Peer(_Model):
     id: str = Field(pattern=JOURNAL_ID)
     similarity: float
@@ -482,6 +502,8 @@ class JournalDetail(_Model):
     completeness: list[CompletenessItem] = Field(default_factory=list)
     methods: list[MethodShare] = Field(default_factory=list)
     opportunities: list[JournalOpportunity] = Field(default_factory=list)
+    topic_years: JournalTopicYears | None = Field(
+        None, description="2.4: share of the journal's largest topics per year; null = not published (low data)")
 
 
 class MethodInfo(_Model):

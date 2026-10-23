@@ -159,7 +159,7 @@ export const journalsCodec = makeCodec<JournalsUrlState>({
   dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
   view: oneOf('view', VIEWS, 'chart'),
 })
-export const journalCodec = makeCodec<{ drift: View; mix: View; comp: View }>({ drift: oneOf('drift', VIEWS, 'chart'), mix: oneOf('mix', VIEWS, 'chart'), comp: oneOf('comp', VIEWS, 'chart') })
+export const journalCodec = makeCodec<{ ty: View; drift: View; mix: View; comp: View }>({ ty: oneOf('ty', VIEWS, 'chart'), drift: oneOf('drift', VIEWS, 'chart'), mix: oneOf('mix', VIEWS, 'chart'), comp: oneOf('comp', VIEWS, 'chart') })
 export const methodsCodec = makeCodec<{ trend: View; corpus: View; mono: 'all' | 'only' }>({ trend: oneOf('trend', VIEWS, 'chart'), corpus: oneOf('corpus', VIEWS, 'chart'), mono: oneOf('mono', ['all', 'only'] as const, 'all') })
 export const referencesCodec = makeCodec<{ jr: View; flow: View }>({ jr: oneOf('jr', VIEWS, 'chart'), flow: oneOf('flow', VIEWS, 'chart') })
 export const INST_SORTS = ['name', 'province', 'articles', 'recent', 'intl', 'partners'] as const

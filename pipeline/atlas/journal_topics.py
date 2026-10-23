@@ -7,6 +7,8 @@ peer_journals    cosine similarity of topic-mix vectors between eligible journal
 scope_drift      per year: Jensen–Shannon distance (base 2, 0 = same mix, 1 = disjoint) between that year's topic
                  mix and the pooled mix of the drift_reference_years before it; null when either side has
                  fewer than drift_min_articles articles
+topic_years      per year: the share of a journal's articles in each of its `topics_per_journal` largest topics
+                 over the window (the rest pooled as topic -1); share NaN when the year has < min_articles
 topic_shifts     topics whose share of the journal grew / shrank most from window B to window R (emerging windows)
 special_issue    topics in special_issue_statuses hosted by ≤ max_hosts journals, where a host published
                  ≥ min_host_articles of the topic's articles in R
@@ -74,6 +76,31 @@ def scope_drift(jt: pd.DataFrame, years: list[int], ref_years: int, min_articles
                     if n >= min_articles and ref.sum() >= min_articles else np.nan)
             rows.append({"journal_key": jk, "year": int(y), "articles": n, "distance": dist})
     return pd.DataFrame(rows, columns=["journal_key", "year", "articles", "distance"])
+
+
+def topic_years(jt: pd.DataFrame, mix: pd.DataFrame, years: list[int], eligible: set[str], topics_per_journal: int,
+                min_articles: int) -> pd.DataFrame:
+    """journal_key, year, topic_id, articles, share — for eligible journals, every year in `years`, the journal's
+    `topics_per_journal` largest topics of `mix` (ties by topic id) plus topic -1 = all its other topics.
+    `articles` = the journal's assigned articles that year; share is NaN when articles < min_articles."""
+    cols = ["journal_key", "year", "topic_id", "articles", "share"]
+    if not years or topics_per_journal == 0:
+        return pd.DataFrame(columns=cols)
+    rows = []
+    w = in_years(jt, min(years), max(years))
+    for jk, g in mix[mix["journal_key"].isin(eligible)].groupby("journal_key"):
+        top = g.sort_values(["count", "topic_id"], ascending=[False, True])["topic_id"].astype(int).head(topics_per_journal)
+        mine = w[w["journal_key"] == jk]
+        tab = (mine.assign(topic_id=mine["topic_id"].where(mine["topic_id"].isin(set(top)), -1))
+               .groupby(["year", "topic_id"]).size().unstack(fill_value=0)
+               .reindex(index=years, columns=[*top, -1], fill_value=0))
+        n = tab.sum(axis=1)
+        for y in years:
+            for tid in [*top, -1]:
+                share = float(tab.loc[y, tid] / n[y]) if n[y] >= min_articles else np.nan
+                rows.append({"journal_key": jk, "year": int(y), "topic_id": int(tid), "articles": int(n[y]),
+                             "share": share})
+    return pd.DataFrame(rows, columns=cols)
 
 
 def topic_shifts(jt: pd.DataFrame, before: tuple[int, int], after: tuple[int, int], n: int, min_articles: int
