@@ -6,7 +6,6 @@ import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
 import { Figure } from '../components/Figure'
 import { ModuleFile } from '../components/ModuleFile'
-import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
@@ -51,16 +50,8 @@ const median = (v: number | null | undefined) => (v === null || v === undefined 
 
 function References({ release, file }: { release: AtlasRelease; file: ReferencesFile }) {
   const s = useStrings(REF)
-  const { t } = useI18n()
   const internal = file.internal ?? null
   const span = { a: file.window.start, b: file.window.end }
-  const toc = [
-    { id: 'ref-coverage', label: s('cov.h') },
-    { id: 'ref-journals', label: s('jr.h') },
-    { id: 'ref-internal', label: s('in.h') },
-    ...(internal && internal.top_articles.length ? [{ id: 'ref-top', label: s('top.h') }] : []),
-    ...(internal ? [{ id: 'ref-flows', label: s('flow.h') }, { id: 'ref-topics', label: s('tp.h') }] : []),
-  ]
   return (
     <div className="container">
       <PageHeader title={s('title')} lede={s('lede', { p: fmtPct(file.coverage, 0), ...span, refs: fmtInt(file.refs_counted) })} />
@@ -89,9 +80,6 @@ function References({ release, file }: { release: AtlasRelease; file: References
           )}
           <SourceLine className="ref-source" />
         </div>
-        <aside className="rail" aria-label={t('onThisPage')}>
-          <OnThisPage items={toc} />
-        </aside>
       </div>
     </div>
   )

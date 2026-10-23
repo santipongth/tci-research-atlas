@@ -2,7 +2,6 @@ import { lazy, Suspense } from 'react'
 import { useLocation } from 'react-router'
 import { BRAND } from '../brand/brand'
 import { HowNote } from '../components/HowNote'
-import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { Section } from '../components/Section'
 import { StatusGlyph } from '../components/StatusGlyph'
@@ -36,14 +35,6 @@ export default function AboutPage() {
     : { R: t('about.generic.R'), B: t('about.generic.B'), W: t('about.generic.W') }
   const fill = (s: string) => s.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
   const changes = CHANGELOG.filter((c) => c.version <= version).sort((a, b) => b.version - a.version)
-  const toc = [
-    { id: 'flow', label: t('about.flow.h') },
-    ...METHOD.map((m) => ({ id: `m-${m.id}`, label: pick(m.h.th, m.h.en) })),
-    { id: 'definition', label: t('about.def.h') },
-    { id: 'privacy', label: t('about.privacy.h') },
-    { id: 'cite', label: t('about.cite.h') },
-    { id: 'changelog', label: t('about.log.h') },
-  ]
   return (
     <div className="container">
       <PageHeader title={t('about.title')} lede={t('about.lede')} />
@@ -107,9 +98,6 @@ export default function AboutPage() {
             </ol>
           </Section>
         </div>
-        <aside className="rail" aria-label={t('onThisPage')}>
-          <OnThisPage items={toc} />
-        </aside>
       </div>
     </div>
   )

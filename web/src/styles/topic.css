@@ -61,6 +61,6 @@
   .tp-eg { margin-top: var(--sp-group); max-width: var(--measure-body); font-size: var(--fs-body); line-height: 1.65; }
   .tp-eg b { font-weight: 600; }
   .tp-eg a { font-weight: 600; }
-  .tp-after { padding-top: var(--sp-block); }
+  .tp-after { margin-top: var(--sp-section); padding-top: 18px; border-top: 1px solid var(--border-2); display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
   @media (max-width: 899px) { .tp-hero { grid-template-columns: 1fr; } }
 }

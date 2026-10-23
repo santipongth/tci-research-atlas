@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Wordmark } from '../brand/Wordmark'
-import { DataBanner } from '../components/DataBanner'
 import { DataTable } from '../components/DataTable'
 import { Figure } from '../components/Figure'
 import { SegmentText } from '../components/SegmentText'
@@ -27,7 +26,8 @@ const DOWN = 3
 /**
  * E4: a one-page A4 infographic brief (two pages at most; printed to PDF by `npm run brief:pdf`): headline, four key
  * figures, three findings, every topic by status, the top movers as a dot plot, the policy notes and the source.
- * Every number comes from the release.
+ * Every number comes from the release. On screen it is an ordinary page of the site (inside the layout, which shows
+ * the data banner when the release cannot load); printing hides the site chrome and shows the brief's own wordmark.
  */
 export default function BriefPage() {
   const state = useAtlas()
@@ -35,10 +35,10 @@ export default function BriefPage() {
   useDocumentTitle(t('nav.brief'))
   if (state.status === 'ready') return <Brief release={state.release} />
   return (
-    <main id="main" className="brief">
+    <div className="container brief">
       <h1>{t('nav.brief')}</h1>
-      {state.status === 'loading' ? <p className="loading" role="status">{t('loading')}</p> : <DataBanner />}
-    </main>
+      {state.status === 'loading' ? <p className="loading" role="status">{t('loading')}</p> : null}
+    </div>
   )
 }
 
@@ -61,12 +61,20 @@ function Brief({ release }: { release: AtlasRelease }) {
   const moversTable = t('table.n', { n: 2, title: t('brief.movers.table') })
   const source = t('source.line', { release: ov.release })
   return (
-    <main id="main" className="brief" data-brief-ready="true">
+    <div className="container brief" data-brief-ready="true">
       <header className="brief-head">
         <Wordmark sub={t('brandSub')} lang={lang} />
         <p className="brief-meta">{t('brief.sub', { year: ov.last_complete_year, date: fmtDate(ov.generated_at, lang) })}</p>
       </header>
       <h1>{t('brief.title', { release: ov.release })}</h1>
+      <p className="brief-acts no-print">
+        <button type="button" className="btn-secondary" onClick={() => window.print()}>
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+            <path d="M4 6V1.5h8V6 M4 12H2.5V6h11v6H12 M4 9.5h8v5H4z" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          </svg>
+          {t('brief.print')}
+        </button>
+      </p>
       {release.sample ? (
         <p className="brief-sample">
           <strong>{t('sample.tag')}</strong> {t('sample.text')}
@@ -152,9 +160,6 @@ function Brief({ release }: { release: AtlasRelease }) {
         <p>{source} · {t('source.def', { v: release.definitionVersion })}</p>
         <p>{t('brief.more')} · {t('footer.licence')}</p>
       </footer>
-      <p className="no-print mt-6">
-        <button type="button" className="btn" onClick={() => window.print()}>{t('brief.print')}</button>
-      </p>
-    </main>
+    </div>
   )
 }

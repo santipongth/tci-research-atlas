@@ -96,8 +96,8 @@
   --fs-tick: 13px;                                         /* SVG axis ticks only */
 
   --sp-group: 24px;                                        /* heading → its content, between related blocks */
-  --sp-block: 40px;                                        /* between figures and sub-blocks of a section */
-  --sp-section: 88px;                                      /* between sections; above the footer */
+  --sp-block: 36px;                                        /* between figures and sub-blocks of a section */
+  --sp-section: 64px;                                      /* between sections; above the footer */
 
   --measure-lede: 32em;
   --measure-body: 38em;
@@ -109,6 +109,6 @@
     --fs-body: 1.0625rem;
     --sp-group: 16px;
     --sp-block: 28px;
-    --sp-section: 56px;
+    --sp-section: 48px;
   }
 }

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-/** A page section with an h2 that OnThisPage can scroll to. Render it only when its data exists (self-hiding). */
+/** A page section with an id (a scroll target for links within the page) and an h2. Render it only when its data exists (self-hiding). */
 export function Section({ id, title, intro, children }: { id: string; title: string; intro?: ReactNode; children: ReactNode }) {
   return (
     <section className="sec" id={id} aria-labelledby={`${id}-h`}>

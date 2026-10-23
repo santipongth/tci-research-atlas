@@ -1,10 +1,9 @@
 import { useMemo, type ReactNode } from 'react'
 import { DataTable, type Column } from '../../components/DataTable'
 import { HowNote } from '../../components/HowNote'
-import { OnThisPage } from '../../components/OnThisPage'
 import { Section } from '../../components/Section'
 import { DICTIONARY, type DictEntry } from '../../content/dictionary'
-import { groupName, hasModule, MODULE_FILES, type AtlasRelease, type ModuleName } from '../../data/release'
+import { groupName, type AtlasRelease } from '../../data/release'
 import { dataUrl } from '../../data/source'
 import type { EmergingKeyword, Topic } from '../../data/types'
 import { fmtBytes, utf8Bytes } from '../../lib/bytes'
@@ -211,15 +210,6 @@ export default function OpenData({ release }: { release: AtlasRelease }) {
     { key: 'field', header: t('data.dict.field'), cell: (r) => <code>{r.field}</code>, csv: (r) => r.field },
     { key: 'meaning', header: t('data.dict.meaning'), cell: (r) => (lang === 'en' ? r.en : r.th), csv: (r) => (lang === 'en' ? r.en : r.th) },
   ]
-  const toc = [
-    { id: 'csv', label: s('ez.h') },
-    { id: 'developers', label: s('dev.h') },
-    { id: 'downloads', label: t('data.dl.h') },
-    ...((Object.keys(MODULE_FILES) as ModuleName[]).some((m) => hasModule(release, m)) ? [{ id: 'modules', label: t('data.mod.h') }] : []),
-    { id: 'quality', label: t('data.q.h') },
-    { id: 'dictionary', label: t('data.dict.h') },
-    { id: 'cite', label: t('data.cite.h') },
-  ]
   return (
     <div className="layout">
       <div className="main-col">
@@ -314,9 +304,6 @@ export default function OpenData({ release }: { release: AtlasRelease }) {
           <p className="note">{t('data.cite.licence')}</p>
         </Section>
       </div>
-      <aside className="rail" aria-label={t('onThisPage')}>
-        <OnThisPage items={toc} />
-      </aside>
     </div>
   )
 }

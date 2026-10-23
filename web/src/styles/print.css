@@ -1,9 +1,13 @@
 /* /brief on screen, and print rules for the whole site (the PDF brief, printed pages). */
 @layer components {
-  .brief { max-width: 900px; margin-inline: auto; padding: 28px 24px 40px; }
-  .brief h1 { font-size: var(--fs-h2); margin-top: 18px; }
-  .brief h2 { font-size: var(--fs-body); margin-top: 22px; }
-  .brief-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding: 12px 0 14px; background: var(--bg); color: var(--ink); border-bottom: 1px solid var(--border-2); }
+  /* on screen the brief is a page of the site: the site header carries the logo, so the brief's wordmark is print-only */
+  .brief { padding-top: 44px; }
+  .brief > * { max-width: 900px; }
+  .brief h1 { font-size: var(--fs-h2); line-height: 1.5; margin-top: 6px; }
+  .brief h2 { font-size: var(--fs-lead); margin-top: 36px; }
+  .brief-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; }
+  .brief-head .wm { display: none; }
+  .brief-acts { margin-top: 16px; }
   .brief-meta { font-size: var(--fs-caption); color: var(--ink-2); }
   .brief-headline { margin-top: 14px; font-size: var(--fs-lead); max-width: none; }
   .brief-sample { margin-top: 10px; padding: 10px 14px; border-radius: var(--radius); background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
@@ -20,9 +24,12 @@
 @media print {
   @page { size: A4; margin: 14mm 14mm 16mm; }
   body { font-size: 10pt; background: #ffffff; }
-  .no-print, .skip, .nav, .phase, .ftr, .tbl-tools, .zoom, .tablist, .rail { display: none !important; }
+  .no-print, .skip, .hdr, .nav, .phase, .ftr, .tbl-tools, .zoom, .tablist { display: none !important; }
+  .brief-head { padding: 0 0 10px; border-bottom: 1px solid var(--border-2); }
+  .brief-head .wm { display: flex; }
   mark { animation: none !important; background-size: 100% 100% !important; }
   .brief { max-width: none; padding: 0; }
+  .brief > * { max-width: none; }
   .brief h1 { font-size: 17pt; margin-top: 10px; }
   .brief h2 { font-size: 12pt; margin-top: 12px; }
   .brief-headline { font-size: 15pt; margin-top: 8px; }

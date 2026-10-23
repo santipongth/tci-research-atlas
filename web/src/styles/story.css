@@ -1,6 +1,6 @@
 /* The front door's data story: the question, the answer, one number, then the chart that proves it. */
 @layer components {
-  .story { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 40px 72px; align-items: start; padding-top: var(--sp-block); }
+  .story { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 40px 72px; align-items: start; padding-top: 36px; }
   .story-text { padding-top: 12px; }
   .story h1 { font-size: var(--fs-display); line-height: 1.45; font-weight: 700; color: var(--ink); }
   .story h1:lang(en) { line-height: 1.25; letter-spacing: -0.02em; }

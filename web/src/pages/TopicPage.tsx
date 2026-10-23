@@ -5,7 +5,6 @@ import { FitCiWhisker } from '../components/CiWhisker'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
 import { Figure } from '../components/Figure'
-import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
@@ -24,7 +23,6 @@ import { forecastView } from '../lib/forecast'
 import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { ciText, growthText, lowDataText, ratioText, statusMeaning, statusName } from '../lib/topicText'
-import { COMPACT_CHROME, useMediaQuery } from '../lib/useMediaQuery'
 import { figureCsv } from '../lib/tableCsv'
 import { topicCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
@@ -78,7 +76,6 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
   const { t, name, other, otherLang, lang } = useI18n()
   const detail = useTopicDetail(topic.id)
   const [state, update] = useUrlState(topicCodec)
-  const compact = useMediaQuery(COMPACT_CHROME)
   const m = topic.metrics
   const level = ciPct(release.ciLevel)
   const w = windows(release.overview.last_complete_year)
@@ -128,17 +125,6 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
     { key: 'mean', csvHeader: 'forecast_mean', header: t('forecast'), numeric: true, cell: (r) => (r.mean === null ? '' : fmtInt(r.mean)), csv: (r) => r.mean },
     { key: 'r80', csvHeader: 'range_80', header: t('tp.col.range80'), numeric: true, cell: (r) => (r.lo80 === null ? '' : `${fmtInt(r.lo80)}–${fmtInt(r.hi80)}`), csv: (r) => (r.lo80 === null ? null : `${r.lo80}-${r.hi80}`) },
     { key: 'r95', csvHeader: 'range_95', header: t('tp.col.range95'), numeric: true, cell: (r) => (r.lo95 === null ? '' : `${fmtInt(r.lo95)}–${fmtInt(r.hi95)}`), csv: (r) => (r.lo95 === null ? null : `${r.lo95}-${r.hi95}`) },
-  ]
-  const toc = [
-    { id: 'trend', label: t('tp.trend.h') },
-    ...(narrative ? [{ id: 'narrative', label: t('tp.narrative.h') }] : []),
-    { id: 'numbers', label: t('tp.numbers.h') },
-    ...(keywords.length ? [{ id: 'keywords', label: t('tp.keywords.h') }] : []),
-    ...(glossary.length ? [{ id: 'glossary', label: t('tp.glossary.h') }] : []),
-    { id: 'articles', label: t('tp.articles.h') },
-    ...(related.length ? [{ id: 'related', label: t('tp.related.h') }] : []),
-    ...(journals.length ? [{ id: 'journals', label: t('tp.journals.h') }] : []),
-    ...(institutions.length ? [{ id: 'orgs', label: t('tp.orgs.h') }] : []),
   ]
   const g = m.share_growth
   const heroText =
@@ -413,12 +399,8 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
             </Section>
           ) : null}
         </div>
-        <aside className="rail" aria-label={t('onThisPage')}>
-          <OnThisPage items={toc} />
-          {compact ? null : asideExtra}
-        </aside>
-        {/* on phones the compare button, id and feed link follow the content instead of sitting above it */}
-        {compact ? <div className="tp-after">{asideExtra}</div> : null}
+        {/* the compare button, the topic id and the feed link close the page */}
+        <div className="tp-after">{asideExtra}</div>
       </div>
     </div>
   )

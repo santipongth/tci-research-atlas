@@ -10,7 +10,6 @@ import { Figure } from '../components/Figure'
 import { HowNote } from '../components/HowNote'
 import { JournalLink } from '../components/JournalLink'
 import { ModuleFile } from '../components/ModuleFile'
-import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
@@ -94,15 +93,6 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const inhouseSub = journal.inhouse_share == null && inhouseGap(journal) === 'owner_not_found'
     ? t('jr.ownerNotFound')
     : owner ? t(journal.owner_source === 'inferred' ? 'jr.inhouseSubInferred' : 'jr.inhouseSub', { o: owner }) : t('jr.noOwner')
-  const toc = [
-    { id: 'numbers', label: t('jr.numbers.h') },
-    ...(topics.length ? [{ id: 'topics', label: t('jr.topics.h') }] : []),
-    ...(hasDrift || mix.rows.length ? [{ id: 'drift', label: t('jr.drift.h') }] : []),
-    ...(comp.length ? [{ id: 'completeness', label: t('jr.comp.h') }] : []),
-    ...(peers.length ? [{ id: 'peers', label: t('jr.peers.h') }] : []),
-    ...(methods.length ? [{ id: 'methods', label: t('jr.methods.h') }] : []),
-    ...(opps.length ? [{ id: 'opportunities', label: t('jr.opp.h') }] : []),
-  ]
   const share = (s: TopicShare) => s.share
   const topTopic = topics.length ? topicOf(topics.reduce((a, b) => (b.count > a.count ? b : a)).topic) : undefined
   const topicColumns: Column<TopicShare>[] = [
@@ -389,10 +379,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
           ) : null}
           {detailFile.status === 'loading' ? <p className="loading" role="status">{t('loading')}</p> : null}
         </div>
-        <aside className="rail" aria-label={t('onThisPage')}>
-          <OnThisPage items={toc} />
-          <p className="mt-6"><Link to="/journals">{t('jr.back')}</Link></p>
-        </aside>
+        <p className="page-back"><Link to="/journals">{t('jr.back')}</Link></p>
       </div>
     </div>
   )

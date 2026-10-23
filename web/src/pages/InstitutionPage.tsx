@@ -8,7 +8,6 @@ import { DataTable, type Column } from '../components/DataTable'
 import { Figure } from '../components/Figure'
 import { InstitutionLink } from '../components/InstitutionLink'
 import { ModuleFile } from '../components/ModuleFile'
-import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
@@ -78,14 +77,6 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
   const w = file.window
   const r = file.recent
   const rel = release.overview.release
-  const toc = [
-    { id: 'numbers', label: t('in.numbers.h') },
-    ...(years.length ? [{ id: 'years', label: t('in.years.h') }] : []),
-    ...(topics.length ? [{ id: 'topics', label: t('in.topics.h') }] : []),
-    ...(partners.length ? [{ id: 'partners', label: t('in.partners.h') }] : []),
-    ...(countries.length ? [{ id: 'abroad', label: t('in.countries.h') }] : []),
-    ...(suggested.length ? [{ id: 'suggested', label: t('in.suggest.h') }] : []),
-  ]
   const maxShare = Math.max(0.0001, ...topics.map((s) => s.share))
   const topicColumns: Column<TopicShare>[] = [
     { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s.topic) as Topic} showStatus />, sortValue: (s) => s.topic, csv: (s) => s.topic },
@@ -265,10 +256,7 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
 
           {detailFile.status === 'loading' ? <p className="loading" role="status">{t('loading')}</p> : null}
         </div>
-        <aside className="rail" aria-label={t('onThisPage')}>
-          <OnThisPage items={toc} />
-          <p className="mt-6"><Link to="/institutions">{t('in.back')}</Link></p>
-        </aside>
+        <p className="page-back"><Link to="/institutions">{t('in.back')}</Link></p>
       </div>
     </div>
   )

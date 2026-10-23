@@ -42,13 +42,13 @@ function Lazy({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/brief" element={<Lazy><BriefPage /></Lazy>} />
       <Route path="/embed/topic/:id" element={<Lazy><EmbedTopic /></Lazy>} />
       <Route path="/embed/emerging" element={<Lazy><EmbedEmerging /></Lazy>} />
       <Route path="/embed/*" element={<Lazy><EmbedTopic /></Lazy>} />
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/overview" replace />} />
         <Route path="overview" element={<OverviewPage />} />
+        <Route path="brief" element={<Lazy><BriefPage /></Lazy>} />
         <Route path="atlas" element={<Lazy><AtlasPage /></Lazy>} />
         <Route path="topics/:id" element={<TopicPage />} />
         <Route path="emerging" element={<EmergingPage />} />

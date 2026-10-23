@@ -79,7 +79,6 @@ test.describe('390 × 844 phone chrome', () => {
     await expect(h1).toBeVisible()
     expect((await h1.boundingBox())!.y).toBeLessThan(300)
     await expect(page.locator('.phase-tag.is-sample')).toBeVisible()
-    await expect(page.locator('.toc-d')).not.toHaveAttribute('open')
 
     const nav = page.locator('#site-nav')
     const menu = page.getByRole('button', { name: 'เมนู', exact: true })

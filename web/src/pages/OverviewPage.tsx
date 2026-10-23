@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
-import { OnThisPage } from '../components/OnThisPage'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { hasModule, type AtlasRelease } from '../data/release'
@@ -47,13 +46,6 @@ function Overview({ release }: { release: AtlasRelease }) {
   const pfIntro = star ? t('ov.pf.intro', { topic: name(star) }) : t('ov.pf.introPlain')
   const findings = pickFindings(release.topics)
   const findingsTitle = findings.length === 3 ? t('ov.fc.h3') : t('ov.findings.h')
-  const toc = [
-    ...(findings.length || bullets.length ? [{ id: 'findings', label: findingsTitle }] : []),
-    { id: 'kpi', label: t('ov.kpi.h') },
-    ...(hasTopics ? [{ id: 'status', label: t('ov.status.h') }] : []),
-    ...(exec.length ? [{ id: 'policy', label: t('ov.exec.h') }] : []),
-    ...(plotted.length ? [{ id: 'portfolio', label: t('ov.pf.h') }] : []),
-  ]
   const kpiIntro = release.previousOverview
     ? t('ov.kpi.intro', { prev: release.previousOverview.release })
     : release.previousMissing
@@ -124,9 +116,6 @@ function Overview({ release }: { release: AtlasRelease }) {
             </Section>
           ) : null}
         </div>
-        <aside className="rail" aria-label={t('onThisPage')}>
-          <OnThisPage items={toc} />
-        </aside>
       </div>
     </div>
   )
