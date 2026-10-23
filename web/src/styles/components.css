@@ -96,7 +96,7 @@
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .chart-box { margin-top: 18px; min-width: 0; }
   .source { margin-top: 14px; font-size: var(--fs-meta); line-height: 1.55; color: var(--ink-3); }
-  .legend-plain { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 4px 24px; }
+  .legend-plain { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr)); gap: 4px 32px; }
   .legend-plain li { display: block; }
   .legend-plain .legend-name { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .legend-plain li span { color: var(--ink-2); }
