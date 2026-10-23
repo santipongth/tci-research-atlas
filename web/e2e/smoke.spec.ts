@@ -677,23 +677,36 @@ test('the offline file works from file:// without a single network request', asy
   expect(errors).toEqual([])
 })
 
-test('the grouped navigation opens with the keyboard, closes with Escape and marks the current group', async ({ page }) => {
+test('the question navigation opens with the keyboard, closes with Escape and marks the current group', async ({ page }) => {
   await page.goto(`${EXAMPLE}#/overview`)
-  const exec = page.getByRole('button', { name: 'สำหรับผู้บริหาร' })
-  await expect(exec).toHaveAttribute('aria-expanded', 'false')
-  await exec.focus()
+  const coming = page.getByRole('button', { name: 'อะไรกำลังมา' })
+  await expect(coming).toHaveAttribute('aria-expanded', 'false')
+  await coming.focus()
   await page.keyboard.press('Enter')
-  await expect(exec).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#nav-exec-menu a')).toHaveCount(6)
+  await expect(coming).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.locator('#nav-coming-menu a')).toHaveCount(4)
+  // the page name stays the link's name; the question it answers is its description
+  await expect(page.locator('#nav-coming-menu').getByRole('link', { name: 'สถานะหัวข้อ', exact: true })).toHaveAccessibleDescription('เรื่องไหนกำลังโต เรื่องไหนลดลง')
   await page.keyboard.press('Escape')
-  await expect(exec).toHaveAttribute('aria-expanded', 'false')
-  await expect(exec).toBeFocused()
-  const editors = page.getByRole('button', { name: 'สำหรับบรรณาธิการ' })
-  await editors.click()
-  await page.locator('#nav-editors-menu').getByRole('link', { name: 'วารสาร' }).click()
+  await expect(coming).toHaveAttribute('aria-expanded', 'false')
+  await expect(coming).toBeFocused()
+  const who = page.getByRole('button', { name: 'ใครทำเรื่องอะไร' })
+  await who.click()
+  await page.locator('#nav-who-menu').getByRole('link', { name: 'วารสาร', exact: true }).click()
   await expect(page).toHaveURL(/#\/journals$/)
-  await expect(page.getByRole('button', { name: 'สำหรับบรรณาธิการ' })).toHaveClass(/is-active/)
-  await expect(page.locator('#nav-editors-menu')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'ใครทำเรื่องอะไร' })).toHaveClass(/is-active/)
+  await expect(page.locator('#nav-who-menu')).toBeHidden()
+  // the row wraps differently at each width: no menu may leave the screen on either side
+  for (const [width, group, count] of [[1280, 'ไทยอยู่ตรงไหน', 3], [1280, 'หางานวิจัย', 5], [900, 'หางานวิจัย', 5], [1000, 'ไทยอยู่ตรงไหน', 3]] as const) {
+    await page.setViewportSize({ width, height: 800 })
+    await page.getByRole('button', { name: group }).click()
+    const menu = page.locator('.nav-menu:not([hidden])')
+    await expect(menu.locator('a')).toHaveCount(count)
+    const box = (await menu.boundingBox())!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+    await page.keyboard.press('Escape')
+  }
 })
 
 test('the footer leads to what next: cite opens the About page at its cite section', async ({ page }) => {

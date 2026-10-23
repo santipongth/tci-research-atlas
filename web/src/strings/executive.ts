@@ -1,10 +1,27 @@
 import { defineStrings } from './define'
 
-/** P3 executives' release: grouped navigation, /institutions, /regions, /sdg, /global, /gaps, KPI and brief additions. */
+/** P3 executives' release (+ the question-based navigation groups and their hints), /institutions, /regions, /sdg, /global, /gaps, KPI and brief additions. */
 export const executive = defineStrings({
-  'nav.group.exec': { th: 'สำหรับผู้บริหาร', en: 'For executives' },
-  'nav.group.editors': { th: 'สำหรับบรรณาธิการ', en: 'For editors' },
-  'nav.group.research': { th: 'สำหรับนักวิจัย', en: 'For researchers' },
+  'nav.q.coming': { th: 'อะไรกำลังมา', en: "What's coming" },
+  'nav.q.who': { th: 'ใครทำเรื่องอะไร', en: 'Who works on what' },
+  'nav.q.where': { th: 'ไทยอยู่ตรงไหน', en: 'Where Thailand stands' },
+  'nav.q.find': { th: 'หางานวิจัย', en: 'Find research' },
+  'nav.hint.emerging': { th: 'เรื่องไหนกำลังโต เรื่องไหนลดลง', en: 'Which topics are growing, which are shrinking' },
+  'nav.hint.keywords': { th: 'คำไหนถูกใช้มากขึ้นทุกปี', en: 'Words used more each year' },
+  'nav.hint.changes': { th: 'ต่างจากรอบก่อนตรงไหน', en: 'What differs from the last release' },
+  'nav.hint.gaps': { th: 'เรื่องที่ยังมีงานน้อย น่าลงมือ', en: 'Topics with little work yet, worth starting' },
+  'nav.hint.institutions': { th: 'มหาวิทยาลัยไหนทำเรื่องอะไร ทำกับใคร', en: 'Which universities work on what, and with whom' },
+  'nav.hint.journals': { th: 'วารสารไหนลงเรื่องอะไร', en: 'Which journals publish what' },
+  'nav.hint.methods': { th: 'แต่ละเรื่องศึกษาด้วยวิธีแบบไหน', en: 'How each topic is studied' },
+  'nav.hint.references': { th: 'วารสารไหนถูกอ้างถึงบ่อย', en: 'Which journals get cited' },
+  'nav.hint.regions': { th: 'งานวิจัยอยู่ที่ไหนในประเทศ', en: 'Where in Thailand the research happens' },
+  'nav.hint.global': { th: 'เรื่องไหนไทยทำมากหรือน้อยกว่าโลก', en: 'Where Thailand does more or less than the world' },
+  'nav.hint.sdg': { th: 'งานวิจัยตอบเป้าหมายไหนของชาติและโลก', en: 'Which national and global goals research serves' },
+  'nav.hint.search': { th: 'หาบทความจากชื่อเรื่องหรือคำสำคัญ', en: 'Find articles by title or keyword' },
+  'nav.hint.atlas': { th: 'ทุกหัวข้อบนแผนที่เดียว', en: 'Every topic on one map' },
+  'nav.hint.galaxy': { th: 'จุดที่อยู่ใกล้กันคือบทความเรื่องคล้ายกัน', en: 'Nearby dots are articles on similar subjects' },
+  'nav.hint.compare': { th: 'วางหัวข้อเทียบกันแบบเคียงข้าง', en: 'Put topics side by side' },
+  'nav.hint.match': { th: 'วางบทคัดย่อของคุณ หาหัวข้อที่ใกล้ที่สุด', en: 'Paste your abstract, find the closest topics' },
   'nav.institutions': { th: 'สถาบัน', en: 'Institutions' },
   'nav.regions': { th: 'แผนที่จังหวัด', en: 'Provinces' },
   'nav.sdg': { th: 'SDG และแผนชาติ', en: 'SDGs and national plans' },
