@@ -411,3 +411,16 @@ publish:
 
 รอบถัดไป: ทำข้อ 1–6 ซ้ำ (รอบก่อนหน้าถูกคัดลอกตามสาย `previous_release` ให้เองเพื่อเทียบ Δ). ย้อนกลับ: Run workflow อีกครั้งด้วยแท็กรอบก่อน (§5)
 
+
+## 22. ให้ Google เก็บเว็บเข้าดัชนี (SEO)
+
+- `npm run build` ใส่ข้อมูลสำหรับเครื่องมือค้นหาให้เองใน `dist/index.html`: ชื่อหน้า คำอธิบาย ลิงก์ canonical การ์ดตอนแชร์ (Open Graph / Twitter พร้อม `og-image.png` ขนาด 1200×630) และ schema.org แบบ WebSite + Organization + Dataset ซึ่งทำให้ข้อมูลไปขึ้นใน Google Dataset Search ได้ นอกจากนี้ยังสร้าง `robots.txt` และ `sitemap.xml` ให้ด้วย (ทั้งหมดอยู่ใน plugin `atlasSeo` ของ `web/vite.config.ts`)
+- ที่อยู่เว็บสาธารณะมาจาก env `ATLAS_SITE_URL` ถ้าไม่ตั้ง จะใช้ `https://santipongth.github.io/tci-research-atlas/` ย้ายโดเมนเมื่อไรต้องตั้งค่านี้ตอน build ใหม่ทุกครั้ง
+- ไฟล์ HTML ออฟไลน์ไม่มีแท็กเหล่านี้ และติด `noindex` ไว้เสมอ
+- **ตราบใดที่เว็บยังใช้ข้อมูลตัวอย่าง** `npm run stage:demo` จะเปลี่ยนแท็กเป็น `noindex` เพราะการให้ Google เก็บตัวเลขสังเคราะห์เข้าดัชนีจะทำให้คนเข้าใจผิด เว็บจะเริ่มถูกเก็บเข้าดัชนีหลังขึ้นด้วยข้อมูลจริงตาม §21
+- หลังขึ้นด้วยข้อมูลจริงแล้ว ให้ทำต่อดังนี้:
+  1. เข้า Google Search Console → Add property แบบ URL prefix ใส่ที่อยู่เว็บ
+  2. ยืนยันความเป็นเจ้าของด้วยวิธี HTML tag โดยใส่ `<meta name="google-site-verification" …>` ใน `web/index.html` แล้ว build และ deploy ใหม่
+  3. ส่ง `sitemap.xml` ในเมนู Sitemaps
+  4. ใช้ URL Inspection → Request indexing ที่หน้าแรก
+- ข้อจำกัด: เว็บใช้ HashRouter (`#/topics/…`) ซึ่ง Google ถือว่าเป็นหน้าเดียว จึงเก็บเข้าดัชนีได้เฉพาะหน้าแรก ถ้าอยากให้หน้าหัวข้อ จังหวัด และวารสารแต่ละหน้าขึ้นผลค้นหาด้วย ต้องเปลี่ยนเป็น URL แบบ path (ดู `docs/ROADMAP.md`)

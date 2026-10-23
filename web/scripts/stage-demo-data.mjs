@@ -31,7 +31,11 @@ cpSync(src, join(site, 'data'), { recursive: true })
 
 // the demo is synthetic: keep it out of search engines
 const NOINDEX = '<meta name="robots" content="noindex">'
-const addNoindex = (html) => (html.includes(NOINDEX) ? html : html.replace(/<head([^>]*)>/i, (m) => `${m}${NOINDEX}`))
+// the web build says "index, follow" (vite atlasSeo): replace that meta, never sit beside it
+const addNoindex = (html) => {
+  const bare = html.replace(/\s*<meta name="robots" content="[^"]*" ?\/?>/gi, '')
+  return bare.replace(/<head([^>]*)>/i, (m) => `${m}${NOINDEX}`)
+}
 
 const walk = (dir) => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]))
 const root = join(src, latest.release)

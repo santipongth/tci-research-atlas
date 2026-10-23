@@ -121,6 +121,10 @@ ID หัวข้อถาวร + lineage · กลุ่มตาม OpenAlex
    - ข้อมูล prev centroids มีอยู่แล้ว; เพิ่มการเก็บ snapshot status รอบก่อน + section เล็กในเว็บ
 8. **Emerging narrative อัตโนมัติ** — ให้ LLM เขียนย่อหน้าสรุป "ทำไมหัวข้อนี้ emerging" จาก metric + ตัวอย่างบทความ (prompt ใช้งานจริงที่ `prompts/topic_narrative.th.md` + `prompts/executive_brief.th.md`)
 
+9. **URL แบบ path เพื่อให้ Google เก็บทุกหน้า** — เว็บใช้ HashRouter อยู่ Google จึงเก็บได้แค่หน้าแรก
+   - วิธี: เวอร์ชันบนเว็บใช้ BrowserRouter โดยตั้ง `basename` เป็นที่อยู่ย่อยของ Pages, เพิ่ม `404.html` ที่ส่งต่อไปหน้าเดิม และให้ sitemap สร้างรายการหน้า (หัวข้อ จังหวัด วารสาร) จาก `data/latest.json` ตอน publish
+   - ต้องทำ title/description แยกต่อหน้า ส่วน HTML ออฟไลน์และกราฟฝังยังใช้ hash ได้ตามเดิม (ลิงก์ `#/…` เดิมต้องเปลี่ยนทางไปหน้าใหม่ได้)
+
 ### 🔵 ใหญ่ ต้องวางแผน (เดือนขึ้นไป)
 
 9. **Author / affiliation network** — metadata มี authors+affiliations อยู่แล้ว; ทำ co-authorship graph ต่อ topic (ใครคุยกับใครในเรื่องนี้)
