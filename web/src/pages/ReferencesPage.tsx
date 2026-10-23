@@ -6,6 +6,7 @@ import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
+import { SourceLine } from '../components/SourceLine'
 import { ShareBar } from '../components/ShareBar'
 import { TopicLink } from '../components/TopicLink'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
@@ -73,7 +74,7 @@ function References({ release, file }: { release: AtlasRelease; file: References
               </EmptyState>
             </Section>
           )}
-          <p className="source ref-source">{t('source.line', { release: release.overview.release, v: release.definitionVersion })}</p>
+          <SourceLine className="ref-source" />
         </div>
         <aside className="rail" aria-label={t('onThisPage')}>
           <OnThisPage items={toc} />

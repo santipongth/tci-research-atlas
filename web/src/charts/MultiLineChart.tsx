@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTooltip } from '../lib/tooltip'
 import { useElementSize } from '../lib/useElementSize'
-import { linear, niceTicks } from './scale'
+import { LABEL_PX } from '../lib/labelSizes'
+import { linear, niceTicks, tickLabels } from './scale'
 import { SERIES_DASHES } from './series'
 
 export interface LineSeries {
@@ -25,7 +26,8 @@ export function MultiLineChart({ years, series, format, axisFormat, label }: {
   years: readonly number[]
   series: readonly LineSeries[]
   format: (v: number) => string
-  axisFormat: (v: number) => string
+  /** tick label; `step` is the tick spacing, for choosing decimals (see `tickDecimals`) */
+  axisFormat: (v: number, step: number) => string
   label: string
 }) {
   const [ref, { width: W }] = useElementSize<HTMLDivElement>()
@@ -43,6 +45,8 @@ export function MultiLineChart({ years, series, format, axisFormat, label }: {
   const tickStep = ticks.length > 1 ? ticks[1] - ticks[0] : 0
   if (tickStep > 0 && ticks[ticks.length - 1] < maxV) ticks.push(Math.round((ticks[ticks.length - 1] + tickStep) * 1e9) / 1e9)
   const yMax = Math.max(ticks[ticks.length - 1] ?? 1, maxV * 1.08) || 1
+  // never two identical labels on the axis, whatever the formatter rounds to
+  const tickText = tickLabels(ticks, (v) => axisFormat(v, tickStep))
   const first = years[0]
   const last = years[years.length - 1]
   const x = linear(first, last === first ? first + 1 : last, M.l, W - M.r)
@@ -70,7 +74,7 @@ export function MultiLineChart({ years, series, format, axisFormat, label }: {
     .sort((a, b) => a.y - b.y)
   const labels = ends.reduce<{ i: number; x: number; y: number; ly: number; text: string }[]>((acc, e) => {
     const prev = acc[acc.length - 1]
-    return [...acc, { ...e, ly: prev ? Math.max(e.y, prev.ly + 16) : e.y }]
+    return [...acc, { ...e, ly: prev ? Math.max(e.y, prev.ly + LABEL_PX.label + 4) : e.y }]
   }, [])
   const step = narrow ? 3 : 2
   const yearTicks = years.filter((yr, i) => i === years.length - 1 || (yr - first) % step === 0)
@@ -93,10 +97,10 @@ export function MultiLineChart({ years, series, format, axisFormat, label }: {
   return (
     <div ref={ref} className="ml-host">
       <svg className="ml" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
-        {ticks.map((v) => (
+        {ticks.map((v, i) => (
           <g key={v}>
             <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} className={v === 0 ? 'tr-base' : 'tr-gl'} />
-            <text x={M.l - 8} y={y(v) + 4} textAnchor="end" className="tr-tick">{axisFormat(v)}</text>
+            <text x={M.l - 8} y={y(v) + 4} textAnchor="end" className="tr-tick">{tickText[i]}</text>
           </g>
         ))}
         {yearTicks.map((yr) => (
@@ -111,7 +115,7 @@ export function MultiLineChart({ years, series, format, axisFormat, label }: {
         {narrow
           ? null
           : labels.map((l) => (
-              <text key={l.i} x={l.x + 8} y={l.ly + 4} className="ml-label">{clip(l.text, 24)}</text>
+              <text key={l.i} x={l.x + 8} y={l.ly + 4} className="ml-label">{clip(l.text, 22)}</text>
             ))}
         {hover !== null ? <line x1={x(hover)} x2={x(hover)} y1={M.t} y2={H - M.b} className="tr-cross" /> : null}
         <rect

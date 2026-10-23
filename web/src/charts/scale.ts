@@ -31,6 +31,29 @@ export function niceTicks(lo: number, hi: number, count: number): number[] {
   return out
 }
 
+/** Decimals that print every multiple of `step` exactly (0.05 → 2, 0.2 → 1, 5 → 0); `scale` = 100 for percentages. */
+export function tickDecimals(step: number, scale = 1): number {
+  const s = Math.abs(step * scale)
+  if (!(s > 0) || !Number.isFinite(s)) return 0
+  for (let d = 0; d < 6; d++) if (Math.abs(Math.round(s * 10 ** d) - s * 10 ** d) < 1e-6) return d
+  return 6
+}
+
+/**
+ * Tick labels with no repeats: a label equal to the one before it is blanked (its gridline stays), so a formatter that
+ * rounds too hard can never print "0.2, 0.2, 0.1".
+ */
+export function tickLabels(ticks: readonly number[], format: (v: number) => string): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const v of ticks) {
+    const l = format(v)
+    out.push(seen.has(l) ? '' : l)
+    seen.add(l)
+  }
+  return out
+}
+
 /** Ticks for a count axis from 0: whole numbers only, so a small series never shows "2, 2, 1, 1, 0". */
 export function countTicks(hi: number, count: number): number[] {
   const whole = niceTicks(0, hi, count).filter(Number.isInteger)

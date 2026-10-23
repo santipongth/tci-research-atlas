@@ -10,6 +10,7 @@ import { groupName, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { JournalSummary, JournalsFile, SpecialIssueTopic, Topic } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
+import { withPrimary } from '../lib/columns'
 import { filterJournals, inhouseFlag, inhouseGap, journalName } from '../lib/journals'
 import { statusName } from '../lib/topicText'
 import { JOURNAL_SORTS, journalsCodec, TIERS, type JournalSort } from '../lib/urlState'
@@ -38,7 +39,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
   const flagAt = file.inhouse_flag_share ?? null
   /** an empty rate: too few articles to compute it ("low data"), otherwise unknown — never a zero */
   const gap = (j: JournalSummary) => (j.low_data ? t('jr.lowData') : t('jr.unknown'))
-  const columns: Column<JournalSummary>[] = [
+  const columns: Column<JournalSummary>[] = withPrimary<JournalSummary>([
     { key: 'id', header: 'id', csvHeader: 'journal_id', cell: () => null, csv: (j) => j.id, csvOnly: true },
     {
       key: 'name', header: t('col.journal'), rowHeader: true, cell: (j) => <JournalLink journal={j} />, sortValue: (j) => journalName(j, lang).text,
@@ -47,7 +48,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
     { key: 'tier', csvHeader: 'tci_tier', header: t('col.tier'), numeric: true, firstDir: 'asc', cell: (j) => (j.tci_tier ? fmtInt(j.tci_tier) : DASH), sortValue: (j) => j.tci_tier ?? 9, csv: (j) => j.tci_tier ?? null },
     { key: 'articles', csvHeader: 'articles_window', header: t('col.articlesW'), numeric: true, cell: (j) => fmtInt(j.articles_window), sortValue: (j) => j.articles_window },
     {
-      key: 'completeness', csvHeader: 'completeness', header: t('col.completeness'), numeric: true,
+      key: 'completeness', csvHeader: 'completeness', header: t('col.completeness'), unit: t('unit.of100'), numeric: true,
       cell: (j) => (j.completeness == null ? gap(j) : fmtNum(j.completeness, 1)), sortValue: (j) => j.completeness ?? null,
     },
     {
@@ -71,7 +72,7 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
     },
     { key: 'foreign', csvHeader: 'foreign_share', header: t('col.foreign'), numeric: true, cell: (j) => (j.foreign_share == null ? gap(j) : fmtPct(j.foreign_share, 0)), sortValue: (j) => j.foreign_share ?? null },
     { key: 'group', csvHeader: 'group', header: t('col.field'), cell: (j) => (j.group ? groupName(release, j.group, lang) : DASH), csv: (j) => j.group ?? '' },
-  ]
+  ], ['articles', 'completeness', 'inhouse', 'orgs'])
   const valid = columns.some((c) => c.key === state.sort && c.sortValue)
   return (
     <div className="container">

@@ -8,6 +8,7 @@ import { groupName, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { GlobalFile, SubfieldBench, Topic } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct, fmtRatio } from '../lib/format'
 import { useI18n } from '../lib/i18n'
+import { withPrimary } from '../lib/columns'
 
 export default function GlobalPage() {
   const { t } = useI18n()
@@ -26,7 +27,7 @@ function Global({ release, file }: { release: AtlasRelease; file: GlobalFile }) 
   const { t, lang } = useI18n()
   const opp = file.subfields.filter((s) => s.opportunity)
   const topicsOf = (s: SubfieldBench): Topic[] => (s.topics ?? []).map((id) => release.topicById.get(id)).filter((tp): tp is Topic => tp !== undefined)
-  const columns = (mark: boolean): Column<SubfieldBench>[] => [
+  const columns = (mark: boolean): Column<SubfieldBench>[] => withPrimary<SubfieldBench>([
     {
       key: 'subfield', header: t('gl.col.subfield'), rowHeader: true, sortValue: (s) => s.en,
       cell: (s) => (
@@ -52,7 +53,7 @@ function Global({ release, file }: { release: AtlasRelease; file: GlobalFile }) 
       },
       csv: (s) => (s.topics ?? []).join(';'),
     },
-  ]
+  ], ['ratio', 'ai', 'country', 'topics'])
   const country = file.country === 'TH' ? t('gl.thailand') : file.country
   const rel = release.overview.release
   return (

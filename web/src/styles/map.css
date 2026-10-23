@@ -13,7 +13,7 @@
   canvas.terrain { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .ov { position: absolute; inset: 0; overflow: visible; }
   .ov text { font-family: var(--font); }
-  .gridref { font-size: 12px; font-weight: 600; fill: var(--ink-2); }
+  .gridref { font-size: var(--fs-tick); font-weight: 600; fill: var(--ink-2); }
   .gridref-bg { fill: var(--map-sheet); }
   .flabel { font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--map-sheet); stroke-width: 4px; stroke-linejoin: round; opacity: 0.86; pointer-events: none; }
   .flabel.dim { opacity: 0.35; }
@@ -26,8 +26,8 @@
   .mnode:focus-visible .mk { stroke: var(--focus-ink); stroke-width: 2.6; }
   .sel-ring { fill: none; stroke: var(--ink); stroke-width: 1.5; }
   .sel-ring2 { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 2 3; }
-  .mlabel { font-size: 13px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--map-sheet); stroke-width: 3.5px; stroke-linejoin: round; pointer-events: none; }
-  .mlabel.hover { font-size: 14px; }
+  .mlabel { font-size: var(--fs-caption); font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--map-sheet); stroke-width: 3.5px; stroke-linejoin: round; pointer-events: none; }
+  .mlabel.hover { font-weight: 700; }
   .zoom { position: absolute; right: 16px; bottom: 44px; z-index: 3; display: flex; flex-direction: column; border: 1px solid var(--ink); background: var(--bg); box-shadow: var(--shadow); }
   .zoom button { width: 44px; height: 44px; border: 0; background: transparent; display: grid; place-items: center; color: var(--ink); }
   .zoom button + button { border-top: 1px solid var(--border-2); }

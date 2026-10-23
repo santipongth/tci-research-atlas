@@ -67,7 +67,7 @@ function EmergingWidget({ release }: { release: AtlasRelease }) {
       ) : (
         <p className="note">{s('em.none')}</p>
       )}
-      <p className="source">{t('source.line', { release: release.overview.release, v: release.definitionVersion })}</p>
+      <p className="source">{t('source.line', { release: release.overview.release })} · {t('source.def', { v: release.definitionVersion })}</p>
     </section>
   )
 }

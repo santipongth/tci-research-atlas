@@ -10,6 +10,11 @@ export function statusName(t: T, status: StatusId): string {
   return t(`status.${status}` as const)
 }
 
+/** The status in everyday words, one line ("เล็กแต่โตเร็ว"); the rule with its thresholds is `rule.<status>`. */
+export function statusMeaning(t: T, status: StatusId): string {
+  return t(`stat.mean.${status}` as const)
+}
+
 export function growthText(t: T, m: TopicMetrics): string {
   return m.share_growth === null || m.share_growth === undefined ? DASH : `${fmtSignedPct(m.share_growth)} ${t('perYear')}`
 }

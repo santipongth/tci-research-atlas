@@ -34,6 +34,7 @@
   .st-sum { margin: 18px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--border); }
   .st-sum div { padding: 12px 14px 12px 0; border-bottom: 1px solid var(--border); min-width: 0; }
   .st-sum div:not(:nth-child(3n+1)) { padding-left: 14px; border-left: 1px solid var(--border-2); }
+  .st-mean { display: block; margin-top: 4px; font-size: var(--fs-meta); line-height: 1.5; color: var(--ink-2); }
   .st-sum dd { margin: 4px 0 0; font-size: var(--fs-tile); font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
   .st-sum dd small { font-size: var(--fs-caption); font-weight: 400; color: var(--ink-2); margin-left: 6px; }
   @media (max-width: 640px) {
@@ -44,7 +45,8 @@
   .flag { color: var(--ink-2); font-weight: 700; }
 
   .forest { margin-top: 6px; }
-  .fr-axis, .fr-row { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr) 104px; gap: 0 20px; }
+  /* name | whisker | value: the whisker band keeps at least 55 % of the plot's width */
+  .fr-axis, .fr-row { display: grid; grid-template-columns: minmax(0, 24%) minmax(0, 1fr) 9rem; gap: 0 16px; }
   .fr-axis { align-items: end; position: sticky; top: 0; z-index: 2; background: var(--bg); padding-top: 6px; border-bottom: 1px solid var(--border); }
   .fr-axislabel { font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; padding-bottom: 6px; }
   .fr-axis svg { display: block; overflow: visible; }
@@ -68,7 +70,7 @@
   .fr-plot { min-width: 0; height: 26px; }
   .fr-val { text-align: right; padding-right: 4px; font-variant-numeric: tabular-nums; }
   .fr-val b { display: block; font-weight: 600; font-size: var(--fs-meta); line-height: 1.5; }
-  .fr-val span { display: block; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
+  .fr-val span { display: block; white-space: nowrap; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
   .fr-more { margin-top: 8px; font-size: var(--fs-meta); }
   @media (max-width: 640px) {
     .fr-axis, .fr-row { grid-template-columns: minmax(0, 1fr) auto; }
@@ -92,14 +94,21 @@
   .pf-split-label { font-size: var(--fs-tick); fill: var(--ink-2); }
   .pf-tick { font-size: var(--fs-tick); fill: var(--ink-2); font-variant-numeric: tabular-nums; }
   .pf-axis-title { font-size: var(--fs-caption); fill: var(--ink); font-weight: 600; }
-  .pf-qname { font-size: 15px; font-weight: 700; fill: var(--ink); }
-  .pf-qcount { font-size: 12.5px; font-weight: 400; fill: var(--ink-2); }
+  .pf-qname { font-size: var(--fs-meta); font-weight: 700; fill: var(--ink); }
+  .pf-qcount { font-size: var(--fs-caption); font-weight: 400; fill: var(--ink-2); }
   .pf-node { cursor: pointer; outline: none; }
   .pf-node .hit { fill: transparent; }
   .pf-node .mk { stroke-width: 2; }
   .pf-node:hover .mk { stroke: var(--ink); stroke-width: 2.5; }
   .pf-node:focus-visible .hit { fill: var(--focus); }
   .pf-node:focus-visible .mk { stroke: var(--focus-ink); stroke-width: 3; }
-  .pf-edge { font-size: 12px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; font-variant-numeric: tabular-nums; }
-  .pf-ltext { font-size: 13px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+  .pf-edge { font-size: var(--fs-tick); font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; font-variant-numeric: tabular-nums; }
+  .pf-ltext { font-size: var(--fs-caption); font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+}
+
+@layer components {
+  /* a status in everyday words, above its exact rule (/emerging) */
+  .st-lead { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-body); line-height: 1.5; }
+  .st-lead span { color: var(--ink-2); }
+  .st-lead + .rule { margin-top: 4px; color: var(--ink-2); }
 }

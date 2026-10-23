@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { CsvButton } from '../components/CsvButton'
 import { DataTable, type Column, type SortState } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
 import { Figure } from '../components/Figure'
@@ -7,13 +8,15 @@ import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { MultiLineChart, type LineSeries } from '../charts/MultiLineChart'
+import { tickDecimals } from '../charts/scale'
 import { assignSlots, SERIES_DASHES } from '../charts/series'
 import { MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { GlossaryItem, KeywordTrend, KwTrendsFile } from '../data/types'
 import { comboKey } from '../lib/comboKeys'
-import { downloadText, toCsv } from '../lib/csv'
+import { toCsv } from '../lib/csv'
 import { fmtInt, fmtPct } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
+import { figureCsv } from '../lib/tableCsv'
 import { kwInsight, kwKey, matchKeywords, risingKeywords, shareOf, type KwOption } from '../lib/kwtrends'
 import { foldText } from '../lib/search'
 import { sortBy } from '../lib/sort'
@@ -169,7 +172,9 @@ function Keywords({ release, file }: { release: AtlasRelease; file: KwTrendsFile
               id="fig-kw"
               number={1}
               title={figTitle}
-              source={t('source.line', { release: rel, v: release.definitionVersion })}
+              tableTitle={t('table.n', { n: 1, title: s('table.title') })}
+              csv={figureCsv(`atlas-${rel}-keyword-trends.csv`, rows, yearColumns)}
+              source={t('source.line', { release: rel })}
               view={state.view}
               onView={(view) => update({ view })}
               legend={
@@ -182,7 +187,7 @@ function Keywords({ release, file }: { release: AtlasRelease; file: KwTrendsFile
                   ))}
                 </div>
               }
-              chart={<MultiLineChart years={years} series={series} format={sharePct} axisFormat={(v) => fmtPct(v, v > 0 && v < 0.01 ? 1 : 0)} label={figTitle} />}
+              chart={<MultiLineChart years={years} series={series} format={sharePct} axisFormat={(v, step) => fmtPct(v, tickDecimals(step, 100))} label={figTitle} />}
               table={
                 <DataTable
                   caption={t('table.n', { n: 1, title: s('table.title') })}
@@ -190,7 +195,6 @@ function Keywords({ release, file }: { release: AtlasRelease; file: KwTrendsFile
                   columns={yearColumns}
                   rowKey={(r) => String(r.year)}
                   stack={false}
-                  csvFilename={`atlas-${rel}-keyword-trends.csv`}
                 />
               }
               note={<p className="note">{s('fig.how')}</p>}
@@ -325,8 +329,7 @@ function GlossaryTable({ file, release, query }: { file: KwTrendsFile; release: 
       </p>
       {filtered.length ? (
         <div className="tbl-tools">
-          <button type="button" className="btn-secondary" onClick={() => downloadText(`atlas-${rel}-glossary.csv`, toCsv(sorted, tableCsvColumns(columns)))}>{t('csv.download')}</button>
-          <span className="tbl-note">{t('csv.units')}</span>
+          <CsvButton filename={`atlas-${rel}-glossary.csv`} text={() => toCsv(sorted, tableCsvColumns(columns))} />
         </div>
       ) : null}
       <DataTable

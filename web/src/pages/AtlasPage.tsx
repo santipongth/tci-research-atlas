@@ -5,6 +5,7 @@ import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
+import { SourceMore } from '../components/SourceLine'
 import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
 import { TopicTip } from '../components/TopicTip'
 import { groupName, type AtlasRelease } from '../data/release'
@@ -90,7 +91,8 @@ function Atlas({ release }: { release: AtlasRelease }) {
             controls={{ zoomIn: t('map.zoomIn'), zoomOut: t('map.zoomOut'), reset: t('map.reset'), group: t('map.zoomGroup'), hint: t('map.hint') }}
           />
           <p className="source">
-            {t('source.line', { release: release.overview.release, v: release.definitionVersion })} · {t('map.scale')}
+            {t('source.line', { release: release.overview.release })} · {t('map.scale')}
+            <SourceMore />
           </p>
         </figure>
         <aside className="atlas-side" aria-label={t('map.key.h')}>

@@ -76,7 +76,7 @@ function TopicWidget({ release, topic }: { release: AtlasRelease; topic: Topic }
           id="embed-trend"
           number={1}
           title={title}
-          source={t('source.line', { release: release.overview.release, v: release.definitionVersion })}
+          source={t('source.line', { release: release.overview.release })}
           view={view}
           onView={setView}
           legend={

@@ -5,6 +5,7 @@ import { Figure } from '../components/Figure'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
+import { SourceLine } from '../components/SourceLine'
 import { StatusGlyph } from '../components/StatusGlyph'
 import { Tabs } from '../components/Tabs'
 import { TopicLink } from '../components/TopicLink'
@@ -16,8 +17,11 @@ import { ciPct, DASH, fmtInt, fmtRatio, fmtSignedPct } from '../lib/format'
 import { forestSelection } from '../lib/forest'
 import { useI18n, type I18n } from '../lib/i18n'
 import { isSignal, isStatus, STATUSES, type StatusId } from '../lib/status'
-import { statusName } from '../lib/topicText'
+import { withPrimary } from '../lib/columns'
+import { figureCsv } from '../lib/tableCsv'
+import { statusMeaning, statusName } from '../lib/topicText'
 import { EMERGING_SORTS, emergingCodec, type EmergingSort } from '../lib/urlState'
+import { sortBy } from '../lib/sort'
 import { useUrlState } from '../lib/useUrlState'
 import {
   articlesColumn, ciColumn, ciHighColumn, growthColumn, idColumn, journalsColumn, orgsColumn, ratioColumn, reasonColumn, scoreColumn, shareColumn, topicColumn,
@@ -50,19 +54,22 @@ function Emerging({ release }: { release: AtlasRelease }) {
   const columns: Column<Topic>[] =
     st === 'LOW_DATA'
       ? [idColumn(), topicColumn(ctx), articlesColumn(ctx), reasonColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)]
-      : [idColumn(), topicColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx, level), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx), scoreColumn(ctx)]
+      : withPrimary([idColumn(), topicColumn(ctx), shareColumn(ctx), growthColumn(ctx), ciColumn(ctx, level), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx), scoreColumn(ctx)], ['growth', 'lo', 'journals', 'score'])
   const valid = columns.some((c) => c.key === state.sort && c.sortValue)
   const sort = valid ? { key: state.sort, dir: state.dir } : { key: st === 'LOW_DATA' ? 'articles' : 'growth', dir: 'desc' as const }
-  const source = t('source.line', { release: release.overview.release, v: release.definitionVersion })
+  const source = t('source.line', { release: release.overview.release })
+  const tableTitle = t('table.n', { n: 1, title: t('em.table.title', { status: label, n: fmtInt(rows.length) }) })
+  const csvName = `atlas-${release.overview.release}-${st.toLowerCase()}.csv`
+  const sortCol = columns.find((c) => c.key === sort.key)
   const table = (
     <DataTable
-      caption={t('table.n', { n: 1, title: t('em.table.title', { status: label, n: fmtInt(rows.length) }) })}
+      caption={tableTitle}
       rows={rows}
       columns={columns}
       rowKey={(r) => r.id}
       sort={sort}
       onSort={(s) => update({ sort: isSort(s.key) ? s.key : 'growth', dir: s.dir })}
-      csvFilename={`atlas-${release.overview.release}-${st.toLowerCase()}.csv`}
+      csvFilename={csvName}
       empty={t('em.none', { status: label })}
       footnote={rows.some((r) => r.metrics.orgs_unverified) ? t('orgsFoot') : undefined}
     />
@@ -81,7 +88,13 @@ function Emerging({ release }: { release: AtlasRelease }) {
           items={STATUSES.map((s) => ({ id: s, label: statusName(t, s), icon: <StatusGlyph status={s} size={13} />, count: counts[s] }))}
           value={st}
           onChange={(s) => update({ status: isStatus(s) ? s : 'EMERGING', sort: s === 'LOW_DATA' ? 'articles' : 'growth', dir: 'desc' })}
+          strip
         >
+          <p className="st-lead">
+            <StatusGlyph status={st} size={16} />
+            <b>{label}</b>
+            <span>— {statusMeaning(t, st)}</span>
+          </p>
           <p className="rule">{ruleText(t, st, level)}</p>
           {st === 'WATCH' ? (
             <div className="inset">
@@ -94,6 +107,9 @@ function Emerging({ release }: { release: AtlasRelease }) {
               id="fig-em"
               number={1}
               title={t('em.fig.title', { status: label, level })}
+              tableTitle={tableTitle}
+              csv={figureCsv(csvName, sortCol?.sortValue ? sortBy(rows, sortCol.sortValue, sort.dir) : rows, columns)}
+              toggle="buttons"
               source={source}
               view={state.view}
               onView={(view) => update({ view })}
@@ -111,7 +127,7 @@ function Emerging({ release }: { release: AtlasRelease }) {
           ) : (
             <>
               {table}
-              <p className="source">{source}</p>
+              <SourceLine text={source} />
             </>
           )}
           {rows.some((r) => r.metrics.orgs_unverified) ? <p className="note">{t('em.dagger')}</p> : null}

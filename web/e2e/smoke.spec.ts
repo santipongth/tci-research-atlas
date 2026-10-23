@@ -47,9 +47,9 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   overview: async (page) => {
     await expect(page.locator('.headline mark').first()).toBeVisible()
     await expect(page.getByRole('link', { name: /โมเดลภาษาขนาดใหญ่/ }).first()).toBeVisible()
-    await expect(page.locator('.kpi')).toHaveCount(8)
+    await expect(page.locator('#kpi .stat')).toHaveCount(8)
     await expect(page.locator('#policy li')).toHaveCount(3)
-    await expect(page.locator('.kpi .d').first()).toContainText('2026Q3')
+    await expect(page.locator('#kpi .stat-d').first()).toContainText('2026Q3')
     await expect(page.locator('.fr-row').first()).toBeVisible()
     // a topic new since the baseline is marked as such; the axis reaches its +129% upper bound instead of clipping it
     await expect(page.locator('.fr-row', { hasText: 'โมเดลภาษาขนาดใหญ่' }).first()).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
@@ -85,14 +85,14 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   },
   topic: async (page) => {
     await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
-    await expect(page.locator('.summary')).toContainText('%')
+    await expect(page.locator('#numbers .stats')).toContainText('%')
     await expect(page.locator('svg.tr')).toBeVisible()
     await expect(page.getByRole('link', { name: /AI เพื่อการศึกษา: กรณีศึกษาที่ 1/ })).toHaveAttribute('href', /tci-thaijo\.org/)
     await expect(page.locator('#related')).toBeVisible()
     // P4: glossary, cited-in-TCI figure (0 is a value, not a missing one), SDG goal chips, RIS export of the articles
     await expect(page.locator('#glossary tbody tr')).toHaveCount(2)
     await expect(page.locator('#glossary')).toContainText('generative AI')
-    await expect(page.locator('.summary')).toContainText('ถูกอ้างใน TCI')
+    await expect(page.locator('#numbers .stats')).toContainText('ถูกอ้างใน TCI')
     await expect(page.locator('.tp-sdg-chip')).toContainText('SDG 4')
     const ris = page.waitForEvent('download')
     await page.getByRole('button', { name: /บทความตัวแทน 4 เรื่องเป็น RIS/ }).click()
@@ -105,7 +105,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.uncertain')).toContainText('แนวโน้มไม่แน่นอน')
     await expect(page.locator('.uncertain')).not.toContainText('บทความยังน้อย')
     await expect(page.locator('.tr-band')).toHaveCount(0)
-    await expect(page.locator('.summary')).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
+    await expect(page.locator('#numbers .stats')).toContainText('ใหม่ — ไม่มีในช่วงฐาน')
     await page.goto(`${EXAMPLE}#/topics/T123456`)
     await expect(page.locator('h1')).toContainText('T123456')
   },

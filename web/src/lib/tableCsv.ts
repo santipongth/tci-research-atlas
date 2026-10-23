@@ -1,5 +1,5 @@
 import type { Column } from '../components/DataTable'
-import type { CsvColumn } from './csv'
+import { toCsv, type CsvColumn } from './csv'
 
 /**
  * The CSV columns of a table. Headers are the language-independent `csvHeader` (contract field names), falling back
@@ -12,4 +12,14 @@ export function tableCsvColumns<R>(columns: readonly Column<R>[]): CsvColumn<R>[
     if (!c.csv && !c.sortValue) return []
     return [{ header: c.csvHeader ?? c.key, value: (r: R) => (c.csv ? c.csv(r) : (c.sortValue?.(r) ?? null)) }]
   })
+}
+
+/** A CSV download a `Figure` offers in its caption row, in both views: every column, the table's default row order. */
+export interface FigureCsv {
+  filename: string
+  text: () => string
+}
+
+export function figureCsv<R>(filename: string, rows: readonly R[], columns: readonly Column<R>[]): FigureCsv {
+  return { filename, text: () => toCsv(rows, tableCsvColumns(columns)) }
 }

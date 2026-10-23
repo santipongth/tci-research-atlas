@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countTicks, dataDomain } from './scale'
+import { countTicks, dataDomain, niceTicks, tickDecimals, tickLabels } from './scale'
 
 describe('dataDomain', () => {
   it('covers every value and the reference marks, with a margin', () => {
@@ -29,5 +29,28 @@ describe('countTicks', () => {
     expect(countTicks(1.05, 4)).toEqual([0, 1])
     expect(countTicks(0.5, 4)).toEqual([0, 1])
     for (const hi of [3.15, 7.35, 12, 880]) expect(countTicks(hi, 4).every(Number.isInteger)).toBe(true)
+  })
+})
+
+describe('tick precision', () => {
+  it('chooses decimals from the step', () => {
+    expect(tickDecimals(0.05)).toBe(2)
+    expect(tickDecimals(0.2)).toBe(1)
+    expect(tickDecimals(1)).toBe(0)
+    expect(tickDecimals(50)).toBe(0)
+    expect(tickDecimals(0.005, 100)).toBe(1)
+    expect(tickDecimals(0.05, 100)).toBe(0)
+  })
+
+  it('never prints the same label twice (the journal drift bug: 0.2, 0.2, 0.1, 0.1, 0.0)', () => {
+    const ticks = niceTicks(0, 0.21, 4)
+    const step = ticks[1] - ticks[0]
+    const labels = tickLabels(ticks, (v) => v.toFixed(tickDecimals(step)))
+    expect(new Set(labels).size).toBe(labels.length)
+    expect(labels).toEqual(['0.00', '0.05', '0.10', '0.15', '0.20'])
+    // a formatter that rounds too hard still cannot repeat a label: repeats are blanked
+    const rough = tickLabels(ticks, (v) => v.toFixed(1))
+    expect(rough.filter((l) => l !== '')).toEqual([...new Set(rough.filter((l) => l !== ''))])
+    expect(rough.filter((l) => l !== '').length).toBeLessThan(ticks.length)
   })
 })

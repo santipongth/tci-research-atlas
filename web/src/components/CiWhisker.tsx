@@ -1,9 +1,14 @@
 import { linear } from '../charts/scale'
+import { useElementSize } from '../lib/useElementSize'
 import { glyphPath, type StatusId } from '../lib/status'
+
+/** Narrower than this a whisker cannot be read: it is left out and the interval stays in text. */
+export const MIN_WHISKER = 96
 
 /**
  * One forest-plot row: the interval (capped, or an arrow where it runs off the axis), the estimate as the status glyph,
  * a solid zero line and a dashed reference line (+10 %/yr for EMERGING). Decorative: the numbers are written beside it.
+ * Under `MIN_WHISKER` px nothing is drawn.
  */
 export function CiWhisker({ status, value, lo, hi, domain, refValue, width, height = 18, r = 4 }: {
   status: StatusId
@@ -16,7 +21,7 @@ export function CiWhisker({ status, value, lo, hi, domain, refValue, width, heig
   height?: number
   r?: number
 }) {
-  if (lo === null || lo === undefined || hi === null || hi === undefined || width <= 12) return null
+  if (lo === null || lo === undefined || hi === null || hi === undefined || width < MIN_WHISKER) return null
   const [d0, d1] = domain
   const x = linear(d0, d1, 6, width - 6)
   const cy = height / 2
@@ -33,5 +38,15 @@ export function CiWhisker({ status, value, lo, hi, domain, refValue, width, heig
       {hi > d1 ? <path className={cls} fill="none" d={`M${x(b) - 5},${cy - 4}L${x(b)},${cy}L${x(b) - 5},${cy + 4}`} /> : <line className={cls} x1={x(b)} x2={x(b)} y1={cy - 4} y2={cy + 4} />}
       {v !== null ? <path className={`mk mk-${status}`} transform={`translate(${x(v)},${cy})`} d={glyphPath(status, r)} /> : null}
     </svg>
+  )
+}
+
+/** A whisker that fills its container up to `maxWidth` (stat tiles, cards): never wider than the space it is given. */
+export function FitCiWhisker({ maxWidth, ...props }: Omit<Parameters<typeof CiWhisker>[0], 'width'> & { maxWidth: number }) {
+  const [ref, { width }] = useElementSize<HTMLDivElement>()
+  return (
+    <div ref={ref} className="whisker-fit">
+      {width > 0 ? <CiWhisker {...props} width={Math.min(maxWidth, width)} /> : null}
+    </div>
   )
 }

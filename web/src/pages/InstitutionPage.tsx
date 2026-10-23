@@ -6,6 +6,7 @@ import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
+import { StatGrid, StatTile } from '../components/StatTile'
 import { ShareBar } from '../components/ShareBar'
 import { TopicLink } from '../components/TopicLink'
 import { useReleaseFile } from '../data/atlasContext'
@@ -105,28 +106,20 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
       <div className="layout">
         <div className="main-col">
           <Section id="numbers" title={t('in.numbers.h')}>
-            <dl className="summary">
-              <div>
-                <dt>{t('col.articles')}</dt>
-                <dd>{fmtInt(inst.articles)}<small>{t('in.articlesSub', { a: w.start, b: w.end, all: fmtInt(inst.articles_total) })}</small></dd>
-              </div>
-              <div>
-                <dt>{t('in.col.recent')}</dt>
-                <dd>{fmtInt(inst.articles_recent ?? 0)}<small>{t('in.recentSub', { a: r.start, b: r.end })}</small></dd>
-              </div>
-              <div>
-                <dt>{t('in.col.intl')}</dt>
-                <dd>{fmtPct(inst.intl_share ?? null, 0)}<small>{t('in.intlSub')}</small></dd>
-              </div>
-              <div>
-                <dt>{t('in.col.partners')}</dt>
-                <dd>{fmtInt(inst.partners ?? 0)}<small>{t('in.partnersSub')}</small></dd>
-              </div>
-              <div>
-                <dt>{t('col.topic')}</dt>
-                <dd>{fmtInt(inst.topics ?? 0)}<small>{t('in.topicsSub')}</small></dd>
-              </div>
-            </dl>
+            <StatGrid cols={3}>
+              <StatTile
+                wide
+                label={t('col.articles')}
+                value={fmtInt(inst.articles)}
+                sub={t('in.articlesSub', { a: w.start, b: w.end, all: fmtInt(inst.articles_total) })}
+                trend={years.length > 2 ? years.map((y) => y.articles) : undefined}
+                trendText={years.length > 2 ? t('stat.trend', { a: years[0].year, b: years[years.length - 1].year, values: years.map((y) => fmtInt(y.articles)).join(', ') }) : undefined}
+              />
+              <StatTile label={t('in.col.recent')} value={fmtInt(inst.articles_recent ?? 0)} sub={t('in.recentSub', { a: r.start, b: r.end })} />
+              <StatTile label={t('in.col.intl')} value={fmtPct(inst.intl_share ?? null, 0)} sub={t('in.intlSub')} />
+              <StatTile label={t('in.col.partners')} value={fmtInt(inst.partners ?? 0)} sub={t('in.partnersSub')} />
+              <StatTile label={t('col.topic')} value={fmtInt(inst.topics ?? 0)} sub={t('in.topicsSub')} />
+            </StatGrid>
           </Section>
 
           {topics.length ? (

@@ -18,7 +18,7 @@
   .ml-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
   .ml-end { stroke: var(--bg); stroke-width: 2; }
   .tip-swatch { display: inline-block; vertical-align: middle; }
-  .ml-label { font-size: 13px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+  .ml-label { font-size: var(--fs-caption); font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
 }
 
 @layer components {

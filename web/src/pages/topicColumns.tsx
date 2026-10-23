@@ -17,6 +17,8 @@ export interface ColumnContext {
 
 /** Share-growth axis of every CI whisker (fractions); values outside are drawn as arrows. */
 export const FOREST_DOMAIN: readonly [number, number] = [-0.3, 1.0]
+/** The whisker under the interval text in a table cell (text first; the whisker only illustrates it). */
+const CI_CELL_WHISKER = 128
 
 export function idColumn(): Column<Topic> {
   return { key: 'id', header: 'id', csvHeader: 'topic_id', cell: () => null, csv: (r) => r.id, csvOnly: true }
@@ -46,11 +48,11 @@ export function statusColumn(ctx: ColumnContext): Column<Topic> {
 }
 
 export function shareColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'share', csvHeader: 'share_recent', header: ctx.t('col.share'), numeric: true, cell: (r) => fmtPct(r.metrics.share_recent, 2), sortValue: (r) => r.metrics.share_recent }
+  return { key: 'share', csvHeader: 'share_recent', header: ctx.t('col.share'), unit: ctx.t('unit.pct'), numeric: true, cell: (r) => fmtPct(r.metrics.share_recent, 2), sortValue: (r) => r.metrics.share_recent }
 }
 
 export function growthColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'growth', csvHeader: 'share_growth', header: ctx.t('col.growth'), numeric: true, cell: (r) => fmtSignedPct(r.metrics.share_growth), sortValue: (r) => r.metrics.share_growth }
+  return { key: 'growth', csvHeader: 'share_growth', header: ctx.t('col.growth'), unit: ctx.t('unit.pct'), numeric: true, cell: (r) => fmtSignedPct(r.metrics.share_growth), sortValue: (r) => r.metrics.share_growth }
 }
 
 export function ciColumn(ctx: ColumnContext, levelPct: number): Column<Topic> {
@@ -65,8 +67,8 @@ export function ciColumn(ctx: ColumnContext, levelPct: number): Column<Topic> {
         DASH
       ) : (
         <div className="ci-cell">
-          <CiWhisker status={r.status} value={r.metrics.share_growth} lo={r.metrics.share_growth_lo} hi={r.metrics.share_growth_hi} domain={FOREST_DOMAIN} refValue={DEFINITION.emergingMinGrowthLo} width={150} />
           <span>{fmtSignedPct(r.metrics.share_growth_lo)} {ctx.t('to')} {fmtSignedPct(r.metrics.share_growth_hi)}</span>
+          <CiWhisker status={r.status} value={r.metrics.share_growth} lo={r.metrics.share_growth_lo} hi={r.metrics.share_growth_hi} domain={FOREST_DOMAIN} refValue={DEFINITION.emergingMinGrowthLo} width={CI_CELL_WHISKER} />
         </div>
       ),
     sortValue: (r) => r.metrics.share_growth_lo,
@@ -118,7 +120,7 @@ export function orgsColumn(ctx: ColumnContext): Column<Topic> {
 }
 
 export function scoreColumn(ctx: ColumnContext): Column<Topic> {
-  return { key: 'score', csvHeader: 'score', header: ctx.t('col.score'), numeric: true, cell: (r) => fmtNum(r.score, 0), sortValue: (r) => r.score }
+  return { key: 'score', csvHeader: 'score', header: ctx.t('col.score'), unit: '0–100', numeric: true, cell: (r) => fmtNum(r.score, 0), sortValue: (r) => r.score }
 }
 
 export function articlesColumn(ctx: ColumnContext): Column<Topic> {

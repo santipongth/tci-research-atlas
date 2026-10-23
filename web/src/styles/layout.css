@@ -35,6 +35,13 @@
   .nav-link:hover { color: var(--link); text-decoration: underline; }
   .nav-link[aria-current="page"] { border-bottom-color: var(--link); }
   .nav-search { flex: 1 1 260px; max-width: 420px; }
+  /* wide screens: the topic search joins the links on one row when it fits (else it wraps under them, as below 1280) */
+  @media (min-width: 1280px) {
+    .nav-row { column-gap: 16px; }
+    .nav-list { gap: 0; }
+    .nav-link { padding: 0 7px; }
+    .nav-search { flex: 1 1 180px; min-width: 180px; max-width: 360px; }
+  }
   .nav-tools, .nav-group-h { display: none; }
 
   /* Under 900 px the whole navigation lives behind the header's "เมนู / Menu" button. */

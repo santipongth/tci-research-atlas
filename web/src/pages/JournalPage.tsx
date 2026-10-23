@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router'
 import { MultiLineChart } from '../charts/MultiLineChart'
+import { tickDecimals } from '../charts/scale'
 import { DataTable, type Column } from '../components/DataTable'
 import { Figure } from '../components/Figure'
 import { JournalLink } from '../components/JournalLink'
@@ -8,6 +9,8 @@ import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
+import { StatGrid, StatTile } from '../components/StatTile'
+import { Term } from '../components/Term'
 import { ShareBar } from '../components/ShareBar'
 import { TopicLink } from '../components/TopicLink'
 import { useReleaseFile } from '../data/atlasContext'
@@ -15,6 +18,8 @@ import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { CompletenessItem, DriftPoint, JournalDetail, JournalSummary, JournalsFile, MethodShare, MethodsFile, Topic, TopicShare } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
+import { withPrimary } from '../lib/columns'
+import { figureCsv } from '../lib/tableCsv'
 import { inhouseFlag, inhouseGap, journalName, otherJournalName } from '../lib/journals'
 import { journalCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
@@ -58,7 +63,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const w = file.window
   const shown = journalName(journal, lang)
   const other = otherJournalName(journal, lang)
-  const source = t('source.line', { release: release.overview.release, v: release.definitionVersion })
+  const source = t('source.line', { release: release.overview.release })
   const topicOf = (tid: string): Topic | undefined => release.topicById.get(tid)
   const byId = new Map(file.journals.map((j) => [j.id, j]))
   const topics = (detail?.topics ?? []).filter((s) => topicOf(s.topic))
@@ -103,7 +108,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const gapOf = (j: JournalSummary) => (j.low_data ? t('jr.lowData') : t('jr.unknown'))
   type PeerRow = { journal: JournalSummary; similarity: number | null }
   const peerRows: PeerRow[] = [{ journal, similarity: null }, ...peers.map((p) => ({ journal: byId.get(p.id) as JournalSummary, similarity: p.similarity }))]
-  const peerColumns: Column<PeerRow>[] = [
+  const peerColumns: Column<PeerRow>[] = withPrimary<PeerRow>([
     { key: 'name', csvHeader: 'journal_id', header: t('col.journal'), rowHeader: true, cell: (r) => (r.similarity === null ? <strong>{t('jr.this')}</strong> : <JournalLink journal={r.journal} />), csv: (r) => r.journal.id },
     { key: 'sim', csvHeader: 'similarity', header: t('col.similarity'), numeric: true, cell: (r) => (r.similarity === null ? DASH : fmtNum(r.similarity, 2)), csv: (r) => r.similarity },
     { key: 'articles', csvHeader: 'articles_window', header: t('col.articlesW'), numeric: true, cell: (r) => fmtInt(r.journal.articles_window), csv: (r) => r.journal.articles_window },
@@ -111,7 +116,7 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
     { key: 'inhouse', csvHeader: 'inhouse_share', header: t('col.inhouse'), numeric: true, cell: (r) => (r.journal.inhouse_share == null ? gapOf(r.journal) : fmtPct(r.journal.inhouse_share, 0)), csv: (r) => r.journal.inhouse_share ?? null },
     { key: 'orgs', csvHeader: 'effective_orgs', header: t('col.effOrgs'), numeric: true, cell: (r) => (r.journal.effective_orgs == null ? gapOf(r.journal) : fmtNum(r.journal.effective_orgs, 1)), csv: (r) => r.journal.effective_orgs ?? null },
     { key: 'foreign', csvHeader: 'foreign_share', header: t('col.foreign'), numeric: true, cell: (r) => (r.journal.foreign_share == null ? gapOf(r.journal) : fmtPct(r.journal.foreign_share, 0)), csv: (r) => r.journal.foreign_share ?? null },
-  ]
+  ], ['sim', 'articles', 'completeness'])
   const methodName = (key: string) => {
     const m = methodInfo.get(key)
     return m ? (lang === 'en' ? m.en : m.th) : key
@@ -140,33 +145,24 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
         <div className="main-col">
           <Section id="numbers" title={t('jr.numbers.h')}>
             {journal.low_data ? <p className="note">{t('jr.lowDataBody', { a: w.start, b: w.end, n: fmtInt(file.min_articles) })}</p> : null}
-            <dl className="summary">
-              <div>
-                <dt>{t('col.articlesW')}</dt>
-                <dd>{fmtInt(journal.articles_window)}<small>{t('jr.articlesSub', { a: w.start, b: w.end, all: fmtInt(journal.articles) })}</small></dd>
-              </div>
-              <div>
-                <dt>{t('col.completeness')}</dt>
-                <dd>{journal.completeness == null ? gap : fmtNum(journal.completeness, 1)}<small>{t('jr.completenessSub')}</small></dd>
-              </div>
-              <div>
-                <dt>{t('col.inhouse')}</dt>
-                <dd>
-                  {journal.inhouse_share == null ? gap : fmtPct(journal.inhouse_share, 0)}
-                  {journal.owner_source === 'inferred' && journal.inhouse_share != null ? <span className="flag">{t('jr.inferred')}</span> : null}
-                  {inhouseFlag(journal, file.inhouse_flag_share) ? <span className="flag">{t('jr.flag')}</span> : null}
-                  <small>{inhouseSub}</small>
-                </dd>
-              </div>
-              <div>
-                <dt>{t('col.effOrgs')}</dt>
-                <dd>{journal.effective_orgs == null ? gap : fmtNum(journal.effective_orgs, 1)}<small>{journal.effective_orgs == null ? t('jr.orgsSubN', { n: fmtInt(journal.n_orgs ?? 0) }) : t('jr.orgsSub', { n: fmtInt(journal.n_orgs ?? 0), e: fmtNum(journal.effective_orgs, 1) })}</small></dd>
-              </div>
-              <div>
-                <dt>{t('col.foreign')}</dt>
-                <dd>{journal.foreign_share == null ? gap : fmtPct(journal.foreign_share, 0)}<small>{t('jr.foreignSub')}{journal.affiliation_coverage == null ? '' : ` · ${t('jr.coverageSub', { p: fmtPct(journal.affiliation_coverage, 0) })}`}</small></dd>
-              </div>
-            </dl>
+            <StatGrid cols={3}>
+              <StatTile wide label={t('col.articlesW')} value={fmtInt(journal.articles_window)} sub={t('jr.articlesSub', { a: w.start, b: w.end, all: fmtInt(journal.articles) })} />
+              <StatTile label={t('col.completeness')} value={journal.completeness == null ? gap : fmtNum(journal.completeness, 1)} sub={t('jr.completenessSub')} />
+              <StatTile label={t('col.inhouse')} value={journal.inhouse_share == null ? gap : fmtPct(journal.inhouse_share, 0)} sub={inhouseSub}>
+                {journal.owner_source === 'inferred' && journal.inhouse_share != null ? <span className="flag">{t('jr.inferred')}</span> : null}
+                {inhouseFlag(journal, file.inhouse_flag_share) ? <span className="flag">{t('jr.flag')}</span> : null}
+              </StatTile>
+              <StatTile
+                label={t('col.effOrgs')}
+                value={journal.effective_orgs == null ? gap : fmtNum(journal.effective_orgs, 1)}
+                sub={journal.effective_orgs == null ? t('jr.orgsSubN', { n: fmtInt(journal.n_orgs ?? 0) }) : t('jr.orgsSub', { n: fmtInt(journal.n_orgs ?? 0), e: fmtNum(journal.effective_orgs, 1) })}
+              />
+              <StatTile
+                label={t('col.foreign')}
+                value={journal.foreign_share == null ? gap : fmtPct(journal.foreign_share, 0)}
+                sub={`${t('jr.foreignSub')}${journal.affiliation_coverage == null ? '' : ` · ${t('jr.coverageSub', { p: fmtPct(journal.affiliation_coverage, 0) })}`}`}
+              />
+            </StatGrid>
           </Section>
 
           {topics.length ? (
@@ -183,11 +179,19 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
                 id="fig-drift"
                 number={1}
                 title={t('jr.drift.fig')}
+                tableTitle={t('table.n', { n: 2, title: t('jr.drift.table') })}
+                csv={figureCsv(`atlas-${rel}-${journal.id}-drift.csv`, drift, driftColumns)}
+                how={
+                  <p className="how-terms">
+                    <span>{t('glossary.terms')}:</span>
+                    <Term term="jsd" />
+                  </p>
+                }
                 source={source}
                 view={state.drift}
                 onView={(v) => update({ drift: v })}
-                chart={<MultiLineChart years={drift.map((d) => d.year)} series={[{ id: 'drift', label: t('jr.drift.series'), values: drift.map((d) => d.distance ?? null) }]} format={(v) => fmtNum(v, 2)} axisFormat={(v) => fmtNum(v, 1)} label={t('jr.drift.fig')} />}
-                table={<DataTable caption={t('table.n', { n: 2, title: t('jr.drift.table') })} rows={drift} columns={driftColumns} rowKey={(d) => String(d.year)} stack={false} csvFilename={`atlas-${rel}-${journal.id}-drift.csv`} />}
+                chart={<MultiLineChart years={drift.map((d) => d.year)} series={[{ id: 'drift', label: t('jr.drift.series'), values: drift.map((d) => d.distance ?? null) }]} format={(v) => fmtNum(v, 2)} axisFormat={(v, step) => fmtNum(v, tickDecimals(step))} label={t('jr.drift.fig')} />}
+                table={<DataTable caption={t('table.n', { n: 2, title: t('jr.drift.table') })} rows={drift} columns={driftColumns} rowKey={(d) => String(d.year)} stack={false} />}
               />
             </Section>
           ) : null}

@@ -10,11 +10,13 @@ import { Section } from '../components/Section'
 import { StatusGlyph } from '../components/StatusGlyph'
 import { TopicSearch } from '../components/TopicSearch'
 import { MultiLineChart, type LineSeries } from '../charts/MultiLineChart'
+import { tickDecimals } from '../charts/scale'
 import { assignSlots, SERIES_DASHES } from '../charts/series'
 import { groupName, seriesOf, type AtlasRelease } from '../data/release'
 import type { Topic } from '../data/types'
 import { ciPct, fmtCompact, fmtInt, fmtPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
+import { figureCsv } from '../lib/tableCsv'
 import { sortBy } from '../lib/sort'
 import { compareCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
@@ -59,7 +61,7 @@ function Compare({ release }: { release: AtlasRelease }) {
     }
   })
   const format = (v: number) => (share ? fmtPct(v, 2) : fmtInt(v))
-  const axisFormat = (v: number) => (share ? fmtPct(v, v > 0 && v < 0.01 ? 1 : 0) : fmtCompact(v))
+  const axisFormat = (v: number, step: number) => (share ? fmtPct(v, tickDecimals(step, 100)) : fmtCompact(v))
   const setIds = (ids: string[]) => {
     setSeenSlots(assignSlots(ids, slots))
     update({ ids })
@@ -153,7 +155,9 @@ function Compare({ release }: { release: AtlasRelease }) {
               id="fig-cmp"
               number={1}
               title={figTitle}
-              source={t('source.line', { release: release.overview.release, v: release.definitionVersion })}
+              tableTitle={t('table.n', { n: 1, title: t('cmp.table') })}
+              csv={figureCsv(`atlas-${release.overview.release}-compare-${state.metric}.csv`, rows, yearColumns)}
+              source={t('source.line', { release: release.overview.release })}
               view={state.view}
               onView={(view) => update({ view })}
               legend={
@@ -174,7 +178,6 @@ function Compare({ release }: { release: AtlasRelease }) {
                   columns={yearColumns}
                   rowKey={(r) => String(r.year)}
                   stack={false}
-                  csvFilename={`atlas-${release.overview.release}-compare-${state.metric}.csv`}
                 />
               }
               note={<p className="note">{t('cmp.how')}</p>}

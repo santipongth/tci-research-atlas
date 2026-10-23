@@ -6,6 +6,7 @@ import { fmtPct, fmtSignedPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { placeLabels, type Box } from '../lib/labels'
 import { textWidth } from '../lib/measure'
+import { LABEL_PX } from '../lib/labelSizes'
 import { glyphPath, isSignal } from '../lib/status'
 import { useTooltip } from '../lib/tooltip'
 import { growthText, statusName } from '../lib/topicText'
@@ -80,8 +81,9 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
     { q: 'declining', x: M.l + 8, y: H - M.b - 44, anchor: 'start' },
   ]
   const quadBoxes: Box[] = (narrow ? [] : quads).map((qd) => {
-    const w = Math.max(textWidth(labels.quadrants[qd.q], 15, 700), textWidth(t('topicsN', { n: counts[qd.q] }), 12.5, 400))
-    return { x: qd.anchor === 'end' ? qd.x - w : qd.x, y: qd.y - 15, w, h: 15 + 19.5 + 4 }
+    const w = Math.max(textWidth(labels.quadrants[qd.q], LABEL_PX.strong, 700), textWidth(t('topicsN', { n: counts[qd.q] }), LABEL_PX.label, 400))
+    // name line + the count line 1.45em (of its own size) below it + a little air
+    return { x: qd.anchor === 'end' ? qd.x - w : qd.x, y: qd.y - LABEL_PX.strong, w, h: LABEL_PX.strong + LABEL_PX.label * 1.45 + 6 }
   })
   const markBoxes = topics.map((tp) => {
     const r = isSignal(tp.status) ? MARK_R.signal : MARK_R.other
@@ -94,7 +96,7 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
       .slice(0, narrow ? 1 : 3)
       .map((tp) => {
         const text = name(tp)
-        return { id: tp.id, text, width: textWidth(text, 13, 700), height: 13, x: x(tp.metrics.share_recent), y: py(tp.metrics.share_growth), radius: MARK_R.signal }
+        return { id: tp.id, text, width: textWidth(text, LABEL_PX.label, 700), height: LABEL_PX.label, x: x(tp.metrics.share_recent), y: py(tp.metrics.share_growth), radius: MARK_R.signal }
       }),
     [...markBoxes, ...quadBoxes],
     { x: M.l, y: M.t, w: W - M.l - M.r, h: H - M.t - M.b },
@@ -106,7 +108,7 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
       .filter((tp) => beyond(tp.metrics.share_growth))
       .map((tp) => {
         const text = `${(tp.metrics.share_growth ?? 0) > Y[1] ? '↑' : '↓'} ${fmtSignedPct(tp.metrics.share_growth, 0)}`
-        return { id: tp.id, text, width: textWidth(text, 12, 600), height: 12, x: x(tp.metrics.share_recent), y: py(tp.metrics.share_growth), radius: MARK_R.signal }
+        return { id: tp.id, text, width: textWidth(text, LABEL_PX.tick, 600), height: LABEL_PX.tick, x: x(tp.metrics.share_recent), y: py(tp.metrics.share_growth), radius: MARK_R.signal }
       }),
     [...markBoxes, ...quadBoxes, ...directLabels.map((d) => d.box)],
     frame,
@@ -138,7 +140,7 @@ export function PortfolioMatrix({ topics, threshold, ciLevel, labels, counts }: 
           {(narrow ? [] : quads).map((qd) => (
             <text key={qd.q} x={qd.x} y={qd.y} textAnchor={qd.anchor} className="pf-qname">
               {labels.quadrants[qd.q]}
-              <tspan x={qd.x} dy="1.3em" className="pf-qcount">{t('topicsN', { n: counts[qd.q] })}</tspan>
+              <tspan x={qd.x} dy="1.45em" className="pf-qcount">{t('topicsN', { n: counts[qd.q] })}</tspan>
             </text>
           ))}
           {directLabels.map((d) => (

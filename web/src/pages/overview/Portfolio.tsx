@@ -22,59 +22,54 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
   const ctx: ColumnContext = { t, name, groupName: (g) => groupName(release, g, lang) }
   const quadRows = QUADRANTS.map((q) => ({ q, count: counts[q] }))
   return (
-    <>
-      <Figure
-        id="fig-portfolio"
-        number={2}
-        title={t('ov.pf.title', { w })}
-        source={t('source.line', { release: release.overview.release, v: release.definitionVersion })}
-        view={state.pf}
-        onView={(pf) => update({ pf })}
-        legend={<StatusLegend statuses={STATUSES.filter((s) => s !== 'LOW_DATA')} />}
-        chart={
-          <PortfolioMatrix
-            topics={topics}
-            threshold={threshold}
-            ciLevel={release.ciLevel}
-            counts={counts}
-            labels={{ name: t('ov.pf.h'), x: t('ov.pf.x', { w }), y: t('ov.pf.y'), split: t('ov.pf.split', { v: fmtPct(threshold, 2) }), quadrants: { stars: quadName('stars'), rising: quadName('rising'), mature: quadName('mature'), declining: quadName('declining') } }}
+    <Figure
+      id="fig-portfolio"
+      number={2}
+      title={t('ov.pf.title', { w })}
+      source={t('source.line', { release: release.overview.release })}
+      view={state.pf}
+      onView={(pf) => update({ pf })}
+      legend={<StatusLegend plain statuses={STATUSES.filter((s) => s !== 'LOW_DATA')} />}
+      how={<p>{t('ov.pf.how', { w, top: fmtPct(1 - DEFINITION.largeQuantile, 0) })}</p>}
+      chart={
+        <PortfolioMatrix
+          topics={topics}
+          threshold={threshold}
+          ciLevel={release.ciLevel}
+          counts={counts}
+          labels={{ name: t('ov.pf.h'), x: t('ov.pf.x', { w }), y: t('ov.pf.y'), split: t('ov.pf.split', { v: fmtPct(threshold, 2) }), quadrants: { stars: quadName('stars'), rising: quadName('rising'), mature: quadName('mature'), declining: quadName('declining') } }}
+        />
+      }
+      table={
+        <>
+          <DataTable
+            caption={t('table.n', { n: 2, title: t('ov.pf.quadTable') })}
+            rows={quadRows}
+            rowKey={(r) => r.q}
+            stack={false}
+            columns={[
+              { key: 'q', csvHeader: 'quadrant', header: t('col.group'), rowHeader: true, cell: (r) => quadName(r.q), csv: (r) => r.q },
+              { key: 'meaning', header: t('col.meaning'), cell: (r) => t(`quad.${r.q}.hint` as const) },
+              { key: 'count', csvHeader: 'n_topics', header: t('col.topics'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
+            ]}
           />
-        }
-        table={
-          <>
-            <DataTable
-              caption={t('table.n', { n: 2, title: t('ov.pf.quadTable') })}
-              rows={quadRows}
-              rowKey={(r) => r.q}
-              stack={false}
-              columns={[
-                { key: 'q', csvHeader: 'quadrant', header: t('col.group'), rowHeader: true, cell: (r) => quadName(r.q), csv: (r) => r.q },
-                { key: 'meaning', header: t('col.meaning'), cell: (r) => t(`quad.${r.q}.hint` as const) },
-                { key: 'count', csvHeader: 'n_topics', header: t('col.topics'), numeric: true, cell: (r) => fmtInt(r.count), sortValue: (r) => r.count },
-              ]}
-            />
-            <DataTable
-              caption={t('table.n', { n: 3, title: t('ov.pf.topicTable') })}
-              rows={topics}
-              rowKey={(r) => r.id}
-              defaultSort={{ key: 'share', dir: 'desc' }}
-              csvFilename={`atlas-${release.overview.release}-portfolio.csv`}
-              columns={[
-                idColumn(),
-                topicColumn(ctx),
-                statusColumn(ctx),
-                { key: 'quadrant', csvHeader: 'quadrant', header: t('col.group'), cell: (r) => { const q = quadrantOf(r, threshold); return q ? quadName(q) : '' }, csv: (r) => quadrantOf(r, threshold) ?? '' },
-                shareColumn(ctx),
-                growthColumn(ctx),
-              ]}
-            />
-          </>
-        }
-      />
-      <details className="how">
-        <summary>{t('howRead')}</summary>
-        <div>{t('ov.pf.how', { w, top: fmtPct(1 - DEFINITION.largeQuantile, 0) })}</div>
-      </details>
-    </>
+          <DataTable
+            caption={t('table.n', { n: 3, title: t('ov.pf.topicTable') })}
+            rows={topics}
+            rowKey={(r) => r.id}
+            defaultSort={{ key: 'share', dir: 'desc' }}
+            csvFilename={`atlas-${release.overview.release}-portfolio.csv`}
+            columns={[
+              idColumn(),
+              topicColumn(ctx),
+              statusColumn(ctx),
+              { key: 'quadrant', csvHeader: 'quadrant', header: t('col.group'), cell: (r) => { const q = quadrantOf(r, threshold); return q ? quadName(q) : '' }, csv: (r) => quadrantOf(r, threshold) ?? '' },
+              shareColumn(ctx),
+              growthColumn(ctx),
+            ]}
+          />
+        </>
+      }
+    />
   )
 }

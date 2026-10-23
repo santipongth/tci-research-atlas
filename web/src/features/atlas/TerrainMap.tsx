@@ -1,5 +1,6 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { textWidth } from '../../lib/measure'
+import { LABEL_PX } from '../../lib/labelSizes'
 import { glyphPath, isSignal, type StatusId } from '../../lib/status'
 import { useTheme } from '../../lib/theme'
 import { useTooltip } from '../../lib/tooltip'
@@ -207,7 +208,7 @@ export function TerrainMap({ ref, points, groups, terrain, hidden, layers, selec
   // Markers and field names depend on the view, the filters and the font; names also on hover and selection — memoised so a
   // redraw caused by anything else (tooltip, drag frames between renders) does not redo the collision search.
   const small = W < 600
-  const fieldSize = small ? 13 : 16
+  const fieldSize = small ? LABEL_PX.label : LABEL_PX.strong
   const markers = useMemo(
     () =>
       view
@@ -242,7 +243,7 @@ export function TerrainMap({ ref, points, groups, terrain, hidden, layers, selec
     return placeLabels(
       named.map((m) => {
         const text = names.get(m.p.id) ?? m.p.id
-        return { id: m.p.id, text, width: textWidth(text, 13, 600), height: 13, x: m.sx, y: m.sy, radius: m.r }
+        return { id: m.p.id, text, width: textWidth(text, LABEL_PX.label, 600), height: LABEL_PX.label, x: m.sx, y: m.sy, radius: m.r }
       }),
       [...markers.map((m) => ({ id: m.p.id, x: m.sx - m.r, y: m.sy - m.r, w: 2 * m.r, h: 2 * m.r })), ...fieldLabels.map((f) => f.box)],
       { x: 18, y: 18, w: W - 22, h: H - 22 },

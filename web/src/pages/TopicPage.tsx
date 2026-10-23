@@ -1,15 +1,17 @@
 import { TopicName } from '../components/TopicName'
 import { lazy, Suspense } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { CiWhisker } from '../components/CiWhisker'
-import { DataTable } from '../components/DataTable'
+import { FitCiWhisker } from '../components/CiWhisker'
+import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
 import { Figure } from '../components/Figure'
 import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
+import { StatGrid, StatTile } from '../components/StatTile'
 import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
+import { Term } from '../components/Term'
 import { TopicLink } from '../components/TopicLink'
 import { TopicSearch } from '../components/TopicSearch'
 import { TrendChart } from '../charts/TrendChart'
@@ -23,6 +25,7 @@ import { forecastView } from '../lib/forecast'
 import { ciPct, DASH, fmtInt, fmtNum, fmtPct, fmtSignedPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
 import { ciText, growthText, lowDataText, ratioText, statusName } from '../lib/topicText'
+import { figureCsv } from '../lib/tableCsv'
 import { topicCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { FOREST_DOMAIN } from './topicColumns'
@@ -102,7 +105,9 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
   const ci = ciText(t, m, release.ciLevel)
   const lineage = topic.lineage ?? {}
   const event = lineage.event ?? 'new'
-  const source = t('source.line', { release: release.overview.release, v: release.definitionVersion })
+  const source = t('source.line', { release: release.overview.release })
+  // the topic's yearly share of all articles (the share tile's sparkline)
+  const shareTrend = years.map((_, i) => (release.series.corpus_total[i] ? (counts[i] ?? 0) / release.series.corpus_total[i] : null))
 
   const trendRows: TrendRow[] = [
     ...years.map((yr, i) => ({
@@ -113,6 +118,15 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
     ...(showFc && fc
       ? fc.years.map((yr, i) => ({ year: yr, kind: 'forecast' as const, articles: null, share: null, mean: fc.mean[i], lo80: fc.lo80[i], hi80: fc.hi80[i], lo95: fc.lo95[i], hi95: fc.hi95[i] }))
       : []),
+  ]
+  const trendColumns: Column<TrendRow>[] = [
+    { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.kind === 'forecast' ? t('tp.forecastYear', { year: r.year }) : String(r.year)), csv: (r) => r.year },
+    { key: 'kind', csvHeader: 'kind', header: 'kind', cell: () => null, csv: (r) => r.kind, csvOnly: true },
+    { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => (r.articles === null ? '' : fmtInt(r.articles)), csv: (r) => r.articles },
+    { key: 'share', csvHeader: 'share_of_year', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? '' : fmtPct(r.share, 2)), csv: (r) => r.share },
+    { key: 'mean', csvHeader: 'forecast_mean', header: t('forecast'), numeric: true, cell: (r) => (r.mean === null ? '' : fmtInt(r.mean)), csv: (r) => r.mean },
+    { key: 'r80', csvHeader: 'range_80', header: t('tp.col.range80'), numeric: true, cell: (r) => (r.lo80 === null ? '' : `${fmtInt(r.lo80)}–${fmtInt(r.hi80)}`), csv: (r) => (r.lo80 === null ? null : `${r.lo80}-${r.hi80}`) },
+    { key: 'r95', csvHeader: 'range_95', header: t('tp.col.range95'), numeric: true, cell: (r) => (r.lo95 === null ? '' : `${fmtInt(r.lo95)}–${fmtInt(r.hi95)}`), csv: (r) => (r.lo95 === null ? null : `${r.lo95}-${r.hi95}`) },
   ]
   const toc = [
     ...(narrative ? [{ id: 'narrative', label: t('tp.narrative.h') }] : []),
@@ -184,52 +198,43 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 <p><strong>{breadthText(t, topic)}</strong></p>
               </div>
             ) : null}
-            <dl className="summary">
-              <div>
-                <dt>{t('tp.share')}</dt>
-                <dd>{fmtPct(m.share_recent, 2)}<small>{t('tp.shareSub', { w: fmtWindow(w.R), n: fmtInt(m.count_recent) })}</small></dd>
-              </div>
-              <div>
-                <dt>{t('tp.growth')}</dt>
-                <dd>
-                  {m.share_growth === null || m.share_growth === undefined ? (lowDataText(t, m) ?? DASH) : growthText(t, m)}
-                  {ci ? <small>{ci}</small> : null}
-                  {ci ? (
-                    <CiWhisker status={topic.status} value={m.share_growth} lo={m.share_growth_lo} hi={m.share_growth_hi} domain={FOREST_DOMAIN} refValue={DEFINITION.emergingMinGrowthLo} width={240} height={22} />
-                  ) : null}
-                </dd>
-              </div>
-              <div>
-                <dt>{t('col.ratio')}</dt>
-                <dd>{ratioText(t, m)}<small>{t('tp.ratioSub', { r: fmtWindow(w.R), b: fmtWindow(w.B) })}</small></dd>
-              </div>
-              <div>
-                <dt>{t('col.journals')}</dt>
-                <dd>{fmtInt(m.n_journals_R)}<small>{t('tp.inWindow', { w: fmtWindow(w.R) })}</small></dd>
-              </div>
-              <div>
-                <dt>{t('col.orgs')}</dt>
-                <dd>{fmtInt(m.n_orgs_R)}<small>{m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })}</small></dd>
-              </div>
+            <StatGrid cols={3}>
+              <StatTile
+                // growth leads; two columns wide unless that would leave the last row with one tile (always a full row on phones)
+                wide={cited === null ? true : 'phone'}
+                label={<Term term="shareGrowth">{t('tp.growth')}</Term>}
+                value={m.share_growth === null || m.share_growth === undefined ? (lowDataText(t, m) ?? DASH) : growthText(t, m)}
+                sub={ci ?? undefined}
+              >
+                {ci ? (
+                  <FitCiWhisker status={topic.status} value={m.share_growth} lo={m.share_growth_lo} hi={m.share_growth_hi} domain={FOREST_DOMAIN} refValue={DEFINITION.emergingMinGrowthLo} maxWidth={240} height={22} />
+                ) : null}
+              </StatTile>
+              <StatTile
+                label={t('tp.share')}
+                value={fmtPct(m.share_recent, 2)}
+                sub={t('tp.shareSub', { w: fmtWindow(w.R), n: fmtInt(m.count_recent) })}
+                trend={shareTrend}
+                trendText={t('stat.trend', { a: years[0], b: years[years.length - 1], values: shareTrend.map((v) => (v === null ? DASH : fmtPct(v, 2))).join(', ') })}
+              />
+              <StatTile label={t('col.ratio')} value={ratioText(t, m)} sub={t('tp.ratioSub', { r: fmtWindow(w.R), b: fmtWindow(w.B) })} />
+              <StatTile label={t('col.journals')} value={fmtInt(m.n_journals_R)} sub={t('tp.inWindow', { w: fmtWindow(w.R) })} />
+              <StatTile label={t('col.orgs')} value={fmtInt(m.n_orgs_R)} sub={m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })} />
               {cited !== null ? (
-                <div>
-                  <dt>{t('tp.cited')}</dt>
-                  <dd>
-                    {t('tp.cited.v', { n: fmtInt(cited) })}
-                    <small>
+                <StatTile
+                  wide="phone"
+                  label={t('tp.cited')}
+                  value={t('tp.cited.v', { n: fmtInt(cited) })}
+                  sub={
+                    <>
                       {t('tp.cited.sub')}
                       {hasModule(release, 'references') ? <> · <Link to="/references">{t('tp.cited.link')}</Link></> : null}
-                    </small>
-                  </dd>
-                </div>
+                    </>
+                  }
+                />
               ) : null}
-              {topic.status === 'LOW_DATA' ? (
-                <div>
-                  <dt>{t('col.reason')}</dt>
-                  <dd>{lowDataText(t, m) ?? DASH}</dd>
-                </div>
-              ) : null}
-            </dl>
+              {topic.status === 'LOW_DATA' ? <StatTile wide label={t('col.reason')} value={lowDataText(t, m) ?? DASH} /> : null}
+            </StatGrid>
           </Section>
 
           <Section id="trend" title={t('tp.trend.h')}>
@@ -238,6 +243,8 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 id="fig-trend"
                 number={1}
                 title={t('tp.trend.title', { a: years[0], b: years[years.length - 1] })}
+                tableTitle={t('table.n', { n: 1, title: t('tp.trend.table') })}
+                csv={figureCsv(`atlas-${release.overview.release}-${topic.id}-trend.csv`, trendRows, trendColumns)}
                 source={source}
                 view={state.trend}
                 onView={(trend) => update({ trend })}
@@ -270,16 +277,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                     rows={trendRows}
                     rowKey={(r) => `${r.kind}-${r.year}`}
                     stack={false}
-                    csvFilename={`atlas-${release.overview.release}-${topic.id}-trend.csv`}
-                    columns={[
-                      { key: 'year', csvHeader: 'year', header: t('col.year'), rowHeader: true, cell: (r) => (r.kind === 'forecast' ? t('tp.forecastYear', { year: r.year }) : String(r.year)), csv: (r) => r.year },
-                      { key: 'kind', csvHeader: 'kind', header: 'kind', cell: () => null, csv: (r) => r.kind, csvOnly: true },
-                      { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => (r.articles === null ? '' : fmtInt(r.articles)), csv: (r) => r.articles },
-                      { key: 'share', csvHeader: 'share_of_year', header: t('tp.col.shareOfYear'), numeric: true, cell: (r) => (r.share === null ? '' : fmtPct(r.share, 2)), csv: (r) => r.share },
-                      { key: 'mean', csvHeader: 'forecast_mean', header: t('forecast'), numeric: true, cell: (r) => (r.mean === null ? '' : fmtInt(r.mean)), csv: (r) => r.mean },
-                      { key: 'r80', csvHeader: 'range_80', header: t('tp.col.range80'), numeric: true, cell: (r) => (r.lo80 === null ? '' : `${fmtInt(r.lo80)}–${fmtInt(r.hi80)}`), csv: (r) => (r.lo80 === null ? null : `${r.lo80}-${r.hi80}`) },
-                      { key: 'r95', csvHeader: 'range_95', header: t('tp.col.range95'), numeric: true, cell: (r) => (r.lo95 === null ? '' : `${fmtInt(r.lo95)}–${fmtInt(r.hi95)}`), csv: (r) => (r.lo95 === null ? null : `${r.lo95}-${r.hi95}`) },
-                    ]}
+                    columns={trendColumns}
                   />
                 }
                 note={

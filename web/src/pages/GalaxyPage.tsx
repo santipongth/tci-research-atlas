@@ -18,6 +18,7 @@ import {
 } from '../lib/galaxyGl'
 import { useI18n, useStrings } from '../lib/i18n'
 import { textWidth } from '../lib/measure'
+import { LABEL_PX } from '../lib/labelSizes'
 import { rowToDoc } from '../lib/searchClient'
 import { docShardOf } from '../lib/searchTokens'
 import { useTheme } from '../lib/theme'
@@ -225,7 +226,7 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
           id="gx"
           number={1}
           title={s('fig.title')}
-          source={t('source.line', { release: rel, v: release.definitionVersion })}
+          source={t('source.line', { release: rel })}
           view={state.view}
           onView={(v) => update({ view: v })}
           legend={legend}
@@ -432,7 +433,7 @@ function Stage({ points, grid, palette, filter, sel, hover, onHover, onPick, fie
   const labels = useMemo(() => {
     if (!view) return []
     const zoomed = user.s >= TOPIC_LABEL_ZOOM
-    const px = zoomed ? 13 : W < 600 ? 13 : 15
+    const px = zoomed || W < 600 ? LABEL_PX.label : LABEL_PX.strong
     const weight = zoomed ? 600 : 700
     const pool = zoomed ? topics : fields
     const cands = pool

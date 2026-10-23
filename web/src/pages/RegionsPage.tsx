@@ -12,6 +12,7 @@ import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { InstitutionsFile, ProvinceStat, RegionStat, RegionsFile } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
 import { useI18n } from '../lib/i18n'
+import { figureCsv } from '../lib/tableCsv'
 import { REGION_METRICS, regionsCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import type { StrKey } from '../strings'
@@ -84,6 +85,8 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
           id="fig-regions"
           number={1}
           title={t('rg.fig', { m: measure })}
+          tableTitle={t('table.n', { n: 1, title: t('rg.table') })}
+          csv={figureCsv(`atlas-${rel}-provinces.csv`, file.provinces, columns)}
           source={t('rg.source', { release: rel })}
           view={state.view}
           onView={(v) => update({ view: v })}
@@ -103,7 +106,6 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
               columns={columns}
               rowKey={(p) => p.code}
               defaultSort={{ key: metric === 'per100k' ? 'per100k' : 'articles', dir: 'desc' }}
-              csvFilename={`atlas-${rel}-provinces.csv`}
             />
           }
           note={hasPop ? <p className="note">{t('rg.popNote', { y: file.population_year ?? DASH })}</p> : undefined}

@@ -156,7 +156,7 @@ function Brief({ release }: { release: AtlasRelease }) {
       </section>
       <footer className="brief-foot">
         <p>{t('brief.def', { v: release.definitionVersion, level, bar: fmtSignedPct(DEFINITION.emergingMinGrowthLo, 0) })}</p>
-        <p>{t('source.line', { release: ov.release, v: release.definitionVersion })}</p>
+        <p>{t('source.line', { release: ov.release })} · {t('source.def', { v: release.definitionVersion })}</p>
         <p>{t('brief.more')} · {t('footer.licence')}</p>
       </footer>
       <p className="no-print mt-6">
