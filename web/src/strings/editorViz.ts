@@ -8,7 +8,7 @@ import { defineStrings } from './define'
 export const editorViz = defineStrings({
   'js.h': { th: 'ข้อมูลบทความครบแค่ไหน และผู้เขียนมาจากเจ้าของวารสารแค่ไหน', en: 'How complete the records are, and how many authors come from the owner' },
   'js.intro': {
-    th: 'เช่น “{j}” ข้อมูลบทความครบ {c} เต็ม 100 และ {p} ของบทความมีผู้เขียนจากเจ้าของวารสาร สองตัวเลขนี้คือสิ่งที่บรรณาธิการปรับได้เองก่อนการประเมิน',
+    th: 'เช่น “{j}” ข้อมูลบทความครบ {c} เต็ม 100 และ {p} ของบทความมีผู้เขียนจากเจ้าของวารสาร ทั้งสองเรื่องนี้บรรณาธิการปรับได้เองก่อนถึงรอบประเมิน',
     en: 'For example, “{j}” scores {c} out of 100 for complete records, and {p} of its articles have an author from the owner. Both are things an editor can change before an assessment.',
   },
   'js.fig': { th: 'วารสารแต่ละฉบับ: ข้อมูลบทความครบ กับผู้เขียนจากเจ้าของวารสาร', en: 'Each journal: complete records and authors from the owner' },
@@ -83,11 +83,11 @@ export const editorViz = defineStrings({
 
   'ms.steps': { th: 'ใช้งานใน 3 ขั้น', en: 'Three steps' },
   'ms.1t': { th: 'วางบทคัดย่อ', en: 'Paste an abstract' },
-  'ms.1b': { th: 'ไทยหรืออังกฤษ ยิ่งยาวยิ่งแม่น ข้อความไม่ออกจากเบราว์เซอร์นี้', en: 'Thai or English; the longer, the better. The text never leaves this browser.' },
+  'ms.1b': { th: 'ไทยหรืออังกฤษก็ได้ ยิ่งยาวยิ่งแม่น และข้อความจะไม่ออกไปนอกเบราว์เซอร์นี้', en: 'Thai or English; the longer, the better. The text never leaves this browser.' },
   'ms.2t': { th: 'ดูหัวข้อที่ใกล้ที่สุด', en: 'See the closest topics' },
   'ms.2b': { th: 'พร้อมสถานะของหัวข้อและงานที่มีอยู่แล้ว', en: 'With each topic’s status and existing work' },
   'ms.3t': { th: 'ดูวารสารที่ตีพิมพ์เรื่องนี้', en: 'See the journals that publish it' },
-  'ms.3b': { th: 'แล้วตรวจขอบเขตของวารสารก่อนส่งบทความ', en: 'Then check the journal’s scope before you submit' },
+  'ms.3b': { th: 'แล้วตรวจดูขอบเขตของวารสารก่อนส่งบทความ', en: 'Then check the journal’s scope before you submit' },
   'ms.try': { th: 'ลองด้วยตัวอย่าง', en: 'Try an example' },
   'ms.tryHint': { th: 'เติมบทคัดย่อสมมติเรื่องการดูแลผู้สูงอายุในชุมชน แล้วหาหัวข้อให้ทันที', en: 'Fills in a made-up abstract on community elderly care and finds its topics.' },
   'ms.sample': {

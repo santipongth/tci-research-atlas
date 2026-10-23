@@ -2,8 +2,8 @@ import { defineStrings } from './define'
 
 export const emerging = defineStrings({
   'em.title': { th: 'สถานะของหัวข้อวิจัย', en: 'Status of research topics' },
-  'em.lede': { th: 'รอบนี้มี {n} หัวข้อกำลังเกิดใหม่ เช่น “{topic}” เลือกสถานะเพื่อดูทุกหัวข้อ เรียงได้ทุกคอลัมน์ และดาวน์โหลดเป็น CSV ได้', en: 'This release has {n} emerging topics, such as “{topic}”. Choose a status to see every topic in it; sort any column and download as CSV.' },
-  'em.ledePlain': { th: 'เลือกสถานะเพื่อดูทุกหัวข้อในสถานะนั้น เรียงได้ทุกคอลัมน์ และดาวน์โหลดเป็น CSV ได้', en: 'Choose a status to see every topic in it; sort any column and download as CSV.' },
+  'em.lede': { th: 'รอบนี้มี {n} หัวข้อที่กำลังเกิดใหม่ เช่น “{topic}” เลือกสถานะเพื่อดูทุกหัวข้อในสถานะนั้น กดหัวคอลัมน์เพื่อเรียงลำดับ หรือดาวน์โหลดเป็น CSV ก็ได้', en: 'This release has {n} emerging topics, such as “{topic}”. Choose a status to see every topic in it; sort any column and download as CSV.' },
+  'em.ledePlain': { th: 'เลือกสถานะเพื่อดูทุกหัวข้อในสถานะนั้น กดหัวคอลัมน์เพื่อเรียงลำดับ หรือดาวน์โหลดเป็น CSV ก็ได้', en: 'Choose a status to see every topic in it; sort any column and download as CSV.' },
   'em.tabs': { th: 'เลือกสถานะ', en: 'Choose a status' },
   'em.fig.title': { th: 'สัดส่วนบทความเพิ่ม/ลดต่อปี: หัวข้อสถานะ “{status}”', en: 'Yearly change in share of articles: “{status}” topics' },
   'em.table.title': { th: 'หัวข้อสถานะ “{status}” ({n} หัวข้อ)', en: 'Topics with status “{status}” ({n})' },
@@ -27,7 +27,7 @@ export const emerging = defineStrings({
   'steps.o.DECLINING': { th: 'ถ้าใช่', en: 'If so' },
   'steps.o.STABLE': { th: 'ถ้าไม่เข้าข้อใดเลย', en: 'If none of these' },
   'em.kw.h': { th: 'คำที่เริ่มใช้กันมากขึ้น', en: 'Keywords on the rise' },
-  'em.kw.intro': { th: 'เช่น “{k}” คำเหล่านี้แทบไม่มีใครใช้ในปี {b} แต่ตอนนี้ใช้ต่อเนื่องอย่างน้อย {ky} ปี โดยผู้เขียนจากอย่างน้อย {o} สถาบัน นับจากคำสำคัญที่ผู้เขียนใส่เอง', en: 'For example, “{k}”. These words were rare in {b} but have now been used for at least {ky} years, by authors from at least {o} institutions. Counted from the keywords authors give.' },
+  'em.kw.intro': { th: 'เช่น “{k}” คำเหล่านี้แทบไม่มีใครใช้ในปี {b} แต่ตอนนี้มีคนใช้ต่อเนื่องมาอย่างน้อย {ky} ปี จากผู้เขียนอย่างน้อย {o} สถาบัน (นับจากคำสำคัญที่ผู้เขียนใส่เอง)', en: 'For example, “{k}”. These words were rare in {b} but have now been used for at least {ky} years, by authors from at least {o} institutions. Counted from the keywords authors give.' },
   'em.kw.table': { th: 'คำที่เริ่มใช้กันมากขึ้น {n} คำ', en: '{n} keywords on the rise' },
   'em.kw.excluded': { th: 'ไม่นับ {n} คำที่ใช้กันอยู่ในไม่กี่วารสารหรือสถาบัน', en: '{n} keywords used in only a few journals or institutions are left out' },
   'col.term': { th: 'คำสำคัญ', en: 'Keyword' },
@@ -35,10 +35,10 @@ export const emerging = defineStrings({
   'col.growthLo': { th: 'โตต่อปี (คิดแบบระวัง)', en: 'Growth a year (cautious)' },
   'col.linkedTopic': { th: 'หัวข้อที่เกี่ยวข้อง', en: 'Related topic' },
   'rule.EMERGING': { th: 'หัวข้อเล็กที่โตเร็วจริง แม้คิดแบบระวังที่สุด สัดส่วนยังโตอย่างน้อย {bar} ต่อปี สัดส่วนใน {ry} ปีล่าสุดเป็นอย่างน้อย {ratio} เท่าของ {by} ปีก่อนหน้า และมาจากอย่างน้อย {j} วารสาร {o} สถาบัน', en: 'A small topic that is really growing fast: even on the most cautious reading its share grows at least {bar} a year; its share in the last {ry} years is at least {ratio}× that of the {by} years before; and it comes from at least {j} journals and {o} institutions.' },
-  'rule.WATCH': { th: 'โตเร็วเหมือนหัวข้อกำลังเกิดใหม่ แต่มาจากวารสารหรือสถาบันไม่กี่แห่ง (ต้องมีอย่างน้อย {j} วารสาร {o} สถาบัน และบทความจากวารสารที่เพิ่งเข้าระบบไม่ถึง {ns}) จึงควรตรวจก่อนอ้างอิง', en: 'Growing as fast as an emerging topic, but from only a few journals or institutions (it needs at least {j} journals, {o} institutions, and under {ns} of articles from newly indexed journals). Check it before citing.' },
-  'rule.HOT': { th: 'หัวข้อใหญ่ ({top} ที่มีสัดส่วนมากที่สุด) ที่ยังโตต่อ แม้คิดแบบระวังที่สุดก็ยังโตมากกว่า 0', en: 'A large topic (the top {top} by share) that is still growing, even on the most cautious reading.' },
+  'rule.WATCH': { th: 'โตเร็วเหมือนหัวข้อที่กำลังเกิดใหม่ แต่มาจากวารสารหรือสถาบันไม่กี่แห่ง (ต้องมีอย่างน้อย {j} วารสาร {o} สถาบัน และบทความจากวารสารที่เพิ่งเข้าระบบไม่ถึง {ns}) จึงควรตรวจดูก่อนนำไปอ้างอิง', en: 'Growing as fast as an emerging topic, but from only a few journals or institutions (it needs at least {j} journals, {o} institutions, and under {ns} of articles from newly indexed journals). Check it before citing.' },
+  'rule.HOT': { th: 'หัวข้อใหญ่ (อยู่ใน {top} ที่มีสัดส่วนบทความมากที่สุด) ที่ยังโตต่อ แม้คิดแบบระวังที่สุดก็ยังโตมากกว่า 0', en: 'A large topic (the top {top} by share) that is still growing, even on the most cautious reading.' },
   'rule.DECLINING': { th: 'สัดส่วนลดลงชัดเจน แม้คิดแบบดีที่สุดก็ยังลด และสัดส่วนใน {ry} ปีล่าสุดเหลือไม่เกิน {dratio} เท่าของ {by} ปีก่อนหน้า', en: 'A share that is clearly falling: it falls even on the most hopeful reading, and its share in the last {ry} years is at most {dratio}× that of the {by} years before.' },
-  'rule.STABLE': { th: 'ไม่เข้ากฎข้อใดข้างบน ยังไม่เห็นการเปลี่ยนแปลงชัด', en: 'Meets none of the rules above: no clear change yet.' },
+  'rule.STABLE': { th: 'ไม่เข้ากฎข้อไหนข้างบนเลย ยังไม่เห็นการเปลี่ยนแปลงชัด', en: 'Meets none of the rules above: no clear change yet.' },
   'rule.LOW_DATA': { th: 'บทความน้อยกว่า {n} เรื่องใน {ry} ปีล่าสุด หรือข้อมูลรายปีน้อยเกินจะคำนวณ จึงยังไม่จัดสถานะ', en: 'Fewer than {n} articles in the last {ry} years, or too few years of data to work out growth, so no status yet.' },
   'rule.how': { th: '“คิดแบบระวังที่สุด” คือขอบล่างของช่วงที่น่าจะเป็น (ช่วงเชื่อมั่น {level}%) “คิดแบบดีที่สุด” คือขอบบน', en: '“The most cautious reading” is the lower end of the likely range (the {level}% confidence interval); “the most hopeful reading” is its upper end.' },
 })

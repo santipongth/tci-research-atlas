@@ -3,13 +3,13 @@ import { defineStrings } from './define'
 /** Optional modules of a release (contract 2.1) — shared by the editors' pages and /data. */
 export const modules = defineStrings({
   'mod.absent': { th: 'รอบข้อมูลนี้ไม่มีส่วนนี้', en: 'This release does not include this part' },
-  'mod.absentBody': { th: 'ส่วนนี้เพิ่มเข้ามาใน Atlas รุ่นหลัง รอบข้อมูลที่สร้างก่อนนั้น หรือที่ปิดส่วนนี้ไว้ จึงไม่มีข้อมูลให้แสดง', en: 'This part was added in a later version of the Atlas. Releases built before it, or with it switched off, have nothing to show here.' },
+  'mod.absentBody': { th: 'ส่วนนี้เพิ่งเพิ่มเข้ามาใน Atlas รุ่นหลัง ข้อมูลรอบที่ทำไว้ก่อนหน้านั้น หรือรอบที่ปิดส่วนนี้ไว้ จึงไม่มีอะไรให้แสดง', en: 'This part was added in a later version of the Atlas. Releases built before it, or with it switched off, have nothing to show here.' },
   'mod.offline': { th: 'ฉบับออฟไลน์ไม่มีส่วนนี้', en: 'Not in the offline edition' },
-  'mod.offlineBody': { th: 'ต้องใช้เว็บไซต์ออนไลน์ ฉบับออฟไลน์ไม่ได้ใส่ข้อมูลส่วนนี้เพื่อให้ไฟล์เล็ก', en: 'This needs the online site: the offline file leaves this data out to stay small.' },
+  'mod.offlineBody': { th: 'ต้องใช้เว็บไซต์ออนไลน์ ฉบับออฟไลน์ไม่ได้ใส่ข้อมูลส่วนนี้ไว้ เพื่อให้ไฟล์มีขนาดเล็ก', en: 'This needs the online site: the offline file leaves this data out to stay small.' },
   'mod.missingFile': { th: 'ไม่พบไฟล์ข้อมูลของส่วนนี้บนเว็บไซต์', en: 'The data file for this part is not on the site' },
   'mod.error': { th: 'โหลดข้อมูลส่วนนี้ไม่สำเร็จ ลองโหลดหน้าใหม่', en: 'This part could not be loaded. Try reloading the page.' },
   'data.mod.h': { th: 'ไฟล์ของหน้าอื่น ๆ', en: 'Files behind the other pages' },
-  'data.mod.intro': { th: 'เช่น ไฟล์ของหน้าวารสารและหน้าสถาบัน เว็บโหลดไฟล์เหล่านี้เมื่อเปิดหน้านั้นเท่านั้น', en: 'For example, the files of the journal and institution pages; the site loads them only when you open that page.' },
+  'data.mod.intro': { th: 'เช่น ไฟล์ของหน้าวารสารและหน้าสถาบัน เว็บจะโหลดไฟล์เหล่านี้ก็ต่อเมื่อคุณเปิดหน้านั้น', en: 'For example, the files of the journal and institution pages; the site loads them only when you open that page.' },
   'data.file.journals': { th: 'วารสารทั้งหมดและตัวเลขของแต่ละฉบับ', en: 'Every journal and its figures' },
   'data.file.methods': { th: 'วิธีวิจัยรายหัวข้อและรายปี', en: 'Research methods by topic and year' },
   'data.file.diff': { th: 'สิ่งที่เปลี่ยนจากรอบก่อน', en: 'What changed since the previous release' },

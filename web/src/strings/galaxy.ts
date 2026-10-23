@@ -4,7 +4,7 @@ import { defineStrings } from './define'
 export const galaxy = defineStrings({
   title: { th: 'แผนที่บทความทุกเรื่อง', en: 'Map of every article' },
   lede: {
-    th: 'บทความ {n} เรื่อง หนึ่งจุดคือหนึ่งบทความ สีบอกสาขา เช่น สองจุดที่อยู่ติดกันคือสองเรื่องที่เนื้อหาใกล้กัน',
+    th: 'แผนที่นี้มีบทความ {n} เรื่อง หนึ่งจุดคือหนึ่งบทความ สีบอกสาขา เช่น สองจุดที่อยู่ติดกันคือสองเรื่องที่เนื้อหาใกล้กัน',
     en: '{n} articles, one dot each; the colour shows the field. For example, two dots side by side are two articles about similar things.',
   },
 
@@ -32,7 +32,7 @@ export const galaxy = defineStrings({
   lost: { th: 'แผนที่หยุดชั่วคราว เบราว์เซอร์กำลังกู้คืน…', en: 'The map paused; the browser is restoring it…' },
   legend: { th: 'สีของสาขาวิชา', en: 'Field colours' },
   'legend.none': { th: 'ไม่ระบุสาขา', en: 'No field' },
-  'legend.note': { th: 'สีบางสาขาใกล้กัน ชื่อสาขาบนภาพและการ์ดบทความจึงบอกสาขาเสมอ', en: 'Some field colours are close; the names on the picture and the article card always say the field.' },
+  'legend.note': { th: 'สีของบางสาขาคล้ายกัน จึงมีชื่อสาขากำกับไว้บนภาพและบนการ์ดบทความเสมอ', en: 'Some field colours are close; the names on the picture and the article card always say the field.' },
 
   'try.h': { th: 'ลองคลิก', en: 'Try one' },
   'try.intro': { th: 'บทความตัวอย่างจากสาขาที่ใหญ่ที่สุด กดเพื่อดูบนแผนที่', en: 'An example article from each of the largest fields; press one to see it on the map.' },
@@ -60,7 +60,7 @@ export const galaxy = defineStrings({
 
   'nogl.h': { th: 'เบราว์เซอร์นี้วาดแผนที่บทความไม่ได้', en: 'This browser cannot draw the article map' },
   'nogl.body': {
-    th: 'แผนที่นี้วาดบทความจำนวนมากพร้อมกัน เบราว์เซอร์หรือเครื่องนี้ทำไม่ได้หรือปิดความสามารถนี้ไว้ (WebGL 2) ลองเปิดด้วย Chrome, Edge, Firefox หรือ Safari รุ่นล่าสุด หรือดูแผนที่หัวข้อวิจัยแทน',
+    th: 'แผนที่นี้ต้องวาดบทความจำนวนมากพร้อมกัน แต่เบราว์เซอร์หรือเครื่องนี้ทำไม่ได้ หรือปิดความสามารถนี้ไว้ (WebGL 2) ลองเปิดด้วย Chrome, Edge, Firefox หรือ Safari รุ่นล่าสุด หรือไปดูแผนที่หัวข้อวิจัยแทน',
     en: 'This map draws many articles at once, which this browser or device cannot do or has turned off (WebGL 2). Try a recent Chrome, Edge, Firefox or Safari, or see the map of research topics instead.',
   },
   'nogl.link': { th: 'ไปที่แผนที่หัวข้อวิจัย', en: 'Go to the map of research topics' },

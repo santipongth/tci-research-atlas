@@ -4,7 +4,7 @@ import { defineStrings } from './define'
 export const references = defineStrings({
   title: { th: 'การอ้างอิง', en: 'References' },
   lede: {
-    th: 'บทความ {p} ในช่วง {a}–{b} มีรายการอ้างอิงที่ระบบอ่านได้ รวม {refs} รายการ หน้านี้ดูว่าแต่ละวารสารอ้างอิงอย่างไร และบทความในคลังอ้างถึงกันเองแค่ไหน',
+    th: '{p} ของบทความปี {a}–{b} มีรายการอ้างอิงที่ระบบอ่านได้ รวม {refs} รายการ หน้านี้ดูว่าแต่ละวารสารอ้างอิงแบบไหน และบทความในคลังอ้างถึงกันเองมากน้อยแค่ไหน',
     en: '{p} of articles from {a}–{b} have a reference list the system could read: {refs} references in all. See how each journal cites, and how often articles in the collection cite each other.',
   },
 
@@ -16,7 +16,7 @@ export const references = defineStrings({
   'cov.internal': { th: 'อ้างถึงบทความอื่นในคลัง', en: 'Citations to other articles here' },
   'cov.internalSub': { th: 'จาก {n} บทความที่อ้าง', en: 'from {n} citing articles' },
   'cov.note': {
-    th: 'ไม่นับการอ้างงานตนเองที่ระบบระบุได้ และรายการที่ซ้ำเพราะเป็นฉบับแปลของรายการเดียวกัน ส่วนนี้แสดงเมื่ออ่านรายการอ้างอิงได้อย่างน้อย {p} ของบทความ',
+    th: 'ไม่นับการอ้างงานของตัวเองที่ระบบตรวจพบ และรายการที่ซ้ำกันเพราะเป็นฉบับแปลของรายการเดียวกัน ส่วนนี้จะแสดงเมื่ออ่านรายการอ้างอิงได้อย่างน้อย {p} ของบทความ',
     en: 'Self-citations the system can spot and translated duplicates of the same reference are not counted. This part is shown only when at least {p} of articles have a readable reference list.',
   },
 
@@ -26,7 +26,7 @@ export const references = defineStrings({
     en: 'For example, recent work 40% = 4 in 10 references were at most {y} years old when the article came out. Only journals with at least {n} articles whose reference list could be read.',
   },
   'jr.insight': { th: 'วารสารที่อ้างงานใหม่มากที่สุดคือ {j} ({p} ของรายการอ้างอิงอายุไม่เกิน {y} ปี)', en: 'The journal citing the most recent work is {j}: {p} of its references are at most {y} years old.' },
-  'jr.table': { th: 'แนวปฏิบัติการอ้างอิงรายวารสาร', en: 'Reference practice by journal' },
+  'jr.table': { th: 'การอ้างอิงของแต่ละวารสาร', en: 'Reference practice by journal' },
   'jr.none': { th: 'ยังไม่มีวารสารที่มีบทความพอสำหรับตารางนี้', en: 'No journal has enough articles for this table yet.' },
   'rs.fig': { th: 'แต่ละวารสารอ้างงานใหม่ (ไม่เกิน {y} ปี) มากแค่ไหน', en: 'How much recent work (at most {y} years old) each journal cites' },
   'rs.how': {
@@ -66,7 +66,7 @@ export const references = defineStrings({
   'in.off.detail': { th: 'รายละเอียดจากระบบ:', en: 'Details from the system:' },
 
   'top.h': { th: 'บทความที่ถูกอ้างถึงมากที่สุดในคลัง', en: 'Most-cited articles in the collection' },
-  'top.intro': { th: 'นับจำนวนบทความอื่นในคลังที่อ้างถึง (บทความหนึ่งนับครั้งเดียวต่อบทความที่อ้าง)', en: 'Counted as the number of other articles here that cite it (once per citing article).' },
+  'top.intro': { th: 'นับว่ามีบทความอื่นในคลังกี่เรื่องที่อ้างถึง (บทความที่อ้างหนึ่งเรื่องนับครั้งเดียว)', en: 'Counted as the number of other articles here that cite it (once per citing article).' },
   'top.cited': { th: 'ถูกอ้าง {n} ครั้ง', en: 'Cited {n} times' },
   'top.noTopic': { th: 'ไม่อยู่ในหัวข้อใด', en: 'No topic' },
   'x.h': { th: 'บันทึกรายการนี้', en: 'Save this list' },
@@ -79,7 +79,7 @@ export const references = defineStrings({
   'flow.h': { th: 'หัวข้อไหนอ้างถึงหัวข้อไหน', en: 'Which topics cite which' },
   'flow.intro': { th: 'คู่หัวข้อที่บทความในหัวข้อหนึ่งอ้างถึงบทความในอีกหัวข้อหนึ่งอย่างน้อย {n} ครั้ง', en: 'Topic pairs where articles of one topic cite articles of another at least {n} times.' },
   'flow.table': { th: 'การอ้างอิงจากหัวข้อหนึ่งไปอีกหัวข้อหนึ่ง', en: 'Citations from one topic to another' },
-  'flow.none': { th: 'ยังไม่มีคู่หัวข้อที่อ้างถึงกันถึงเกณฑ์', en: 'No topic pair reaches the threshold yet.' },
+  'flow.none': { th: 'ยังไม่มีคู่หัวข้อที่อ้างถึงกันมากพอจะแสดง', en: 'No topic pair reaches the threshold yet.' },
   'col.source': { th: 'หัวข้อที่อ้าง', en: 'Citing topic' },
   'col.target': { th: 'หัวข้อที่ถูกอ้าง', en: 'Cited topic' },
   'col.n': { th: 'ครั้ง', en: 'Citations' },

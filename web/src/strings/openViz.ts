@@ -15,7 +15,7 @@ export const openViz = defineStrings({
   'ez.cards': { th: 'ไฟล์ตารางสำหรับดาวน์โหลด', en: 'Tables to download' },
 
   'dev.h': { th: 'สำหรับนักพัฒนา', en: 'For developers' },
-  'dev.intro': { th: 'ไฟล์ JSON ที่เว็บนี้อ่าน รายงานคุณภาพข้อมูล และความหมายของแต่ละช่องข้อมูล ไฟล์ทุกไฟล์ตรวจได้ด้วยค่า sha256 ใน manifest.json', en: 'The JSON files this site reads, the data quality report and what each field means. Every file can be checked against its sha256 in manifest.json.' },
+  'dev.intro': { th: 'ไฟล์ JSON ที่เว็บนี้อ่าน รายงานคุณภาพข้อมูล และความหมายของแต่ละช่องข้อมูล ทุกไฟล์ตรวจได้ด้วยค่า sha256 ใน manifest.json', en: 'The JSON files this site reads, the data quality report and what each field means. Every file can be checked against its sha256 in manifest.json.' },
 
   'qc.ok': { th: 'เรียบร้อย', en: 'OK' },
   'qc.note': { th: 'ควรรู้', en: 'Worth knowing' },
@@ -35,7 +35,7 @@ export const openViz = defineStrings({
   'ab.2t': { th: 'จัดกลุ่มเป็นหัวข้อ', en: 'Group them into topics' },
   'ab.2b': { th: 'บทความที่เนื้อหาใกล้กันอยู่หัวข้อเดียวกัน เช่น งานเรื่องการดูแลผู้สูงอายุในชุมชน', en: 'Articles about similar things share a topic — for example, work on community elderly care' },
   'ab.3t': { th: 'วัดการเติบโต', en: 'Measure the growth' },
-  'ab.3b': { th: 'เทียบส่วนแบ่งของหัวข้อในบทความทั้งหมด ปี {R} กับปี {B}', en: 'Compare each topic’s share of all articles in {R} with {B}' },
+  'ab.3b': { th: 'เทียบสัดส่วนของหัวข้อในบทความทั้งหมด ปี {R} กับปี {B}', en: 'Compare each topic’s share of all articles in {R} with {B}' },
   'ab.4t': { th: 'ให้สถานะ', en: 'Give a status' },
-  'ab.4b': { th: 'ตรวจ 4 ข้อตามลำดับด้านล่าง แล้วให้หนึ่งในหกสถานะ', en: 'Four checks, in the order below, give one of six statuses' },
+  'ab.4b': { th: 'ตรวจ 4 ข้อตามลำดับด้านล่าง แล้วให้ 1 ใน 6 สถานะ', en: 'Four checks, in the order below, give one of six statuses' },
 })

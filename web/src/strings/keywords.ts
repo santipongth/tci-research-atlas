@@ -4,7 +4,7 @@ import { defineStrings } from './define'
 export const keywords = defineStrings({
   title: { th: 'แนวโน้มคำสำคัญ', en: 'Keyword trends' },
   lede: {
-    th: 'ผู้เขียนใส่คำสำคัญไว้ท้ายบทคัดย่อ หน้านี้ดูว่าคำไหนถูกใช้มากขึ้นหรือน้อยลงในแต่ละปี จากคำที่ใช้บ่อย {n} คำ',
+    th: 'คำสำคัญคือคำที่ผู้เขียนใส่ไว้ท้ายบทคัดย่อ หน้านี้ดูว่าคำไหนมีคนใช้มากขึ้นหรือน้อยลงในแต่ละปี จากคำที่ใช้บ่อย {n} คำ',
     en: 'Authors list keywords under their abstract. See which words are used more or less each year, across the {n} most used keywords.',
   },
 
@@ -12,7 +12,7 @@ export const keywords = defineStrings({
   'pick.placeholder': { th: 'เช่น ผู้สูงอายุ หรือ machine learning', en: 'e.g. ageing or machine learning' },
   'pick.count': { th: 'พบ {n} คำ ใช้ลูกศรขึ้นลงเพื่อเลือก', en: '{n} keywords found; use the up and down arrows to choose' },
   'pick.none': { th: 'ไม่พบคำว่า “{q}” ในคำสำคัญที่ใช้บ่อย', en: 'No frequent keyword matches “{q}”' },
-  'pick.max': { th: 'เลือกได้ครั้งละ 4 คำ เอาคำใดออกก่อนจึงจะเพิ่มคำใหม่ได้', en: 'Up to 4 keywords at a time. Remove one to add another.' },
+  'pick.max': { th: 'เลือกได้ครั้งละ 4 คำ ถ้าจะเพิ่มคำใหม่ ให้เอาคำเดิมออกก่อนหนึ่งคำ', en: 'Up to 4 keywords at a time. Remove one to add another.' },
   'pick.chosen': { th: 'คำที่เลือก', en: 'Chosen keywords' },
   'pick.remove': { th: 'เอา “{k}” ออก', en: 'Remove “{k}”' },
   'pick.via': { th: 'คู่กับ “{k}”', en: 'pairs with “{k}”' },
@@ -21,7 +21,7 @@ export const keywords = defineStrings({
   'lang.en': { th: 'อังกฤษ', en: 'English' },
   'try.top': { th: 'ใช้มากที่สุด:', en: 'Most used:' },
   'kr.h': { th: 'คำที่กำลังมา', en: 'Rising keywords' },
-  'kr.intro': { th: 'คำที่สัดส่วนเพิ่มเร็วที่สุดจากต้นช่วง ({a}) ถึงปลายช่วง ({b}) กดคำเพื่อดูในแผนภูมิ', en: 'The keywords whose share grew fastest from the start ({a}) to the end ({b}). Press one to see it in the chart.' },
+  'kr.intro': { th: 'คำที่สัดส่วนเพิ่มเร็วที่สุด เมื่อเทียบปี {a} กับปี {b} กดที่คำเพื่อดูในแผนภูมิ', en: 'The keywords whose share grew fastest from the start ({a}) to the end ({b}). Press one to see it in the chart.' },
   'kr.addSr': { th: 'เพิ่มลงในแผนภูมิ:', en: 'Add to the chart:' },
   'kr.label': { th: 'คำที่กำลังมา', en: 'Rising keywords' },
   'kr.shown': { th: 'อยู่ในแผนภูมิแล้ว', en: 'In the chart' },
@@ -48,7 +48,7 @@ export const keywords = defineStrings({
 
   'gl.h': { th: 'คู่คำไทย–อังกฤษ', en: 'Thai–English word pairs' },
   'gl.intro': {
-    th: 'คู่คำที่ผู้เขียนใช้แทนกัน: บทความที่ใส่คำสำคัญไทยและอังกฤษจำนวนเท่ากัน จับคู่ตามลำดับ นับเฉพาะคู่ที่พบอย่างน้อย {n} บทความ',
+    th: 'คำไทยกับคำอังกฤษที่ผู้เขียนใช้แทนกัน ถ้าบทความใส่คำสำคัญไทยและอังกฤษจำนวนเท่ากัน ระบบจะจับคู่ตามลำดับ นับเฉพาะคู่ที่พบอย่างน้อย {n} บทความ',
     en: 'Word pairs authors use for each other: when an article lists the same number of Thai and English keywords, they are paired in order. Only pairs seen in at least {n} articles.',
   },
   'gl.filter': { th: 'กรองคำ', en: 'Filter words' },
@@ -61,5 +61,5 @@ export const keywords = defineStrings({
   'gl.th': { th: 'คำไทย', en: 'Thai' },
   'gl.en': { th: 'คำอังกฤษ', en: 'English' },
   'gl.n': { th: 'จำนวนบทความ', en: 'Articles' },
-  'gl.empty': { th: 'รอบข้อมูลนี้ยังไม่พบคู่คำไทย–อังกฤษที่ใช้ซ้ำกันพอ', en: 'This release found no Thai–English pair used often enough.' },
+  'gl.empty': { th: 'รอบนี้ยังไม่พบคู่คำไทย–อังกฤษที่ใช้ซ้ำกันมากพอ', en: 'This release found no Thai–English pair used often enough.' },
 })

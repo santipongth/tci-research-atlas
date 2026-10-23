@@ -4,8 +4,8 @@ import { defineStrings } from './define'
 export const methods = defineStrings({
   'nav.methods': { th: 'วิธีวิจัย', en: 'Methods' },
   'me.title': { th: 'วิธีวิจัย', en: 'Research methods' },
-  'me.lede': { th: 'บทความไทยใช้วิธีวิจัยอะไรบ้าง ปี {a}–{b} วิธีที่พบบ่อยที่สุดคือ{m}', en: 'Which research methods Thai articles use, {a}–{b}. The most common is {m}.' },
-  'me.how': { th: 'ระบบอ่านชื่อวิธีจากชื่อเรื่องและบทคัดย่อด้วยรายการคำไทยและอังกฤษ ใช้ดูภาพรวม ไม่ใช่การตัดสินคุณภาพของบทความ', en: 'Method names are read from titles and abstracts with a Thai and English word list. Use it for the overall mix, not to judge any article.' },
+  'me.lede': { th: 'งานวิจัยไทยปี {a}–{b} ใช้วิธีวิจัยอะไรกันบ้าง วิธีที่ใช้กันมากที่สุดคือ{m}', en: 'Which research methods Thai articles use, {a}–{b}. The most common is {m}.' },
+  'me.how': { th: 'ระบบหาชื่อวิธีวิจัยจากชื่อเรื่องและบทคัดย่อ โดยเทียบกับรายการคำไทยและอังกฤษ ตัวเลขนี้ใช้ดูภาพรวม ไม่ได้ใช้ตัดสินคุณภาพของบทความ', en: 'Method names are read from titles and abstracts with a Thai and English word list. Use it for the overall mix, not to judge any article.' },
   'me.kpi.coverage': { th: 'บทความที่ระบุวิธีได้', en: 'Articles naming a method' },
   'me.kpi.coverageSub': { th: '{n} จาก {all} บทความ', en: '{n} of {all} articles' },
   'me.kpi.mono': { th: 'ใช้เฉพาะ {methods}', en: 'Only {methods}' },
@@ -27,5 +27,5 @@ export const methods = defineStrings({
   'me.sampleRange': { th: '{m} (ครึ่งกลาง {q1}–{q3})', en: '{m} (middle half {q1}–{q3})' },
   'me.notes.h': { th: 'บันทึกวิธีวิจัยของหัวข้อ', en: 'Notes on methods by topic' },
   'me.lexicon.h': { th: 'วิธีที่ระบบรู้จัก', en: 'Methods the system recognises' },
-  'me.lexicon.intro': { th: 'บทความหนึ่งอาจใช้หลายวิธี สัดส่วนจึงรวมกันเกิน 100% ได้ ขนาดตัวอย่างอ่านจากข้อความ เช่น “กลุ่มตัวอย่าง 400 คน” (รายการฉบับ {v})', en: 'An article may use several methods, so shares can add up to more than 100%. Sample sizes are read from text such as “a sample of 400” (list version {v}).' },
+  'me.lexicon.intro': { th: 'บทความหนึ่งเรื่องอาจใช้หลายวิธี สัดส่วนจึงรวมกันเกิน 100% ได้ ขนาดตัวอย่างอ่านจากข้อความ เช่น “กลุ่มตัวอย่าง 400 คน” (รายการฉบับ {v})', en: 'An article may use several methods, so shares can add up to more than 100%. Sample sizes are read from text such as “a sample of 400” (list version {v}).' },
 })
