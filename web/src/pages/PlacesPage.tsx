@@ -230,35 +230,73 @@ function CountriesCard({ file }: { file: InstitutionsFile }) {
   )
 }
 
-/** Every province grouped by region in columns, each with the number the map is coloured by: the way into a province
- *  page (no search box), and the map's figures in words for every province, not only the top 10. */
+/** Provinces a region block shows before "แสดงเพิ่ม" (the central region alone has 20+). */
+const REGION_ROWS = 6
+
+/** Every province grouped by region: a block per region with its article total, each province with its number and a
+ *  bar on one scale for the whole country — the way into a province page (no search box), and the map's figures in
+ *  words for every province, not only the top 10. */
 function AllProvincesCard({ file }: { file: RegionsFile }) {
-  const { lang } = useI18n()
   const s = useStrings(dashPages)
-  const sx = useStrings(execPages)
   const [state] = useUrlState(placesCodec)
   const metric = file.provinces.some((p) => p.per_100k != null) ? state.m : 'articles'
   const valueOf = (p: ProvinceStat): number | null => (metric === 'per100k' ? (p.per_100k ?? null) : p.articles)
-  const pname = (p: ProvinceStat) => (lang === 'en' ? p.name_en : p.name_th)
-  const cols = REGION_ORDER.map((r) => ({ r, list: sortBy(file.provinces.filter((p) => p.region === r), (p) => valueOf(p) ?? -1, 'desc') })).filter((c) => c.list.length)
+  const withArticles = file.provinces.filter((p) => p.articles > 0)
+  const max = Math.max(0, ...withArticles.map((p) => valueOf(p) ?? 0))
+  const totals = new Map((file.regions ?? []).map((r) => [r.key, r]))
+  const cols = REGION_ORDER.map((r) => ({ r, list: sortBy(withArticles.filter((p) => p.region === r), (p) => valueOf(p) ?? -1, 'desc') })).filter((c) => c.list.length)
   if (!cols.length) return null
   return (
-    <Card span={12} title={s('pl.all')} info={s('pl.allInfo')}>
+    <Card span={12} title={s('pl.all')} info={s(metric === 'per100k' ? 'pl.allInfo100k' : 'pl.allInfo')}>
       <div className="prov-cols">
         {cols.map(({ r, list }) => (
-          <div key={r}>
-            <p className="card-h3">{sx(`rg.region.${r}` as keyof typeof execPages)}</p>
-            <ul>
-              {list.map((p) => (
-                <li key={p.code}>
-                  <Link to={`/province/${p.code}`}>{pname(p)}</Link>
-                  <span>{metric === 'per100k' ? fmtNum(valueOf(p), 1) : fmtInt(p.articles)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <RegionBlock key={r} region={r} list={list} total={totals.get(r)} max={max} metric={metric} valueOf={valueOf} />
         ))}
       </div>
     </Card>
+  )
+}
+
+/** One region: its name, province count and article total, then its provinces (REGION_ROWS at a time). */
+function RegionBlock({ region, list, total, max, metric, valueOf }: {
+  region: (typeof REGION_ORDER)[number]
+  list: ProvinceStat[]
+  total: RegionsFile['regions'][number] | undefined
+  max: number
+  metric: string
+  valueOf: (p: ProvinceStat) => number | null
+}) {
+  const { lang } = useI18n()
+  const s = useStrings(dashPages)
+  const sx = useStrings(execPages)
+  const { shown, more } = usePaged(list, REGION_ROWS, metric)
+  const id = `prov-r-${region}`
+  return (
+    <section className="prov-reg" aria-labelledby={id}>
+      <header className="prov-reg-h">
+        <h3 className="prov-reg-name" id={id}>{sx(`rg.region.${region}` as keyof typeof execPages)}</h3>
+        <p className="prov-reg-sub">
+          {list.length > 1 ? <span>{s('pl.regN', { n: fmtInt(list.length) })}</span> : null}
+          {total ? <span>{s('pl.regA', { k: fmtInt(total.articles), p: fmtPct(total.share, 0) })}</span> : null}
+        </p>
+      </header>
+      <ul className="prov-rows">
+        {shown.map((p) => {
+          const v = valueOf(p)
+          return (
+            <li key={p.code}>
+              <Link className="prov-row" to={`/province/${p.code}`}>
+                <span className="prov-name">{lang === 'en' ? p.name_en : p.name_th}</span>
+                <span className="prov-v">{v == null ? '–' : metric === 'per100k' ? fmtNum(v, 1) : fmtInt(v)}</span>
+                <span className="prov-bar" aria-hidden="true">
+                  <i style={{ width: `${max > 0 && v != null ? Math.max(2, (v / max) * 100) : 0}%` }} />
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+      <MoreRows {...more} />
+    </section>
   )
 }

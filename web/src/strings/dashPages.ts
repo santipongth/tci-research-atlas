@@ -52,7 +52,10 @@ export const dashPages = defineStrings({
   'pl.ctry': { th: 'ประเทศที่ร่วมเขียนด้วยมากที่สุด', en: 'Countries Thai authors write with most' },
   'pl.ctryInfo': { th: 'จำนวนบทความปี {a}–{b} ที่มีผู้เขียนร่วมจากแต่ละประเทศ', en: 'Articles {a}–{b} with a co-author from each country' },
   'pl.all': { th: 'ทุกจังหวัด', en: 'Every province' },
-  'pl.allInfo': { th: 'จังหวัดที่มีบทความ จัดตามภาค ตัวเลขคือจำนวนบทความ กดชื่อเพื่อดูรายละเอียด', en: 'Provinces with articles by region; the number is articles. Pick one for its page.' },
+  'pl.allInfo': { th: 'จังหวัดที่มีบทความ จัดตามภาค ตัวเลขคือจำนวนบทความ ความยาวแถบเทียบกันได้ทั้งประเทศ กดชื่อเพื่อดูรายละเอียดของจังหวัด', en: 'Provinces with articles, by region. The number is articles; bars share one scale across the country. Pick a province for its page.' },
+  'pl.allInfo100k': { th: 'จังหวัดที่มีบทความ จัดตามภาค ตัวเลขคือบทความต่อประชากร 100,000 คน ความยาวแถบเทียบกันได้ทั้งประเทศ กดชื่อเพื่อดูรายละเอียดของจังหวัด', en: 'Provinces with articles, by region. The number is articles per 100,000 people; bars share one scale across the country. Pick a province for its page.' },
+  'pl.regN': { th: '{n} จังหวัด', en: '{n} provinces' },
+  'pl.regA': { th: '{k} บทความ ({p})', en: '{k} articles ({p})' },
   // /journals
   'jr.sub': { th: '{n} วารสาร · บทความปี {a}–{b}', en: '{n} journals · articles {a}–{b}' },
   'jr.k.journals': { th: 'วารสาร', en: 'Journals' },

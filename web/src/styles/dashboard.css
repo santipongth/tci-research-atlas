@@ -309,11 +309,6 @@
   .pv-big { display: grid; grid-template-columns: minmax(160px, 0.9fr) minmax(0, 1.1fr); grid-template-areas: "map top" "key key"; gap: 12px 20px; align-items: start; }
   .pv-big .pmap { grid-area: map; width: 100%; max-height: 420px; }
   .pv-big .pkey { grid-area: key; margin: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: var(--fs-caption); }
-  .prov-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 20px; }
-  .prov-cols .card-h3 { margin-top: 0; }
-  .prov-cols ul { margin: 0; padding: 0; list-style: none; }
-  .prov-cols li { display: flex; justify-content: space-between; gap: 8px; min-height: 26px; font-size: var(--fs-meta); line-height: 1.5; }
-  .prov-cols li span { color: var(--ink-3); font-variant-numeric: tabular-nums; }
 }
 
 @layer components {
@@ -394,8 +389,6 @@
     .card .br-name { grid-column: auto; }
   }
   /* every province by region: even columns, one-line region names */
-  .prov-cols { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px 28px; }
-  .prov-cols .card-h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* the maps' keyboard hints stay for screen readers only (the page (i) says the same) */
   .map-hint { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   /* topic map: side panels as cards; a gap before the index card */
@@ -511,4 +504,27 @@
   .gx-board .gx-stage { height: 100%; border: 0; }
   @media (max-width: 1023px) { .gx-board .gx-stage { height: clamp(360px, 62vh, 560px); } }
   @media (max-width: 520px) { .gx-board .gx-stage { height: clamp(280px, 82vw, 420px); } }
+}
+
+/* ── /places "ทุกจังหวัด": a block per region; each province a link row with its number and a bar on one national scale ── */
+@layer components {
+  .prov-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; align-items: start; }
+  /* header, rows and "show more" line up across the region blocks of a row (subgrid), however the names wrap */
+  .prov-cols { grid-auto-rows: auto; }
+  .prov-reg { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 6px; align-content: start; padding: 14px 10px 10px; border-radius: 12px; background: var(--canvas); }
+  .prov-rows { align-self: start; }
+  .prov-reg-h { display: grid; align-content: start; padding: 0 6px 8px; border-bottom: 1px solid var(--border-2); }
+  .prov-reg-name { margin: 0; font-size: var(--fs-meta); font-weight: 700; line-height: 1.5; color: var(--ink); }
+  .prov-reg-sub { display: grid; margin: 0; font-size: var(--fs-caption); line-height: 1.5; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .prov-rows { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+  .prov-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 10px; row-gap: 4px; padding: 6px 6px 8px; border-radius: 8px; color: var(--ink); text-decoration: none; transition: background-color 120ms ease-out; }
+  .prov-row:hover { background: var(--bg); }
+  .prov-row:hover .prov-name { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+  .prov-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; }
+  .prov-v { font-size: var(--fs-meta); font-weight: 700; line-height: 1.5; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .prov-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--border-2); overflow: hidden; }
+  .prov-bar i { display: block; height: 100%; border-radius: 2px; background: var(--brand); }
+  .prov-reg .more-rows { margin: 2px 0 0; padding: 0 6px; }
+  .prov-reg-sub span { white-space: nowrap; }
+  @media (max-width: 760px) { .prov-cols { grid-template-columns: minmax(0, 1fr); } }
 }
