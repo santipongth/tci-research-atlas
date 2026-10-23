@@ -15,7 +15,6 @@
 
   .pmap { display: block; width: 100%; max-width: 440px; height: auto; margin-inline: auto; }
   .pmap path { stroke: var(--bg); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
-  .pv-none { fill: var(--surface); }
   .pv-0 { fill: var(--seq-1); }
   .pv-1 { fill: var(--seq-2); }
   .pv-2 { fill: var(--seq-3); }
@@ -24,7 +23,7 @@
   .pkey { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 12px; padding: 0; list-style: none; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
   .pkey li { display: inline-flex; align-items: center; gap: 6px; }
   .sw { display: inline-block; width: 14px; height: 14px; box-shadow: inset 0 0 0 1px var(--border); }
-  .sw-none { background: var(--surface); }
+  .sw-none { background: var(--bg) repeating-linear-gradient(45deg, var(--border) 0 1.4px, transparent 1.4px 4.5px); }
   .sw-0 { background: var(--seq-1); }
   .sw-1 { background: var(--seq-2); }
   .sw-2 { background: var(--seq-3); }

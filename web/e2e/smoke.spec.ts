@@ -235,7 +235,15 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('#topics tbody tr')).toHaveCount(2)
   },
   changes: async (page) => {
+    await expect(page.locator('.ch-lead')).toContainText('+3')
+    // status changes as a flow (one band per transition) with the topic list behind its table tab
+    await expect(page.locator('#status svg path.sf-band')).toHaveCount(5)
+    await expect(page.locator('#status .sf-node').first()).toBeVisible()
+    await page.locator('#status').getByRole('tab', { name: 'ตาราง' }).click()
+    await expect(page).toHaveURL(/flow=table/)
     await expect(page.locator('#status tbody tr')).toHaveCount(5)
+    await expect(page.locator('#lineage .lk-item')).toHaveCount(4)
+    await expect(page.locator('#kpis .stat')).toHaveCount(5)
     await expect(page.locator('#new li')).toHaveCount(3)
     await expect(page.locator('#retired')).toContainText('หนังสือพิมพ์รายวัน')
     await expect(page.locator('#retired')).toContainText('รวมเข้ากับ')                 // merged_into is never a plain disappearance
@@ -266,13 +274,22 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(rows).toHaveCount(1)
     await expect(page).toHaveURL(/type=rajabhat/)
     await page.getByLabel('ประเภทสถาบัน').selectOption('all')
+    await expect(page.locator('#glance .stat')).toHaveCount(3)
+    // partnerships as an arc diagram (one arc per pair), every pair in the table view
+    await expect(page.locator('#partnerships svg.an-svg path.an-link')).toHaveCount(6)
+    await page.locator('#partnerships').getByRole('tab', { name: 'ตาราง' }).click()
     await expect(page.locator('#partnerships tbody tr')).toHaveCount(6)
+    await expect(page.locator('#countries .br-row')).toHaveCount(5)
     await expect(page.locator('#countries')).toContainText('ญี่ปุ่น')
     await page.locator('#institutions').getByRole('link', { name: 'มหาวิทยาลัยตัวอย่าง ก' }).click()
     await expect(page).toHaveURL(/#\/institutions\/mu-a$/)
   },
   institution: async (page) => {
     await expect(page.locator('h1')).toHaveText('มหาวิทยาลัยตัวอย่าง ก')
+    await expect(page.locator('#years .cc-col')).toHaveCount(10)
+    await expect(page.locator('#topics .mx-seg')).toHaveCount(5)                  // 4 topics + "อื่น ๆ"
+    await expect(page.locator('#partners .br-row')).toHaveCount(3)
+    await page.locator('#topics').getByRole('tab', { name: 'ตาราง' }).click()
     await expect(page.locator('#topics tbody tr')).toHaveCount(5)
     await expect(page.locator('#suggested')).toContainText('มหาวิทยาลัยเทคโนโลยีราชมงคลตัวอย่าง')
     await page.goto(`${EXAMPLE}#/topics/T000101`)
@@ -284,33 +301,56 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('svg.pmap path')).toHaveCount(77)
     await expect(page.locator('svg.pmap path.pv-none')).toHaveCount(65)          // 12 provinces have data
     await expect(page.locator('.pkey li')).toHaveCount(6)                         // 5 classes + no data
+    await expect(page.locator('#map .rg-top .br-row')).toHaveCount(10)            // the top provinces beside the map
     await page.getByLabel('บทความต่อประชากรแสนคน').check()
     await expect(page).toHaveURL(/m=per100k/)
     await expect(page.locator('svg.pmap path.pv-none')).toHaveCount(67)          // two have no population
     await page.locator('#map').getByRole('tab', { name: 'ตาราง' }).click()
     await expect(page.locator('#map tbody tr')).toHaveCount(12)
+    await expect(page.locator('#by-region .br-row')).toHaveCount(5)
+    await page.locator('#by-region').getByRole('tab', { name: 'ตาราง' }).click()
     await expect(page.locator('#by-region tbody tr')).toHaveCount(5)
   },
   sdg: async (page) => {
     await expect(page.getByRole('tab', { name: /SDGs/ })).toHaveAttribute('aria-selected', 'true')
+    // 17 goal tiles; goals without a topic are outlined and say so; a tile opens to list its topics
+    await expect(page.locator('#goals .gt-tile')).toHaveCount(17)
+    await expect(page.locator('#goals .gt-tile.is-empty')).toHaveCount(7)
+    await expect(page.locator('#goals .gt-tile.is-empty').first()).toContainText('ยังไม่พบหัวข้อ')
+    await page.locator('#goals .gt-tile summary').filter({ hasText: 'สุขภาพ' }).click()
+    await expect(page.locator('#goals .gt-tile details[open] .gt-topics li')).toHaveCount(6)
+    await page.locator('#goals').getByRole('button', { name: 'ตาราง' }).click()
     await expect(page.locator('#goals tbody tr')).toHaveCount(17)
-    await expect(page.locator('#goals')).toContainText('ยังไม่พบหัวข้อ')
     await page.getByRole('tab', { name: 'โมเดลเศรษฐกิจ BCG' }).click()
     await expect(page).toHaveURL(/fw=bcg/)
     await expect(page.locator('#goals tbody tr')).toHaveCount(3)
   },
   global: async (page) => {
+    // the opportunity quadrant: every subfield a dot, the three opportunities filled inside the shaded zone
+    await expect(page.locator('#opportunities svg.oq .oq-pt')).toHaveCount(11)
+    await expect(page.locator('#opportunities svg.oq .oq-pt.is-hot')).toHaveCount(3)
+    await expect(page.locator('#opportunities svg.oq .oq-zone')).toHaveCount(1)
+    await page.locator('#opportunities').getByRole('tab', { name: 'ตาราง' }).click()
     await expect(page.locator('#opportunities tbody tr')).toHaveCount(3)
     await expect(page.locator('#opportunities')).toContainText('Artificial Intelligence')
     await expect(page.locator('#all tbody tr')).toHaveCount(11)
   },
   gaps: async (page) => {
+    await expect(page.locator('#world svg.oq .oq-pt.is-hot')).toHaveCount(3)
+    await page.locator('#world').getByRole('tab', { name: 'ตาราง' }).click()
     await expect(page.locator('#world tbody tr')).toHaveCount(3)
+    await expect(page.locator('#few .few-row')).toHaveCount(2)
+    await page.locator('#few').getByRole('tab', { name: 'ตาราง' }).click()
     await expect(page.locator('#few tbody tr')).toHaveCount(2)
+    await expect(page.locator('#bridges .bp-row')).toHaveCount(2)
+    await expect(page.locator('#bridges .bp-row.is-none')).toHaveCount(1)          // no institution works on both
+    await page.locator('#bridges').getByRole('tab', { name: 'ตาราง' }).click()
     await expect(page.locator('#bridges tbody tr')).toHaveCount(2)
-    const risk = page.locator('#risk tbody tr')
-    await expect(risk).toHaveCount(2)
+    await expect(page.locator('#risk .rk-row')).toHaveCount(2)
     await page.getByLabel('แสดงทุกรายการ รวมที่ไม่ได้พึ่งแหล่งเดียว').check()
+    await expect(page.locator('#risk .rk-row')).toHaveCount(4)
+    await page.locator('#risk').getByRole('tab', { name: 'ตาราง' }).click()
+    const risk = page.locator('#risk tbody tr')
     await expect(risk).toHaveCount(4)
     await expect(page).toHaveURL(/all=yes/)
     await expect(page.locator('#risk')).toContainText('มหาวิทยาลัยราชภัฏตัวอย่าง')

@@ -41,7 +41,7 @@
   .brief-t caption { padding-bottom: 2px; font-size: 10pt; }
   .brief-foot { margin-top: 12px; }
   .brief-head, mark, .chip, .wf-cell, .st-icon, .br-bar, .stat-d { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .fig-tools, .fig-how, .source-more { display: none !important; }
+  .fig-tools, .fig-how, .source-more, .source-sep { display: none !important; }
   .fig-head { padding-bottom: 4px; }
   /* the A4 width (≈ 690 px) is under the tablet breakpoints: keep the brief's four tiles and three findings in one row */
   .brief .stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }

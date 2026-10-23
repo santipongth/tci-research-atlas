@@ -7,6 +7,7 @@ import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { SourceLine } from '../components/SourceLine'
 import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
+import { PhoneFold } from '../components/PhoneFold'
 import { Steps } from '../components/Steps'
 import { Tabs } from '../components/Tabs'
 import { TopicLink } from '../components/TopicLink'
@@ -164,8 +165,7 @@ function StatusSteps({ current, level }: { current: number; level: number }) {
   const { t } = useI18n()
   const vars = ruleVars(level)
   return (
-    <section className="em-steps" aria-labelledby="em-steps-h">
-      <h2 id="em-steps-h" className="em-steps-h">{t('steps.h')}</h2>
+    <PhoneFold id="em-steps-h" className="em-steps" headingClass="em-steps-h" heading={t('steps.h')}>
       <Steps
         label={t('steps.label')}
         current={current}
@@ -181,7 +181,7 @@ function StatusSteps({ current, level }: { current: number; level: number }) {
           )),
         }))}
       />
-    </section>
+    </PhoneFold>
   )
 }
 

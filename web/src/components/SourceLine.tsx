@@ -9,7 +9,7 @@ export function SourceMore() {
   if (!release) return null
   return (
     <>
-      {' · '}
+      <span className="source-sep" aria-hidden="true">{' · '}</span>
       <InfoPop className="source-more" label={t('notice.more')} title={t('source.more')}>
         {t('source.def', { v: release.definitionVersion })}
       </InfoPop>

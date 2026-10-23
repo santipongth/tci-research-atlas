@@ -164,19 +164,34 @@ export interface InstitutionsUrlState {
   type: (typeof INST_TYPE_FILTERS)[number]
   sort: InstSort
   dir: 'asc' | 'desc'
+  /** the partnership arcs and the partner-country bars: chart or table */
+  net: View
+  ctry: View
 }
 export const institutionsCodec = makeCodec<InstitutionsUrlState>({
   q: text('q', 80),
   type: oneOf('type', INST_TYPE_FILTERS, 'all'),
   sort: oneOf('sort', INST_SORTS, 'articles'),
   dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
+  net: oneOf('net', VIEWS, 'chart'),
+  ctry: oneOf('ctry', VIEWS, 'chart'),
+})
+/** One institution's page: yearly columns, topic mix, partners, partner countries. */
+export const institutionCodec = makeCodec<{ yr: View; mix: View; ptn: View; ctry: View }>({
+  yr: oneOf('yr', VIEWS, 'chart'),
+  mix: oneOf('mix', VIEWS, 'chart'),
+  ptn: oneOf('ptn', VIEWS, 'chart'),
+  ctry: oneOf('ctry', VIEWS, 'chart'),
 })
 export const REGION_METRICS = ['articles', 'per100k'] as const
-export const regionsCodec = makeCodec<{ m: (typeof REGION_METRICS)[number]; view: View }>({
+export const regionsCodec = makeCodec<{ m: (typeof REGION_METRICS)[number]; view: View; rv: View }>({
   m: oneOf('m', REGION_METRICS, 'articles'),
   view: oneOf('view', VIEWS, 'chart'),
+  rv: oneOf('rv', VIEWS, 'chart'),
 })
-export const sdgCodec = makeCodec<{ fw: string }>({ fw: text('fw', 24) })
+export const sdgCodec = makeCodec<{ fw: string; view: View }>({ fw: text('fw', 24), view: oneOf('view', VIEWS, 'chart') })
+export const globalCodec = makeCodec<{ view: View }>({ view: oneOf('view', VIEWS, 'chart') })
+export const changesCodec = makeCodec<{ flow: View }>({ flow: oneOf('flow', VIEWS, 'chart') })
 export interface SearchUrlState {
   q: string
   from: number | null
@@ -191,7 +206,13 @@ export const searchCodec = makeCodec<SearchUrlState>({
   topic: optionalTopic('topic'),
   journal: text('journal', 300),
 })
-export const gapsCodec = makeCodec<{ all: 'no' | 'yes' }>({ all: oneOf('all', ['no', 'yes'] as const, 'no') })
+export const gapsCodec = makeCodec<{ all: 'no' | 'yes'; w: View; f: View; b: View; c: View }>({
+  all: oneOf('all', ['no', 'yes'] as const, 'no'),
+  w: oneOf('w', VIEWS, 'chart'),
+  f: oneOf('f', VIEWS, 'chart'),
+  b: oneOf('b', VIEWS, 'chart'),
+  c: oneOf('c', VIEWS, 'chart'),
+})
 export interface GalaxyUrlState {
   from: number | null
   to: number | null

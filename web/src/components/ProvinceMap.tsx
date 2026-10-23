@@ -1,9 +1,11 @@
+import { useId } from 'react'
 import { TH_PROVINCE_NAMES, TH_PROVINCE_PATHS, TH_VIEWBOX } from '../geo/thProvinces'
 import { bucketOf, quantileBreaks } from '../lib/executive'
 import { useI18n } from '../lib/i18n'
 
 /**
- * Choropleth of Thailand's 77 provinces: 5 quantile classes of the sequential ramp (--seq-1…5), "no data" apart.
+ * Choropleth of Thailand's 77 provinces: 5 quantile classes of the sequential ramp (--seq-1…5). "No data" is a hatch
+ * (paper with diagonal rule lines), never a ramp step, so the lowest class stays distinct from it in both themes.
  * The figure's table view is the complete, accessible equivalent; each outline names its province and value on hover.
  */
 export function ProvinceMap({ values, format, label, noData, range }: {
@@ -14,6 +16,7 @@ export function ProvinceMap({ values, format, label, noData, range }: {
   range: (from: string, to: string) => string
 }) {
   const { lang } = useI18n()
+  const hatch = `pvh${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const known = [...values.values()].filter((v): v is number => v !== null && Number.isFinite(v))
   const breaks = quantileBreaks(known)
   const low = known.length ? Math.min(...known) : 0
@@ -36,11 +39,17 @@ export function ProvinceMap({ values, format, label, noData, range }: {
         </li>
       </ul>
       <svg className="pmap" viewBox={TH_VIEWBOX} role="img" aria-label={label}>
+        <defs>
+          <pattern id={hatch} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="6" height="6" className="pv-hatch-bg" />
+            <line x1="0" y1="0" x2="0" y2="6" className="pv-hatch-line" />
+          </pattern>
+        </defs>
         {Object.entries(TH_PROVINCE_PATHS).map(([code, d]) => {
           const v = values.get(code) ?? null
           const b = bucketOf(v, breaks)
           return (
-            <path key={code} d={d} className={b < 0 ? 'pv-none' : `pv-${b}`}>
+            <path key={code} d={d} className={b < 0 ? 'pv-none' : `pv-${b}`} fill={b < 0 ? `url(#${hatch})` : undefined}>
               <title>{`${name(code)}: ${v === null ? noData : format(v)}`}</title>
             </path>
           )

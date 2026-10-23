@@ -7,6 +7,7 @@ import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { SourceMore } from '../components/SourceLine'
 import { StatusChip, StatusGlyph } from '../components/StatusGlyph'
+import { PhoneFold } from '../components/PhoneFold'
 import { Steps } from '../components/Steps'
 import { TopicTip } from '../components/TopicTip'
 import { groupName, type AtlasRelease } from '../data/release'
@@ -101,8 +102,7 @@ function Atlas({ release }: { release: AtlasRelease }) {
   return (
     <div className="container wide">
       <PageHeader title={t('map.title')} lede={t('map.lede', { n: fmtInt(release.topics.length) })} />
-      <section className="map-read" aria-labelledby="map-read-h">
-        <h2 id="map-read-h" className="map-read-h">{t('map.read.h')}</h2>
+      <PhoneFold id="map-read-h" className="map-read" headingClass="map-read-h" heading={t('map.read.h')}>
         <Steps
           label={t('map.read.h')}
           items={[
@@ -111,7 +111,7 @@ function Atlas({ release }: { release: AtlasRelease }) {
             { title: t('map.read.3t'), body: t('map.read.3b'), art: <NearArt /> },
           ]}
         />
-      </section>
+      </PhoneFold>
       <div className="atlas-grid">
         <figure className="atlas-fig" id="atlas-map" aria-labelledby="atlas-fig-title">
           <p className="figtitle" id="atlas-fig-title">{t('figure.n', { n: 1, title: t('map.fig', { release: release.overview.release }) })}</p>

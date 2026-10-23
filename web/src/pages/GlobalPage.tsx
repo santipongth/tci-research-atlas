@@ -1,4 +1,6 @@
+import { OpportunityQuadrant } from '../charts/OpportunityQuadrant'
 import { DataTable, type Column } from '../components/DataTable'
+import { Figure } from '../components/Figure'
 import { HowNote } from '../components/HowNote'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
@@ -9,8 +11,12 @@ import { TopicLink } from '../components/TopicLink'
 import { groupName, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { GlobalFile, SubfieldBench, Topic } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct, fmtRatio } from '../lib/format'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStrings } from '../lib/i18n'
 import { withPrimary } from '../lib/columns'
+import { figureCsv } from '../lib/tableCsv'
+import { globalCodec } from '../lib/urlState'
+import { useUrlState } from '../lib/useUrlState'
+import { execViz } from '../strings/execViz'
 
 export default function GlobalPage() {
   const { t } = useI18n()
@@ -27,6 +33,8 @@ export default function GlobalPage() {
 
 function Global({ release, file }: { release: AtlasRelease; file: GlobalFile }) {
   const { t, lang } = useI18n()
+  const x = useStrings(execViz)
+  const [state, update] = useUrlState(globalCodec)
   const opp = file.subfields.filter((s) => s.opportunity)
   const r = `${file.recent.start}–${file.recent.end}`
   const b = `${file.baseline.start}–${file.baseline.end}`
@@ -62,6 +70,11 @@ function Global({ release, file }: { release: AtlasRelease; file: GlobalFile }) 
   ], ['ratio', 'ai', 'country', 'topics'])
   const country = file.country === 'TH' ? t('gl.thailand') : file.country
   const rel = release.overview.release
+  const points = file.subfields
+    .filter((s) => typeof s.activity_index === 'number' && typeof s.world_ratio === 'number')
+    .map((s) => ({ id: s.id, label: s.en, x: s.activity_index as number, y: s.world_ratio as number, hot: Boolean(s.opportunity) }))
+  const oppTitle = t('table.n', { n: 1, title: t('gl.opp.table') })
+  const oppColumns = columns(false)
   return (
     <div className="container">
       <PageHeader
@@ -78,10 +91,29 @@ function Global({ release, file }: { release: AtlasRelease; file: GlobalFile }) 
       </PageHeader>
       {opp.length ? (
         <Section id="opportunities" title={t('gl.opp.h')} intro={top ? t('gl.example', { x: top.en, wr: fmtNum(top.world_ratio ?? null, 1), ai: fmtNum(top.activity_index ?? null, 2) }) : undefined}>
-          <HowNote>
-            <p>{t('gl.opp.intro', { r: fmtNum(file.min_world_ratio, 1), n: fmtInt(file.min_world_works), ai: fmtNum(file.max_activity_index, 1) })}</p>
-          </HowNote>
-          <DataTable caption={t('table.n', { n: 1, title: t('gl.opp.table') })} rows={opp} columns={columns(false)} rowKey={(s) => s.id} defaultSort={{ key: 'ratio', dir: 'desc' }} csvFilename={`atlas-${rel}-opportunities.csv`} />
+          <Figure
+            id="fig-quadrant"
+            number={1}
+            title={x('xv.q.title')}
+            tableTitle={oppTitle}
+            csv={figureCsv(`atlas-${rel}-opportunities.csv`, opp, oppColumns)}
+            how={<p>{x('xv.q.how', { r: fmtNum(file.min_world_ratio, 1), n: fmtInt(file.min_world_works), ai: fmtNum(file.max_activity_index, 1) })}</p>}
+            source={t('gl.source', { v: file.source })}
+            view={state.view}
+            onView={(v) => update({ view: v })}
+            chart={
+              <OpportunityQuadrant
+                points={points}
+                xMax={file.max_activity_index}
+                yMin={file.min_world_ratio}
+                text={{ x: t('gl.col.ai'), y: t('gl.col.ratio'), zone: t('gl.opp'), same: x('xv.q.same'), flat: x('xv.q.flat'), opp: x('xv.q.key.opp'), other: x('xv.q.key.other') }}
+                label={x('xv.q.label', { n: fmtInt(points.length), k: fmtInt(opp.length) })}
+                describe={(p) => x('xv.q.point', { x: p.label, wr: fmtNum(p.y, 2), ai: fmtNum(p.x, 2) })}
+                labelLang="en"
+              />
+            }
+            table={<DataTable caption={oppTitle} rows={opp} columns={oppColumns} rowKey={(s) => s.id} defaultSort={{ key: 'ratio', dir: 'desc' }} />}
+          />
         </Section>
       ) : null}
       <Section id="all" title={t('gl.all.h')}>

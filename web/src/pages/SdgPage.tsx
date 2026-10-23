@@ -1,5 +1,7 @@
+import { goalTiles } from '../charts/execLayout'
+import { GoalTiles } from '../charts/GoalTiles'
 import { DataTable, type Column } from '../components/DataTable'
-import { HowNote } from '../components/HowNote'
+import { Figure } from '../components/Figure'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
@@ -10,10 +12,15 @@ import { TopicLink } from '../components/TopicLink'
 import { MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { GoalStat, SdgFile, Topic } from '../data/types'
 import { fmtWindow, windows } from '../lib/definition'
-import { fmtInt, fmtRatio } from '../lib/format'
-import { useI18n } from '../lib/i18n'
+import { fmtInt, fmtPct, fmtRatio } from '../lib/format'
+import { useI18n, useStrings } from '../lib/i18n'
+import { figureCsv } from '../lib/tableCsv'
 import { sdgCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
+import { execViz } from '../strings/execViz'
+
+/** Topics listed in an open goal tile (the rest are in the table view). */
+const TILE_TOPICS = 6
 
 export default function SdgPage() {
   const { t } = useI18n()
@@ -30,6 +37,7 @@ export default function SdgPage() {
 
 function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
   const { t, lang } = useI18n()
+  const x = useStrings(execViz)
   const [state, update] = useUrlState(sdgCodec)
   const name = (o: { th: string; en: string }) => (lang === 'en' ? o.en : o.th)
   const fw = file.frameworks.find((f) => f.key === state.fw) ?? file.frameworks[0]
@@ -66,6 +74,29 @@ function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
   // the example: the first goal (in goal order) that has a topic, and its largest topic
   const exGoal = goals.filter((g) => count(g) > 0).sort((x, y) => x.number - y.number)[0]
   const exTopic = exGoal ? (exGoal.topics ?? []).map((id) => release.topicById.get(id)).find((tp): tp is Topic => tp !== undefined) : undefined
+  const goalById = new Map(goals.map((g) => [g.id, g]))
+  const tiles = fw
+    ? goalTiles(goals, fw.key, (id) => release.topicById.has(id)).map((tile) => {
+        const g = goalById.get(tile.id) as GoalStat
+        const tl = tile.topics.map((id) => release.topicById.get(id)).filter((tp): tp is Topic => tp !== undefined)
+        return {
+          ...tile,
+          code: label(g),
+          name: name(g),
+          shareText: x('xv.goal.share', { p: fmtPct(tile.share, 1) }),
+          list: (
+            <>
+              <p className="gt-list-h">{x('xv.goal.list')}</p>
+              <ul className="gt-topics">
+                {tl.slice(0, TILE_TOPICS).map((tp) => <li key={tp.id}><TopicLink topic={tp} showStatus /></li>)}
+              </ul>
+              {tl.length > TILE_TOPICS ? <p className="br-more">{x('xv.goal.more', { n: fmtInt(tl.length - TILE_TOPICS) })}</p> : null}
+            </>
+          ),
+        }
+      })
+    : []
+  const tableTitle = fw ? t('table.n', { n: 1, title: t('sdg.table', { f: name(fw) }) }) : ''
   return (
     <div className="container">
       <PageHeader title={t('sdg.title')} lede={t('sdg.lede')} />
@@ -74,17 +105,25 @@ function Sdg({ release, file }: { release: AtlasRelease; file: SdgFile }) {
           <Tabs id="sdg-fw" label={t('sdg.frameworks')} items={file.frameworks.map((f) => ({ id: f.key, label: name(f) }))} value={fw.key} onChange={(id) => update({ fw: id })}>
             {exGoal && exTopic ? <p>{t('sdg.example', { topic: lang === 'en' ? exTopic.en || exTopic.th : exTopic.th, goal: `${label(exGoal)} ${name(exGoal)}` })}</p> : null}
             <p className="note">{t('sdg.coverage', { n: fmtInt(covered), total: fmtInt(goals.length) })}</p>
-            <DataTable
-              caption={t('table.n', { n: 1, title: t('sdg.table', { f: name(fw) }) })}
-              rows={goals}
-              columns={columns}
-              rowKey={(g) => g.id}
-              defaultSort={{ key: 'goal', dir: 'asc' }}
-              csvFilename={`atlas-${rel}-${fw.key}.csv`}
+            <Figure
+              id="fig-goals"
+              number={1}
+              title={x('xv.goal.title', { f: name(fw) })}
+              tableTitle={tableTitle}
+              toggle="buttons"
+              csv={figureCsv(`atlas-${rel}-${fw.key}.csv`, goals, columns)}
+              how={
+                <>
+                  <p>{x('xv.goal.how', { r })}</p>
+                  <p>{t('sdg.how', { method: t(file.method === 'embedding' ? 'sdg.method.embedding' : 'sdg.method.lexical'), b, r })}</p>
+                </>
+              }
+              source={t('source.line', { release: rel })}
+              view={state.view}
+              onView={(v) => update({ view: v })}
+              chart={<GoalTiles tiles={tiles} label={x('xv.goal.label', { n: fmtInt(tiles.length) })} countWord={(n) => x(n === 1 ? 'xv.goal.topic1' : 'xv.goal.topics')} emptyText={t('sdg.gap')} />}
+              table={<DataTable caption={tableTitle} rows={goals} columns={columns} rowKey={(g) => g.id} defaultSort={{ key: 'goal', dir: 'asc' }} />}
             />
-            <HowNote>
-              <p>{t('sdg.how', { method: t(file.method === 'embedding' ? 'sdg.method.embedding' : 'sdg.method.lexical'), b, r })}</p>
-            </HowNote>
           </Tabs>
         </Section>
       ) : null}

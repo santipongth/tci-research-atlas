@@ -1,20 +1,27 @@
 import { Link } from 'react-router'
+import { BridgePairs } from '../charts/BridgePairs'
+import { SplitBar } from '../charts/MixBar'
+import { OpportunityQuadrant } from '../charts/OpportunityQuadrant'
 import { DataTable, type Column } from '../components/DataTable'
-import { HowNote } from '../components/HowNote'
+import { Figure } from '../components/Figure'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { ShareBar } from '../components/ShareBar'
+import { Sparkline } from '../components/StatTile'
 import { Term } from '../components/Term'
 import { TopicLink } from '../components/TopicLink'
-import { groupName, hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
-import type { Bridge, Concentration, FewInstitutions, GapsFile, Topic, WorldGap } from '../data/types'
+import { useReleaseFile } from '../data/atlasContext'
+import { groupName, hasModule, MODULE_FILES, seriesOf, type AtlasRelease } from '../data/release'
+import type { Bridge, Concentration, FewInstitutions, GapsFile, GlobalFile, Topic, WorldGap } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct, fmtRatio } from '../lib/format'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStrings } from '../lib/i18n'
+import { figureCsv } from '../lib/tableCsv'
 import { statusName } from '../lib/topicText'
 import { gapsCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
+import { execViz } from '../strings/execViz'
 
 export default function GapsPage() {
   const { t } = useI18n()
@@ -31,7 +38,11 @@ export default function GapsPage() {
 
 function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
   const { t, lang, name } = useI18n()
+  const x = useStrings(execViz)
   const [state, update] = useUrlState(gapsCodec)
+  // the world thresholds and every subfield as context come from global.json when the release has it
+  const globalFile = useReleaseFile<GlobalFile>(hasModule(release, 'global') ? MODULE_FILES.global : null)
+  const glob = globalFile.status === 'ready' ? globalFile.data : null
   const topic = (id: string): Topic | undefined => release.topicById.get(id)
   const few = file.few_institutions.filter((f) => topic(f.topic))
   const bridges = file.bridges.filter((b) => topic(b.a) && topic(b.b))
@@ -100,49 +111,174 @@ function Gaps({ release, file }: { release: AtlasRelease; file: GapsFile }) {
     { key: 'hhi', csvHeader: 'hhi', header: t('gp.col.hhi'), numeric: true, cell: (c) => fmtNum(c.hhi, 2), sortValue: (c) => c.hhi },
     { key: 'articles', csvHeader: 'articles', header: t('col.articlesR', { r: rw }), numeric: true, cell: (c) => fmtInt(c.articles), sortValue: (c) => c.articles },
   ]
+  const source = t('source.line', { release: rel })
+  const tbl = (n: number, title: string) => t('table.n', { n, title })
+  const gapIds = new Set(file.world.map((w) => w.subfield))
+  const quadPoints = (glob ? glob.subfields.map((g) => ({ id: g.id, label: g.en, x: g.activity_index, y: g.world_ratio, hot: gapIds.has(g.id) })) : file.world.map((w) => ({ id: w.subfield, label: w.en, x: w.activity_index, y: w.world_ratio, hot: true })))
+    .filter((p): p is { id: string; label: string; x: number; y: number; hot: boolean } => typeof p.x === 'number' && typeof p.y === 'number')
+  const years = release.series.years
+  const fewSorted = [...few].sort((p, q) => p.institutions - q.institutions)
+  const riskSorted = [...risk].sort((p, q) => q.top_share - p.top_share)
   return (
     <div className="container">
       <PageHeader title={t('gp.title')} lede={t('gp.lede', { a: r.start, b: r.end })} />
       {file.world.length ? (
-        <Section id="world" title={t('gp.world.h')} intro={worldEx ? t('gl.example', { x: worldEx.en, wr: fmtNum(worldEx.world_ratio ?? null, 1), ai: fmtNum(worldEx.activity_index ?? null, 2) }) : undefined}>
-          <DataTable caption={t('table.n', { n: 1, title: t('gp.world.table') })} rows={file.world} columns={worldColumns} rowKey={(w) => w.subfield} defaultSort={{ key: 'ratio', dir: 'desc' }} csvFilename={`atlas-${rel}-gaps-world.csv`} />
+        <Section id="world" title={x('xv.gq.world')} intro={worldEx ? t('gl.example', { x: worldEx.en, wr: fmtNum(worldEx.world_ratio ?? null, 1), ai: fmtNum(worldEx.activity_index ?? null, 2) }) : undefined}>
+          <Figure
+            id="fig-world"
+            number={1}
+            title={t('gp.world.h')}
+            tableTitle={tbl(1, t('gp.world.table'))}
+            csv={figureCsv(`atlas-${rel}-gaps-world.csv`, file.world, worldColumns)}
+            how={<p>{glob ? x('xv.q.how', { r: fmtNum(glob.min_world_ratio, 1), n: fmtInt(glob.min_world_works), ai: fmtNum(glob.max_activity_index, 1) }) : x('xv.q.howPlain')}</p>}
+            source={glob ? t('gl.source', { v: glob.source }) : source}
+            view={state.w}
+            onView={(v) => update({ w: v })}
+            chart={
+              <OpportunityQuadrant
+                points={quadPoints}
+                xMax={glob?.max_activity_index ?? null}
+                yMin={glob?.min_world_ratio ?? null}
+                text={{ x: t('gl.col.ai'), y: t('gl.col.ratio'), zone: t('gl.opp'), same: x('xv.q.same'), flat: x('xv.q.flat'), opp: x('xv.q.key.opp'), other: x('xv.q.key.other') }}
+                label={x('xv.q.label', { n: fmtInt(quadPoints.length), k: fmtInt(file.world.length) })}
+                describe={(p) => x('xv.q.point', { x: p.label, wr: fmtNum(p.y, 2), ai: fmtNum(p.x, 2) })}
+                labelLang="en"
+              />
+            }
+            table={<DataTable caption={tbl(1, t('gp.world.table'))} rows={file.world} columns={worldColumns} rowKey={(w) => w.subfield} defaultSort={{ key: 'ratio', dir: 'desc' }} />}
+          />
         </Section>
       ) : null}
       {few.length ? (
         <Section
           id="few"
-          title={t('gp.few.h')}
+          title={x('xv.gq.few')}
           intro={t('gp.few.intro', { topic: fewEx ? tname(fewEx.topic) : '', k: fewEx ? fmtInt(fewEx.institutions) : '', r: rw, statuses: file.statuses.map((s) => statusName(t, s)).join(lang === 'en' ? ' or ' : 'หรือ'), n: fmtInt(file.max_institutions) })}
         >
-          <DataTable caption={t('table.n', { n: 2, title: t('gp.few.table') })} rows={few} columns={fewColumns} rowKey={(f) => f.topic} stack={false} defaultSort={{ key: 'institutions', dir: 'asc' }} csvFilename={`atlas-${rel}-gaps-few-institutions.csv`} />
+          <Figure
+            id="fig-few"
+            number={2}
+            title={x('xv.few.title', { n: fmtInt(file.max_institutions) })}
+            tableTitle={tbl(2, t('gp.few.table'))}
+            csv={figureCsv(`atlas-${rel}-gaps-few-institutions.csv`, few, fewColumns)}
+            how={<p>{x('xv.few.how', { r: rw })}</p>}
+            source={source}
+            view={state.f}
+            onView={(v) => update({ f: v })}
+            chart={
+              <ul className="few">
+                {fewSorted.map((f) => {
+                  const series = seriesOf(release, f.topic)
+                  return (
+                    <li key={f.topic} className="few-row">
+                      <span className="few-name"><TopicLink topic={topic(f.topic) as Topic} showStatus /></span>
+                      <span className="few-k"><b>{fmtInt(f.institutions)}</b> {x('xv.few.unit')}</span>
+                      {series && series.length > 2 ? (
+                        <span className="few-trend">
+                          <Sparkline values={series} />
+                          <span className="few-yr" aria-hidden="true"><span>{years[0]}</span><span>{years[years.length - 1]}</span></span>
+                          <span className="sr-only">{t('stat.trend', { a: years[0], b: years[years.length - 1], values: series.map((v) => fmtInt(v)).join(', ') })}</span>
+                        </span>
+                      ) : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            }
+            table={<DataTable caption={tbl(2, t('gp.few.table'))} rows={few} columns={fewColumns} rowKey={(f) => f.topic} stack={false} defaultSort={{ key: 'institutions', dir: 'asc' }} />}
+          />
         </Section>
       ) : null}
       {bridges.length ? (
-        <Section id="bridges" title={t('gp.bridge.h')} intro={bridgeEx ? t('gp.bridge.intro', { x: tname(bridgeEx.a), y: tname(bridgeEx.b), k: fmtInt(bridgeEx.shared) }) : undefined}>
-          <HowNote>
-            <p>{t('gp.bridge.how', { s: fmtNum(file.bridge_min_similarity, 2), j: fmtNum(file.bridge_max_jaccard, 2) })}</p>
-            <p className="how-terms">
-              <span>{t('glossary.terms')}:</span>
-              <Term term="jaccard" />
-            </p>
-          </HowNote>
-          <DataTable caption={t('table.n', { n: 3, title: t('gp.bridge.h') })} rows={bridges} columns={bridgeColumns} rowKey={(b) => `${b.a}~${b.b}`} defaultSort={{ key: 'similarity', dir: 'desc' }} csvFilename={`atlas-${rel}-gaps-bridges.csv`} />
+        <Section id="bridges" title={x('xv.gq.bridge')} intro={bridgeEx ? t('gp.bridge.intro', { x: tname(bridgeEx.a), y: tname(bridgeEx.b), k: fmtInt(bridgeEx.shared) }) : undefined}>
+          <Figure
+            id="fig-bridges"
+            number={3}
+            title={x('xv.br.title')}
+            tableTitle={tbl(3, t('gp.bridge.h'))}
+            csv={figureCsv(`atlas-${rel}-gaps-bridges.csv`, bridges, bridgeColumns)}
+            how={
+              <>
+                <p>{x('xv.br.how')}</p>
+                <p>{t('gp.bridge.how', { s: fmtNum(file.bridge_min_similarity, 2), j: fmtNum(file.bridge_max_jaccard, 2) })}</p>
+                <p className="how-terms">
+                  <span>{t('glossary.terms')}:</span>
+                  <Term term="jaccard" />
+                </p>
+              </>
+            }
+            source={source}
+            view={state.b}
+            onView={(v) => update({ b: v })}
+            chart={
+              <BridgePairs
+                label={x('xv.br.title')}
+                rows={[...bridges].sort((p, q) => q.similarity - p.similarity).map((b) => ({
+                  key: `${b.a}~${b.b}`,
+                  a: <TopicLink topic={topic(b.a) as Topic} showStatus />,
+                  b: <TopicLink topic={topic(b.b) as Topic} showStatus />,
+                  shared: b.shared,
+                  sharedText: b.shared > 0 ? x('xv.br.shared', { k: fmtInt(b.shared) }) : x('xv.br.none'),
+                  simText: x('xv.br.sim', { s: fmtNum(b.similarity, 2) }),
+                }))}
+              />
+            }
+            table={<DataTable caption={tbl(3, t('gp.bridge.h'))} rows={bridges} columns={bridgeColumns} rowKey={(b) => `${b.a}~${b.b}`} defaultSort={{ key: 'similarity', dir: 'desc' }} />}
+          />
         </Section>
       ) : null}
       {file.concentration.length ? (
-        <Section id="risk" title={t('gp.risk.h')} intro={riskEx ? t('gp.risk.ex', { p: fmtPct(riskEx.top_share, 0), x: unitName(riskEx), top: riskEx.top_name ?? '' }) : undefined}>
-          <HowNote>
-            <p>{t('gp.risk.how', { r: rw, m: fmtInt(file.min_articles), p: fmtPct(file.max_top_share, 0), h: fmtNum(file.max_hhi, 2) })}</p>
-            <p className="how-terms">
-              <span>{t('glossary.terms')}:</span>
-              <Term term="hhi" />
-            </p>
-          </HowNote>
+        <Section id="risk" title={x('xv.gq.risk')} intro={riskEx ? t('gp.risk.ex', { p: fmtPct(riskEx.top_share, 0), x: unitName(riskEx), top: riskEx.top_name ?? '' }) : undefined}>
           <label className="check">
             <input type="checkbox" checked={state.all === 'yes'} onChange={(e) => update({ all: e.target.checked ? 'yes' : 'no' })} />
             {t('gp.risk.all')}
           </label>
-          <DataTable caption={t('table.n', { n: 4, title: t('gp.risk.table') })} rows={risk} columns={riskColumns} rowKey={(c) => `${c.scope}:${c.id}:${c.kind}`} defaultSort={{ key: 'share', dir: 'desc' }} csvFilename={`atlas-${rel}-concentration.csv`} />
+          <Figure
+            id="fig-risk"
+            number={4}
+            title={x('xv.rk.title')}
+            tableTitle={tbl(4, t('gp.risk.table'))}
+            csv={figureCsv(`atlas-${rel}-concentration.csv`, risk, riskColumns)}
+            how={
+              <>
+                <p>{x('xv.rk.how', { r: rw, p: fmtPct(file.max_top_share, 0) })}</p>
+                <p>{t('gp.risk.how', { r: rw, m: fmtInt(file.min_articles), p: fmtPct(file.max_top_share, 0), h: fmtNum(file.max_hhi, 2) })}</p>
+                <p className="how-terms">
+                  <span>{t('glossary.terms')}:</span>
+                  <Term term="hhi" />
+                </p>
+              </>
+            }
+            source={source}
+            view={state.c}
+            onView={(v) => update({ c: v })}
+            legend={
+              <ul className="sb-key">
+                <li><span className="sb-sw is-top" aria-hidden="true" />{x('xv.rk.top')}</li>
+                <li><span className="sb-sw" aria-hidden="true" />{x('xv.rk.rest')}</li>
+                <li><span className="sb-sw is-mark" aria-hidden="true" />{x('xv.rk.bar', { p: fmtPct(file.max_top_share, 0) })}</li>
+              </ul>
+            }
+            chart={
+              riskSorted.length ? (
+                <ul className="rk">
+                  {riskSorted.map((c) => (
+                    <li key={`${c.scope}:${c.id}:${c.kind}`} className="rk-row">
+                      <span className="rk-unit">
+                        {c.scope === 'topic' ? <TopicLink topic={topic(c.id) as Topic} showStatus /> : <b>{groupName(release, c.id, lang)}</b>}
+                        <small>{t(c.kind === 'institution' ? 'gp.kind.institution' : 'gp.kind.journal')}: {topName(c)}</small>
+                      </span>
+                      <span className="rk-bar">
+                        <SplitBar frac={c.top_share} marker={file.max_top_share} text={fmtPct(c.top_share, 0)} label={`${unitName(c)}: ${fmtPct(c.top_share, 0)}`} />
+                        {c.concentrated ? <span className="flag-on">{t('gp.flag')}</span> : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="note">{t('gp.risk.all')}</p>
+            }
+            table={<DataTable caption={tbl(4, t('gp.risk.table'))} rows={risk} columns={riskColumns} rowKey={(c) => `${c.scope}:${c.id}:${c.kind}`} defaultSort={{ key: 'share', dir: 'desc' }} />}
+          />
         </Section>
       ) : null}
       {hasModule(release, 'institutions') ? (

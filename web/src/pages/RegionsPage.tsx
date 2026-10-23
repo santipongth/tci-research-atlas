@@ -1,3 +1,5 @@
+import { BarRank } from '../charts/BarRank'
+import { rankBars } from '../charts/infographic'
 import { DataTable, type Column } from '../components/DataTable'
 import { Figure } from '../components/Figure'
 import { InstitutionLink } from '../components/InstitutionLink'
@@ -12,11 +14,15 @@ import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { InstitutionsFile, ProvinceStat, RegionStat, RegionsFile } from '../data/types'
 import { fmtWindow, windows } from '../lib/definition'
 import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStrings } from '../lib/i18n'
 import { figureCsv } from '../lib/tableCsv'
 import { REGION_METRICS, regionsCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import type { StrKey } from '../strings'
+import { execViz } from '../strings/execViz'
+
+/** Provinces listed beside the map. */
+const TOP_N = 10
 
 export default function RegionsPage() {
   const { t } = useI18n()
@@ -33,6 +39,7 @@ export default function RegionsPage() {
 
 function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }) {
   const { t, lang } = useI18n()
+  const x = useStrings(execViz)
   const [state, update] = useUrlState(regionsCodec)
   const instFile = useReleaseFile<InstitutionsFile>(hasModule(release, 'institutions') ? MODULE_FILES.institutions : null)
   const insts = new Map(instFile.status === 'ready' ? instFile.data.institutions.map((i) => [i.id, i]) : [])
@@ -68,6 +75,14 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
     { key: 'articles', csvHeader: 'articles', header: t('col.articles'), numeric: true, cell: (r) => fmtInt(r.articles), sortValue: (r) => r.articles },
     { key: 'share', csvHeader: 'share', header: t('rg.col.share'), numeric: true, cell: (r) => fmtPct(r.share ?? null, 1), sortValue: (r) => r.share ?? null },
   ]
+  const top = rankBars(
+    file.provinces.map((p) => ({ key: pname(p), id: p.code, count: valueOf(p) ?? Number.NaN })),
+    TOP_N,
+  )
+  const regionName = (key: string) => t(`rg.region.${key}` as StrKey)
+  const regionShare = new Map<string, number | null>(file.regions.map((r) => [r.key, r.share ?? null]))
+  const regionBars = rankBars(file.regions.map((r) => ({ key: regionName(r.key), id: r.key, count: r.articles })), file.regions.length)
+  const regionsTitle = t('table.n', { n: 2, title: t('rg.regions.table') })
   return (
     <div className="container">
       <PageHeader title={t('rg.title')} lede={t('rg.lede', { a: w.start, b: w.end })} />
@@ -93,13 +108,23 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
           view={state.view}
           onView={(v) => update({ view: v })}
           chart={
-            <ProvinceMap
-              values={new Map(file.provinces.map((p) => [p.code, valueOf(p)]))}
-              format={format}
-              label={t('rg.map', { m: measure, n: fmtInt(file.provinces.filter((p) => valueOf(p) !== null).length) })}
-              noData={t('rg.noData')}
-              range={(a, b) => t('rg.range', { a, b })}
-            />
+            <div className="rg-map">
+              <div className="rg-map-c">
+                <ProvinceMap
+                  values={new Map(file.provinces.map((p) => [p.code, valueOf(p)]))}
+                  format={format}
+                  label={t('rg.map', { m: measure, n: fmtInt(file.provinces.filter((p) => valueOf(p) !== null).length) })}
+                  noData={t('rg.noData')}
+                  range={(a, b) => t('rg.range', { a, b })}
+                />
+              </div>
+              {top.rows.length ? (
+                <div className="rg-top">
+                  <p className="rg-top-h">{x('xv.top.title', { m: measure })}</p>
+                  <BarRank rows={top.rows} value={(r) => format(r.count)} label={x('xv.top.label', { m: measure })} />
+                </div>
+              ) : null}
+            </div>
           }
           table={
             <DataTable
@@ -112,6 +137,7 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
           }
           how={
             <>
+              <p>{x('xv.map.how', { n: TOP_N })}</p>
               <p>{t('rg.how', { p: fmtPct(file.coverage ?? null, 0) })}</p>
               {hasPop ? <p>{t('rg.popNote', { y: file.population_year ?? DASH })}</p> : null}
             </>
@@ -120,7 +146,19 @@ function Regions({ release, file }: { release: AtlasRelease; file: RegionsFile }
       </Section>
       {file.regions.length ? (
         <Section id="by-region" title={t('rg.regions.h')}>
-          <DataTable caption={t('table.n', { n: 2, title: t('rg.regions.table') })} rows={file.regions} columns={regionColumns} rowKey={(r) => r.key} stack={false} defaultSort={{ key: 'articles', dir: 'desc' }} csvFilename={`atlas-${rel}-regions.csv`} />
+          <Figure
+            id="fig-by-region"
+            number={2}
+            title={x('xv.rg.title')}
+            tableTitle={regionsTitle}
+            csv={figureCsv(`atlas-${rel}-regions.csv`, file.regions, regionColumns)}
+            how={<p>{x('xv.rg.how')}</p>}
+            source={t('source.line', { release: rel })}
+            view={state.rv}
+            onView={(v) => update({ rv: v })}
+            chart={<BarRank rows={regionBars.rows} value={(r) => `${fmtInt(r.count)} · ${fmtPct(regionShare.get(r.id ?? '') ?? null, 0)}`} label={x('xv.rg.label')} />}
+            table={<DataTable caption={regionsTitle} rows={file.regions} columns={regionColumns} rowKey={(r) => r.key} stack={false} defaultSort={{ key: 'articles', dir: 'desc' }} />}
+          />
         </Section>
       ) : null}
     </div>
