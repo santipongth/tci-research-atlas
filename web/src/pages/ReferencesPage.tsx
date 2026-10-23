@@ -1,6 +1,10 @@
 import { Link } from 'react-router'
+import { BridgePairs, type BridgeRow } from '../charts/BridgePairs'
+import { weightedMean } from '../charts/editorLayout'
+import { SplitBar } from '../charts/MixBar'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
+import { Figure } from '../components/Figure'
 import { ModuleFile } from '../components/ModuleFile'
 import { OnThisPage } from '../components/OnThisPage'
 import { PageHeader } from '../components/PageHeader'
@@ -8,6 +12,7 @@ import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { SourceLine } from '../components/SourceLine'
 import { ShareBar } from '../components/ShareBar'
+import { StatGrid, StatTile } from '../components/StatTile'
 import { TopicLink } from '../components/TopicLink'
 import { hasModule, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { CitationFlow, CitedArticle, InternalCitations, JournalRefs, ReferencesFile, TopicCitations } from '../data/types'
@@ -16,7 +21,15 @@ import { downloadText, toCsv, type CsvColumn } from '../lib/csv'
 import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
 import { useI18n, useStrings } from '../lib/i18n'
 import { sortBy } from '../lib/sort'
+import { figureCsv } from '../lib/tableCsv'
+import { referencesCodec } from '../lib/urlState'
+import { useUrlState } from '../lib/useUrlState'
 import { references as REF } from '../strings/references'
+
+/** Topic pairs drawn as link diagrams; the rest are in the table view. */
+const FLOW_PAIRS = 6
+/** Rows of the per-topic table before "แสดงทั้งหมด". */
+const TOPIC_ROWS = 10
 
 export default function ReferencesPage() {
   const s = useStrings(REF)
@@ -89,45 +102,34 @@ function Coverage({ file, internal }: { file: ReferencesFile; internal: Internal
   const perArticle = file.articles_with_refs ? file.refs_counted / file.articles_with_refs : 0
   return (
     <Section id="ref-coverage" title={s('cov.h')}>
-      <dl className="kpis ref-kpis">
-        <div className="kpi">
-          <dt>{s('cov.with')}</dt>
-          <dd>
-            <span className="v">{fmtPct(file.coverage, 0)}</span>
-            <span className="ref-sub">{s('cov.withSub', { n: fmtInt(file.articles_with_refs), all: fmtInt(file.articles), a: file.window.start, b: file.window.end })}</span>
-          </dd>
-        </div>
-        <div className="kpi">
-          <dt>{s('cov.refs')}</dt>
-          <dd>
-            <span className="v">{fmtInt(file.refs_counted)}</span>
-            <span className="ref-sub">{s('cov.refsSub', { n: fmtInt(Math.round(perArticle)) })}</span>
-          </dd>
-        </div>
-        {internal ? (
-          <div className="kpi">
-            <dt>{s('cov.internal')}</dt>
-            <dd>
-              <span className="v">{fmtInt(internal.matches)}</span>
-              <span className="ref-sub">{s('cov.internalSub', { n: fmtInt(internal.citing_articles) })}</span>
-            </dd>
-          </div>
-        ) : null}
-      </dl>
+      <StatGrid cols={internal ? 3 : 2} className="ref-kpis">
+        <StatTile label={s('cov.with')} value={fmtPct(file.coverage, 0)} sub={s('cov.withSub', { n: fmtInt(file.articles_with_refs), all: fmtInt(file.articles), a: file.window.start, b: file.window.end })} />
+        <StatTile label={s('cov.refs')} value={fmtInt(file.refs_counted)} sub={s('cov.refsSub', { n: fmtInt(Math.round(perArticle)) })} />
+        {internal ? <StatTile wide="phone" label={s('cov.internal')} value={fmtInt(internal.matches)} sub={s('cov.internalSub', { n: fmtInt(internal.citing_articles) })} /> : null}
+      </StatGrid>
       <p className="note">{s('cov.note', { p: fmtPct(file.min_coverage, 0) })}</p>
     </Section>
   )
 }
 
+function JournalName({ j, linkable }: { j: JournalRefs; linkable: boolean }) {
+  return j.id && linkable ? <Link to={`/journals/${j.id}`} lang={langOf(j.journal)}>{j.journal}</Link> : <span lang={langOf(j.journal)}>{j.journal}</span>
+}
+
 function Journals({ release, file }: { release: AtlasRelease; file: ReferencesFile }) {
   const s = useStrings(REF)
   const { t } = useI18n()
+  const [state, update] = useUrlState(referencesCodec)
   const linkable = hasModule(release, 'journals')
-  const best = sortBy(file.journals.filter((j) => j.share_recent !== null && j.share_recent !== undefined), (j) => j.share_recent, 'desc')[0]
+  const withRecent = file.journals.filter((j) => j.share_recent !== null && j.share_recent !== undefined)
+  const bars = sortBy(withRecent, (j) => j.share_recent, 'desc')
+  const best = bars[0]
+  const avg = weightedMean(file.journals, (j) => j.share_recent, (j) => j.articles_with_refs)
+  const y = file.recent_years
   const columns: Column<JournalRefs>[] = [
     {
       key: 'journal', header: s('col.journal'), rowHeader: true,
-      cell: (j) => (j.id && linkable ? <Link to={`/journals/${j.id}`} lang={langOf(j.journal)}>{j.journal}</Link> : <span lang={langOf(j.journal)}>{j.journal}</span>),
+      cell: (j) => <JournalName j={j} linkable={linkable} />,
       sortValue: (j) => j.journal,
       csvCols: [{ header: 'journal', value: (j) => j.journal }, { header: 'journal_id', value: (j) => j.id ?? '' }],
     },
@@ -143,19 +145,56 @@ function Journals({ release, file }: { release: AtlasRelease; file: ReferencesFi
     { key: 'thai', csvHeader: 'share_thai', header: s('col.thai'), firstDir: 'desc', cell: (j) => <ShareBar value={j.share_thai} />, sortValue: (j) => j.share_thai },
     { key: 'doi', csvHeader: 'share_doi', header: s('col.doi'), firstDir: 'desc', cell: (j) => <ShareBar value={j.share_doi} />, sortValue: (j) => j.share_doi },
   ]
+  const table = (
+    <DataTable
+      caption={t('table.n', { n: 1, title: s('jr.table') })}
+      rows={file.journals}
+      columns={columns}
+      rowKey={(j) => j.id ?? j.journal}
+      defaultSort={{ key: 'read', dir: 'desc' }}
+      csvFilename={`atlas-${release.overview.release}-references-journals.csv`}
+      wide
+      empty={s('jr.none')}
+    />
+  )
   return (
-    <Section id="ref-journals" title={s('jr.h')} intro={s('jr.intro', { n: fmtInt(file.min_journal_articles), y: file.recent_years })}>
-      {best ? <p className="ref-lead">{s('jr.insight', { j: best.journal, p: fmtPct(best.share_recent, 0), y: file.recent_years })}</p> : null}
-      <DataTable
-        caption={t('table.n', { n: 1, title: s('jr.table') })}
-        rows={file.journals}
-        columns={columns}
-        rowKey={(j) => j.id ?? j.journal}
-        defaultSort={{ key: 'read', dir: 'desc' }}
-        csvFilename={`atlas-${release.overview.release}-references-journals.csv`}
-        wide
-        empty={s('jr.none')}
-      />
+    <Section id="ref-journals" title={s('jr.h')} intro={s('jr.intro', { n: fmtInt(file.min_journal_articles), y })}>
+      {best ? <p className="ref-lead">{s('jr.insight', { j: best.journal, p: fmtPct(best.share_recent, 0), y })}</p> : null}
+      {bars.length ? (
+        <Figure
+          id="fig-refs"
+          number={1}
+          title={s('rs.fig', { y })}
+          tableTitle={t('table.n', { n: 1, title: s('jr.table') })}
+          csv={figureCsv(`atlas-${release.overview.release}-references-journals.csv`, file.journals, columns)}
+          how={<p>{s('rs.how', { y, p: fmtPct(avg, 0) })}</p>}
+          source={t('source.line', { release: release.overview.release })}
+          view={state.jr}
+          onView={(v) => update({ jr: v })}
+          legend={
+            <ul className="sb-key">
+              <li><span className="sb-sw is-top" aria-hidden="true" />{s('rs.recent', { y })}</li>
+              <li><span className="sb-sw" aria-hidden="true" />{s('rs.older')}</li>
+              {avg !== null ? <li><span className="sb-sw is-mark" aria-hidden="true" />{s('rs.avg', { p: fmtPct(avg, 0) })}</li> : null}
+            </ul>
+          }
+          chart={
+            <ul className="rk ref-split" aria-label={s('rs.list')}>
+              {bars.map((j) => (
+                <li key={j.id ?? j.journal} className="rk-row">
+                  <span className="rk-unit"><JournalName j={j} linkable={linkable} /></span>
+                  <span className="rk-bar">
+                    <SplitBar frac={j.share_recent ?? 0} marker={avg ?? 0} text={fmtPct(j.share_recent, 0)} label={s('rs.label', { j: j.journal, p: fmtPct(j.share_recent, 0) })} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          }
+          table={table}
+        />
+      ) : (
+        table
+      )}
     </Section>
   )
 }
@@ -206,29 +245,31 @@ function TopArticles({ release, rows }: { release: AtlasRelease; rows: readonly 
         </div>
         <p className="hint">{s('x.note')}</p>
       </div>
-      <ol className="srch-list ref-top">
+      <ol className="rc-list">
         {rows.map((a) => {
           const th = THAI.test(a.title) ? a.title : ''
           const en = a.title_en || (th ? '' : a.title)
           const [main, sub] = lang === 'en' ? [en || th, en ? th : ''] : [th || en, th ? en : '']
           const topic = a.topic ? release.topicById.get(a.topic) : undefined
           return (
-            <li key={a.article_id} className="srch-hit">
-              <p className="srch-title" lang={langOf(main)}>
-                {a.url ? <a href={a.url} target="_blank" rel="noopener noreferrer">{main}<span className="sr-only"> {t('newTab')}</span></a> : main}
-              </p>
-              {sub ? <p className="srch-sub" lang={langOf(sub)}>{sub}</p> : null}
-              <p className="srch-meta">
-                <span><span className="flag srch-cited">{s('top.cited', { n: fmtInt(a.count) })}</span></span>
-                {a.journal ? <span lang={langOf(a.journal)}>{a.journal}</span> : null}
-                {a.year ? <span>{a.year}</span> : null}
-                {topic ? <span><TopicLink topic={topic} /></span> : <span>{s('top.noTopic')}</span>}
-                {a.doi ? (
-                  <span>
-                    <a href={`https://doi.org/${a.doi}`} target="_blank" rel="noopener noreferrer">DOI {a.doi}<span className="sr-only"> {t('newTab')}</span></a>
-                  </span>
-                ) : null}
-              </p>
+            <li key={a.article_id} className="rc-card">
+              <p className="rc-n"><b>{fmtInt(a.count)}</b> <span>{s('rc.times')}</span></p>
+              <div className="rc-body">
+                <p className="srch-title" lang={langOf(main)}>
+                  {a.url ? <a href={a.url} target="_blank" rel="noopener noreferrer">{main}<span className="sr-only"> {t('newTab')}</span></a> : main}
+                </p>
+                {sub ? <p className="srch-sub" lang={langOf(sub)}>{sub}</p> : null}
+                <p className="srch-meta">
+                  {a.journal ? <span lang={langOf(a.journal)}>{a.journal}</span> : null}
+                  {a.year ? <span>{a.year}</span> : null}
+                  {topic ? <span><TopicLink topic={topic} /></span> : <span>{s('top.noTopic')}</span>}
+                  {a.doi ? (
+                    <span>
+                      <a href={`https://doi.org/${a.doi}`} target="_blank" rel="noopener noreferrer">DOI {a.doi}<span className="sr-only"> {t('newTab')}</span></a>
+                    </span>
+                  ) : null}
+                </p>
+              </div>
             </li>
           )
         })}
@@ -245,6 +286,7 @@ function TopicCell({ release, id }: { release: AtlasRelease; id: string }) {
 function Flows({ release, internal }: { release: AtlasRelease; internal: InternalCitations }) {
   const s = useStrings(REF)
   const { t } = useI18n()
+  const [state, update] = useUrlState(referencesCodec)
   const columns: Column<CitationFlow>[] = [
     { key: 'source', csvHeader: 'source', header: s('col.source'), rowHeader: true, cell: (f) => <TopicCell release={release} id={f.source} />, sortValue: (f) => f.source },
     {
@@ -254,17 +296,47 @@ function Flows({ release, internal }: { release: AtlasRelease; internal: Interna
     },
     { key: 'n', csvHeader: 'n', header: s('col.n'), numeric: true, cell: (f) => fmtInt(f.n), sortValue: (f) => f.n },
   ]
+  const rel = release.overview.release
+  const table = (
+    <DataTable
+      caption={t('table.n', { n: 2, title: s('flow.table') })}
+      rows={internal.flows}
+      columns={columns}
+      rowKey={(f) => `${f.source}-${f.target}`}
+      defaultSort={{ key: 'n', dir: 'desc' }}
+      csvFilename={`atlas-${rel}-references-flows.csv`}
+      empty={s('flow.none')}
+    />
+  )
+  const top = sortBy(internal.flows, (f) => f.n, 'desc').slice(0, FLOW_PAIRS)
+  const pairs: BridgeRow[] = top.map((f) => ({
+    key: `${f.source}-${f.target}`,
+    a: <TopicCell release={release} id={f.source} />,
+    b: f.source === f.target ? <span className="topic-sub">{s('flow.same')}</span> : <TopicCell release={release} id={f.target} />,
+    shared: f.n,
+    sharedText: s('rf.n', { n: fmtInt(f.n) }),
+    simText: '',
+  }))
   return (
     <Section id="ref-flows" title={s('flow.h')} intro={s('flow.intro', { n: fmtInt(internal.min_flow) })}>
-      <DataTable
-        caption={t('table.n', { n: 2, title: s('flow.table') })}
-        rows={internal.flows}
-        columns={columns}
-        rowKey={(f) => `${f.source}-${f.target}`}
-        defaultSort={{ key: 'n', dir: 'desc' }}
-        csvFilename={`atlas-${release.overview.release}-references-flows.csv`}
-        empty={s('flow.none')}
-      />
+      {pairs.length ? (
+        <Figure
+          id="fig-flows"
+          number={2}
+          title={s('rf.fig')}
+          tableTitle={t('table.n', { n: 2, title: s('flow.table') })}
+          csv={figureCsv(`atlas-${rel}-references-flows.csv`, internal.flows, columns)}
+          how={<p>{s('rf.how')}</p>}
+          source={t('source.line', { release: rel })}
+          view={state.flow}
+          onView={(v) => update({ flow: v })}
+          chart={<BridgePairs rows={pairs} label={s('rf.label', { n: fmtInt(pairs.length) })} directed />}
+          table={table}
+          note={internal.flows.length > pairs.length ? <p className="br-more">{s('rf.more', { n: fmtInt(internal.flows.length - pairs.length) })}</p> : null}
+        />
+      ) : (
+        table
+      )}
     </Section>
   )
 }
@@ -286,6 +358,7 @@ function TopicTable({ release, rows }: { release: AtlasRelease; rows: readonly T
         rowKey={(r) => r.topic}
         defaultSort={{ key: 'received', dir: 'desc' }}
         csvFilename={`atlas-${release.overview.release}-references-topics.csv`}
+        limit={TOPIC_ROWS}
       />
     </Section>
   )

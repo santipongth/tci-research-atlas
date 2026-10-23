@@ -1,23 +1,29 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
 import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
+import { StatusChip } from '../components/StatusGlyph'
 import { TopicLink } from '../components/TopicLink'
 import { MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { SearchMeta, SearchVocab } from '../data/types'
 import { toBibtex, toRis, type CiteRecord } from '../lib/citation'
 import { downloadText, toCsv, type CsvColumn } from '../lib/csv'
 import { fmtInt } from '../lib/format'
+import { buildSearchIndex, topicsForWords } from '../lib/search'
 import { useI18n, useStrings } from '../lib/i18n'
 import { facet, filterHits, popularWords, type SearchHit, type SearchOutcome } from '../lib/searchClient'
 import { useArticleSearch, useSearchSource } from '../lib/useArticleSearch'
+import { useMediaQuery } from '../lib/useMediaQuery'
+import { statusName } from '../lib/topicText'
 import { searchCodec, type SearchUrlState } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { search } from '../strings/search'
 
 const PAGE = 50
+/** Topic cards above the articles. */
+const TOPIC_CARDS = 5
 /** Thai script (U+0E00–U+0E7F), built from code points: the codebase never writes a backslash-u escape. */
 const THAI = new RegExp(`[${String.fromCodePoint(0x0e00)}-${String.fromCodePoint(0x0e7f)}]`)
 
@@ -52,6 +58,8 @@ function Search({ release, meta }: { release: AtlasRelease; meta: SearchMeta }) 
       ) : !q ? (
         src.status === 'ready' ? <Tips vocab={src.vocab} /> : null
       ) : (
+        <>
+        <TopicMatches release={release} q={q} words={result.status === 'ready' ? result.outcome.known : []} />
         <section className="sec srch-results" aria-labelledby="srch-results-h">
           <h2 id="srch-results-h">{s('res.h')}</h2>
           {result.status === 'ready' ? (
@@ -62,8 +70,49 @@ function Search({ release, meta }: { release: AtlasRelease; meta: SearchMeta }) 
             <p className="loading" role="status">{s('res.loading')}</p>
           )}
         </section>
+        </>
       )}
     </div>
+  )
+}
+
+/** Topics whose names or keywords match the query or its known words (the header box's search), as up to five cards. */
+function TopicMatches({ release, q, words }: { release: AtlasRelease; q: string; words: readonly string[] }) {
+  const s = useStrings(search)
+  const { t, other, otherLang } = useI18n()
+  const index = useMemo(() => buildSearchIndex(release.topics.map((tp) => ({ id: tp.id, th: tp.th, en: tp.en, keywords: tp.keywords ?? [], size: tp.size }))), [release])
+  const hits = topicsForWords(index, q, words, TOPIC_CARDS).map((h) => release.topicById.get(h.id)).filter((tp) => tp !== undefined)
+  if (hits.length === 0) return null
+  return (
+    <section className="sec srch-topics" aria-labelledby="srch-topics-h">
+      <h2 id="srch-topics-h">{s('tp.h')}</h2>
+      <p className="intro">{s('tp.intro')}</p>
+      <ul className="srch-tp-list" aria-label={s('tp.label', { n: fmtInt(hits.length) })}>
+        {hits.map((tp) => (
+          <li key={tp.id} className="srch-tp">
+            <p className="srch-tp-name"><TopicLink topic={tp} /></p>
+            {other(tp) ? <p className="srch-tp-alt" lang={otherLang}>{other(tp)}</p> : null}
+            <p className="srch-tp-meta">
+              <StatusChip status={tp.status} label={statusName(t, tp.status)} small />
+              <span>{s('tp.size', { n: fmtInt(tp.size) })}</span>
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** On phones the filters and downloads fold into one closed disclosure, so the first result starts higher. */
+function ToolsFold({ children }: { children: ReactNode }) {
+  const s = useStrings(search)
+  const narrow = useMediaQuery('(max-width: 640px)')
+  if (!narrow) return <>{children}</>
+  return (
+    <details className="how srch-fold">
+      <summary>{s('tools.toggle')}</summary>
+      <div>{children}</div>
+    </details>
   )
 }
 
@@ -157,14 +206,18 @@ function Results({ release, meta, outcome, state, update }: {
         {outcome.unknown.length ? <p className="srch-unknown">{s('res.unknown', { words: quoted(outcome.unknown) })}</p> : null}
         {!outcome.complete ? <p className="srch-partial">{s('res.partial', { total: fmtInt(outcome.total), examined: fmtInt(outcome.examined) })}</p> : null}
       </div>
-      {outcome.total > 0 ? <Filters release={release} meta={meta} outcome={outcome} state={state} update={update} topicName={topicName} /> : null}
+      {outcome.total > 0 ? (
+        <ToolsFold>
+          <Filters release={release} meta={meta} outcome={outcome} state={state} update={update} topicName={topicName} />
+          {filtered.length ? <Exports release={release} rows={capped} topicName={topicName} /> : null}
+        </ToolsFold>
+      ) : null}
       {outcome.total === 0 ? (
         <p className="note">{s('res.none')}</p>
       ) : filtered.length === 0 ? (
         <p className="note">{s('res.noneFiltered')}</p>
       ) : (
         <>
-          <Exports release={release} rows={capped} topicName={topicName} />
           <p className="hint srch-order">
             {s('res.order')}
             {filtered.length > capped.length ? ` · ${s('res.capped', { n: fmtInt(capped.length) })}` : ''}

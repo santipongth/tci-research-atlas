@@ -84,3 +84,19 @@ export function searchTopics(index: SearchIndex, query: string, limit = 10): Sea
   hits.sort((a, b) => b.score - a.score || b.size - a.size || a.id.localeCompare(b.id))
   return hits.slice(0, limit).map(({ id, score }) => ({ id, score }))
 }
+
+/**
+ * Topics for the words of an article search (/search): the whole query first, then each word the article index knew
+ * (so "ผู้สูงอายุควอนตัม" still finds the ageing topics), best score per topic, at most `limit`.
+ */
+export function topicsForWords(index: SearchIndex, query: string, words: readonly string[], limit = 5): SearchHit[] {
+  const best = new Map<string, SearchHit & { order: number }>()
+  let order = 0
+  for (const q of [query, ...words]) {
+    for (const h of searchTopics(index, q, limit)) {
+      const prev = best.get(h.id)
+      if (!prev || h.score > prev.score) best.set(h.id, { ...h, order: prev?.order ?? order++ })
+    }
+  }
+  return [...best.values()].sort((a, b) => b.score - a.score || a.order - b.order).slice(0, limit).map(({ id, score }) => ({ id, score }))
+}

@@ -21,7 +21,7 @@ describe('URL state codecs', () => {
   it('compare: keeps the order, drops duplicates and bad ids, caps at four', () => {
     const ids = compareCodec.parse(new URLSearchParams('ids=T000701,T000201,T000701,X,T000101,T000102,T000103')).ids
     expect(ids).toEqual(['T000701', 'T000201', 'T000101', 'T000102'])
-    const s = { ids: ['T000201', 'T000701'], metric: 'count', view: 'table' } as const
+    const s = { ids: ['T000201', 'T000701'], metric: 'count', view: 'table', layout: 'grid' } as const
     expect(compareCodec.parse(compareCodec.write({ ...s, ids: [...s.ids] }))).toEqual(s)
   })
 

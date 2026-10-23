@@ -1,3 +1,5 @@
+import { BarRank } from '../charts/BarRank'
+import type { RankRow } from '../charts/infographic'
 import { MultiLineChart, type LineSeries } from '../charts/MultiLineChart'
 import { tickDecimals } from '../charts/scale'
 import { DataTable, type Column } from '../components/DataTable'
@@ -13,11 +15,14 @@ import { TopicLink } from '../components/TopicLink'
 import { MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { MethodShare, MethodsFile, Topic, TopicMethods } from '../data/types'
 import { DASH, fmtInt, fmtPct } from '../lib/format'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStrings } from '../lib/i18n'
 import { withPrimary } from '../lib/columns'
 import { figureCsv } from '../lib/tableCsv'
 import { methodsCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
+import { editorViz } from '../strings/editorViz'
+
+const TOP_METHODS = 6
 
 export default function MethodsPage() {
   const { t } = useI18n()
@@ -34,6 +39,7 @@ export default function MethodsPage() {
 
 function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }) {
   const { t, lang } = useI18n()
+  const s = useStrings(editorViz)
   const [state, update] = useUrlState(methodsCodec)
   const info = new Map(file.methods.map((m) => [m.key, m]))
   const mName = (key: string) => {
@@ -83,6 +89,13 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
     },
   ], ['articles', 'top', 'mono'])
   const topMethod = [...file.corpus].sort((a, b) => b.count - a.count)[0]
+  // every method on one scale (relative to the most used), so the folded rest reads against the top ones
+  const maxCount = Math.max(0, ...file.corpus.map((m) => m.count))
+  const shareOf = new Map(file.corpus.map((m) => [m.method, m]))
+  const ranked: RankRow[] = [...file.corpus]
+    .sort((a, b) => b.count - a.count)
+    .map((m) => ({ key: mName(m.method), id: m.method, count: m.count, frac: maxCount > 0 ? m.count / maxCount : 0 }))
+  const methodValue = (r: RankRow) => s('mb.val', { p: fmtPct(shareOf.get(r.id ?? '')?.share ?? null, 0), n: fmtInt(r.count) })
   const notes = file.topics.filter((r) => r.note && release.topicById.has(r.topic))
   return (
     <div className="container">
@@ -113,9 +126,35 @@ function Methods({ release, file }: { release: AtlasRelease; file: MethodsFile }
           />
         </Section>
       ) : null}
-      <Section id="corpus" title={t('me.corpus.h')}>
-        <DataTable caption={t('table.n', { n: 2, title: t('me.corpus.table', { a: w.start, b: w.end }) })} rows={file.corpus} columns={corpusColumns} rowKey={(m) => m.method} defaultSort={{ key: 'count', dir: 'desc' }} csvFilename={`atlas-${rel}-methods.csv`} />
-      </Section>
+      {ranked.length ? (
+        <Section id="corpus" title={t('me.corpus.h')}>
+          <Figure
+            id="fig-corpus"
+            number={series.length && by.years.length ? 2 : 1}
+            title={s('mb.fig', { a: w.start, b: w.end })}
+            tableTitle={t('table.n', { n: 2, title: t('me.corpus.table', { a: w.start, b: w.end }) })}
+            csv={figureCsv(`atlas-${rel}-methods.csv`, file.corpus, corpusColumns)}
+            how={<p>{s('mb.how')}</p>}
+            source={source}
+            view={state.corpus}
+            onView={(v) => update({ corpus: v })}
+            chart={
+              <>
+                <BarRank rows={ranked.slice(0, TOP_METHODS)} value={methodValue} label={s('mb.label')} />
+                {ranked.length > TOP_METHODS ? (
+                  <details className="how br-rest">
+                    <summary>{s('mb.more', { n: fmtInt(ranked.length - TOP_METHODS) })}</summary>
+                    <div>
+                      <BarRank rows={ranked.slice(TOP_METHODS)} value={methodValue} label={s('mb.label')} />
+                    </div>
+                  </details>
+                ) : null}
+              </>
+            }
+            table={<DataTable caption={t('table.n', { n: 2, title: t('me.corpus.table', { a: w.start, b: w.end }) })} rows={file.corpus} columns={corpusColumns} rowKey={(m) => m.method} defaultSort={{ key: 'count', dir: 'desc' }} />}
+          />
+        </Section>
+      ) : null}
       {file.topics.length ? (
         <Section
           id="topics"

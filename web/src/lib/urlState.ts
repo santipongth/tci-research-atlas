@@ -130,11 +130,14 @@ export interface CompareUrlState {
   ids: string[]
   metric: 'share' | 'count'
   view: View
+  /** one chart with every line, or one small chart per topic on a shared scale */
+  layout: 'one' | 'grid'
 }
 export const compareCodec = makeCodec<CompareUrlState>({
   ids: topicList('ids', 4),
   metric: oneOf('metric', ['share', 'count'] as const, 'share'),
   view: oneOf('view', VIEWS, 'chart'),
+  layout: oneOf('layout', ['one', 'grid'] as const, 'one'),
 })
 
 export const overviewCodec = makeCodec<{ wf: View; st: View; pf: View }>({ wf: oneOf('wf', VIEWS, 'chart'), st: oneOf('st', VIEWS, 'chart'), pf: oneOf('pf', VIEWS, 'chart') })
@@ -147,15 +150,18 @@ export interface JournalsUrlState {
   tier: (typeof TIERS)[number]
   sort: JournalSort
   dir: 'asc' | 'desc'
+  view: View
 }
 export const journalsCodec = makeCodec<JournalsUrlState>({
   q: text('q', 80),
   tier: oneOf('tier', TIERS, 'all'),
   sort: oneOf('sort', JOURNAL_SORTS, 'articles'),
   dir: oneOf('dir', ['asc', 'desc'] as const, 'desc'),
+  view: oneOf('view', VIEWS, 'chart'),
 })
-export const journalCodec = makeCodec<{ drift: View }>({ drift: oneOf('drift', VIEWS, 'chart') })
-export const methodsCodec = makeCodec<{ trend: View; mono: 'all' | 'only' }>({ trend: oneOf('trend', VIEWS, 'chart'), mono: oneOf('mono', ['all', 'only'] as const, 'all') })
+export const journalCodec = makeCodec<{ drift: View; mix: View; comp: View }>({ drift: oneOf('drift', VIEWS, 'chart'), mix: oneOf('mix', VIEWS, 'chart'), comp: oneOf('comp', VIEWS, 'chart') })
+export const methodsCodec = makeCodec<{ trend: View; corpus: View; mono: 'all' | 'only' }>({ trend: oneOf('trend', VIEWS, 'chart'), corpus: oneOf('corpus', VIEWS, 'chart'), mono: oneOf('mono', ['all', 'only'] as const, 'all') })
+export const referencesCodec = makeCodec<{ jr: View; flow: View }>({ jr: oneOf('jr', VIEWS, 'chart'), flow: oneOf('flow', VIEWS, 'chart') })
 export const INST_SORTS = ['name', 'province', 'articles', 'recent', 'intl', 'partners'] as const
 export type InstSort = (typeof INST_SORTS)[number]
 export const INST_TYPE_FILTERS = ['all', 'university', 'rajabhat', 'rajamangala', 'hospital', 'government', 'research', 'company', 'other'] as const

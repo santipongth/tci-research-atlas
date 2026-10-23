@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Link } from 'react-router'
+import { galaxyPicks } from '../charts/editorLayout'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
 import { Figure } from '../components/Figure'
@@ -155,6 +156,8 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
     setMissed(fromKeyboard && i === null)
   }
   const cardPoint = sel ?? preview
+  // three example articles from the largest fields, for the empty side panel
+  const picks = useMemo(() => galaxyPicks(points, fields.map((f) => f.slot), 3), [points, fields])
 
   const filtering = state.from !== null || state.to !== null || slot !== null
   const rel = release.overview.release
@@ -229,7 +232,6 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
           source={t('source.line', { release: rel })}
           view={state.view}
           onView={(v) => update({ view: v })}
-          legend={legend}
           chart={
             <div className="gx-layout">
               <Stage
@@ -247,10 +249,34 @@ function GalaxyBody({ release, file }: { release: AtlasRelease; file: GalaxyFile
               <aside className="gx-side" aria-labelledby="gx-card-h">
                 <h2 className="gx-card-h" id="gx-card-h">{s('card.h')}</h2>
                 {cardPoint === null ? (
-                  <p className="gx-card-empty" aria-live="polite">{missed ? s('card.none') : s('card.empty')}</p>
+                  <>
+                    <p className="gx-card-empty" aria-live="polite">{missed ? s('card.none') : s('card.empty')}</p>
+                    {picks.length ? (
+                      <div className="gx-try">
+                        <p className="gx-try-h" id="gx-try-h">{s('try.h')}</p>
+                        <p className="hint">{s('try.intro')}</p>
+                        <ul className="gx-try-list" aria-labelledby="gx-try-h">
+                          {picks.map((i) => {
+                            const tp = release.topicById.get(file.topics[points.topic[i]])
+                            if (!tp) return null
+                            return (
+                              <li key={i}>
+                                <button type="button" className="gx-try-btn" onClick={() => onPick(i)}>
+                                  <span className="gx-swatch" style={{ background: rgbCss(palette.slots[points.slot[i]]) }} aria-hidden="true" />
+                                  <span className="gx-try-t">{s('try.pick', { t: lang === 'en' ? tp.en || tp.th : tp.th || tp.en })}</span>
+                                  <span className="gx-try-f">{groupName(release, tp.group, lang)} · {points.yr[i]}</span>
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </>
                 ) : (
                   <Card key={cardPoint} release={release} file={file} points={points} index={cardPoint} meta={meta} palette={palette} pinned={sel !== null} onClear={() => onPick(null)} />
                 )}
+                {legend}
               </aside>
             </div>
           }

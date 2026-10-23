@@ -34,6 +34,9 @@ export const galaxy = defineStrings({
   'legend.none': { th: 'ไม่ระบุสาขา', en: 'No field' },
   'legend.note': { th: 'สีบางสาขาใกล้กัน ชื่อสาขาบนภาพและการ์ดบทความจึงบอกสาขาเสมอ', en: 'Some field colours are close; the names on the picture and the article card always say the field.' },
 
+  'try.h': { th: 'ลองคลิก', en: 'Try one' },
+  'try.intro': { th: 'บทความตัวอย่างจากสาขาที่ใหญ่ที่สุด กดเพื่อดูบนแผนที่', en: 'An example article from each of the largest fields; press one to see it on the map.' },
+  'try.pick': { th: 'บทความเรื่อง{t}', en: 'An article on {t}' },
   'card.h': { th: 'บทความที่เลือก', en: 'Selected article' },
   'card.empty': { th: 'ชี้หรือแตะจุดบนภาพเพื่อดูชื่อบทความ วารสาร และลิงก์ไปอ่าน', en: 'Point at or tap a dot to see the article’s title, journal and a link to read it.' },
   'card.loading': { th: 'กำลังโหลดบทความ…', en: 'Loading the article…' },

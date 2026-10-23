@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Section } from '../../components/Section'
 import { useAtlas } from '../../data/atlasContext'
 import { hasModule, MODULE_FILES, type AtlasRelease, type ModuleName } from '../../data/release'
 import { dataUrl } from '../../data/source'
@@ -24,7 +23,7 @@ const INFO: Record<ModuleName, StrKey> = {
   kwtrends: 'data.file.kwtrends',
 }
 
-/** Files of the optional modules: direct links on the web; on the offline file, rebuilt from the embedded data. */
+/** Files of the optional modules (a sub-part of /data's developers section): direct links on the web; on the offline file, rebuilt from the embedded data. */
 export function ModuleDownloads({ release }: { release: AtlasRelease }) {
   const { t } = useI18n()
   const atlas = useAtlas()
@@ -35,7 +34,9 @@ export function ModuleDownloads({ release }: { release: AtlasRelease }) {
   const present = (Object.keys(MODULE_FILES) as ModuleName[]).filter((m) => hasModule(release, m))
   if (present.length === 0) return null
   return (
-    <Section id="modules" title={t('data.mod.h')} intro={t('data.mod.intro')}>
+    <div className="dev-sub" id="modules">
+      <h3 tabIndex={-1}>{t('data.mod.h')}</h3>
+      <p className="intro">{t('data.mod.intro')}</p>
       <ul className="dl-list">
         {present.map((m) => {
           const path = MODULE_FILES[m]
@@ -69,6 +70,6 @@ export function ModuleDownloads({ release }: { release: AtlasRelease }) {
           )
         })}
       </ul>
-    </Section>
+    </div>
   )
 }

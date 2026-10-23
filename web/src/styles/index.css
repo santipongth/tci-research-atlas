@@ -15,6 +15,7 @@
 @import "./embed.css";
 @import "./infographic.css";
 @import "./execviz.css";
+@import "./editorviz.css";
 @import "./print.css";
 
 /* Tailwind utilities read the design tokens; components use the tokens directly. */

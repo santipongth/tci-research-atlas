@@ -7,6 +7,8 @@ import { ModuleFile } from '../components/ModuleFile'
 import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
+import { Sparkline } from '../components/StatTile'
+import { riserOf } from '../charts/editorLayout'
 import { MultiLineChart, type LineSeries } from '../charts/MultiLineChart'
 import { tickDecimals } from '../charts/scale'
 import { assignSlots, SERIES_DASHES } from '../charts/series'
@@ -26,7 +28,8 @@ import { useUrlState } from '../lib/useUrlState'
 import { keywords as KW } from '../strings/keywords'
 
 const DEFAULT_PICK = 3
-const GLOSSARY_PAGE = 20
+const GLOSSARY_PAGE = 10
+const RISERS = 6
 
 export default function KeywordsPage() {
   const s = useStrings(KW)
@@ -104,7 +107,7 @@ function Keywords({ release, file }: { release: AtlasRelease; file: KwTrendsFile
   const full = chosen.length >= KEYWORD_MAX
   const exclude = new Set(keys)
   const top = file.keywords.filter((k) => !exclude.has(kwKey(k))).slice(0, 4)
-  const rising = risingKeywords(file, 8).filter((k) => !exclude.has(kwKey(k)) && !top.includes(k)).slice(0, 4)
+  const risers = risingKeywords(file, RISERS)
   const years = file.years
   const series: LineSeries[] = chosen.map((k) => ({ id: kwKey(k), label: k.term, slot: slots[kwKey(k)], values: shareOf(file, k) }))
   const first = chosen[0]
@@ -153,9 +156,9 @@ function Keywords({ release, file }: { release: AtlasRelease; file: KwTrendsFile
         ) : null}
         <div className="kw-suggest">
           {suggest(s('try.top'), top)}
-          {suggest(s('try.rising'), rising)}
         </div>
       </div>
+      {risers.length && years.length ? <Risers file={file} risers={risers} chosen={exclude} full={full} onAdd={add} /> : null}
 
       <Section id="kw-trend" title={s('chart.h')}>
         {chosen.length === 0 || years.length === 0 ? (
@@ -205,6 +208,41 @@ function Keywords({ release, file }: { release: AtlasRelease; file: KwTrendsFile
 
       <Glossary file={file} release={release} query={state.gq} onQuery={(gq) => update({ gq })} />
     </div>
+  )
+}
+
+/** "คำที่กำลังมา": the fastest-rising keywords as chips — the word, an ink sparkline of its share and the change in
+ *  numbers; pressing one adds it to the chart. A suggestion strip, not a statistic (risingKeywords). */
+function Risers({ file, risers, chosen, full, onAdd }: { file: KwTrendsFile; risers: readonly KeywordTrend[]; chosen: ReadonlySet<string>; full: boolean; onAdd: (key: string) => void }) {
+  const s = useStrings(KW)
+  const years = file.years
+  return (
+    <section className="kr" aria-labelledby="kr-h">
+      <h2 id="kr-h" className="kr-h">{s('kr.h')}</h2>
+      <p className="kr-intro">{s('kr.intro', { a: `${years[0]}–${years[1]}`, b: `${years[years.length - 2]}–${years[years.length - 1]}` })}</p>
+      <ul className="kr-list" aria-label={s('kr.label')}>
+        {risers.map((k) => {
+          const shares = shareOf(file, k)
+          const r = riserOf(years, shares)
+          const on = chosen.has(kwKey(k))
+          return (
+            <li key={kwKey(k)}>
+              <button
+                type="button"
+                className={on ? 'kr-chip is-on' : 'kr-chip'}
+                disabled={on || full}
+                onClick={() => onAdd(kwKey(k))}
+              >
+                <span className="kr-term"><span className="sr-only">{s('kr.addSr')} </span><span lang={k.lang}>{k.term}</span></span>
+                <Sparkline values={shares} width={96} height={24} />
+                {r ? <span className="kr-d">{sharePct(r.from)} → <b>{sharePct(r.to)}</b></span> : null}
+                {on ? <span className="kr-on">{s('kr.shown')}</span> : null}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

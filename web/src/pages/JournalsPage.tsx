@@ -1,4 +1,7 @@
+import type { ScatterPoint } from '../charts/editorLayout'
+import { JournalScatter } from '../charts/JournalScatter'
 import { DataTable, type Column } from '../components/DataTable'
+import { Figure } from '../components/Figure'
 import { HowNote } from '../components/HowNote'
 import { JournalLink } from '../components/JournalLink'
 import { ModuleFile } from '../components/ModuleFile'
@@ -6,16 +9,19 @@ import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { ShareBar } from '../components/ShareBar'
+import { StatusChip } from '../components/StatusGlyph'
 import { TopicLink } from '../components/TopicLink'
 import { groupName, MODULE_FILES, type AtlasRelease } from '../data/release'
 import type { JournalSummary, JournalsFile, SpecialIssueTopic, Topic } from '../data/types'
 import { DASH, fmtInt, fmtNum, fmtPct } from '../lib/format'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStrings } from '../lib/i18n'
 import { withPrimary } from '../lib/columns'
 import { filterJournals, inhouseFlag, inhouseGap, journalName } from '../lib/journals'
+import { figureCsv } from '../lib/tableCsv'
 import { statusName } from '../lib/topicText'
-import { JOURNAL_SORTS, journalsCodec, TIERS, type JournalSort } from '../lib/urlState'
+import { JOURNAL_SORTS, journalsCodec, TIERS, type JournalSort, type JournalsUrlState } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
+import { editorViz } from '../strings/editorViz'
 
 export default function JournalsPage() {
   const { t } = useI18n()
@@ -93,9 +99,10 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
         </label>
         <p className="hint" role="status">{t('jr.count', { n: fmtInt(rows.length), total: fmtInt(file.journals.length) })}</p>
       </div>
+      <Scatter release={release} file={file} rows={rows} view={state.view} update={update} />
       <Section id="journals" title={t('jr.table', { a: w.start, b: w.end })}>
         <DataTable
-          caption={t('table.n', { n: 1, title: t('jr.table', { a: w.start, b: w.end }) })}
+          caption={t('table.n', { n: 2, title: t('jr.table', { a: w.start, b: w.end }) })}
           rows={rows}
           columns={columns}
           rowKey={(j) => j.id}
@@ -112,38 +119,125 @@ function Journals({ release, file }: { release: AtlasRelease; file: JournalsFile
   )
 }
 
+/** The two figures editors can act on before an assessment: complete records (x) and authors from the owner (y). */
+function Scatter({ release, file, rows, view, update }: {
+  release: AtlasRelease
+  file: JournalsFile
+  rows: readonly JournalSummary[]
+  view: JournalsUrlState['view']
+  update: (patch: Partial<JournalsUrlState>) => void
+}) {
+  const { t, lang } = useI18n()
+  const s = useStrings(editorViz)
+  const plotted = rows.filter((j) => j.completeness != null && j.inhouse_share != null)
+  if (plotted.length === 0) return null
+  const flagAt = file.inhouse_flag_share ?? null
+  const byId = new Map(plotted.map((j) => [j.id, j]))
+  const points: ScatterPoint[] = plotted.map((j) => ({
+    id: j.id, label: journalName(j, lang).text, x: j.completeness as number, y: j.inhouse_share as number, weight: j.articles_window, inferred: j.owner_source === 'inferred',
+  }))
+  const big = plotted.reduce((a, b) => (b.articles_window > a.articles_window ? b : a))
+  const zone = flagAt != null ? s('js.zone', { p: fmtPct(flagAt, 0) }) : ''
+  const columns: Column<JournalSummary>[] = [
+    { key: 'name', csvHeader: 'journal_id', header: t('col.journal'), rowHeader: true, cell: (j) => <JournalLink journal={j} />, sortValue: (j) => journalName(j, lang).text, csv: (j) => j.id },
+    { key: 'completeness', csvHeader: 'completeness', header: t('col.completeness'), unit: t('unit.of100'), numeric: true, cell: (j) => fmtNum(j.completeness ?? null, 1), sortValue: (j) => j.completeness ?? null },
+    { key: 'inhouse', csvHeader: 'inhouse_share', header: t('col.inhouse'), numeric: true, cell: (j) => fmtPct(j.inhouse_share ?? null, 0), sortValue: (j) => j.inhouse_share ?? null },
+    { key: 'articles', csvHeader: 'articles_window', header: t('col.articlesW'), numeric: true, cell: (j) => fmtInt(j.articles_window), sortValue: (j) => j.articles_window },
+  ]
+  const rel = release.overview.release
+  const title = s('js.fig')
+  return (
+    <Section
+      id="scatter"
+      title={s('js.h')}
+      intro={s('js.intro', { j: journalName(big, lang).text, c: fmtNum(big.completeness ?? null, 0), p: fmtPct(big.inhouse_share ?? null, 0) })}
+    >
+      <Figure
+        id="fig-journals"
+        number={1}
+        title={title}
+        tableTitle={t('table.n', { n: 1, title: s('js.table') })}
+        csv={figureCsv(`atlas-${rel}-journals-scatter.csv`, plotted, columns)}
+        how={<p>{flagAt != null ? s('js.how', { p: fmtPct(flagAt, 0) }) : s('js.howNoBar')}</p>}
+        source={t('source.line', { release: rel })}
+        view={view}
+        onView={(v) => update({ view: v })}
+        chart={
+          <JournalScatter
+            points={points}
+            yRef={flagAt}
+            text={{ x: s('js.x'), y: s('js.y'), zone, owner: s('js.owner'), inferred: s('js.inferred') }}
+            label={s('js.label', { n: fmtInt(points.length) })}
+            pct={(v, d) => fmtPct(v, d)}
+            describe={(p) => {
+              const j = byId.get(p.id) as JournalSummary
+              return s('js.tip', { j: p.label, c: fmtNum(p.x, 1), p: fmtPct(p.y, 0), n: fmtInt(j.articles_window) })
+            }}
+          />
+        }
+        table={<DataTable caption={t('table.n', { n: 1, title: s('js.table') })} rows={plotted} columns={columns} rowKey={(j) => j.id} defaultSort={{ key: 'articles', dir: 'desc' }} />}
+        note={rows.length > plotted.length ? <p className="note">{s('js.left', { n: fmtInt(rows.length - plotted.length) })}</p> : null}
+      />
+    </Section>
+  )
+}
+
 function SpecialIssues({ release, file }: { release: AtlasRelease; file: JournalsFile }) {
   const { t, lang, name } = useI18n()
-  const rows = (file.special_issue ?? []).filter((s) => release.topicById.has(s.topic))
+  const s = useStrings(editorViz)
+  const rows = (file.special_issue ?? []).filter((x) => release.topicById.has(x.topic))
   if (rows.length === 0) return null
-  const topicOf = (s: SpecialIssueTopic) => release.topicById.get(s.topic) as Topic
-  const columns: Column<SpecialIssueTopic>[] = [
-    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (s) => <TopicLink topic={topicOf(s)} showStatus />, sortValue: (s) => s.topic, csv: (s) => s.topic },
-    { key: 'hosts', csvHeader: 'hosts', header: t('col.hosts'), numeric: true, firstDir: 'asc', cell: (s) => fmtInt(s.hosts), sortValue: (s) => s.hosts },
-    { key: 'top', csvHeader: 'top_host_share', header: t('col.topHost'), numeric: true, cell: (s) => fmtPct(s.top_host_share, 0), sortValue: (s) => s.top_host_share },
-    { key: 'articles', csvHeader: 'articles_recent', header: t('col.articlesR', { r: `${file.recent.start}–${file.recent.end}` }), numeric: true, cell: (s) => fmtInt(s.articles_recent), sortValue: (s) => s.articles_recent },
-  ]
+  const topicOf = (x: SpecialIssueTopic) => release.topicById.get(x.topic) as Topic
   const r = file.recent
-  // the example in the intro: the topic the fewest journals publish
-  const example = rows.reduce((a, b) => (b.hosts < a.hosts ? b : a))
+  const span = `${r.start}–${r.end}`
+  const columns: Column<SpecialIssueTopic>[] = [
+    { key: 'topic', csvHeader: 'topic_id', header: t('col.topic'), rowHeader: true, cell: (x) => <TopicLink topic={topicOf(x)} showStatus />, sortValue: (x) => x.topic, csv: (x) => x.topic },
+    { key: 'hosts', csvHeader: 'hosts', header: t('col.hosts'), numeric: true, firstDir: 'asc', cell: (x) => fmtInt(x.hosts), sortValue: (x) => x.hosts },
+    { key: 'top', csvHeader: 'top_host_share', header: t('col.topHost'), numeric: true, cell: (x) => fmtPct(x.top_host_share, 0), sortValue: (x) => x.top_host_share },
+    { key: 'articles', csvHeader: 'articles_recent', header: t('col.articlesR', { r: span }), numeric: true, cell: (x) => fmtInt(x.articles_recent), sortValue: (x) => x.articles_recent },
+  ]
+  // fewest journals first: the clearest openings lead
+  const cards = [...rows].sort((a, b) => a.hosts - b.hosts || b.articles_recent - a.articles_recent)
+  const example = cards[0]
   return (
     <Section
       id="special-issues"
       title={t('jr.si.h')}
       intro={t('jr.si.intro', {
         topic: name(topicOf(example)), h: fmtInt(example.hosts),
-        statuses: (file.special_issue_statuses ?? []).map((s) => statusName(t, s)).join(lang === 'en' ? ' or ' : 'หรือ'),
+        statuses: (file.special_issue_statuses ?? []).map((st) => statusName(t, st)).join(lang === 'en' ? ' or ' : 'หรือ'),
         max: fmtInt(file.special_issue_max_hosts ?? 0), a: r.start, b: r.end,
       })}
     >
-      <DataTable
-        caption={t('table.n', { n: 2, title: t('jr.si.table') })}
-        rows={rows}
-        columns={columns}
-        rowKey={(s) => s.topic}
-        defaultSort={{ key: 'hosts', dir: 'asc' }}
-        csvFilename={`atlas-${release.overview.release}-special-issues.csv`}
-      />
+      <ul className="si-cards" aria-label={s('si.cards')}>
+        {cards.map((x) => {
+          const tp = topicOf(x)
+          return (
+            <li key={x.topic} className="si-card">
+              <StatusChip status={tp.status} label={statusName(t, tp.status)} small />
+              <p className="si-name"><TopicLink topic={tp} /></p>
+              <dl className="si-nums">
+                <div><dt>{t('col.hosts')}</dt><dd>{fmtInt(x.hosts)}</dd></div>
+                <div><dt>{t('col.topHost')}</dt><dd>{fmtPct(x.top_host_share, 0)}</dd></div>
+                <div><dt>{t('col.articlesR', { r: span })}</dt><dd>{fmtInt(x.articles_recent)}</dd></div>
+              </dl>
+            </li>
+          )
+        })}
+      </ul>
+      <details className="how si-table">
+        <summary>{s('si.asTable')}</summary>
+        <div>
+          <DataTable
+            caption={t('table.n', { n: 3, title: t('jr.si.table') })}
+            rows={rows}
+            columns={columns}
+            rowKey={(x) => x.topic}
+            defaultSort={{ key: 'hosts', dir: 'asc' }}
+            csvFilename={`atlas-${release.overview.release}-special-issues.csv`}
+          />
+        </div>
+      </details>
       <HowNote><p>{t('jr.si.how', { min: fmtInt(file.special_issue_min_host_articles ?? 0) })}</p></HowNote>
     </Section>
   )

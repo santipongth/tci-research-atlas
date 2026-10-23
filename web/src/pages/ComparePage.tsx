@@ -1,5 +1,5 @@
 import { TopicName } from '../components/TopicName'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { DataTable, type Column } from '../components/DataTable'
 import { EmptyState } from '../components/EmptyState'
@@ -21,6 +21,9 @@ import { sortBy } from '../lib/sort'
 import { compareCodec } from '../lib/urlState'
 import { useUrlState } from '../lib/useUrlState'
 import { ciColumn, growthColumn, idColumn, journalsColumn, orgsColumn, shareColumn, statusColumn, topicColumn, type ColumnContext, columnContext } from './topicColumns'
+
+// one small chart per topic: loaded on demand (this page is in the entry chunk)
+const SmallMultiples = lazy(() => import('../charts/SmallMultiples'))
 
 export default function ComparePage() {
   const { t } = useI18n()
@@ -102,7 +105,7 @@ function Compare({ release }: { release: AtlasRelease }) {
     <div className="container">
       <PageHeader title={t('cmp.title')} lede={t('cmp.lede')} />
       <div className="cmp-picker">
-        <TopicSearch id="cmp-search" label={t('cmp.add')} onPick={add} exclude={state.ids} disabled={chosen.length >= 4} />
+        <TopicSearch id="cmp-search" label={t('cmp.add')} placeholder={t('cmp.addPh')} onPick={add} exclude={state.ids} disabled={chosen.length >= 4} />
         {chosen.length >= 4 ? <p className="hint" ref={hintRef} tabIndex={-1}>{t('cmp.max')}</p> : null}
         {chosen.length ? (
           <ul className="cmp-chips" ref={listRef} aria-label={t('cmp.chosen')}>
@@ -170,7 +173,28 @@ function Compare({ release }: { release: AtlasRelease }) {
                   ))}
                 </div>
               }
-              chart={<MultiLineChart years={years} series={series} format={format} axisFormat={axisFormat} label={figTitle} />}
+              chart={
+                <>
+                  <fieldset className="cmp-metric cmp-layout">
+                    <legend>{t('cmp.layout')}</legend>
+                    <label>
+                      <input type="radio" name="cmp-layout" checked={state.layout === 'one'} onChange={() => update({ layout: 'one' })} />
+                      <span>{t('cmp.layout.one')}</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="cmp-layout" checked={state.layout === 'grid'} onChange={() => update({ layout: 'grid' })} />
+                      <span>{t('cmp.layout.grid')}</span>
+                    </label>
+                  </fieldset>
+                  {state.layout === 'grid' ? (
+                    <Suspense fallback={<p className="loading" role="status">{t('loading')}</p>}>
+                      <SmallMultiples years={years} series={series} format={format} axisFormat={axisFormat} />
+                    </Suspense>
+                  ) : (
+                    <MultiLineChart years={years} series={series} format={format} axisFormat={axisFormat} label={figTitle} />
+                  )}
+                </>
+              }
               table={
                 <DataTable
                   caption={t('table.n', { n: 1, title: t('cmp.table') })}

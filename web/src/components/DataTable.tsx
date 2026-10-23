@@ -53,7 +53,7 @@ const headText = <R,>(c: Column<R>) => (c.unit ? `${c.header} (${c.unit})` : c.h
  * and (stack) label/value cards under 640 px. Sort is controlled (URL state) when `sort`/`onSort` are given.
  * Inside a `Figure` the caption row carries the numbered title and the CSV button, so the table leaves them out.
  */
-export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, defaultSort, csvFilename, stack = true, wide = false, selectedKey = null, empty, footnote }: {
+export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, defaultSort, csvFilename, stack = true, wide = false, selectedKey = null, empty, footnote, limit }: {
   caption: string
   rows: readonly R[]
   columns: readonly Column<R>[]
@@ -68,12 +68,15 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
   empty?: string
   /** a note under the table (e.g. what † means) */
   footnote?: string
+  /** show only the first `limit` rows (in the current order) with a "แสดงทั้งหมด" button; the CSV always has every row */
+  limit?: number
 }) {
   const { t } = useI18n()
   const frame = useFigureFrame()
   const tableId = useId()
   const [own, setOwn] = useState<SortState | null>(defaultSort ?? null)
   const [all, setAll] = useState(false)
+  const [allRows, setAllRows] = useState(false)
   const [openRows, setOpenRows] = useState<ReadonlySet<string>>(() => new Set())
   const active = sort !== undefined ? sort : own
   const sorted = useMemo(() => {
@@ -102,6 +105,8 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
     })
   const cellClass = (c: Column<R>, base?: string) => [base ?? '', c.numeric ? 'num' : '', c.className ?? '', nExtra && isExtra(c) ? 'col-extra' : ''].join(' ').trim() || undefined
   const showCsv = Boolean(csvFilename) && rows.length > 0 && !frame.csv
+  const cut = limit !== undefined && limit > 0 && sorted.length > limit
+  const visible = cut && !allRows ? sorted.slice(0, limit) : sorted
   return (
     <div className="tbl">
       {showCsv || nExtra ? (
@@ -149,7 +154,7 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
                 <td colSpan={shown.length + (rowToggle ? 1 : 0)} className="empty">{empty ?? t('table.empty')}</td>
               </tr>
             ) : (
-              sorted.map((r) => {
+              visible.map((r) => {
                 const k = rowKey(r)
                 const open = openRows.has(k)
                 return (
@@ -177,6 +182,13 @@ export function DataTable<R>({ caption, rows, columns, rowKey, sort, onSort, def
           </tbody>
         </table>
       </div>
+      {cut ? (
+        <p className="tbl-rows">
+          <button type="button" className="btn-secondary" aria-expanded={allRows} aria-controls={tableId} onClick={() => setAllRows((a) => !a)}>
+            {allRows ? t('table.firstRows', { n: limit }) : t('table.allRows', { n: sorted.length })}
+          </button>
+        </p>
+      ) : null}
       {footnote ? <p className="note tbl-foot">{footnote}</p> : null}
     </div>
   )

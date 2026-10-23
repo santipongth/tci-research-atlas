@@ -35,7 +35,6 @@ const r6 = (x) => Number(x.toFixed(6))
 const sum = (xs) => xs.reduce((a, b) => a + b, 0)
 const at = (years, values, wanted) => wanted.map((y) => values[years.indexOf(y)])
 const signed = (g) => `${g >= 0 ? '+' : '−'}${Math.abs(g * 100).toFixed(1)}%`
-const pct = (s) => `${(s * 100).toFixed(2)}%`
 
 // [id, th, en, subfield id, subfield name, topics: [th, en, keywords, status, flag]]
 const GROUPS = [
@@ -108,6 +107,14 @@ const HUBS = [[170, 180], [400, 160], [630, 190], [860, 170], [170, 470], [400, 
 const JOURNALS = ['วารสารวิชาการตัวอย่าง ก', 'วารสารวิชาการตัวอย่าง ข', 'วารสารวิชาการตัวอย่าง ค', 'Example Journal of Science', 'วารสารสังคมศาสตร์ตัวอย่าง', 'Example Review of Education']
 const ORGS = ['มหาวิทยาลัยตัวอย่าง ก', 'มหาวิทยาลัยตัวอย่าง ข', 'มหาวิทยาลัยราชภัฏตัวอย่าง', 'สถาบันวิจัยตัวอย่าง']
 const STATUS_TH = { EMERGING: 'กำลังเกิดใหม่', WATCH: 'จับตา', HOT: 'กำลังมาแรง', DECLINING: 'ลดลง', STABLE: 'คงที่', LOW_DATA: 'ข้อมูลน้อย' }
+const STATUS_EN = { EMERGING: 'Emerging', WATCH: 'Watch', HOT: 'Hot', DECLINING: 'Declining', STABLE: 'Stable', LOW_DATA: 'Low data' }
+// one plain line per status — the same wording as pipeline/atlas/narrative.py (STATUS_MEANING_TH/EN)
+const MEANING_TH = { EMERGING: 'หัวข้อเล็กที่ส่วนแบ่งโตเร็ว และมาจากหลายวารสารหลายสถาบัน', WATCH: 'โตเร็วเหมือนหัวข้อกำลังเกิดใหม่ แต่ยังมาจากไม่กี่แหล่ง', HOT: 'หัวข้อใหญ่ที่ส่วนแบ่งยังโตต่อ', DECLINING: 'ส่วนแบ่งลดลงชัดเจน', STABLE: 'ส่วนแบ่งยังไม่เปลี่ยนชัดเจน', LOW_DATA: 'บทความยังน้อยเกินกว่าจะบอกแนวโน้ม' }
+const MEANING_EN = { EMERGING: 'small topics whose share grows fast, across many journals and institutions', WATCH: 'growing as fast as emerging topics, but from too few sources', HOT: 'large topics whose share is still growing', DECLINING: 'share clearly falling', STABLE: 'no clear change in share', LOW_DATA: 'too few articles to tell a trend' }
+/** years written out, as the pipeline's public sentences do */
+const B_YEARS = '2017–2021'
+const R_YEARS = '2022–2024'
+const pct = (s) => `${(s * 100).toFixed(2)}%`
 
 function counts(status, flag) {
   if (flag === 'no_baseline') return YEARS.map((y) => (y < 2022 ? 0 : [18, 46, 95][y - 2022]))
@@ -242,14 +249,23 @@ function buildExample() {
         journal: JOURNALS[j], url: `https://so02.tci-thaijo.org/index.php/example${j}/article/view/${num}`, doi: `10.14456/example.${year}.${num}`, gx: null, gy: null,
       }
     })
-    const share = pct(t.metrics.share_recent)
-    const narrative = t._signal
-      ? {
-          th: `${t.th}อยู่ในสถานะ${STATUS_TH[t.status]} สัดส่วนบทความช่วง 2022–2024 อยู่ที่ ${share}${t.metrics.share_growth === null ? '' : ` และเปลี่ยนแปลง ${signed(t.metrics.share_growth)} ต่อปี`} (ข้อมูลตัวอย่าง)`,
-          en: `${t.en} is ${t.status.toLowerCase()}: ${share} of articles in 2022–2024${t.metrics.share_growth === null ? '' : `, changing ${signed(t.metrics.share_growth)} a year`} (sample data).`,
-          source: 'template',
-        }
-      : null
+    // the pipeline's template sentence (narrative.template_narrative): years written out, a unit on every number
+    const m = t.metrics
+    const nR = m.count_recent.toLocaleString('en-US')
+    const up = m.share_recent > m.share_baseline
+    const narrative = !t._signal
+      ? null
+      : m.share_baseline === 0
+        ? {
+            th: `${t.th} เป็นหัวข้อใหม่ ปี ${B_YEARS} ยังไม่มีบทความเรื่องนี้ ส่วนปี ${R_YEARS} มี ${nR} บทความ คิดเป็น ${pct(m.share_recent)} ของบทความทั้งหมด (ข้อมูลตัวอย่าง)`,
+            en: `${t.en} is a new topic: there were no articles on it in ${B_YEARS}, and ${nR} in ${R_YEARS} (${pct(m.share_recent)} of all articles; sample data).`,
+            source: 'template',
+          }
+        : {
+            th: `${t.th}: ปี ${B_YEARS} หัวข้อนี้มี ${pct(m.share_baseline)} ของบทความทั้งหมด ปี ${R_YEARS} ${up ? 'เพิ่มขึ้นเป็น' : 'ลดลงเหลือ'} ${pct(m.share_recent)} (${nR} บทความ)${t.status === 'WATCH' ? ' — โตเร็ว แต่ยังมาจากไม่กี่แหล่ง' : ''} (ข้อมูลตัวอย่าง)`,
+            en: `${t.en}: ${pct(m.share_baseline)} of all articles in ${B_YEARS}; its share ${up ? 'rose to' : 'fell to'} ${pct(m.share_recent)} in ${R_YEARS} (${nR} articles)${t.status === 'WATCH' ? ' — growing fast, but from too few sources' : ''} (sample data).`,
+            source: 'template',
+          }
     return {
       schema_version: SCHEMA, id: t.id, articles,
       journals: [0, 1, 2].map((k) => ({ key: JOURNALS[(n + k) % JOURNALS.length], count: 40 - 11 * k })),
@@ -261,22 +277,14 @@ function buildExample() {
 
   const by = (st) => topics.filter((t) => t.status === st)
   const fastest = [...by('EMERGING')].sort((a, b) => b.metrics.share_growth - a.metrics.share_growth)[0]
-  const topHot = [...by('HOT')].sort((a, b) => b.metrics.share_recent - a.metrics.share_recent)[0]
-  const decl = [...by('DECLINING')].sort((a, b) => a.metrics.share_growth - b.metrics.share_growth)[0]
-  const watch = by('WATCH')[0]
+  // one bullet per status with topics: the count, an example and what the status means (narrative.template_brief)
+  const exampleOf = (st) => [...by(st)].sort((a, b) => (st === 'DECLINING' ? (a.metrics.share_growth ?? 0) - (b.metrics.share_growth ?? 0) : b.score - a.score))[0]
+  const shown = Object.keys(STATUS_TH).filter((st) => by(st).length)
   const brief = {
     headline_th: `รอบ ${RELEASE} มีหัวข้อกำลังเกิดใหม่ ${by('EMERGING').length} หัวข้อ และ${fastest.th}โตเร็วที่สุด ${signed(fastest.metrics.share_growth)} ต่อปี`,
     headline_en: `In ${RELEASE}, ${by('EMERGING').length} topics are emerging and ${fastest.en} is growing fastest, ${signed(fastest.metrics.share_growth)} a year`,
-    bullets_th: [
-      `หัวข้อกำลังมาแรง ${by('HOT').length} หัวข้อ นำโดย${topHot.th} (${pct(topHot.metrics.share_recent)} ของบทความช่วง 2022–2024)`,
-      `หัวข้อที่ลดลง ${by('DECLINING').length} หัวข้อ เช่น ${decl.th} ซึ่งสัดส่วนเปลี่ยนแปลง ${signed(decl.metrics.share_growth)} ต่อปี`,
-      `หัวข้อจับตา ${by('WATCH').length} หัวข้อเติบโตแต่ไม่ผ่านเกณฑ์ความกว้าง เช่น ${watch.th} ควรตรวจสอบก่อนอ้างอิง`,
-    ],
-    bullets_en: [
-      `${by('HOT').length} topics are hot, led by ${topHot.en} (${pct(topHot.metrics.share_recent)} of articles in 2022–2024)`,
-      `${by('DECLINING').length} topics are declining, such as ${decl.en}, whose share is changing ${signed(decl.metrics.share_growth)} a year`,
-      `${by('WATCH').length} watch topics are growing but did not pass the breadth test, such as ${watch.en}; check them before citing`,
-    ],
+    bullets_th: shown.map((st) => `${STATUS_TH[st]}: ${by(st).length} หัวข้อ เช่น “${exampleOf(st).th}” — ${MEANING_TH[st]}`),
+    bullets_en: shown.map((st) => `${STATUS_EN[st]}: ${by(st).length} ${by(st).length === 1 ? 'topic' : 'topics'}, e.g. “${exampleOf(st).en}” — ${MEANING_EN[st]}`),
     source: 'template',
   }
 
@@ -439,7 +447,8 @@ function buildEditors(files, previousOverview) {
       topic: t.id, articles, with_methods: withM, coverage: r4(withM / articles), methods: ms,
       sample_size_n: Math.round(withM * 0.6), sample_size_median: [400, 385, 220, 120, 30][i % 5], sample_size_q1: [200, 180, 120, 60, 15][i % 5], sample_size_q3: [420, 400, 380, 240, 45][i % 5],
       monoculture_share: r4(mono ? 0.71 + 0.01 * i : 0.18 + 0.01 * i), monoculture: mono,
-      note: i < 2 ? { th: `บทความในหัวข้อ${t.th}ที่ระบุวิธีวิจัยได้ ${Math.round(ms[0].share * 100)}% ใช้แบบสอบถาม (ข้อมูลตัวอย่าง)`, en: `${Math.round(ms[0].share * 100)}% of the articles on ${t.en} that name a method use a questionnaire (sample data).`, source: 'template' } : null,
+      // methods.method_note's template: the most common method and its share, in plain words
+      note: i < 2 ? { th: `วิธีที่ใช้บ่อยที่สุดในหัวข้อนี้คือการสำรวจด้วยแบบสอบถาม: ${Math.round(ms[0].share * 100)}% ของบทความที่บอกวิธีวิจัย (ข้อมูลตัวอย่าง)`, en: `The most common method in this topic is a questionnaire survey: ${Math.round(ms[0].share * 100)}% of the articles that name a method (sample data).`, source: 'template' } : null,
     }
   })
   files['methods.json'] = {
@@ -681,16 +690,17 @@ function buildExecutives(files) {
   // KPI additions (percent, like pct_abstract_en) and the policy sentences
   const ov = files['overview.json']
   ov.kpis = { ...ov.kpis, pct_international: 6.8, pct_multi_institution: 31.4, provinces: PROVINCES.length }
+  // export_exec.executive_summary's plain sentences: years written out, a unit on every number
   ov.executive = {
     bullets_th: [
-      'จังหวัดที่มีบทความมากที่สุด: กรุงเทพมหานคร (5,210), เชียงใหม่ (2,140), ขอนแก่น (1,530), สงขลา (1,380), ปทุมธานี (1,220) จากบทความที่ระบุจังหวัดได้ 14,200 เรื่อง (ข้อมูลตัวอย่าง)',
-      'บทความ 6.8% มีผู้แต่งร่วมจากต่างประเทศ ประเทศคู่ความร่วมมือหลัก: ญี่ปุ่น, จีน, สหรัฐอเมริกา',
-      'หัวข้อวิจัยครอบคลุม 10 จาก 17 เป้าหมาย SDG ยังไม่พบหัวข้อใน SDG 1 ขจัดความยากจน, SDG 5 ความเท่าเทียมทางเพศ, SDG 10 ลดความเหลื่อมล้ำ',
+      'บทความปี 2020–2024 มาจากสถาบันใน กรุงเทพมหานคร (5,210 บทความ), เชียงใหม่ (2,140 บทความ), ขอนแก่น (1,530 บทความ), สงขลา (1,380 บทความ) และปทุมธานี (1,220 บทความ) มากที่สุด — นับจาก 14,200 บทความที่รู้จังหวัดของสถาบัน (ข้อมูลตัวอย่าง)',
+      'ปี 2020–2024 มีบทความ 6.8% ที่นักวิจัยจากต่างประเทศร่วมเขียน โดยร่วมกับ ญี่ปุ่น, จีน และสหรัฐอเมริกา บ่อยที่สุด',
+      'หัวข้อวิจัยรอบนี้ตรงกับเป้าหมายการพัฒนาที่ยั่งยืน (SDG) 10 จาก 17 ข้อ ข้อที่ยังไม่มีหัวข้อใดตรงเลย เช่น SDG 1 ขจัดความยากจน, SDG 5 ความเท่าเทียมทางเพศ, SDG 10 ลดความเหลื่อมล้ำ',
     ],
     bullets_en: [
-      'Provinces with the most articles: Bangkok (5,210), Chiang Mai (2,140), Khon Kaen (1,530), Songkhla (1,380), Pathum Thani (1,220), of 14,200 articles with a known province (sample data)',
-      '6.8% of articles have a foreign co-author; main partner countries: Japan, China, United States',
-      'Research topics cover 10 of 17 SDGs; none yet for SDG 1 No poverty, SDG 5 Gender equality, SDG 10 Reduced inequalities',
+      "Most articles of 2020–2024 come from institutions in Bangkok (5,210 articles), Chiang Mai (2,140 articles), Khon Kaen (1,530 articles), Songkhla (1,380 articles) and Pathum Thani (1,220 articles) — counted over the 14,200 articles whose institution's province is known (sample data)",
+      '6.8% of the articles of 2020–2024 were written with a researcher from abroad — most often from Japan, China and United States',
+      "This release's research topics match 10 of the 17 Sustainable Development Goals (SDGs); goals no topic matches yet include SDG 1 No poverty, SDG 5 Gender equality, SDG 10 Reduced inequalities",
     ],
     source: 'template',
   }

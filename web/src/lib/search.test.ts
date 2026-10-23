@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSearchIndex, foldText, searchTopics, segmentWords } from './search'
+import { buildSearchIndex, foldText, searchTopics, segmentWords, topicsForWords } from './search'
 
 const index = buildSearchIndex([
   { id: 'T1', th: 'ความต้องการของผู้สูงอายุ', en: 'Needs of older adults', keywords: ['ผู้สูงอายุ', 'ageing'], size: 10 },
@@ -40,5 +40,14 @@ describe('searchTopics', () => {
   it('returns nothing for blank queries and respects the limit', () => {
     expect(ids('   ')).toEqual([])
     expect(searchTopics(index, 'การ', 2)).toHaveLength(2)
+  })
+})
+
+describe('topicsForWords', () => {
+  it('falls back to the known words when the whole query matches nothing, best match first, capped', () => {
+    expect(searchTopics(index, 'ผู้สูงอายุควอนตัม')).toEqual([])
+    expect(topicsForWords(index, 'ผู้สูงอายุควอนตัม', ['ผู้สูงอายุ']).map((h) => h.id)).toEqual(['T1'])
+    expect(topicsForWords(index, 'learning water', ['learning', 'water'], 1).map((h) => h.id)).toHaveLength(1)
+    expect(topicsForWords(index, '', [])).toEqual([])
   })
 })

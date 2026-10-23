@@ -152,7 +152,12 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   compare: async (page) => {
     await expect(page.locator('.cmp-chip')).toHaveCount(2)
     await expect(page.locator('svg.ml path.ml-line')).toHaveCount(2)
-    const add = page.getByRole('combobox', { name: 'เพิ่มหัวข้อ' })
+    await page.getByLabel('แยกทีละหัวข้อ').check()
+    await expect(page).toHaveURL(/layout=grid/)
+    await expect(page.locator('.smx-panel')).toHaveCount(2)
+    await page.getByLabel('กราฟเดียว').check()
+    await expect(page.locator('svg.ml path.ml-line')).toHaveCount(2)
+    const add = page.getByRole('combobox', { name: 'เพิ่มหัวข้อเข้าแผนภูมิ' })
     await add.fill('ยานยนต์')
     await add.press('Enter')
     await expect(page).toHaveURL(/ids=T000201%2CT000701%2CT000502/)
@@ -174,6 +179,10 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(add).toBeEnabled()
   },
   data: async (page) => {
+    await expect(page.locator('#csv .ez-card')).toHaveCount(3)
+    await expect(page.locator('#csv .ez-card').first()).toContainText('KB')
+    await expect(page.locator('#developers #downloads')).toBeVisible()
+    await expect(page.locator('#quality .qc-row').first()).toBeVisible()
     await expect(page.locator('#downloads .dl-list li')).toHaveCount(7)
     await expect(page.locator('#downloads a[download]').first()).toHaveAttribute('href', /data\/2026Q4\/manifest\.json$/)
     await expect(page.locator('#quality')).toContainText('2025')
@@ -184,10 +193,14 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     expect((await download).suggestedFilename()).toBe('atlas-2026Q4-topics.csv')
   },
   about: async (page) => {
+    await expect(page.locator('#flow .step')).toHaveCount(4)
+    await expect(page.locator('#definition .ab-tree .step')).toHaveCount(4)
     await expect(page.locator('.defs > div')).toHaveCount(6)
     await expect(page.locator('#changelog li')).toHaveCount(2)
     await expect(page.locator('#definition')).toContainText('+10%')
-    // cite this atlas: APA-like text and BibTeX for the current release, organisation as author
+    // cite this atlas (folded until asked): APA-like text and BibTeX for the current release, organisation as author
+    await expect(page.locator('#cite details')).not.toHaveAttribute('open')
+    await page.locator('#cite summary').click()
     await expect(page.locator('#cite-apa')).toHaveValue(/ศูนย์ดัชนีการอ้างอิงวารสารไทย \(TCI\)\. \(\d{4}\)\. .*รอบข้อมูล 2026Q4/)
     await expect(page.locator('#cite-bib')).toHaveValue(/^@misc\{tci-atlas-2026q4,[\s\S]*author = \{\{Thai-Journal Citation Index Centre \(TCI\)\}\}/)
     await expect(page.locator('#cite').getByRole('button', { name: 'คัดลอก แบบ APA' })).toBeVisible()
@@ -202,6 +215,13 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.brief .dp-row')).toHaveCount(7)
   },
   journals: async (page) => {
+    await expect(page.locator('#scatter svg.js .js-pt')).toHaveCount(5)
+    await expect(page.locator('#scatter svg.js .oq-zone')).toHaveCount(1)
+    await expect(page.locator('#scatter .oq-label').first()).toBeVisible()
+    await page.locator('#fig-journals-tab-table').click()
+    await expect(page).toHaveURL(/view=table/)
+    await expect(page.locator('#fig-journals-panel tbody tr')).toHaveCount(5)
+    await expect(page.locator('#special-issues .si-card')).toHaveCount(3)
     const rows = page.locator('#journals tbody tr')
     await expect(rows).toHaveCount(6)
     await expect(page.locator('#journals')).toContainText('example2')          // no registry name → the OJS name
@@ -213,22 +233,32 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await page.getByLabel('กลุ่มวารสาร TCI').selectOption('1')
     await expect(rows).toHaveCount(2)
     await expect(page.locator('#special-issues')).toContainText('ไมโครพลาสติก')
-    await page.getByRole('link', { name: 'วารสารวิชาการตัวอย่าง ก' }).click()
+    await page.locator('#journals').getByRole('link', { name: 'วารสารวิชาการตัวอย่าง ก' }).click()
     await expect(page).toHaveURL(/#\/journals\/so02\.example0$/)
   },
   journal: async (page) => {
     await expect(page.locator('h1')).toHaveText('วารสารวิชาการตัวอย่าง ก')
     await expect(page.locator('#topics table')).toBeVisible()
     await expect(page.locator('#peers')).toContainText('example2')
+    await expect(page.locator('#numbers .spark')).toHaveCount(1)
+    await expect(page.locator('#fig-mix-panel .pm-row')).toHaveCount(2)
+    await expect(page.locator('#fig-mix-panel .pm-key li')).toHaveCount(3)              // 2 topics + "เรื่องอื่น"
+    await expect(page.locator('#fig-comp-panel .ck-row')).toHaveCount(7)
     await expect(page.locator('#completeness')).toContainText('DOI')
     await expect(page.locator('#opportunities')).toContainText('ยานยนต์ไฟฟ้า')
-    await page.locator('#drift').getByRole('tab', { name: 'ตาราง' }).click()
+    await page.locator('#fig-drift-tab-table').click()
     await expect(page).toHaveURL(/drift=table/)
+    await page.locator('#fig-comp-tab-table').click()
+    await expect(page.locator('#fig-comp-panel tbody tr')).toHaveCount(7)
     await page.goto(`${EXAMPLE}#/journals/so02.nowhere`)
     await expect(page.locator('h1')).toContainText('so02.nowhere')
   },
   methods: async (page) => {
     await expect(page.locator('svg.ml path.ml-line')).toHaveCount(4)
+    await expect(page.locator('#corpus .br > .br-row')).toHaveCount(16)                  // 6 shown + 10 folded
+    await expect(page.locator('#corpus .br-rest')).not.toHaveAttribute('open')
+    await page.locator('#fig-corpus-tab-table').click()
+    await expect(page).toHaveURL(/corpus=table/)
     await expect(page.locator('#lexicon li')).toHaveCount(16)
     await page.getByLabel('แสดงเฉพาะหัวข้อที่ใช้วิธีเดียวเป็นหลัก').check()
     await expect(page).toHaveURL(/mono=only/)
@@ -254,6 +284,20 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   },
   match: async (page) => {
     await expect(page.locator('.privacy')).toBeVisible()
+    await expect(page.locator('.ms-steps .step')).toHaveCount(3)
+    const sent: string[] = []
+    page.on('request', (r) => sent.push(`${r.url()} ${r.postData() ?? ''}`))
+    await page.getByRole('button', { name: 'ลองด้วยตัวอย่าง' }).click()
+    await expect(page.getByLabel('ข้อความของคุณ')).toHaveValue(/ผู้สูงอายุในชุมชน/)
+    await expect(page.locator('#match-results')).toBeFocused()
+    await expect(page.locator('.ms-card').first()).toBeVisible()
+    await expect(page.locator('.ms-card .ms-bar').first()).toBeVisible()
+    const sample = ['ผู้ดูแลในครอบครัว', encodeURIComponent('ผู้ดูแลในครอบครัว'), 'อาสาสมัครสาธารณสุข', encodeURIComponent('อาสาสมัคร')]
+    expect(sent.filter((r) => sample.some((w) => r.includes(w)))).toEqual([])     // no request carries the text
+    expect(page.url()).not.toContain(encodeURIComponent('ผู้ดูแล'))
+    const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }))
+    expect(stored).not.toContain('ผู้ดูแลในครอบครัว')
+    await page.getByRole('button', { name: 'ล้างข้อความ' }).click()
     const box = page.getByLabel('ข้อความของคุณ')
     await box.fill('AI')
     await page.getByRole('button', { name: 'หาหัวข้อที่ใกล้ที่สุด' }).click()
@@ -262,7 +306,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await box.fill(text)
     await page.getByRole('button', { name: 'หาหัวข้อที่ใกล้ที่สุด' }).click()
     await expect(page.locator('#match-results')).toBeFocused()
-    await expect(page.locator('.hits .topic-link').first()).toContainText('AI เพื่อการศึกษา')
+    await expect(page.locator('.ms-card .topic-link').first()).toContainText('AI เพื่อการศึกษา')
     await expect(page.locator('#match-journals')).toBeVisible()
     expect(page.url()).not.toContain('generative')                       // the pasted text never enters the URL
     expect(page.url()).not.toContain(encodeURIComponent('ปัญญา'))
@@ -361,6 +405,9 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await box.fill('ผู้สูงอายุควอนตัม')
     await box.press('Enter')
     await expect(page).toHaveURL(/q=/)
+    await expect(page.locator('#srch-topics-h')).toBeVisible()
+    await expect(page.locator('.srch-tp').first()).toContainText('การดูแลผู้สูงอายุในชุมชน')
+    expect(await page.locator('.srch-tp').count()).toBeLessThanOrEqual(5)
     await expect(page.locator('.srch-count')).toContainText('พบ')
     await expect(page.locator('.srch-hit').first()).toBeVisible()
     await expect(page.locator('.srch-unknown')).toContainText('ไม่พบคำว่า “ควอนตัม”')   // an unknown word is named
@@ -399,6 +446,10 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.gx-card .topic-link')).toBeVisible()
     await page.getByRole('button', { name: 'ล้างการเลือก' }).click()
     await expect(page.locator('.gx-card-empty')).toBeVisible()
+    await expect(page.locator('.gx-try-btn')).toHaveCount(3)
+    await page.locator('.gx-try-btn').first().click()
+    await expect(page.locator('.gx-card .topic-link')).toBeVisible()
+    await page.getByRole('button', { name: 'ล้างการเลือก' }).click()
     // keyboard: the sheet takes focus, zooms and picks the dot in the middle (or says there is none)
     await stage.focus()
     await page.keyboard.press('+')
@@ -422,6 +473,9 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.cmp-chip')).toHaveCount(3)
     await expect(page.locator('.kw-insight')).toContainText('digital marketing')
     await expect(page.locator('svg.ml')).toBeVisible()
+    await expect(page.locator('.kr-chip').first()).toBeVisible()
+    await expect(page.locator('.kr-chip .spark').first()).toBeVisible()
+    await expect(page.locator('#kw-glossary tbody tr')).toHaveCount(10)
     const box = page.getByRole('combobox', { name: 'เพิ่มคำสำคัญ (ไทยหรืออังกฤษ)' })
     await box.fill('ผู้สูงอายุ')
     await expect(page.getByRole('option').first()).toBeVisible()
@@ -448,18 +502,26 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
   },
   references: async (page) => {
     await expect(page.locator('.lede')).toContainText('72%')
-    await expect(page.locator('.ref-kpis .kpi')).toHaveCount(3)
+    await expect(page.locator('.ref-kpis .stat')).toHaveCount(3)
+    await expect(page.locator('#ref-journals .sb')).toHaveCount(5)
+    await page.locator('#fig-refs-tab-table').click()
+    await expect(page).toHaveURL(/jr=table/)
     await expect(page.locator('#ref-journals tbody tr')).toHaveCount(5)
     await expect(page.locator('#ref-journals').getByRole('link').first()).toHaveAttribute('href', /#\/journals\/so02\./)
     await page.locator('#ref-journals').getByRole('button', { name: 'มี DOI' }).click()
     await expect(page.locator('#ref-journals th[aria-sort="descending"]')).toContainText('มี DOI')
-    await expect(page.locator('#ref-top .srch-hit')).toHaveCount(10)
-    await expect(page.locator('#ref-top .srch-hit').first()).toContainText('ถูกอ้าง 9 ครั้ง')
+    await expect(page.locator('#ref-top .rc-card')).toHaveCount(10)
+    await expect(page.locator('#ref-top .rc-card .rc-n').first()).toContainText('9')
     const ris = page.waitForEvent('download')
     await page.getByRole('button', { name: /เป็น RIS$/ }).click()
     expect((await ris).suggestedFilename()).toBe('atlas-2026Q4-most-cited.ris')
+    await expect(page.locator('#ref-flows .bp-row')).toHaveCount(5)
+    await page.locator('#fig-flows-tab-table').click()
     await expect(page.locator('#ref-flows tbody tr')).toHaveCount(5)
+    await expect(page.locator('#ref-topics tbody tr')).toHaveCount(10)
     await expect(page.locator('#ref-topics tbody tr').first().locator('.topic-link')).toBeVisible()
+    await page.locator('#ref-topics').getByRole('button', { name: 'แสดงทั้งหมด (41 แถว)' }).click()
+    await expect(page.locator('#ref-topics tbody tr')).toHaveCount(41)
   },
   embedTopic: async (page) => {
     await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
@@ -713,7 +775,7 @@ test('references: a skipped module gives its coverage reason; too few internal m
   const few = bundleOf('example')
   Object.assign(few.files['references.json'] as object, { internal: null, internal_reason: '12 references matched a corpus article (< references.min_internal_matches 20)' })
   await page.goto(`${write('atlas-offline-refs-few.html', few)}#/references`)
-  await expect(page.locator('#ref-journals tbody tr')).toHaveCount(5)
+  await expect(page.locator('#ref-journals .sb')).toHaveCount(5)                     // the split bars; the table is behind its tab
   await expect(page.locator('#ref-internal .empty-state')).toContainText('จับคู่รายการอ้างอิงกับบทความในคลังได้น้อยเกินไป')
   await expect(page.locator('#ref-internal .empty-state')).toContainText('12 references matched')
   await expect(page.locator('#ref-flows')).toHaveCount(0)

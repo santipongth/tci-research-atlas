@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import { useLocation } from 'react-router'
 import { BRAND } from '../brand/brand'
 import { HowNote } from '../components/HowNote'
 import { OnThisPage } from '../components/OnThisPage'
@@ -16,11 +17,17 @@ import { statusName } from '../lib/topicText'
 
 // "Cite this atlas" (text + BibTeX with copy buttons) loads on demand: this page is in the entry chunk.
 const CiteAtlas = lazy(() => import('./about/CiteAtlas'))
+// the four-step diagram and the status decision path load on demand too
+const PipelineSteps = lazy(() => import('./about/PipelineSteps'))
+const StatusDecision = lazy(() => import('./about/StatusDecision'))
 
 /** Plain-language method, the status definition, the forecast rule, privacy and the definition changelog. Works without data. */
 export default function AboutPage() {
   const { t, lang, pick } = useI18n()
   const release = useRelease()
+  const location = useLocation()
+  // the footer's "cite" link arrives with route state { section: 'cite' }: open the citation straight away
+  const citeOpen = (location.state as { section?: unknown } | null)?.section === 'cite'
   const version = release?.definitionVersion ?? Math.max(...CHANGELOG.map((c) => c.version))
   const level = release ? ciPct(release.ciLevel) : 90
   const w = release ? windows(release.overview.last_complete_year) : null
@@ -30,6 +37,7 @@ export default function AboutPage() {
   const fill = (s: string) => s.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
   const changes = CHANGELOG.filter((c) => c.version <= version).sort((a, b) => b.version - a.version)
   const toc = [
+    { id: 'flow', label: t('about.flow.h') },
     ...METHOD.map((m) => ({ id: `m-${m.id}`, label: pick(m.h.th, m.h.en) })),
     { id: 'definition', label: t('about.def.h') },
     { id: 'privacy', label: t('about.privacy.h') },
@@ -41,6 +49,11 @@ export default function AboutPage() {
       <PageHeader title={t('about.title')} lede={t('about.lede')} />
       <div className="layout">
         <div className="main-col prose">
+          <Section id="flow" title={t('about.flow.h')}>
+            <Suspense fallback={null}>
+              <PipelineSteps release={release} />
+            </Suspense>
+          </Section>
           {METHOD.map((m) => (
             <Section key={m.id} id={`m-${m.id}`} title={pick(m.h.th, m.h.en)}>
               {m.body.map((p, i) => (
@@ -50,6 +63,9 @@ export default function AboutPage() {
             </Section>
           ))}
           <Section id="definition" title={t('about.def.h')} intro={t('about.def.intro', { v: version, level })}>
+            <Suspense fallback={null}>
+              <StatusDecision level={level} />
+            </Suspense>
             <dl className="defs">
               {STATUSES.map((st) => (
                 <div key={st}>
@@ -70,9 +86,14 @@ export default function AboutPage() {
             {BRAND.temporary ? <p className="note">{t('wordmarkNote')}</p> : null}
           </Section>
           <Section id="cite" title={t('about.cite.h')}>
-            <Suspense fallback={<p className="loading" role="status">{t('loading')}</p>}>
-              <CiteAtlas release={release} />
-            </Suspense>
+            <details className="how cite-fold" open={citeOpen || undefined}>
+              <summary>{t('about.cite.show')}</summary>
+              <div>
+                <Suspense fallback={<p className="loading" role="status">{t('loading')}</p>}>
+                  <CiteAtlas release={release} />
+                </Suspense>
+              </div>
+            </details>
           </Section>
           <Section id="changelog" title={t('about.log.h')} intro={t('about.log.intro')}>
             <ol className="changelog">
@@ -80,6 +101,7 @@ export default function AboutPage() {
                 <li key={c.version}>
                   <p className="log-h">{t('about.log.version', { v: c.version, date: c.date })}</p>
                   <p>{lang === 'en' ? c.en : c.th}</p>
+                  <p className="log-tech">{lang === 'en' ? c.tech.en : c.tech.th}</p>
                 </li>
               ))}
             </ol>
