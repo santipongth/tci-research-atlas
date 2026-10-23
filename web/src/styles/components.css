@@ -97,7 +97,8 @@
   .chart-box { margin-top: 18px; min-width: 0; }
   .source { margin-top: 14px; font-size: var(--fs-meta); line-height: 1.55; color: var(--ink-3); }
   .legend-plain { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 4px 24px; }
-  .legend-plain li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+  .legend-plain li { display: block; }
+  .legend-plain .legend-name { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .legend-plain li span { color: var(--ink-2); }
   .how-terms { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; font-size: var(--fs-meta); color: var(--ink-2); }
 
@@ -112,26 +113,25 @@
   .pop-body { display: block; margin-top: 4px; }
 
   /* stat tiles: plain label, big number, change vs the previous release, ink-only sparkline, context, "เช่น …" */
-  .stats { margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; }
-  .stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  @media (max-width: 1099px) { .stats-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 640px) { .stats, .stats-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 18px; } }
-  .stat { display: flex; flex-direction: column; min-width: 0; padding-top: 14px; border-top: 1px solid var(--border-2); }
-  .stat.is-wide { grid-column: span 2; }
-  .stat-label { font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; color: var(--ink-2); }
-  .stat-body { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
-  .stat-v { display: block; margin-top: 2px; font-size: var(--fs-tile); font-weight: 700; line-height: 1.5; color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-  .stat-v.is-text { font-size: var(--fs-lead); line-height: 1.5; }
-  .stat-d { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: var(--fs-meta); color: var(--up); font-weight: 600; line-height: 1.5; }
+  /* fact lines, not a KPI row: "บทความ 60,773 ▲ +1,850 จาก 2026Q3", two lines per row on wide screens */
+  .stats { margin: 18px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; }
+  .stats-2, .stats-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 760px) { .stats, .stats-2, .stats-3, .stats-4 { grid-template-columns: minmax(0, 1fr); } }
+  .stat { display: block; min-width: 0; padding: 14px 0 16px; border-top: 1px solid var(--border-2); }
+  .stat.is-wide { grid-column: 1 / -1; }
+  .stat-label { display: inline; font-size: var(--fs-body); font-weight: 600; line-height: 1.6; color: var(--ink); }
+  .stat-body { display: inline; margin: 0 0 0 10px; }
+  .stat-v { display: inline; font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; color: var(--brand); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .stat-v.is-text { font-size: var(--fs-body); }
+  .stat-d { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin-left: 10px; font-size: var(--fs-meta); color: var(--up); font-weight: 600; line-height: 1.5; }
   .stat-d.is-down { color: var(--ink-2); }
   .stat-d svg { width: 11px; height: 11px; flex: none; }
   .stat-dref { font-weight: 400; color: var(--ink-2); }
   .spark { display: block; margin-top: 6px; overflow: visible; }
   .spark-line { fill: none; stroke: var(--brand); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .spark-end { fill: var(--brand); }
-  .stat-sub { margin-top: 4px; font-size: var(--fs-meta); line-height: 1.5; color: var(--ink-2); }
-  .stat-eg { margin-top: 10px; align-self: stretch; font-size: var(--fs-meta); line-height: 1.6; color: var(--ink-2); }
+  .stat-sub { display: block; margin-top: 2px; font-size: var(--fs-meta); line-height: 1.55; color: var(--ink-2); }
+  .stat-eg { display: block; margin-top: 6px; font-size: var(--fs-meta); line-height: 1.6; color: var(--ink-2); }
   .stat-eg b { font-weight: 600; }
   .stat .flag { font-size: var(--fs-caption); }
   .stat .whisker { margin-top: 8px; }
@@ -140,7 +140,7 @@
   .stats-more > .stats { margin-top: 4px; }
   .whisker-fit { width: 100%; min-width: 0; }
   /* phones: a wide tile takes the whole row */
-  @media (max-width: 640px) { .stat.is-wide, .stat.is-wide-phone { grid-column: 1 / -1; } }
+
 
   details.how { margin-top: 14px; }
   details.how summary { cursor: pointer; color: var(--link); font-weight: 600; display: inline-block; min-height: 32px; }

@@ -35,7 +35,7 @@
   .fig-head { padding-bottom: 4px; }
   /* the A4 width (≈ 690 px) is under the tablet breakpoints: keep the brief's four tiles and three findings in one row */
   .brief .stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .brief .stat { padding: 8px 10px; }
+  .brief .stat { padding: 8px 0; }
   .brief .stat-v { font-size: 19pt; margin-top: 0; }
   .brief .stat-label, .brief .stat-d, .brief .stat-sub { font-size: 9pt; }
   .brief .finds { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; }

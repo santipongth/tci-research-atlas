@@ -15,7 +15,6 @@ import { Term } from '../components/Term'
 import { TopicLink } from '../components/TopicLink'
 import { TopicSearch } from '../components/TopicSearch'
 import { TrendChart } from '../charts/TrendChart'
-import { NOWCAST_MARK } from '../lib/status'
 import { useTopicDetail } from '../data/atlasContext'
 import { groupName, hasModule, neighborsOf, seriesOf, type AtlasRelease } from '../data/release'
 import type { Topic } from '../data/types'
@@ -247,19 +246,6 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 how={showFc && fc ? <p>{t('tp.fc.how', { m: fc.model, mase: fmtNum(fc.mase, 2) })}</p> : undefined}
                 view={state.trend}
                 onView={(trend) => update({ trend })}
-                legend={
-                  <div className="legend">
-                    <span><i className="lg-line" aria-hidden="true" />{t('actual')}</span>
-                    {showFc ? <span><i className="lg-line is-dashed" aria-hidden="true" />{t('forecast')}</span> : null}
-                    {showFc ? <span><i className="lg-band" aria-hidden="true" />{t('tp.legend.band')}</span> : null}
-                    {nowcast ? (
-                      <span>
-                        <svg className="lg-now" viewBox="-6 -6 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d={NOWCAST_MARK} /></svg>
-                        {t('tp.nowcastLabel')}
-                      </span>
-                    ) : null}
-                  </div>
-                }
                 chart={
                   <TrendChart
                     status={topic.status}
@@ -267,7 +253,7 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                     counts={counts}
                     forecast={showFc ? fc : null}
                     nowcast={nowcast}
-                    labels={{ name: `${t('tp.trend.title', { a: years[0], b: years[years.length - 1] })} · ${name(topic)}`, forecast: t('forecast'), articles: t('col.articles'), range80: (lo, hi) => t('tp.range80', { lo, hi }) }}
+                    labels={{ name: `${t('tp.trend.title', { a: years[0], b: years[years.length - 1] })} · ${name(topic)}`, forecast: t('forecast'), articles: t('col.articles'), range80: (lo, hi) => t('tp.range80', { lo, hi }), actual: t('actual'), band: t('tp.legend.band'), nowcast: t('tp.nowcastLabel') }}
                   />
                 }
                 table={

@@ -15,8 +15,10 @@ export function StatusLegend({ statuses, extra, plain = false }: { statuses: rea
       <ul className="legend legend-plain">
         {statuses.map((st) => (
           <li key={st}>
-            <StatusGlyph status={st} size={14} />
-            <b>{statusName(t, st)}</b>
+            <b className="legend-name">
+              <StatusGlyph status={st} size={14} />
+              {statusName(t, st)}
+            </b>{' '}
             <span>— {statusMeaning(t, st)}</span>
           </li>
         ))}

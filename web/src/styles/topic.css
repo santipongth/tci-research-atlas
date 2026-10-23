@@ -25,11 +25,13 @@
   .tr-line { fill: none; stroke: var(--link); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
   .tr-end { fill: var(--link); stroke: var(--bg); stroke-width: 2; }
   .tr-fzone { fill: var(--surface); }
-  .tr-flabel { font-size: var(--fs-tick); fill: var(--ink-2); font-weight: 600; }
+  .tr-flabel { font-size: var(--fs-tick); fill: var(--ink-2); font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
   .tr-band95 { fill: var(--link); opacity: 0.1; }
   .tr-band { fill: var(--link); opacity: 0.22; }
   .tr-fline { fill: none; stroke: var(--link); stroke-width: 3; stroke-dasharray: 6 4; }
   .tr-endlabel { font-size: var(--fs-caption); font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+  .tr-endname { font-weight: 400; fill: var(--ink-2); }
+  .tr-bandlabel { font-size: var(--fs-tick); fill: var(--ink-2); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
   .tr-now { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
   .tr-cross { stroke: var(--ink); stroke-width: 1; }
   .tr-hit { fill: transparent; cursor: crosshair; }

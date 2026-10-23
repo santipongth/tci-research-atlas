@@ -12,6 +12,10 @@ export interface TrendLabels {
   forecast: string
   articles: string
   range80: (lo: string, hi: string) => string
+  /** on-chart labels (direct labelling instead of a legend row): the actual line, the likely-range band, the nowcast mark */
+  actual?: string
+  band?: string
+  nowcast?: string
 }
 
 /** Articles a year (line + area), and — only when the release shows a forecast (never for LOW_DATA) — 80 % and 95 % bands with a dashed mean. */
@@ -81,7 +85,7 @@ export function TrendChart({ status, years, counts, forecast, nowcast, labels }:
         {fc ? (
           <>
             <rect x={x(last + 0.5)} y={M.t} width={Math.max(0, W - M.r - x(last + 0.5))} height={H - M.b - M.t} className="tr-fzone" />
-            <text x={x(last + 0.5) + 6} y={M.t + 12} className="tr-flabel">{labels.forecast}</text>
+            <text x={W - M.r - 4} y={H - M.b - 8} textAnchor="end" className="tr-flabel">{labels.forecast}</text>
             <path d={band(fc.lo95, fc.hi95)} className="tr-band95" />
             <path d={band(fc.lo80, fc.hi80)} className="tr-band" />
           </>
@@ -90,8 +94,18 @@ export function TrendChart({ status, years, counts, forecast, nowcast, labels }:
         <path d={line} className="tr-line" />
         {fc ? <path d={meanLine} className="tr-fline" /> : null}
         <circle cx={x(last)} cy={y(lastV)} r={4} className="tr-end" />
-        <text x={x(last) - 8} y={y(lastV) - 10} textAnchor="end" className="tr-endlabel">{fmtInt(lastV)}</text>
+        <text x={x(last) - 8} y={y(lastV) - 10} textAnchor="end" className="tr-endlabel">
+          {fmtInt(lastV)}
+          {labels.actual ? <tspan className="tr-endname">{` ${labels.actual}`}</tspan> : null}
+        </text>
+        {fc && labels.band ? (
+          <text x={W - M.r - 2} y={Math.max(M.t + 12, y(fc.hi95[fc.hi95.length - 1]) - 10)} textAnchor="end" className="tr-bandlabel">{labels.band}</text>
+        ) : null}
         {nowcast ? <path transform={`translate(${x(nowcast.year)},${y(nowcast.mean)})`} d={NOWCAST_MARK} className="tr-now" /> : null}
+        {/* phones: the note under the chart names the estimate; the plot keeps only the mark */}
+        {nowcast && labels.nowcast && W >= 480 ? (
+          <text x={Math.min(x(nowcast.year), W - M.r - 50)} y={Math.min(H - M.b - 24, y(nowcast.mean) + 26)} textAnchor="middle" className="tr-flabel">{labels.nowcast}</text>
+        ) : null}
         {hover !== null ? <line x1={x(hover)} x2={x(hover)} y1={M.t} y2={H - M.b} className="tr-cross" /> : null}
         <rect
           x={M.l}
