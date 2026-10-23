@@ -181,7 +181,8 @@ def publish_site(release_dir: Path, site: Path, cfg: dict | None = None, set_lat
     pcfg = (cfg or {}).get("publish") or {}
     feeds = None
     if pcfg.get("site_url"):
-        feeds = write_feeds(site, pcfg["site_url"], int(pcfg.get("feed_max_entries", 12)))
+        feeds = write_feeds(site, pcfg["site_url"], int(pcfg.get("feed_max_entries", 12)),
+                            int(((cfg or {}).get("emerging") or {}).get("recent_window") or 0) or None)
     else:
         print("[publish] publish.site_url is not set — no Atom feeds written (set it to the public address of the "
               "site to get data/feeds/)")

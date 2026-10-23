@@ -659,3 +659,36 @@ def test_publish_with_a_site_url_writes_atom_feeds_for_the_real_release(two_rele
     assert [p.stem for p in feeds] == sorted(t["id"] for t in topics)
     for p in feeds:
         ET.parse(p)
+
+
+# ---------------------------------------------------------------- web refresh: plain public sentences
+def test_published_template_sentences_are_plain_language(two_releases, tmp_path):
+    """Every sentence the pipeline writes for the public (brief, policy notes, topic narratives, method notes, feed
+    summaries) avoids the banned jargon and never puts a status code where the status name belongs."""
+    import xml.etree.ElementTree as ET
+
+    from atlas.narrative import jargon_in
+    from atlas.publish import publish
+
+    root, cfg = two_releases
+    rel = root / "out" / "data" / "2026Q2"
+    ov = json.loads((rel / "overview.json").read_text(encoding="utf-8"))
+    texts = [ov["brief"]["headline_th"], ov["brief"]["headline_en"], *ov["brief"]["bullets_th"],
+             *ov["brief"]["bullets_en"]]
+    texts += [*(ov.get("executive") or {}).get("bullets_th", []), *(ov.get("executive") or {}).get("bullets_en", [])]
+    for p in (rel / "topics").glob("*.json"):
+        n = json.loads(p.read_text(encoding="utf-8")).get("narrative")
+        texts += [n["th"], n["en"]] if n else []
+    if (rel / "methods.json").exists():
+        for t in json.loads((rel / "methods.json").read_text(encoding="utf-8"))["topics"]:
+            texts += [t["note"]["th"], t["note"]["en"]] if t.get("note") else []
+    site = tmp_path / "site"
+    publish({**cfg, "publish": {**cfg["publish"], "site_url": "https://example.github.io/atlas/"}}, site=site)
+    for feed in (site / "data" / "feeds").rglob("*.xml"):
+        for e in ET.parse(feed).getroot().iter("{http://www.w3.org/2005/Atom}entry"):
+            texts += [e.find("{http://www.w3.org/2005/Atom}title").text, e.find("{http://www.w3.org/2005/Atom}summary").text]
+    assert ov["executive"]["bullets_th"] and len(texts) > 10                   # the real release has policy notes
+    topics = json.loads((rel / "topics.json").read_text(encoding="utf-8"))["topics"]
+    names = [n for t in topics for n in (t["th"], t["en"]) if n]
+    bad = {t: jargon_in(t, names) for t in texts if jargon_in(t, names)}
+    assert bad == {}, bad

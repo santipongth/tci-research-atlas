@@ -6,6 +6,7 @@ from pathlib import Path
 
 from atlas.config import load_config
 from atlas.feeds import write_feeds
+from atlas.narrative import STATUS_TH
 from atlas.publish import publish_site
 
 A = "{http://www.w3.org/2005/Atom}"
@@ -63,16 +64,19 @@ def test_feeds_are_valid_atom_and_escape_markup_in_thai_and_english(tmp_path):
     assert entries[0].find(f"{A}link").get("href") == f"{URL}/#/changes"
     summary = entries[0].find(f"{A}summary").text
     assert f"{RICE} <b> & co" in summary and "Growth & <decline>" in summary
-    assert "2 new topics" in summary and "1 gone" in summary and "1 status changes" in summary
+    assert "2 new topics" in summary and "1 gone" in summary and "1 changed status" in summary
+    assert "EMERGING" not in summary and "2026Q1" in summary
     assert "1,234 articles" in entries[1].find(f"{A}summary").text                 # no brief → KPI line
     raw = (feeds / "topics" / "T000001.xml").read_text(encoding="utf-8")
     assert "&amp;" in raw and "&lt;water&gt;" in raw and "<water>" not in raw
     troot, tent = _entries(feeds / "topics" / "T000001.xml")
     assert troot.find(f"{A}title").text == f"TCI Research Atlas — {th} / {en}"
-    assert [e.find(f"{A}title").text for e in tent] == ["2026Q2: EMERGING", "2026Q1: STABLE"]
+    assert [e.find(f"{A}title").text for e in tent] == [f"2026Q2: {STATUS_TH['EMERGING']} / Emerging",
+                                                        f"2026Q1: {STATUS_TH['STABLE']} / Stable"]
     assert tent[0].find(f"{A}link").get("href") == f"{URL}/#/topics/T000001"
-    assert "share growth n/a" in tent[0].find(f"{A}summary").text
-    assert "40 articles" in tent[1].find(f"{A}summary").text and "+12.0%" in tent[1].find(f"{A}summary").text
+    assert "trend not yet known" in tent[0].find(f"{A}summary").text and "n/a" not in tent[0].find(f"{A}summary").text
+    assert "40 recent articles" in tent[1].find(f"{A}summary").text                  # no window given: no years
+    assert "+12.0%" in tent[1].find(f"{A}summary").text
     assert r == {"releases": str(feeds / "releases.xml"), "topics": 1, "entries": 2}
 
 
@@ -99,7 +103,7 @@ def test_one_topic_feed_per_topic_of_the_newest_release(tmp_path):
     names = sorted(p.name for p in (site / "data" / "feeds" / "topics").glob("*"))
     assert names == ["T000001.xml", "T000002.xml"] and r["topics"] == 2           # gone topic, stale file, bad id: none
     _, tent = _entries(site / "data" / "feeds" / "topics" / "T000002.xml")
-    assert [e.find(f"{A}title").text for e in tent] == ["2026Q2: STABLE"]         # only the releases it exists in
+    assert [e.find(f"{A}title").text for e in tent] == [f"2026Q2: {STATUS_TH['STABLE']} / Stable"]   # only the releases it exists in
 
 
 def _cfg(tmp_path, site_url):
@@ -147,3 +151,13 @@ def test_publish_with_site_url_is_idempotent_and_keeps_feeds_out_of_the_offline_
     publish_site(tmp_path / "out" / "data" / "2026Q1", site, cfg)                  # older quarter: latest kept
     assert (site / "data" / "latest.json").read_bytes() == before
     assert {p: p.read_bytes() for p in sorted((site / "data" / "feeds").rglob("*.xml"))} == files
+
+
+def test_topic_entries_name_the_recent_years_when_the_window_is_known(tmp_path):
+    site = _site(tmp_path, [("2026Q2", [_topic("T000001")], {})])
+    ov = site / "data" / "2026Q2" / "overview.json"
+    ov.write_text(json.dumps({**json.loads(ov.read_text(encoding="utf-8")), "last_complete_year": 2024}), encoding="utf-8")
+    write_feeds(site, URL, 12, recent_window=3)
+    _, tent = _entries(site / "data" / "feeds" / "topics" / "T000001.xml")
+    text = tent[0].find(f"{A}summary").text
+    assert "40 articles in 2022–2024" in text and "share change +12.0% a year" in text and "STABLE" not in text

@@ -65,19 +65,27 @@ def test_templates_without_an_llm(make_cfg, tmp_path):
     df = narrate(cfg)
     assert df["topic_id"].tolist() == [1, 4, 2] and set(df["source"]) == {"template"}   # EMERGING, then DECLINING
     by = df.set_index("topic_id")
-    assert "ไม่มีบทความในช่วง" in by.loc[4, "th"] and "1.20%" in by.loc[1, "th"]
+    assert "ยังไม่มีบทความเรื่องนี้" in by.loc[4, "th"] and "1.20%" in by.loc[1, "th"]
+    assert "ปี 2017–2021" in by.loc[1, "th"] and "240 บทความ" in by.loc[1, "th"]           # years and units written out
     brief = json.loads((work / "11_brief.json").read_text(encoding="utf-8"))["brief"]
     assert brief["source"] == "template" and "2024" in brief["headline_th"]
     # the headline names the ANALYSED count (complete years) and says so — the KPI tile shows the whole corpus
     assert "วิเคราะห์ 10,000 บทความ" in brief["headline_th"] and "2015–2024" in brief["headline_th"]
     assert "10,000 articles analysed" in brief["headline_en"]
+    # one bullet per status with topics, example first, the status by its name (never the code)
+    assert brief["bullets_th"][0].startswith("กำลังเกิดใหม่: 2 หัวข้อ เช่น “การเรียนรู้ด้วย AI”")
+    assert brief["bullets_en"][0].startswith("Emerging: 2 topics, e.g. “AI-assisted learning”")
+    assert len(brief["bullets_th"]) == 3                                   # EMERGING, DECLINING, STABLE (no zeros)
+    from atlas.narrative import jargon_in
+    texts = [brief["headline_th"], brief["headline_en"], *brief["bullets_th"], *brief["bullets_en"], *df["th"], *df["en"]]
+    assert all(jargon_in(t, [n for pair in NAMES.values() for n in pair]) == [] for t in texts)
     from atlas.narrative import brief_job
 
     facts = brief_job(cfg).items[0].prompt
     assert "บทความที่นำมาวิเคราะห์" in facts and "10,000" in facts and "10,500" in facts and "ทั้งคลัง" in facts
     item = {it.key: it for it in narrative_job(cfg).items}["T000004"]
-    base = [ln for ln in item.prompt.splitlines() if ln.startswith("- ช่วงฐาน")][0]
-    assert "ไม่มีฐานเปรียบเทียบ" in base and "เท่า" not in base
+    base = [ln for ln in item.prompt.splitlines() if ln.startswith("- ปี 2017–2021")][0]
+    assert "ไม่มีปีก่อนให้เทียบ" in base and "เท่า" not in base
 
 
 class FakeWriter:
@@ -97,8 +105,8 @@ class FakeWriter:
         elif "Large language models" in p:
             out = {"th": "โมเดลภาษาขนาดใหญ่เป็นหัวข้อใหม่ที่ไม่มีฐานเปรียบเทียบ", "en": "A new topic with no baseline"}
         else:
-            out = {"th": "การเรียนรู้ด้วย AI โต 35% ต่อปี (ช่วงเชื่อมั่น 90%: 20% ถึง 50%)",
-                   "en": "AI-assisted learning grows 35% a year (90% CI 20% to 50%)"}
+            out = {"th": "การเรียนรู้ด้วย AI โต 35% ต่อปี (น่าจะอยู่ระหว่าง 20% ถึง 50%)",
+                   "en": "AI-assisted learning grows 35% a year (likely between 20% and 50%)"}
         return Reply(json.dumps(out, ensure_ascii=False), 0, 0, 0.0)
 
 
@@ -261,19 +269,21 @@ def test_watch_is_worded_as_a_failed_breadth_test_with_the_topic_reasons(make_cf
     lab = pd.Series({"name_th": "สื่อใหม่", "name_en": "New media", "keywords": "สื่อ; media", "description": ""})
     e = _watch_row()
     th, en = breadth_reasons(cfg, e)
-    assert th == ["มาจาก 2 วารสาร (เกณฑ์ ≥ 3)", "2 สถาบัน (เกณฑ์ ≥ 3)", "บทความจากวารสารที่เพิ่งเข้าระบบ 60% (เกณฑ์ < 50%)"]
-    assert en == ["from 2 journals (needs ≥ 3)", "2 institutions (needs ≥ 3)",
-                  "60% of articles from journals new to the index (needs < 50%)"]
+    assert th == ["มาจาก 2 วารสาร (ต้องมีอย่างน้อย 3)", "มาจาก 2 สถาบัน (ต้องมีอย่างน้อย 3)",
+                  "60% ของบทความล่าสุดมาจากวารสารที่เพิ่งเข้าระบบ (ต้องต่ำกว่า 50%)"]
+    assert en == ["from 2 journals (needs at least 3)", "from 2 institutions (needs at least 3)",
+                  "60% of recent articles come from journals new to the index (needs under 50%)"]
     facts = topic_facts(cfg, lab, e, None, 2024)
-    assert "ไม่ผ่านเกณฑ์ความกว้าง" in facts and "มาจาก 2 วารสาร" in facts
+    assert "ยังมาจากไม่กี่แหล่ง" in facts and "มาจาก 2 วารสาร" in facts
     t = template_narrative(cfg, lab, e, 2024)
-    assert "ไม่ผ่านเกณฑ์ความกว้าง" in t["th"] and "did not pass the breadth test" in t["en"]
+    assert "ยังมาจากไม่กี่แหล่ง" in t["th"] and "from too few sources" in t["en"]
     assert "single journal" not in t["en"] and "วารสารเดียว" not in t["th"]
     assert grounding_error([t["th"], t["en"]], facts, [], growth=0.3) is None          # every number is a fact
     # only the failed parts are named; the institution rule is not claimed when it was skipped (orgs_unverified)
     assert breadth_reasons(cfg, _watch_row(n_journals_R=5, n_orgs_R=1, orgs_unverified=True))[0] == [
-        "บทความจากวารสารที่เพิ่งเข้าระบบ 60% (เกณฑ์ < 50%)"]
-    assert breadth_reasons(cfg, _watch_row(new_journal_share=0.1, n_orgs_R=7))[1] == ["from 2 journals (needs ≥ 3)"]
+        "60% ของบทความล่าสุดมาจากวารสารที่เพิ่งเข้าระบบ (ต้องต่ำกว่า 50%)"]
+    assert breadth_reasons(cfg, _watch_row(new_journal_share=0.1, n_orgs_R=7))[1] == [
+        "from 2 journals (needs at least 3)"]
     assert breadth_reasons(cfg, pd.Series({"status": "EMERGING", "journal_driven": False})) == ([], [])
 
 
@@ -285,11 +295,11 @@ def test_brief_words_watch_as_the_breadth_test(make_cfg, tmp_path):
     em = pd.DataFrame([_watch_row()], index=[3])
     em = pd.concat([em, pd.DataFrame([_watch_row(status="EMERGING", journal_driven=False)], index=[1])])
     b = template_brief(cfg, em, 2024, 10_000, 2015)
-    assert any("ไม่ผ่านเกณฑ์ความกว้าง" in x for x in b["bullets_th"])
-    assert any("did not pass the breadth test" in x for x in b["bullets_en"])
+    assert any("ยังมาจากไม่กี่แหล่ง" in x for x in b["bullets_th"])
+    assert any("from too few sources" in x for x in b["bullets_en"])
     from atlas.io_utils import read_table
 
     labels = read_table(work / "05_labels.parquet").set_index("topic_id")
     facts = brief_facts(cfg, labels, em, 2024)
     watch = [ln for ln in facts.splitlines() if "การปลูกข้าว" in ln][0]
-    assert "ไม่ผ่านเกณฑ์ความกว้าง" in watch and "มาจาก 2 วารสาร" in watch
+    assert "ยังมาจากไม่กี่แหล่ง" in watch and "มาจาก 2 วารสาร" in watch

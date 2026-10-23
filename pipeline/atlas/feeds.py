@@ -20,6 +20,7 @@ import re
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+from atlas.narrative import STATUS_EN, STATUS_TH
 from atlas.schema.contract import TOPIC_ID
 from atlas.state import _checked
 
@@ -57,8 +58,33 @@ def site_releases(site: str | Path) -> list[str]:
     return sorted(out, reverse=True)
 
 
-def _pct(v) -> str:
-    return "n/a" if v is None else f"{float(v) * 100:+.1f}%"
+def _pct(v) -> str | None:
+    return None if v is None else f"{float(v) * 100:+.1f}%"
+
+
+def _status(code) -> str:
+    """'กำลังเกิดใหม่ / Emerging' — the names the web shows, never the code (an unknown code is kept as is)."""
+    code = str(code or "?")
+    return f"{STATUS_TH[code]} / {STATUS_EN[code]}" if code in STATUS_TH else code
+
+
+def _years(folder: Path, recent_window: int | None) -> str | None:
+    """'2022–2024': the recent years of a release (from its overview's last complete year), when the window is known."""
+    last = (_read(folder / "overview.json") or {}).get("last_complete_year")
+    if not recent_window or not isinstance(last, int):
+        return None
+    return f"{last - int(recent_window) + 1}–{last}"
+
+
+def _topic_summary(x: dict, years: str | None) -> str:
+    """Name, status name and the recent count + share change — Thai line, then English line."""
+    m = x.get("metrics") or {}
+    n, g = int(m.get("count_recent") or 0), _pct(m.get("share_growth"))
+    th = (f"{n:,} บทความในปี {years}" if years else f"{n:,} บทความล่าสุด") + " · " + (
+        f"ส่วนแบ่งเปลี่ยน {g} ต่อปี" if g else "ยังบอกแนวโน้มไม่ได้")
+    en = (f"{n:,} articles in {years}" if years else f"{n:,} recent articles") + " · " + (
+        f"share change {g} a year" if g else "trend not yet known")
+    return f"{x.get('th', '')} / {x.get('en', '')}\n{_status(x.get('status'))}\n{th}\n{en}"
 
 
 def _feed(feed_id: str, title: str, updated: str, alternate: str, entries: list[dict]) -> str:
@@ -87,11 +113,14 @@ def _release_summary(folder: Path) -> str:
     brief, k = ov.get("brief") or {}, ov.get("kpis") or {}
     parts = [p for p in (brief.get("headline_th"), brief.get("headline_en")) if p]
     if not parts and k:
-        parts.append(f"{int(k.get('articles', 0)):,} articles · {int(k.get('topics', 0)):,} topics")
+        a, t = int(k.get("articles", 0)), int(k.get("topics", 0))
+        parts.append(f"{a:,} บทความ · {t:,} หัวข้อ / {a:,} articles · {t:,} topics")
     diff = _read(folder / "diff.json")
     if isinstance(diff, dict):
-        parts.append(f"vs {diff.get('previous_release', '?')}: {len(diff.get('new_topics') or [])} new topics · "
-                     f"{len(diff.get('retired') or [])} gone · {len(diff.get('status_changes') or [])} status changes")
+        prev = diff.get("previous_release", "?")
+        new, gone, moved = (len(diff.get(k) or []) for k in ("new_topics", "retired", "status_changes"))
+        parts.append(f"เทียบกับรอบ {prev}: หัวข้อใหม่ {new} · หัวข้อที่ไม่มีแล้ว {gone} · เปลี่ยนสถานะ {moved}")
+        parts.append(f"vs {prev}: {new} new topics · {gone} gone · {moved} changed status")
     return "\n".join(parts) or folder.name
 
 
@@ -102,8 +131,9 @@ def _write(path: Path, text: str) -> None:
         path.write_bytes(data)
 
 
-def write_feeds(site: str | Path, site_url: str, max_entries: int = 12) -> dict:
-    """Write data/feeds/ under the site from the releases on it → {"releases": path, "topics": n, "entries": n}."""
+def write_feeds(site: str | Path, site_url: str, max_entries: int = 12, recent_window: int | None = None) -> dict:
+    """Write data/feeds/ under the site from the releases on it → {"releases": path, "topics": n, "entries": n}.
+    recent_window (emerging.recent_window): topic entries name the recent years ("2022–2024") instead of "recent"."""
     site = Path(site)
     base = site_url.strip()
     base = base if base.endswith("/") else base + "/"
@@ -119,7 +149,7 @@ def write_feeds(site: str | Path, site_url: str, max_entries: int = 12) -> dict:
     _write(feeds / "releases.xml", _feed(f"{base}data/{FEEDS_DIR}/releases.xml", "TCI Research Atlas — releases",
                                          stamp[releases[0]], f"{base}#/changes", entries))
 
-    topics_by_release = {}
+    topics_by_release, years = {}, {r: _years(data / r, recent_window) for r in shown}
     for r in shown:
         tf = _read(data / r / "topics.json")
         rows = tf.get("topics") if isinstance(tf, dict) else None
@@ -133,12 +163,9 @@ def write_feeds(site: str | Path, site_url: str, max_entries: int = 12) -> dict:
             x = topics_by_release[r].get(code)
             if x is None:
                 continue
-            m = x.get("metrics") or {}
-            ent.append({"id": f"{base}data/{r}/topics/{code}.json", "title": f"{r}: {x.get('status', '?')}",
+            ent.append({"id": f"{base}data/{r}/topics/{code}.json", "title": f"{r}: {_status(x.get('status'))}",
                         "updated": stamp[r], "link": f"{base}#/topics/{code}",
-                        "summary": f"{x.get('th', '')} / {x.get('en', '')}\n{x.get('status', '?')} · "
-                                   f"{int(m.get('count_recent') or 0):,} articles in the recent window · "
-                                   f"share growth {_pct(m.get('share_growth'))}"})
+                        "summary": _topic_summary(x, years[r])})
         name = f"{code}.xml"
         _write(feeds / "topics" / name, _feed(f"{base}data/{FEEDS_DIR}/topics/{name}",
                                               f"TCI Research Atlas — {t.get('th', '')} / {t.get('en', '')}",

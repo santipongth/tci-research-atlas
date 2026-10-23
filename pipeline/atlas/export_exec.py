@@ -303,44 +303,69 @@ def _pct(x: float) -> str:
     return f"{100 * x:.1f}%"
 
 
+def _and_list(names: list[str], word: str) -> str:
+    """'a', 'a และ b', 'a, b และ c' (word = 'และ' / 'and')."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} {word} {names[-1]}"
+
+
 def executive_summary(files: dict[str, C._Model]) -> C.ExecutiveSummary | None:
-    """Policy sentences for the overview and the PDF brief, from the executives' files only."""
+    """Policy sentences for the overview and the PDF brief, from the executives' files only — plain public
+    language (example first, years written out, a unit on every number, no statistical terms)."""
     th: list[str] = []
     en: list[str] = []
     reg = files.get("regions.json")
     if reg is not None and reg.articles_located and reg.provinces:
         top = sorted(reg.provinces, key=lambda p: (-p.articles, p.code))[:5]
-        th.append("จังหวัดที่มีบทความมากที่สุด: " + ", ".join(f"{p.name_th} ({p.articles:,})" for p in top)
-                  + f" จากบทความที่ระบุจังหวัดได้ {reg.articles_located:,} เรื่อง")
-        en.append("Provinces with the most articles: " + ", ".join(f"{p.name_en} ({p.articles:,})" for p in top)
-                  + f", of {reg.articles_located:,} articles with a known province")
+        w = reg.window
+        th.append(f"บทความปี {w.start}–{w.end} มาจากสถาบันใน "
+                  + _and_list([f"{p.name_th} ({p.articles:,} บทความ)" for p in top], "และ")
+                  + f" มากที่สุด — นับจาก {reg.articles_located:,} บทความที่รู้จังหวัดของสถาบัน")
+        en.append(f"Most articles of {w.start}–{w.end} come from institutions in "
+                  + _and_list([f"{p.name_en} ({p.articles:,} articles)" for p in top], "and")
+                  + f" — counted over the {reg.articles_located:,} articles whose institution's province is known")
     inst = files.get("institutions.json")
     if inst is not None and inst.pct_international is not None:
-        cs = inst.countries[:3]
-        th.append(f"บทความ {_pct(inst.pct_international)} มีผู้แต่งร่วมจากต่างประเทศ"
-                  + (f" ประเทศคู่ความร่วมมือหลัก: {', '.join(c.name_th for c in cs)}" if cs else ""))
-        en.append(f"{_pct(inst.pct_international)} of articles have a foreign co-author"
-                  + (f"; main partner countries: {', '.join(c.name_en for c in cs)}" if cs else ""))
+        cs, w = inst.countries[:3], inst.window
+        th.append(f"ปี {w.start}–{w.end} มีบทความ {_pct(inst.pct_international)} ที่นักวิจัยจากต่างประเทศร่วมเขียน"
+                  + (f" โดยร่วมกับ {_and_list([c.name_th for c in cs], 'และ')} บ่อยที่สุด" if cs else ""))
+        en.append(f"{_pct(inst.pct_international)} of the articles of {w.start}–{w.end} were written with a "
+                  "researcher from abroad"
+                  + (f" — most often from {_and_list([c.name_en for c in cs], 'and')}" if cs else ""))
     sdg = files.get("sdg.json")
     goals = [g for g in sdg.goals if g.framework == "sdg"] if sdg is not None else []
     if goals:
         covered = sum(1 for g in goals if g.topics)
         missing = [g for g in goals if not g.topics][:3]
-        th.append(f"หัวข้อวิจัยครอบคลุม {covered} จาก {len(goals)} เป้าหมาย SDG"
-                  + (" ยังไม่พบหัวข้อใน " + ", ".join(f"SDG {g.number} {g.th}" for g in missing) if missing else ""))
-        en.append(f"Research topics cover {covered} of {len(goals)} SDGs"
-                  + ("; none yet for " + ", ".join(f"SDG {g.number} {g.en}" for g in missing) if missing else ""))
+        th.append(f"หัวข้อวิจัยรอบนี้ตรงกับเป้าหมายการพัฒนาที่ยั่งยืน (SDG) {covered} จาก {len(goals)} ข้อ"
+                  + (" ข้อที่ยังไม่มีหัวข้อใดตรงเลย เช่น " + ", ".join(f"SDG {g.number} {g.th}" for g in missing)
+                     if missing else ""))
+        en.append(f"This release's research topics match {covered} of the {len(goals)} Sustainable Development "
+                  "Goals (SDGs)"
+                  + ("; goals no topic matches yet include " + ", ".join(f"SDG {g.number} {g.en}" for g in missing)
+                     if missing else ""))
     glob = files.get("global.json")
     opp = sorted((s for s in glob.subfields if s.opportunity), key=lambda s: (-(s.world_ratio or 0.0), s.id)) if glob else []
     if opp:
-        names = ", ".join(s.en for s in opp[:3])
-        th.append(f"{len(opp)} สาขาย่อยที่โลกเติบโตเร็วแต่ไทยยังมีสัดส่วนน้อย เช่น {names}")
-        en.append(f"{len(opp)} subfields grow fast worldwide while Thailand's share is small, e.g. {names}")
+        names = _and_list([s.en for s in opp[:3]], "และ")
+        names_en = _and_list([s.en for s in opp[:3]], "and")
+        th.append(f"เช่น {names}: ทั่วโลกทำวิจัยเรื่องเหล่านี้เพิ่มขึ้นเร็ว แต่ไทยยังทำน้อย "
+                  f"(สาขาแบบนี้มีทั้งหมด {len(opp)} สาขา)")
+        en.append(f"For example {names_en}: research on these grows fast worldwide, but Thailand does little of it "
+                  f"({len(opp)} such fields in all)")
     gaps = files.get("gaps.json")
-    risky = sorted({c.id for c in gaps.concentration if c.scope == "topic" and c.concentrated}) if gaps else []
+    conc = [c for c in gaps.concentration if c.scope == "topic" and c.concentrated] if gaps else []
+    risky = sorted({c.id for c in conc})
     if risky:
-        th.append(f"{len(risky)} หัวข้อพึ่งสถาบันหรือวารสารรายเดียวสูง (รายใหญ่สุดอยู่ใน {_pct(gaps.max_top_share)} "
-                  f"ของบทความขึ้นไป หรือ HHI ≥ {gaps.max_hhi:g})")
-        en.append(f"{len(risky)} topics depend heavily on one institution or journal (the largest is in at least "
-                  f"{_pct(gaps.max_top_share)} of articles, or HHI ≥ {gaps.max_hhi:g})")
+        tf = files.get("topics.json")
+        name = {t.id: (t.th, t.en) for t in tf.topics} if tf is not None else {}
+        ex = min(conc, key=lambda c: (-c.top_share, c.id))
+        ex_th, ex_en = name.get(ex.id, ("", ""))
+        th.append((f"เช่น “{ex_th}”: " if ex_th else "")
+                  + f"{len(risky)} หัวข้อพึ่งสถาบันหรือวารสารแห่งเดียวเป็นหลัก (แหล่งเดียวมีบทความตั้งแต่ "
+                  f"{_pct(gaps.max_top_share)} ของหัวข้อ หรือบทความกระจุกอยู่ในไม่กี่แหล่ง) "
+                  "ถ้าแหล่งนั้นหยุด ตัวเลขของหัวข้อจะเปลี่ยนมาก")
+        en.append((f"For example “{ex_en}”: " if ex_en else "")
+                  + f"{len(risky)} topics rely mostly on one institution or journal (one source holds at least "
+                  f"{_pct(gaps.max_top_share)} of the topic's articles, or the articles sit in only a few sources) — "
+                  "if that source stops, the topic's numbers change a lot")
     return C.ExecutiveSummary(bullets_th=th, bullets_en=en) if th else None

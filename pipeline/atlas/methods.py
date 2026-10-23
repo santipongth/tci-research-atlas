@@ -310,8 +310,9 @@ def template_note(row, name_th: str, name_en: str) -> dict:
         return {"th": f"ยังระบุวิธีวิจัยของบทความในหัวข้อ{name_th}ไม่ได้", "en": f"No method could be read for {name_en}."}
     key, n = top[0]
     m, pct = METHOD_NAMES[key], 100 * n / row.with_methods
-    return {"th": f"บทความในหัวข้อนี้ที่ระบุวิธีวิจัยได้ {pct:.0f}% ใช้{m.th}",
-            "en": f"{pct:.0f}% of the articles in this topic that name a method use {m.en.lower()}."}
+    return {"th": f"วิธีที่ใช้บ่อยที่สุดในหัวข้อนี้คือ{m.th}: {pct:.0f}% ของบทความที่บอกวิธีวิจัย",
+            "en": f"The most common method in this topic is {m.en.lower()}: {pct:.0f}% of the articles that name "
+                  "a method."}
 
 
 def methods_job(cfg: dict) -> LlmJob:
