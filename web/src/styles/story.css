@@ -1,0 +1,54 @@
+/* The front door's data story: the question, the answer, one number, then the chart that proves it. */
+@layer components {
+  .story { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 40px 72px; align-items: start; padding-top: var(--sp-block); }
+  .story-text { padding-top: 12px; }
+  .story h1 { font-size: var(--fs-display); line-height: 1.45; font-weight: 700; color: var(--ink); }
+  .story h1:lang(en) { line-height: 1.25; letter-spacing: -0.02em; }
+  /* the question breaks only between its halves (งานวิจัยไทย / เรื่องไหนกำลังมา) */
+  .story-q:lang(th) { display: inline-block; white-space: nowrap; }
+  .story-answer { margin-top: 22px; font-size: var(--fs-lead); line-height: 1.65; color: var(--ink); max-width: 30em; }
+  .story-answer a { font-weight: 700; }
+  .story-num { margin-top: 30px; display: grid; gap: 4px; }
+  .story-big { font-size: var(--fs-hero); font-weight: 700; line-height: 1.45; color: var(--brand); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .story-unit { font-size: var(--fs-meta); color: var(--ink-2); max-width: 26em; }
+  .story-by { margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--border-2); font-size: var(--fs-meta); line-height: 1.6; color: var(--ink-3); }
+  .story .note { color: var(--ink-3); }
+  .story-fig { min-width: 0; }
+  .story-fig .fig { margin-top: 0; }
+  .story-more { margin-top: 10px; font-size: var(--fs-meta); font-weight: 600; }
+  @media (max-width: 1099px) {
+    .story { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  }
+
+  /* story chart: context lines grey, the focused line TCI blue with one orange end mark */
+  .sl-host { min-width: 0; }
+  .sl { display: block; overflow: visible; }
+  .sl-grid { stroke: var(--border-2); stroke-width: 1; }
+  .sl-base { stroke: var(--border); stroke-width: 1; }
+  .sl-tick { fill: var(--ink-3); font-size: var(--fs-tick); font-variant-numeric: tabular-nums; }
+  .sl-hit { fill: none; stroke: transparent; stroke-width: 16; cursor: pointer; }
+  .sl-line { fill: none; stroke: var(--context); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; animation: sl-draw 1100ms cubic-bezier(0.16, 1, 0.3, 1) both; transition: stroke 160ms ease-out, stroke-width 160ms ease-out; }
+  .sl-series.is-on .sl-line { stroke: var(--brand); stroke-width: 4; }
+  .sl-end { fill: var(--accent-mark); stroke: var(--bg); stroke-width: 3; }
+  .sl-note { fill: var(--ink); font-size: var(--fs-meta); font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 6px; stroke-linejoin: round; }
+  .sl-note-lead { fill: none; stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 3 3; }
+  .sl-leader { stroke: var(--border); stroke-width: 1; }
+  .sl-lab { cursor: pointer; outline: none; }
+  .sl-lab text { font-size: var(--fs-meta); }
+  .sl-lab .sl-name { fill: var(--ink-3); font-weight: 400; }
+  .sl-lab .sl-val { fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .sl-lab.is-on .sl-name { fill: var(--brand); font-weight: 700; }
+  .sl-lab.is-on .sl-val { fill: var(--ink); font-weight: 700; }
+  .sl-lab:hover .sl-name { fill: var(--ink); }
+  .sl-lab:focus-visible text { text-decoration: underline; text-decoration-thickness: 2px; }
+  .sl-lab:focus-visible .sl-name { fill: var(--brand); }
+  @keyframes sl-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+  /* phones: the names sit under the chart as tappable keys */
+  .sl-keys { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+  .sl-key { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 4px 10px; border: 0; border-radius: var(--radius); background: none; text-align: left; font-size: var(--fs-meta); color: var(--ink-2); }
+  .sl-key .sl-sw { width: 22px; height: 3px; border-radius: 2px; background: var(--context); }
+  .sl-key .sl-val { font-variant-numeric: tabular-nums; }
+  .sl-key.is-on { background: var(--brand-soft); color: var(--brand); font-weight: 700; }
+  .sl-key.is-on .sl-sw { height: 4px; background: var(--brand); }
+}

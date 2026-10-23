@@ -82,7 +82,6 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
   const gained = (detail?.gained ?? []).filter((s) => topicOf(s.topic))
   const lost = (detail?.lost ?? []).filter((s) => topicOf(s.topic))
   const mix = periodMix([...gained, ...lost])
-  const years = detail?.years ?? []
   const ty = detail?.topic_years ?? null
   const tyTopics = (ty?.topics ?? []).filter((x) => topicOf(x.topic))
   const hasTy = ty !== null && tyTopics.length > 0 && ty.years.length > 1
@@ -209,8 +208,6 @@ function JournalContent({ release, file, journal }: { release: AtlasRelease; fil
                 label={t('col.articlesW')}
                 value={fmtInt(journal.articles_window)}
                 sub={t('jr.articlesSub', { a: w.start, b: w.end, all: fmtInt(journal.articles) })}
-                trend={years.length > 2 ? years.map((y) => y.articles) : undefined}
-                trendText={years.length > 2 ? s('jr.trend', { a: years[0].year, b: years[years.length - 1].year, values: years.map((y) => fmtInt(y.articles)).join(', ') }) : undefined}
               />
               <StatTile label={t('col.completeness')} value={journal.completeness == null ? gap : fmtNum(journal.completeness, 1)} sub={t('jr.completenessSub')} />
               <StatTile label={t('col.inhouse')} value={journal.inhouse_share == null ? gap : fmtPct(journal.inhouse_share, 0)} sub={inhouseSub}>

@@ -35,7 +35,7 @@ describe('URL state codecs', () => {
   })
 
   it('overview and topic views', () => {
-    expect(overviewCodec.parse(overviewCodec.write({ wf: 'table', st: 'table', pf: 'chart' }))).toEqual({ wf: 'table', st: 'table', pf: 'chart' })
+    expect(overviewCodec.parse(overviewCodec.write({ sto: 'table', wf: 'table', st: 'table', pf: 'chart' }))).toEqual({ sto: 'table', wf: 'table', st: 'table', pf: 'chart' })
     expect(topicCodec.write({ trend: 'chart', jr: 'chart', org: 'chart' }).toString()).toBe('')
     expect(topicCodec.parse(new URLSearchParams('jr=table')).jr).toBe('table')
     // /emerging opens on the forest plot; the table is the other view

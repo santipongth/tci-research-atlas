@@ -5,11 +5,11 @@
   .sbar-fill { display: block; height: 100%; background: var(--ink-2); }
   .sbar-num { font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
   .sbar-na { color: var(--ink-2); }
-  .flag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--ink); font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; }
+  .flag { display: inline-block; margin-left: 6px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--surface); font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; }
   .j-path { display: block; color: var(--ink-2); font-size: var(--fs-meta); overflow-wrap: anywhere; }
   .j-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 20px; margin-top: 18px; }
   .j-tools label { display: grid; gap: 4px; font-weight: 600; }
-  .j-tools input[type="search"], .j-tools select { min-height: 44px; padding: 0 10px; border: 2px solid var(--field-border); background: var(--bg); color: var(--ink); font: inherit; }
+  .j-tools input[type="search"], .j-tools select { min-height: 44px; padding: 0 12px; border: 1px solid var(--field-border); border-radius: var(--radius); background: var(--bg); color: var(--ink); font: inherit; }
   .j-tools input[type="search"] { width: min(100%, 22rem); }
   .j-tags { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: var(--fs-meta); }
   .shift-list { margin: 10px 0 0; padding-left: 1.2em; display: grid; gap: 6px; }
@@ -20,9 +20,9 @@
   .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
   .match-form { display: grid; gap: 10px; margin-top: 18px; max-width: 760px; }
   .match-form label { font-weight: 700; }
-  .match-form textarea { width: 100%; min-height: 12rem; padding: 10px 12px; border: 2px solid var(--field-border); background: var(--bg); color: var(--ink); font: inherit; line-height: 1.65; resize: vertical; }
+  .match-form textarea { width: 100%; min-height: 12rem; padding: 12px 14px; border: 1px solid var(--field-border); border-radius: var(--radius); background: var(--bg); color: var(--ink); font: inherit; line-height: 1.65; resize: vertical; }
   .match-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .privacy { margin-top: 10px; padding: 10px 14px; border-left: 4px solid var(--brand); background: var(--surface); max-width: var(--measure-body); }
+  .privacy { margin-top: 10px; padding: 14px 18px; border-radius: 12px; background: var(--brand-soft); max-width: var(--measure-body); }
   .hits { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
   .match-res { max-width: 760px; }
   .hits li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-2); }

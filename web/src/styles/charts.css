@@ -1,6 +1,6 @@
 /* Overview: Editorial headline + KPI tiles + main points + status summary; forest plot; portfolio matrix. */
 @layer components {
-  .headline-block { margin-top: var(--sp-block); padding: var(--sp-group) 0 6px; border-top: 2px solid var(--ink); }
+  .headline-block { margin-top: var(--sp-block); padding: var(--sp-group) 0 6px; border-top: 1px solid var(--border-2); }
   .headline { font-size: var(--fs-tile); font-weight: 600; line-height: 1.5; max-width: 30ch; text-wrap: balance; }
   [lang="en"] .headline { max-width: 34ch; }
   .headline:lang(en) { line-height: 1.35; }
@@ -17,15 +17,6 @@
   @keyframes hl-swipe { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
 
   .kpis { margin: 18px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .kpi { border: 1px solid var(--border); padding: 14px 16px 12px; min-width: 0; background: var(--bg); }
-  .kpi dt { font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; }
-  .kpi dd { margin: 0; }
-  .kpi .v { display: block; font-size: var(--fs-tile); font-weight: 700; line-height: 1.5; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  .kpi .d { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: var(--fs-meta); color: var(--up); font-weight: 600; line-height: 1.5; }
-  .kpi .d.is-down { color: var(--ink-2); }
-  .kpi .d svg { width: 11px; height: 11px; flex: none; display: inline-block; }
-  .kpi .d-ref { font-weight: 400; color: var(--ink-2); }
-  @media (max-width: 640px) { .kpis { grid-template-columns: 1fr 1fr; gap: 10px; } .kpi { padding: 12px; } }
 
   .points { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
   .point { padding: 12px 0; border-top: 1px solid var(--border-2); }
@@ -52,7 +43,7 @@
   .fr-name { min-width: 0; padding-left: 4px; }
   .fr-name b { display: block; font-weight: 600; font-size: var(--fs-meta); line-height: 1.5; color: var(--link); }
   .fr-name span { display: block; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
-  .fr-name .fr-new { display: inline-block; margin: 2px 0; padding: 0 6px; border: 1px solid var(--ink-2); color: var(--ink); font-weight: 600; font-size: var(--fs-caption); }
+  .fr-name .fr-new { display: block; margin: 2px 0; padding: 0; color: var(--ink-2); font-weight: 600; font-size: var(--fs-caption); text-wrap: balance; }
   .fr-noci { display: flex; align-items: center; height: 100%; padding-left: 6px; font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
   .fr-row:focus-visible .fr-name b, .fr-row:focus-visible .fr-name span, .fr-row:focus-visible .fr-val span { color: var(--focus-ink); }
   .fr-plot { min-width: 0; height: 26px; }
@@ -95,7 +86,7 @@
   .pf-node .hit { fill: transparent; }
   .pf-node .mk { stroke-width: 2; }
   .pf-node:hover .mk { stroke: var(--ink); stroke-width: 2.5; }
-  .pf-node:focus-visible .hit { fill: var(--focus); }
+  .pf-node:focus-visible .hit { fill: var(--focus-fill); }
   .pf-node:focus-visible .mk { stroke: var(--focus-ink); stroke-width: 3; }
   .pf-edge { font-size: var(--fs-tick); font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; font-variant-numeric: tabular-nums; }
   .pf-ltext { font-size: var(--fs-caption); font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }

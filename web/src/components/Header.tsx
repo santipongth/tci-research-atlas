@@ -7,7 +7,6 @@ import { useI18n } from '../lib/i18n'
 import { COMPACT_CHROME, useMediaQuery } from '../lib/useMediaQuery'
 import type { StrKey } from '../strings'
 import { LangSwitch } from './LangSwitch'
-import { ThemeToggle } from './ThemeToggle'
 import { TopicSearch } from './TopicSearch'
 
 interface Item {
@@ -189,17 +188,20 @@ export function Header() {
           <Link to="/overview" className="hdr-wm">
             <Wordmark sub={t('brandSub')} lang={lang} />
           </Link>
+          {compact ? null : (
+            <div className="hdr-tools">
+              <div className="hdr-search">
+                <SiteSearch />
+              </div>
+              <LangSwitch />
+            </div>
+          )}
           {compact ? (
             <button ref={menuBtn} type="button" className="menubtn" aria-expanded={open} aria-controls="site-nav" onClick={() => (open ? close(false) : setOpenOn(pathname))}>
               <MenuIcon open={open} />
               <span>{t('menu.button')}</span>
             </button>
-          ) : (
-            <div className="hdr-tools">
-              <LangSwitch />
-              <ThemeToggle />
-            </div>
-          )}
+          ) : null}
         </div>
       </header>
       <nav id="site-nav" className={`nav${open ? ' is-open' : ''}`} aria-label={t('nav.label')} onKeyDown={onKeyDown}>
@@ -222,11 +224,8 @@ export function Header() {
           {compact ? (
             <div className="nav-tools">
               <LangSwitch />
-              <ThemeToggle />
             </div>
-          ) : (
-            search
-          )}
+          ) : null}
         </div>
       </nav>
     </>

@@ -73,4 +73,22 @@ export const overview = defineStrings({
   'quad.mature.hint': { th: 'ใหญ่แต่ไม่โตแล้ว', en: 'Large, no longer growing' },
   'quad.declining': { th: 'ไม่โต/หด', en: 'Flat or shrinking' },
   'quad.declining.hint': { th: 'เล็ก และไม่โตหรือหดตัว', en: 'Small, not growing or shrinking' },
+  // the front door's story (data explainer): question, answer, one number, one chart
+  'ov.q': { th: 'งานวิจัยไทย|เรื่องไหนกำลังมา', en: 'Which Thai research topics|are on the rise?' },
+  'ov.answer': { th: 'เรื่องที่โตเร็วที่สุดตอนนี้คือ “{topic}” ตามมาด้วย “{b}” และ “{c}”', en: 'The fastest-growing topic right now is “{topic}”, followed by “{b}” and “{c}”.' },
+  'ov.answerOne': { th: 'เรื่องที่โตเร็วที่สุดตอนนี้คือ “{topic}”', en: 'The fastest-growing topic right now is “{topic}”.' },
+  'ov.answerNone': { th: 'รอบนี้ยังไม่มีเรื่องไหนที่สัดส่วนบทความโตเด่นชัด', en: 'No topic’s share of articles is clearly growing in this release.' },
+  'ov.byline': { th: 'จากบทความในวารสารไทย {articles} เรื่อง · ข้อมูลถึงปี {year} · อัปเดต {date}', en: 'From {articles} articles in Thai journals · data up to {year} · updated {date}' },
+  'ov.heroUnit': { th: 'ต่อปี — สัดส่วนบทความเรื่อง “{topic}” เพิ่มขึ้นราวเท่านี้ทุกปี', en: 'a year: the share of articles on “{topic}” grows about this much every year' },
+  'ov.heroTimes': { th: '{m} เท่า', en: '×{m}' },
+  'ov.heroUnitTimes': { th: 'ทุกปี — สัดส่วนบทความเรื่อง “{topic}” เพิ่มเป็นราว {m} เท่าของปีก่อน', en: 'every year: the share of articles on “{topic}” grows to about {m} times the year before' },
+  'ov.story.fig': { th: 'บทความต่อปีของ {n} เรื่องที่โตเร็วที่สุด ปี {a}–{b}', en: 'Articles a year in the {n} fastest-growing topics, {a}–{b}' },
+  'ov.story.table': { th: 'บทความต่อปีของเรื่องที่โตเร็วที่สุด', en: 'Articles a year in the fastest-growing topics' },
+  'ov.story.label': { th: 'กราฟเส้นบทความต่อปีของ {n} เรื่องที่โตเร็วที่สุด เรื่องที่เน้นคือ {topic}', en: 'Line chart of articles a year in the {n} fastest-growing topics; highlighted: {topic}' },
+  'ov.story.note': { th: 'จาก {a} เรื่องในปี {y0} เป็น {b} เรื่องในปี {y1}', en: 'From {a} articles in {y0} to {b} in {y1}' },
+  'ov.story.how': {
+    th: 'เลือก {n} เรื่องที่สัดส่วนบทความโตเร็วที่สุด (ไม่นับเรื่องที่ข้อมูลน้อย) เส้นสีน้ำเงินคือเรื่องที่กำลังเน้น ชี้หรือแตะชื่อเรื่องเพื่อเน้นเส้นนั้น ตัวเลขคือจำนวนบทความในแต่ละปี',
+    en: 'The {n} topics whose share of articles grows fastest (low-data topics left out). The blue line is the topic in focus; point at or tap a name to focus its line. Values are articles per year.',
+  },
+  'ov.story.more': { th: 'ดูทุกเรื่องที่กำลังโต', en: 'See every topic on the rise' },
 })

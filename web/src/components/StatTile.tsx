@@ -49,18 +49,15 @@ export function Sparkline({ values, width = 120, height = 28 }: { values: readon
 }
 
 /**
- * One key figure: a plain label, the big number (`--fs-tile`), an optional change vs the previous release, an optional
- * ink-only sparkline, a short line of context and an optional "เช่น …" example. Must sit inside a `StatGrid`.
+ * One key figure: a plain label, the big number (`--fs-tile`), an optional change vs the previous release, a short line
+ * of context and an optional "เช่น …" example. No sparkline: a trend gets its own figure. Must sit inside a `StatGrid`.
  * A long text value (e.g. "ใหม่ — ปี 2016–2020 ยังไม่มีงานเรื่องนี้") is set at the lead size instead of the tile size.
  */
-export function StatTile({ label, value, sub, delta, trend, trendText, example, wide = false, children }: {
+export function StatTile({ label, value, sub, delta, example, wide = false, children }: {
   label: ReactNode
   value: ReactNode
   sub?: ReactNode
   delta?: StatDelta | null
-  trend?: readonly (number | null)[]
-  /** the sparkline's numbers in words, for screen readers */
-  trendText?: string
   example?: ReactNode
   /** spans two columns (e.g. a tile with an interval whisker; the whole row on phones); 'phone' = the whole row on phones only */
   wide?: boolean | 'phone'
@@ -84,8 +81,6 @@ export function StatTile({ label, value, sub, delta, trend, trendText, example, 
             <span className="stat-dref">{delta.ref}</span>
           </span>
         ) : null}
-        {trend ? <Sparkline values={trend} /> : null}
-        {trend && trendText ? <span className="sr-only">{trendText}</span> : null}
         {sub ? <span className="stat-sub">{sub}</span> : null}
         {children}
         {example ? (

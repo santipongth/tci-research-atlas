@@ -6,13 +6,15 @@
 
   /* "3 เรื่องสำคัญรอบนี้": three editorial columns under an ink rule; on phones one per row, sparkline beside the number */
   .finds { list-style: none; margin: var(--sp-group) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-group) 32px; }
-  .find { display: flex; flex-direction: column; min-width: 0; padding-top: 14px; border-top: 2px solid var(--ink); }
-  .find-k { font-size: var(--fs-meta); font-weight: 600; color: var(--ink-2); line-height: 1.5; }
-  .find-v { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
-  .find-num { font-size: var(--fs-tile); font-weight: 700; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  /* three columns: the topic names, kinds and numbers line up row by row whatever a name wraps to */
+  @media (min-width: 900px) { .finds { row-gap: 8px; } .finds > .find { display: grid; grid-row: span 5; grid-template-rows: subgrid; align-content: start; } .finds > .find > * { margin-top: 0; } }
+  .find { display: flex; flex-direction: column; min-width: 0; padding-top: 16px; border-top: 1px solid var(--border-2); }
+  .find-k { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5; }
+  .find-v { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
+  .find-num { font-size: var(--fs-tile); font-weight: 700; line-height: 1.5; color: var(--brand); font-variant-numeric: tabular-nums; }
   .find-unit { font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5; }
   .find-ci { font-size: var(--fs-caption); color: var(--ink-2); line-height: 1.5; }
-  .find-topic { margin-top: 14px; font-size: var(--fs-body); font-weight: 700; line-height: 1.5; }
+  .find-topic { font-size: var(--fs-lead); font-weight: 700; line-height: 1.5; }
   .find-topic a { display: inline-block; min-height: 24px; }
   .find-s { margin-top: 6px; font-size: var(--fs-meta); line-height: 1.65; }
   .find-s .chip { margin-right: 4px; vertical-align: 1px; }
@@ -97,8 +99,8 @@
   .br-row { display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 1fr) 5.5rem; gap: 4px 16px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border-2); }
   .br-name { min-width: 0; font-size: var(--fs-meta); line-height: 1.5; overflow-wrap: anywhere; }
   .br-name a { display: inline-block; min-height: 24px; font-weight: 600; }
-  .br-bar { height: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-2); }
-  .br-bar i { display: block; height: 100%; background: var(--ink-2); }
+  .br-bar { height: 12px; border-radius: 3px; background: var(--surface); }
+  .br-bar i { display: block; height: 100%; border-radius: 0 3px 3px 0; background: var(--brand); }
   .br-val { text-align: right; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; }
   .br-more { margin-top: 8px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; }
   @media (max-width: 640px) {
@@ -112,8 +114,8 @@
   .step { position: relative; min-width: 0; }
   .step::before { content: ""; position: absolute; top: 17px; left: 36px; right: 0; border-top: 2px solid var(--border); }
   .step:last-child::before { display: none; }
-  .step-n { position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 2px solid var(--ink); background: var(--bg); font-weight: 700; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
-  .step.is-current .step-n { background: var(--ink); color: var(--bg); }
+  .step-n { position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+  .step.is-current .step-n { background: var(--brand); color: var(--brand-ink); }
   .step-c { margin-top: 12px; padding-right: 24px; }
   .step-art { margin-bottom: 8px; color: var(--ink); }
   .step-art svg { display: block; }

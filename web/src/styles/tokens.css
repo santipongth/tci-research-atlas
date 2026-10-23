@@ -1,52 +1,61 @@
-/* TCI Research Atlas design tokens. Normative source: DESIGN.md (repo root).
-   Light values on :root; dark values for the OS preference (unless the visitor chose light)
-   and for the explicit toggle. Group colours from the data are token keys cat-01 to cat-12. */
+/* TCI Research Atlas design tokens ("data explainer" world, 2026-10-23). Normative source: DESIGN.md (repo root).
+   One light theme on a white page: TCI blue (#283894, from the logo) for the brand and for the data that answers a
+   page's question, TCI orange for the one highlighted mark per view, quiet greys for context.
+   Group colours from the data are token keys cat-01 to cat-12. */
 :root {
   color-scheme: light;
   --bg: #ffffff;
-  --surface: #f3f4f5;
-  --ink: #0b0c0e;
-  --ink-2: #474e55;
-  --border: #b1b4b6;
-  --border-2: #dcdee0;
-  --field-border: #0b0c0e;
-  --brand: #0f3557;
+  --surface: #f5f6fa;
+  --ink: #14182b;
+  --ink-2: #4d536b;
+  --ink-3: #6b7088;
+  --border: #c9cddb;
+  --border-2: #e6e8f0;
+  --field-border: #8a8fa6;
+  --brand: #283894;
   --brand-ink: #ffffff;
-  --brand-ink-2: #c9d7e4;
-  --link: #1a5bb0;
-  --link-hover: #0d3c7a;
-  --focus: #ffd43b;
-  --focus-ink: #0b0c0e;
-  --up: #00703c;
-  --hl: #ffe07a;
-  --btn: #00703c;
-  --btn-hover: #005a30;
+  --brand-ink-2: #dfe3f4;
+  --brand-soft: #eef0fa;
+  --accent: #f89020;
+  --accent-mark: #e07000;
+  --accent-ink: #a85400;
+  --link: #283894;
+  --link-hover: #1a2466;
+  --focus: #283894;
+  --focus-ink: #14182b;
+  --focus-fill: rgba(40, 56, 148, 0.16);
+  --up: #0b6b46;
+  --hl: #fde7c8;
+  --btn: #283894;
+  --btn-hover: #1a2466;
   --btn-ink: #ffffff;
-  --btn-edge: #002d18;
-  --dot: #c7cbce;
-  --shadow: 0 8px 28px rgba(11, 12, 14, 0.18);
+  --btn-edge: #1a2466;
+  --dot: #c9cddb;
+  --context: #b9bdcc;
+  --radius: 8px;
+  --shadow: 0 14px 36px rgba(20, 24, 43, 0.14), 0 2px 6px rgba(20, 24, 43, 0.06);
   --st-EMERGING: #13a08a;
   --st-WATCH: #c47a0c;
   --st-HOT: #a3124f;
   --st-DECLINING: #5b74cf;
   --st-STABLE: #6f777b;
   --st-LOW_DATA: #6f777b;
-  --tag-EMERGING-bg: #d7f0e9;
+  --tag-EMERGING-bg: #dcf3ec;
   --tag-EMERGING-ink: #0a4a3e;
-  --tag-WATCH-bg: #fcebc9;
+  --tag-WATCH-bg: #fcefd3;
   --tag-WATCH-ink: #573700;
-  --tag-HOT-bg: #f7dae5;
+  --tag-HOT-bg: #f9e2eb;
   --tag-HOT-ink: #680b32;
-  --tag-DECLINING-bg: #e1e6f8;
+  --tag-DECLINING-bg: #e6eafa;
   --tag-DECLINING-ink: #22326d;
-  --tag-STABLE-bg: #eceeef;
+  --tag-STABLE-bg: #eef0f2;
   --tag-STABLE-ink: #363d43;
   --tag-LOW_DATA-bg: #ffffff;
-  --tag-LOW_DATA-ink: #474e55;
-  --map-sheet: #f6f7f4;
+  --tag-LOW_DATA-ink: #4d536b;
+  --map-sheet: #f7f8fb;
   --map-contour: #9a6a35;
-  --map-grid: rgba(11, 12, 14, 0.09);
-  --map-dot: rgba(11, 12, 14, 0.42);
+  --map-grid: rgba(20, 24, 43, 0.08);
+  --map-dot: rgba(20, 24, 43, 0.4);
   --cat-01: #e8b5a6;
   --cat-02: #dbc99d;
   --cat-03: #c3d59c;
@@ -59,159 +68,19 @@
   --cat-10: #e3bfcd;
   --cat-11: #cfd3a6;
   --cat-12: #d9cbb8;
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --seq-1: #e4edf6;
-  --seq-2: #b9d0e8;
-  --seq-3: #7ea8d4;
-  --seq-4: #3f74b5;
-  --seq-5: #123f7c;
+  --series-1: #283894;
+  --series-2: #e07000;
+  --series-3: #13866f;
+  --series-4: #b8860b;
+  --seq-1: #eceefa;
+  --seq-2: #c5cbec;
+  --seq-3: #8c97d6;
+  --seq-4: #4b5ab4;
+  --seq-5: #1f2c7a;
   --font: "Sarabun", "Noto Sans Thai", "Leelawadee UI", system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --bg: #0f1214;
-    --surface: #1a1e21;
-    --ink: #f3f4f5;
-    --ink-2: #b9bfc4;
-    --border: #5f676d;
-    --border-2: #2d3338;
-    --field-border: #f3f4f5;
-    --brand: #0a2238;
-    --brand-ink: #ffffff;
-    --brand-ink-2: #a9bdd0;
-    --link: #8bbaf6;
-    --link-hover: #b9d5fb;
-    --focus: #ffd43b;
-    --focus-ink: #0b0c0e;
-    --up: #4cc38a;
-    --hl: rgba(214, 150, 20, 0.42);
-    --btn: #00703c;
-    --btn-hover: #005a30;
-    --btn-ink: #ffffff;
-    --btn-edge: #002d18;
-    --dot: #3b4247;
-    --shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
-    --st-EMERGING: #2da78c;
-    --st-WATCH: #c37511;
-    --st-HOT: #ad3678;
-    --st-DECLINING: #5468da;
-    --st-STABLE: #7b8389;
-    --st-LOW_DATA: #7b8389;
-    --tag-EMERGING-bg: #12372f;
-    --tag-EMERGING-ink: #a3e6d2;
-    --tag-WATCH-bg: #3d2a07;
-    --tag-WATCH-ink: #f6d08c;
-    --tag-HOT-bg: #3f1427;
-    --tag-HOT-ink: #f4aecb;
-    --tag-DECLINING-bg: #1d2649;
-    --tag-DECLINING-ink: #bcc8f6;
-    --tag-STABLE-bg: #262b2f;
-    --tag-STABLE-ink: #d5d9dc;
-    --tag-LOW_DATA-bg: #0f1214;
-    --tag-LOW_DATA-ink: #b9bfc4;
-    --map-sheet: #111618;
-    --map-contour: #c48d4f;
-    --map-grid: rgba(226, 233, 229, 0.07);
-    --map-dot: rgba(226, 233, 229, 0.38);
-    --cat-01: #5b3229;
-    --cat-02: #4d4329;
-    --cat-03: #39492a;
-    --cat-04: #544423;
-    --cat-05: #284732;
-    --cat-06: #293c52;
-    --cat-07: #46314c;
-    --cat-08: #1f4746;
-    --cat-09: #213f50;
-    --cat-10: #4e2e3a;
-    --cat-11: #3f4425;
-    --cat-12: #463d31;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --seq-1: #1b2a3a;
-    --seq-2: #24466d;
-    --seq-3: #2f67a3;
-    --seq-4: #4f8fd6;
-    --seq-5: #a6caf3;
-  }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #0f1214;
-  --surface: #1a1e21;
-  --ink: #f3f4f5;
-  --ink-2: #b9bfc4;
-  --border: #5f676d;
-  --border-2: #2d3338;
-  --field-border: #f3f4f5;
-  --brand: #0a2238;
-  --brand-ink: #ffffff;
-  --brand-ink-2: #a9bdd0;
-  --link: #8bbaf6;
-  --link-hover: #b9d5fb;
-  --focus: #ffd43b;
-  --focus-ink: #0b0c0e;
-  --up: #4cc38a;
-  --hl: rgba(214, 150, 20, 0.42);
-  --btn: #00703c;
-  --btn-hover: #005a30;
-  --btn-ink: #ffffff;
-  --btn-edge: #002d18;
-  --dot: #3b4247;
-  --shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
-  --st-EMERGING: #2da78c;
-  --st-WATCH: #c37511;
-  --st-HOT: #ad3678;
-  --st-DECLINING: #5468da;
-  --st-STABLE: #7b8389;
-  --st-LOW_DATA: #7b8389;
-  --tag-EMERGING-bg: #12372f;
-  --tag-EMERGING-ink: #a3e6d2;
-  --tag-WATCH-bg: #3d2a07;
-  --tag-WATCH-ink: #f6d08c;
-  --tag-HOT-bg: #3f1427;
-  --tag-HOT-ink: #f4aecb;
-  --tag-DECLINING-bg: #1d2649;
-  --tag-DECLINING-ink: #bcc8f6;
-  --tag-STABLE-bg: #262b2f;
-  --tag-STABLE-ink: #d5d9dc;
-  --tag-LOW_DATA-bg: #0f1214;
-  --tag-LOW_DATA-ink: #b9bfc4;
-  --map-sheet: #111618;
-  --map-contour: #c48d4f;
-  --map-grid: rgba(226, 233, 229, 0.07);
-  --map-dot: rgba(226, 233, 229, 0.38);
-  --cat-01: #5b3229;
-  --cat-02: #4d4329;
-  --cat-03: #39492a;
-  --cat-04: #544423;
-  --cat-05: #284732;
-  --cat-06: #293c52;
-  --cat-07: #46314c;
-  --cat-08: #1f4746;
-  --cat-09: #213f50;
-  --cat-10: #4e2e3a;
-  --cat-11: #3f4425;
-  --cat-12: #463d31;
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --seq-1: #1b2a3a;
-  --seq-2: #24466d;
-  --seq-3: #2f67a3;
-  --seq-4: #4f8fd6;
-  --seq-5: #a6caf3;
-}
-
-/* Type, rhythm and measure (theme-independent; kept out of the colour blocks above).
+/* Type, rhythm and measure.
    Six text steps + two numeric display steps. Nothing that carries meaning is set under --fs-caption;
    SVG axis ticks use --fs-tick. Phone values come from the clamps and the 640 px override below. */
 :root {
@@ -220,14 +89,15 @@
   --fs-body: 1.1875rem;                                    /* 19 (17 on phones): prose */
   --fs-lead: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);       /* 20 → 24: lede, h3, card titles */
   --fs-h2: clamp(1.5rem, 1.25rem + 0.9vw, 1.875rem);       /* 24 → 30, weight 600 */
-  --fs-h1: clamp(2rem, 1.25rem + 2.4vw, 2.875rem);         /* 32 → 46 */
+  --fs-h1: clamp(2rem, 1.2rem + 2.6vw, 3rem);              /* 32 → 48 */
+  --fs-display: clamp(2.25rem, 1.3rem + 3vw, 3.25rem);     /* 36 → 52: the front door's question headline */
   --fs-tile: clamp(2rem, 1.5rem + 1.2vw, 2.5rem);          /* 32 → 40: KPI values, the headline sentence */
   --fs-hero: clamp(2.5rem, 1.6rem + 2.6vw, 3.5rem);        /* 40 → 56: one hero number per page */
   --fs-tick: 13px;                                         /* SVG axis ticks only */
 
   --sp-group: 24px;                                        /* heading → its content, between related blocks */
   --sp-block: 40px;                                        /* between figures and sub-blocks of a section */
-  --sp-section: 64px;                                      /* between sections; above the footer */
+  --sp-section: 88px;                                      /* between sections; above the footer */
 
   --measure-lede: 32em;
   --measure-body: 38em;
@@ -239,6 +109,6 @@
     --fs-body: 1.0625rem;
     --sp-group: 16px;
     --sp-block: 28px;
-    --sp-section: 44px;
+    --sp-section: 56px;
   }
 }

@@ -112,8 +112,7 @@ function Institutions({ release, file }: { release: AtlasRelease; file: Institut
     <div className="container">
       <PageHeader title={t('in.title')} lede={t('in.lede', { n: fmtInt(file.min_articles), a: w.start, b: w.end })} />
       <Section id="glance" title={t('in.kpi.h')} intro={topInst ? t('ex.most', { x: instName(topInst, lang).text, k: fmtInt(topInst.articles) }) : undefined}>
-        <StatGrid cols={3}>
-          <StatTile label={t('in.kpi.shown')} value={fmtInt(file.institutions.length)} sub={t('in.kpi.shownSub', { n: fmtInt(file.min_articles), a: w.start, b: w.end })} />
+        <StatGrid cols={2}>
           <StatTile label={t('in.kpi.multi')} value={fmtPct(file.pct_multi_institution ?? null, 1)} sub={t('in.kpi.intlSub', { n: fmtInt(file.articles_with_org) })} />
           <StatTile label={t('in.kpi.intl')} value={fmtPct(file.pct_international ?? null, 1)} sub={t('in.kpi.intlSub', { n: fmtInt(file.articles_with_org) })} wide="phone" />
         </StatGrid>

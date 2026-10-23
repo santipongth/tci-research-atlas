@@ -14,24 +14,17 @@ function block(selector: string): Record<string, string> {
 }
 
 const light = block(':root')
-const dark = block(':root[data-theme="dark"]')
-const darkFromOs = block(':root:not([data-theme="light"])')
 const SIGNAL = ['EMERGING', 'WATCH', 'HOT', 'DECLINING'] as const
 const ALL = [...SIGNAL, 'STABLE', 'LOW_DATA'] as const
 const isHex = (v: string) => /^#[0-9a-f]{6}$/i.test(v)
 const allPairs = <T,>(xs: readonly T[]) => xs.flatMap((a, i) => xs.slice(i + 1).map((b) => [a, b] as const))
 
 describe('design tokens', () => {
-  it('the OS dark preference and the dark toggle use identical values', () => {
-    expect(darkFromOs).toEqual(dark)
+  it('there is one light theme only (no dark blocks)', () => {
+    expect(css).not.toMatch(/data-theme|prefers-color-scheme/)
   })
 
-  it('every light token except the font stack has a dark value', () => {
-    const missing = Object.keys(light).filter((k) => k !== 'font' && !(k in dark))
-    expect(missing).toEqual([])
-  })
-
-  for (const [name, t] of Object.entries({ light, dark })) {
+  for (const [name, t] of Object.entries({ light })) {
     describe(`${name} theme`, () => {
       it('status colours stay apart for every pair (CVD ≥ 8, normal vision ≥ 15)', () => {
         for (const [a, b] of allPairs(SIGNAL)) {
@@ -66,6 +59,7 @@ describe('design tokens', () => {
         const textPairs: [string, string][] = [
           ['ink', 'bg'], ['ink', 'surface'], ['ink-2', 'bg'], ['ink-2', 'surface'], ['link', 'bg'], ['link', 'surface'],
           ['brand-ink', 'brand'], ['brand-ink-2', 'brand'], ['btn-ink', 'btn'], ['up', 'bg'], ['ink-2', 'map-sheet'],
+          ['brand', 'bg'], ['brand', 'brand-soft'], ['accent-ink', 'bg'], ['ink-3', 'bg'],
         ]
         for (const [fg, bg] of textPairs) {
           expect(isHex(t[fg]) && isHex(t[bg]), `${fg}/${bg} are hex`).toBe(true)
@@ -73,9 +67,11 @@ describe('design tokens', () => {
         }
       })
 
-      it('form-field borders and the focus ink bar reach 3:1', () => {
+      it('form-field borders, the focus ring and the highlight mark reach 3:1', () => {
         expect(contrastRatio(t['field-border'], t.bg)).toBeGreaterThanOrEqual(3)
-        expect(contrastRatio(t['focus-ink'], t.focus)).toBeGreaterThanOrEqual(3)
+        expect(contrastRatio(t.focus, t.bg)).toBeGreaterThanOrEqual(3)
+        expect(contrastRatio(t['accent-mark'], t.bg)).toBeGreaterThanOrEqual(3)
+        expect(contrastRatio(t.context, t.bg)).toBeLessThan(3)          // context lines stay quiet: they never carry the answer
       })
     })
   }

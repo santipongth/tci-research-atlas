@@ -44,3 +44,9 @@ pipeline/registry/*
 web/dist-offline/
 web/playwright-report/
 web/test-results/
+
+# impeccable working files (decision pages, sketches, review captures); the surface brief and PRODUCT.md are committed
+.impeccable/mocks/
+.impeccable/review/
+.impeccable/questions/
+.impeccable/hook.cache.json

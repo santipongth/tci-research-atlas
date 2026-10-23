@@ -46,16 +46,16 @@ export function StatusOverview({ release }: { release: AtlasRelease }) {
   }).filter((g) => g.rows.length > 0)
   const rows = groups.flatMap((g) => g.rows)
   const columns = withPrimary([idColumn(), topicColumn(ctx), statusColumn(ctx), growthColumn(ctx), ciColumn(ctx), ciHighColumn(), ratioColumn(ctx), journalsColumn(ctx), orgsColumn(ctx)], ['status', 'growth', 'lo', 'journals'])
-  const tableTitle = t('table.n', { n: 2, title: t('ov.forest.table', { n: 2 }) })
+  const tableTitle = t('table.n', { n: 3, title: t('ov.forest.table', { n: 3 }) })
   const nUnverified = release.manifest.n_orgs_unverified ?? 0
   return (
     <>
-      <StatusMix release={release} number={1} tableNo={1} view={state.wf} onView={(wf) => update({ wf })} />
+      <StatusMix release={release} number={2} tableNo={2} view={state.wf} onView={(wf) => update({ wf })} />
       {nUnverified > 0 ? <p className="note">{t('ov.orgsNote', { n: fmtInt(nUnverified) })}</p> : null}
       {rows.length > 0 ? (
         <Figure
           id="fig-status"
-          number={2}
+          number={3}
           title={t('ov.forest.title', { level, n: PER_STATUS })}
           tableTitle={tableTitle}
           csv={figureCsv(`atlas-${release.overview.release}-status-intervals.csv`, rows, columns)}

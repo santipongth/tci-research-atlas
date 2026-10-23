@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { BRAND } from '../brand/brand'
+import { BRAND, PARTNERS } from '../brand/brand'
 import { useRelease } from '../data/atlasContext'
 import { useI18n } from '../lib/i18n'
 import type { StrKey } from '../strings'
@@ -13,7 +13,7 @@ const NEXT: readonly { to: string; state?: { section: string }; key: StrKey; hin
 ]
 
 export function Footer() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const release = useRelease()
   return (
     <footer className="ftr">
@@ -37,6 +37,12 @@ export function Footer() {
         </div>
       </div>
       <div className="container">
+        <div className="ftr-partners">
+          <p>{t('footer.partners')}</p>
+          {PARTNERS.map((p) => (
+            <img key={p.alt.en} src={p.src} alt={p.alt[lang]} width={p.width} height={p.height} loading="lazy" decoding="async" />
+          ))}
+        </div>
         <div className="licence">
           <span>{t('footer.licence')}</span>
           <span>{t('footer.privacy')}</span>

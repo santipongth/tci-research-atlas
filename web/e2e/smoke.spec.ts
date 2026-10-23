@@ -45,12 +45,25 @@ type Check = (page: Page) => Promise<void>
 const CHECKS: Partial<Record<RouteName, Check>> = {
   // checks:start
   overview: async (page) => {
-    await expect(page.locator('.headline mark').first()).toBeVisible()
-    await expect(page.getByRole('link', { name: /โมเดลภาษาขนาดใหญ่/ }).first()).toBeVisible()
-    // the front door: three finding cards (number, example topic link, sparkline) and the one-page brief button
+    // the front door is a data story: the question, the answer (its topic links), one number and the chart
+    await expect(page.locator('h1')).toHaveText('งานวิจัยไทย เรื่องไหนกำลังมา')
+    await expect(page).toHaveTitle(/งานวิจัยไทย เรื่องไหนกำลังมา/)
+    await expect(page.locator('.story-answer a')).toHaveText('โมเดลภาษาขนาดใหญ่')
+    await expect(page.locator('.story-answer a')).toHaveAttribute('href', /#\/topics\/T\d{6}$/)
+    await expect(page.locator('.story-big')).toHaveText('2.1 เท่า')                       // share growth +113%/yr in plain words
+    await expect(page.locator('#fig-story-panel .sl-series')).toHaveCount(5)
+    await expect(page.locator('#fig-story-panel .sl-series.is-on')).toHaveCount(1)
+    // pointing at another name moves the focus line; the table tab carries the same numbers
+    await page.locator('#fig-story-panel .sl-lab').nth(1).focus()
+    await expect(page.locator('#fig-story-panel .sl-lab').nth(1)).toHaveAttribute('aria-pressed', 'true')
+    await page.locator('#fig-story-tab-table').click()
+    await expect(page).toHaveURL(/sto=table/)
+    await expect(page.locator('#fig-story-panel tbody tr')).toHaveCount(10)
+    await page.locator('#fig-story-tab-chart').click()
+    // three findings, each led by its topic (a link); no sparklines beside the numbers
     await expect(page.locator('#findings .find')).toHaveCount(3)
     await expect(page.locator('#findings .find-topic a').first()).toHaveAttribute('href', /#\/topics\/T\d{6}$/)
-    await expect(page.locator('#findings .find .spark')).toHaveCount(3)
+    await expect(page.locator('#findings .spark, #kpi .spark')).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'สรุป 1 หน้า' })).toHaveAttribute('href', '#/brief')
     await expect(page.locator('#kpi .stat')).toHaveCount(8)
     await expect(page.locator('#policy ol.policy-list > li')).toHaveCount(3)
@@ -105,7 +118,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('.tp-hero-g')).toContainText('ต่อปี')
     await expect(page.locator('.tp-hero .stat')).toHaveCount(2)
     await expect(page.locator('.tp-hero .stat').first()).toContainText('%')
-    await expect(page.locator('.tp-hero .spark')).toHaveCount(2)
+    await expect(page.locator('.tp-hero .spark')).toHaveCount(0)                    // numbers stand alone; the trend is figure 1
     await expect(page.locator('.tp-eg a')).toHaveAttribute('href', /tci-thaijo\.org/)
     await expect(page.locator('svg.tr')).toBeVisible()
     await expect(page.getByRole('link', { name: /AI เพื่อการศึกษา: กรณีศึกษาที่ 1/ }).first()).toHaveAttribute('href', /tci-thaijo\.org/)
@@ -240,7 +253,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(page.locator('h1')).toHaveText('วารสารวิชาการตัวอย่าง ก')
     await expect(page.locator('#topics table')).toBeVisible()
     await expect(page.locator('#peers')).toContainText('example2')
-    await expect(page.locator('#numbers .spark')).toHaveCount(1)
+    await expect(page.locator('#numbers .spark')).toHaveCount(0)
     await expect(page.locator('#fig-mix-panel .pm-row')).toHaveCount(2)
     await expect(page.locator('#fig-mix-panel .pm-key li')).toHaveCount(3)              // 2 topics + "เรื่องอื่น"
     await expect(page.locator('#fig-topic-years-panel .smx-panel')).toHaveCount(4)     // the journal's 4 largest topics, year by year
@@ -324,7 +337,7 @@ const CHECKS: Partial<Record<RouteName, Check>> = {
     await expect(rows).toHaveCount(1)
     await expect(page).toHaveURL(/type=rajabhat/)
     await page.getByLabel('ประเภทสถาบัน').selectOption('all')
-    await expect(page.locator('#glance .stat')).toHaveCount(3)
+    await expect(page.locator('#glance .stat')).toHaveCount(2)
     // partnerships as an arc diagram (one arc per pair), every pair in the table view
     await expect(page.locator('#partnerships svg.an-svg path.an-link')).toHaveCount(6)
     await page.locator('#partnerships').getByRole('tab', { name: 'ตาราง' }).click()
@@ -575,13 +588,11 @@ async function seriousA11yViolations(page: Page): Promise<string[]> {
 }
 
 for (const route of ROUTES) {
-  test(`${route.name}: example release renders in light and dark without serious a11y issues`, async ({ page }) => {
+  test(`${route.name}: example release renders without serious a11y issues`, async ({ page }) => {
     const errors = collectErrors(page)
     await page.goto(`${EXAMPLE}#${route.path}`)
     await expect(page.locator('h1').first()).toBeVisible()
     await CHECKS[route.name]?.(page)
-    expect(await seriousA11yViolations(page)).toEqual([])
-    await page.emulateMedia({ colorScheme: 'dark' })
     expect(await seriousA11yViolations(page)).toEqual([])
     expect(errors).toEqual([])
   })
@@ -672,7 +683,7 @@ test('the offline file works from file:// without a single network request', asy
   const errors = collectErrors(page)
   const url = pathToFileURL(file).href
   await page.goto(`${url}#/overview`)
-  await expect(page.locator('.headline mark').first()).toBeVisible()
+  await expect(page.locator('.story-big')).toBeVisible()
   await page.goto(`${url}#/topics/T000201`)
   await expect(page.locator('h1')).toHaveText('AI เพื่อการศึกษา')
   await page.goto(`${url}#/atlas`)

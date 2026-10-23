@@ -1,20 +1,21 @@
 /* Element defaults (cascade layer "base", so Tailwind utilities still win). Thai: never italic. */
 @layer base {
-  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: var(--fs-body); line-height: 1.65; font-kerning: normal; overflow-x: hidden; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scrollbar-color: var(--border) transparent; accent-color: var(--brand); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: var(--fs-body); line-height: 1.7; font-kerning: normal; font-variant-numeric: lining-nums; overflow-x: hidden; caret-color: var(--brand); -webkit-font-smoothing: antialiased; }
   em, i, cite, dfn, var, address { font-style: normal; }
   em, i { font-weight: 600; }
-  ::selection { background: var(--focus); color: var(--focus-ink); }
-  a { color: var(--link); text-decoration: underline; text-decoration-thickness: max(1px, 0.0625rem); text-underline-offset: 0.15em; }
-  a:hover { color: var(--link-hover); text-decoration-thickness: max(3px, 0.1875rem); }
-  a:focus-visible, a:focus-visible:hover { outline: 3px solid transparent; color: var(--focus-ink); background: var(--focus); box-shadow: 0 -2px var(--focus), 0 4px var(--focus-ink); text-decoration: none; }
-  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, [tabindex]:not([tabindex="-1"]):focus-visible, [role="tab"]:focus-visible, [role="option"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 0; box-shadow: inset 0 0 0 2px var(--focus-ink); }
+  ::selection { background: var(--brand-soft); color: var(--ink); }
+  /* links read as links in prose: TCI blue with a quiet underline that firms up on hover */
+  a { color: var(--link); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--link) 40%, transparent); text-decoration-thickness: 1px; text-underline-offset: 0.22em; transition: text-decoration-color 120ms ease-out, color 120ms ease-out; }
+  a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
+  /* one focus language everywhere: a TCI blue ring with a white gap */
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  a:focus-visible { text-decoration: none; }
   button { font: inherit; color: inherit; cursor: pointer; }
   /* Thai stacks marks above and below the line: headings keep >= 1.45 (1.5 here); English headings close up to 1.3. */
-  h1, h2, h3 { margin: 0; font-weight: 700; line-height: 1.5; text-wrap: balance; }
-  h2 { font-weight: 600; }
-  h1:lang(en), h2:lang(en), h3:lang(en) { line-height: 1.3; }
-  p { margin: 0; }
+  h1, h2, h3 { margin: 0; font-weight: 700; line-height: 1.5; text-wrap: balance; color: var(--ink); }
+  h1:lang(en), h2:lang(en), h3:lang(en) { line-height: 1.3; letter-spacing: -0.01em; }
+  p { margin: 0; text-wrap: pretty; }
   main:focus, h1:focus, h2:focus, h3:focus { outline: none; }
   table { border-collapse: collapse; }
   @media (prefers-reduced-motion: reduce) {

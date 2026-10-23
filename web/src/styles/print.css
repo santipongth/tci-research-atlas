@@ -3,10 +3,10 @@
   .brief { max-width: 900px; margin-inline: auto; padding: 28px 24px 40px; }
   .brief h1 { font-size: var(--fs-h2); margin-top: 18px; }
   .brief h2 { font-size: var(--fs-body); margin-top: 22px; }
-  .brief-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding: 12px 16px; background: var(--brand); color: var(--brand-ink); border-bottom: 6px solid var(--link); }
-  .brief-meta { font-size: var(--fs-caption); color: var(--brand-ink-2); }
+  .brief-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding: 12px 0 14px; background: var(--bg); color: var(--ink); border-bottom: 1px solid var(--border-2); }
+  .brief-meta { font-size: var(--fs-caption); color: var(--ink-2); }
   .brief-headline { margin-top: 14px; font-size: var(--fs-lead); max-width: none; }
-  .brief-sample { margin-top: 10px; padding: 8px 12px; border: 2px solid var(--st-WATCH); background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
+  .brief-sample { margin-top: 10px; padding: 10px 14px; border-radius: var(--radius); background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); }
   .brief-t { margin-top: 10px; font-size: var(--fs-meta); }
   .brief-t caption { text-align: left; }
   .brief-points { margin: 8px 0 0; padding-left: 1.2em; list-style: disc; display: grid; gap: 6px; max-width: var(--measure-body); }
@@ -19,16 +19,6 @@
 
 @media print {
   @page { size: A4; margin: 14mm 14mm 16mm; }
-  /* Always print with the light tokens, whatever theme is on screen. */
-  html:root:root {
-    color-scheme: light;
-    --bg: #ffffff; --surface: #f3f4f5; --ink: #0b0c0e; --ink-2: #474e55; --border: #b1b4b6; --border-2: #dcdee0;
-    --brand: #0f3557; --brand-ink: #ffffff; --brand-ink-2: #c9d7e4; --link: #1a5bb0; --hl: #ffe07a; --up: #00703c;
-    --st-EMERGING: #13a08a; --st-WATCH: #c47a0c; --st-HOT: #a3124f; --st-DECLINING: #5b74cf; --st-STABLE: #6f777b; --st-LOW_DATA: #6f777b;
-    --tag-EMERGING-bg: #d7f0e9; --tag-EMERGING-ink: #0a4a3e; --tag-WATCH-bg: #fcebc9; --tag-WATCH-ink: #573700;
-    --tag-HOT-bg: #f7dae5; --tag-HOT-ink: #680b32; --tag-DECLINING-bg: #e1e6f8; --tag-DECLINING-ink: #22326d;
-    --tag-STABLE-bg: #eceeef; --tag-STABLE-ink: #363d43; --tag-LOW_DATA-bg: #ffffff; --tag-LOW_DATA-ink: #474e55;
-  }
   body { font-size: 10pt; background: #ffffff; }
   .no-print, .skip, .nav, .phase, .ftr, .tbl-tools, .zoom, .tablist, .rail { display: none !important; }
   mark { animation: none !important; background-size: 100% 100% !important; }

@@ -1,0 +1,1078 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T06:27:08.768Z",
+  "title": "Design System: TCI Research Atlas",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#f5f6fa",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232427",
+          "#3f4043",
+          "#5d5d61",
+          "#7f8083",
+          "#a3a4a8",
+          "#c9cace",
+          "#edeef2"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#14182b",
+        "tonalRamp": [
+          "#07091b",
+          "#1e2336",
+          "#393e54",
+          "#575c73",
+          "#797f97",
+          "#9da3bd",
+          "#c2c9e4",
+          "#e9eefe"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#4d536b",
+        "tonalRamp": [
+          "#07091c",
+          "#1e2238",
+          "#393e55",
+          "#565c75",
+          "#787f99",
+          "#9ca3be",
+          "#c2c9e5",
+          "#e9eefe"
+        ]
+      },
+      "ink-tertiary": {
+        "role": "neutral",
+        "displayName": "Ink Tertiary",
+        "canonical": "#6b7088",
+        "tonalRamp": [
+          "#07091b",
+          "#1f2236",
+          "#3a3e54",
+          "#575c73",
+          "#7a7f97",
+          "#9ea3bd",
+          "#c3c9e4",
+          "#eaeeff"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#c9cddb",
+        "tonalRamp": [
+          "#080b14",
+          "#21232e",
+          "#3c3f4b",
+          "#5a5d69",
+          "#7c808c",
+          "#a0a4b1",
+          "#c6cad8",
+          "#eaeefc"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e6e8f0",
+        "tonalRamp": [
+          "#0a0b10",
+          "#222429",
+          "#3e3f46",
+          "#5c5d64",
+          "#7e8087",
+          "#a2a4ac",
+          "#c8cad2",
+          "#eceef6"
+        ]
+      },
+      "field-border": {
+        "role": "neutral",
+        "displayName": "Field Border",
+        "canonical": "#8a8fa6",
+        "tonalRamp": [
+          "#07091a",
+          "#1f2335",
+          "#3a3e52",
+          "#585c72",
+          "#7a7f95",
+          "#9ea3bb",
+          "#c4c9e2",
+          "#eaeefe"
+        ]
+      },
+      "tci-blue": {
+        "role": "primary",
+        "displayName": "TCI Blue",
+        "canonical": "#283894",
+        "tonalRamp": [
+          "#030033",
+          "#100d6b",
+          "#24328e",
+          "#3e53b2",
+          "#5e78da",
+          "#829efe",
+          "#b7c9fe",
+          "#e8eeff"
+        ]
+      },
+      "tci-blue-deep": {
+        "role": "primary",
+        "displayName": "TCI Blue Deep",
+        "canonical": "#1a2466",
+        "tonalRamp": [
+          "#040033",
+          "#12195b",
+          "#2a387c",
+          "#46589e",
+          "#677bc5",
+          "#8aa0ed",
+          "#b7c9fe",
+          "#e9eefe"
+        ]
+      },
+      "tci-blue-soft": {
+        "role": "primary",
+        "displayName": "TCI Blue Soft",
+        "canonical": "#eef0fa",
+        "tonalRamp": [
+          "#0a0b11",
+          "#22242b",
+          "#3e3f47",
+          "#5b5d65",
+          "#7e8088",
+          "#a2a4ad",
+          "#c8cad4",
+          "#eceef8"
+        ]
+      },
+      "orange-mark": {
+        "role": "secondary",
+        "displayName": "Orange Mark",
+        "canonical": "#e07000",
+        "tonalRamp": [
+          "#170600",
+          "#3c1900",
+          "#642f02",
+          "#904603",
+          "#c36106",
+          "#f38227",
+          "#ffb98c",
+          "#ffeadd"
+        ]
+      },
+      "context-grey": {
+        "role": "neutral",
+        "displayName": "Context Grey",
+        "canonical": "#b9bdcc",
+        "tonalRamp": [
+          "#080a14",
+          "#21232f",
+          "#3c3f4b",
+          "#5a5d6a",
+          "#7c808e",
+          "#a0a4b3",
+          "#c6cad9",
+          "#eaeefd"
+        ]
+      },
+      "up-green": {
+        "role": "secondary",
+        "displayName": "Up Green",
+        "canonical": "#0b6b46",
+        "tonalRamp": [
+          "#000f07",
+          "#012c1a",
+          "#034d30",
+          "#136f49",
+          "#40936b",
+          "#67b88f",
+          "#8ddfb4",
+          "#c3ffdd"
+        ]
+      },
+      "status-emerging": {
+        "role": "status",
+        "displayName": "Status Emerging",
+        "canonical": "#13a08a",
+        "tonalRamp": [
+          "#000f0b",
+          "#012b24",
+          "#024b40",
+          "#046d5e",
+          "#079580",
+          "#40bca5",
+          "#6de3ca",
+          "#bbffee"
+        ]
+      },
+      "status-watch": {
+        "role": "status",
+        "displayName": "Status Watch",
+        "canonical": "#c47a0c",
+        "tonalRamp": [
+          "#140800",
+          "#361e00",
+          "#5b3601",
+          "#845002",
+          "#b36e04",
+          "#dd9233",
+          "#febb72",
+          "#feebd8"
+        ]
+      },
+      "status-hot": {
+        "role": "status",
+        "displayName": "Status Hot",
+        "canonical": "#a3124f",
+        "tonalRamp": [
+          "#1d0008",
+          "#48001e",
+          "#780137",
+          "#a71852",
+          "#d14674",
+          "#fc6d98",
+          "#ffb2c4",
+          "#ffe8ec"
+        ]
+      },
+      "status-declining": {
+        "role": "status",
+        "displayName": "Status Declining",
+        "canonical": "#5b74cf",
+        "tonalRamp": [
+          "#030033",
+          "#0f1167",
+          "#253489",
+          "#3f55ad",
+          "#6079d5",
+          "#829efd",
+          "#b6c9ff",
+          "#e8eefe"
+        ]
+      },
+      "status-stable": {
+        "role": "status",
+        "displayName": "Status Stable",
+        "canonical": "#6f777b",
+        "tonalRamp": [
+          "#070c0f",
+          "#1e2528",
+          "#3a4145",
+          "#575f63",
+          "#7a8286",
+          "#9ea6aa",
+          "#c3ccd1",
+          "#e7f0f5"
+        ]
+      },
+      "tag-emerging": {
+        "role": "status",
+        "displayName": "Tag Emerging",
+        "canonical": "#dcf3ec",
+        "tonalRamp": [
+          "#010f0b",
+          "#162823",
+          "#31443f",
+          "#4f635d",
+          "#71867f",
+          "#95aaa4",
+          "#bad0ca",
+          "#def5ee"
+        ]
+      },
+      "tag-emerging-ink": {
+        "role": "status",
+        "displayName": "Tag Emerging Ink",
+        "canonical": "#0a4a3e",
+        "tonalRamp": [
+          "#000f0b",
+          "#002b23",
+          "#0b4b3f",
+          "#306a5c",
+          "#548d7f",
+          "#79b2a3",
+          "#9ed9c9",
+          "#c1fded"
+        ]
+      },
+      "tag-watch": {
+        "role": "status",
+        "displayName": "Tag Watch",
+        "canonical": "#fcefd3",
+        "tonalRamp": [
+          "#110a00",
+          "#2c230c",
+          "#493e27",
+          "#675c44",
+          "#8b7f66",
+          "#b0a389",
+          "#d6c9ae",
+          "#faedd1"
+        ]
+      },
+      "tag-watch-ink": {
+        "role": "status",
+        "displayName": "Tag Watch Ink",
+        "canonical": "#573700",
+        "tonalRamp": [
+          "#130900",
+          "#331f01",
+          "#583801",
+          "#785627",
+          "#9d794a",
+          "#c39d6d",
+          "#eac392",
+          "#ffebd3"
+        ]
+      },
+      "tag-hot": {
+        "role": "status",
+        "displayName": "Tag Hot",
+        "canonical": "#f9e2eb",
+        "tonalRamp": [
+          "#14060c",
+          "#2f1e25",
+          "#4c3a41",
+          "#6b575f",
+          "#8e7a82",
+          "#b39ea6",
+          "#dac4cc",
+          "#fee7f0"
+        ]
+      },
+      "tag-hot-ink": {
+        "role": "status",
+        "displayName": "Tag Hot Ink",
+        "canonical": "#680b32",
+        "tonalRamp": [
+          "#1e0009",
+          "#48001f",
+          "#711639",
+          "#953957",
+          "#bd5c79",
+          "#e5819d",
+          "#ffb1c5",
+          "#fee8ed"
+        ]
+      },
+      "tag-declining": {
+        "role": "status",
+        "displayName": "Tag Declining",
+        "canonical": "#e6eafa",
+        "tonalRamp": [
+          "#080a14",
+          "#21232f",
+          "#3c3f4c",
+          "#5a5d6a",
+          "#7c7f8e",
+          "#a0a4b3",
+          "#c6cad9",
+          "#eaeefe"
+        ]
+      },
+      "tag-declining-ink": {
+        "role": "status",
+        "displayName": "Tag Declining Ink",
+        "canonical": "#22326d",
+        "tonalRamp": [
+          "#030034",
+          "#101c55",
+          "#293a76",
+          "#455998",
+          "#667dbf",
+          "#8aa2e7",
+          "#b5c9ff",
+          "#e8eefe"
+        ]
+      },
+      "tag-stable": {
+        "role": "status",
+        "displayName": "Tag Stable",
+        "canonical": "#eef0f2",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232426",
+          "#3e4041",
+          "#5c5e5f",
+          "#7f8082",
+          "#a3a5a7",
+          "#c9cbcd",
+          "#edeff1"
+        ]
+      },
+      "tag-stable-ink": {
+        "role": "status",
+        "displayName": "Tag Stable Ink",
+        "canonical": "#363d43",
+        "tonalRamp": [
+          "#060c11",
+          "#1e252a",
+          "#3a4147",
+          "#575f65",
+          "#798188",
+          "#9da6ad",
+          "#c3ccd3",
+          "#e7f0f7"
+        ]
+      },
+      "tag-low-data-ink": {
+        "role": "status",
+        "displayName": "Tag Low Data Ink",
+        "canonical": "#4d536b",
+        "tonalRamp": [
+          "#07091c",
+          "#1e2238",
+          "#393e55",
+          "#565c75",
+          "#787f99",
+          "#9ca3be",
+          "#c2c9e5",
+          "#e9eefe"
+        ]
+      },
+      "map-sheet": {
+        "role": "data",
+        "displayName": "Map Sheet",
+        "canonical": "#f7f8fb",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232426",
+          "#3f4042",
+          "#5d5d60",
+          "#7f8083",
+          "#a3a4a7",
+          "#c9cacd",
+          "#edeef1"
+        ]
+      },
+      "map-contour": {
+        "role": "data",
+        "displayName": "Contour Brown",
+        "canonical": "#9a6a35",
+        "tonalRamp": [
+          "#150800",
+          "#361e01",
+          "#5c3602",
+          "#80521a",
+          "#a57540",
+          "#cc9964",
+          "#f4bf89",
+          "#feebd8"
+        ]
+      },
+      "series-1": {
+        "role": "data",
+        "displayName": "Series 1",
+        "canonical": "#283894",
+        "tonalRamp": [
+          "#030033",
+          "#100d6b",
+          "#24328e",
+          "#3e53b2",
+          "#5e78da",
+          "#829efe",
+          "#b7c9fe",
+          "#e8eeff"
+        ]
+      },
+      "series-2": {
+        "role": "data",
+        "displayName": "Series 2",
+        "canonical": "#e07000",
+        "tonalRamp": [
+          "#170600",
+          "#3c1900",
+          "#642f02",
+          "#904603",
+          "#c36106",
+          "#f38227",
+          "#ffb98c",
+          "#ffeadd"
+        ]
+      },
+      "series-3": {
+        "role": "data",
+        "displayName": "Series 3",
+        "canonical": "#13866f",
+        "tonalRamp": [
+          "#000f0a",
+          "#002c22",
+          "#024b3d",
+          "#006e5a",
+          "#2a947c",
+          "#56b9a0",
+          "#7ee0c6",
+          "#bdffeb"
+        ]
+      },
+      "series-4": {
+        "role": "data",
+        "displayName": "Series 4",
+        "canonical": "#b8860b",
+        "tonalRamp": [
+          "#120900",
+          "#312101",
+          "#543b00",
+          "#795702",
+          "#a57706",
+          "#ce9b30",
+          "#f6c15c",
+          "#feeccc"
+        ]
+      },
+      "seq-1": {
+        "role": "data",
+        "displayName": "Seq 1",
+        "canonical": "#eceefa",
+        "tonalRamp": [
+          "#0a0a12",
+          "#22232c",
+          "#3e3f48",
+          "#5b5d67",
+          "#7e7f8a",
+          "#a2a4af",
+          "#c8cad5",
+          "#eceefa"
+        ]
+      },
+      "seq-2": {
+        "role": "data",
+        "displayName": "Seq 2",
+        "canonical": "#c5cbec",
+        "tonalRamp": [
+          "#07081e",
+          "#1e223a",
+          "#393d58",
+          "#575b78",
+          "#797e9c",
+          "#9da2c2",
+          "#c2c8e9",
+          "#eaedfe"
+        ]
+      },
+      "seq-3": {
+        "role": "data",
+        "displayName": "Seq 3",
+        "canonical": "#8c97d6",
+        "tonalRamp": [
+          "#070031",
+          "#1a1c50",
+          "#333970",
+          "#505892",
+          "#717bb8",
+          "#94a0df",
+          "#bcc7ff",
+          "#eaeeff"
+        ]
+      },
+      "seq-4": {
+        "role": "data",
+        "displayName": "Seq 4",
+        "canonical": "#4b5ab4",
+        "tonalRamp": [
+          "#050032",
+          "#150f67",
+          "#2a3389",
+          "#4553ad",
+          "#6577d4",
+          "#889dfd",
+          "#b9c8fe",
+          "#e9eefe"
+        ]
+      },
+      "seq-5": {
+        "role": "data",
+        "displayName": "Seq 5",
+        "canonical": "#1f2c7a",
+        "tonalRamp": [
+          "#030034",
+          "#101563",
+          "#273685",
+          "#4256a8",
+          "#627acf",
+          "#859ff8",
+          "#b7c9ff",
+          "#e8eefe"
+        ]
+      },
+      "cat-01": {
+        "role": "data",
+        "displayName": "Cat 01",
+        "canonical": "#e8b5a6",
+        "tonalRamp": [
+          "#1c0300",
+          "#3d170c",
+          "#5c3327",
+          "#7d5144",
+          "#a27365",
+          "#c99789",
+          "#f0bdae",
+          "#ffe9e3"
+        ]
+      },
+      "cat-02": {
+        "role": "data",
+        "displayName": "Cat 02",
+        "canonical": "#dbc99d",
+        "tonalRamp": [
+          "#110a00",
+          "#2f2200",
+          "#4d3e14",
+          "#6c5c33",
+          "#8f7f55",
+          "#b4a378",
+          "#dbc99d",
+          "#ffedc2"
+        ]
+      },
+      "cat-03": {
+        "role": "data",
+        "displayName": "Cat 03",
+        "canonical": "#c3d59c",
+        "tonalRamp": [
+          "#090d00",
+          "#1f2801",
+          "#394610",
+          "#566530",
+          "#788852",
+          "#9cad76",
+          "#c1d39a",
+          "#e5f8bd"
+        ]
+      },
+      "cat-04": {
+        "role": "data",
+        "displayName": "Cat 04",
+        "canonical": "#e8d095",
+        "tonalRamp": [
+          "#100a00",
+          "#2e2200",
+          "#503d02",
+          "#705b21",
+          "#947e45",
+          "#b9a269",
+          "#e0c88e",
+          "#ffedc2"
+        ]
+      },
+      "cat-05": {
+        "role": "data",
+        "displayName": "Cat 05",
+        "canonical": "#a8d1a4",
+        "tonalRamp": [
+          "#001000",
+          "#082d07",
+          "#264a23",
+          "#446940",
+          "#668c62",
+          "#89b185",
+          "#afd8aa",
+          "#d2fcce"
+        ]
+      },
+      "cat-06": {
+        "role": "data",
+        "displayName": "Cat 06",
+        "canonical": "#b1c4da",
+        "tonalRamp": [
+          "#020c1a",
+          "#162536",
+          "#314153",
+          "#4f5f73",
+          "#708296",
+          "#94a7bc",
+          "#bacde3",
+          "#e4f0fe"
+        ]
+      },
+      "cat-07": {
+        "role": "data",
+        "displayName": "Cat 07",
+        "canonical": "#d4bad6",
+        "tonalRamp": [
+          "#140416",
+          "#2f1c31",
+          "#4c374e",
+          "#6b556d",
+          "#8f7791",
+          "#b49bb6",
+          "#dbc1dd",
+          "#fde6ff"
+        ]
+      },
+      "cat-08": {
+        "role": "data",
+        "displayName": "Cat 08",
+        "canonical": "#9ccfca",
+        "tonalRamp": [
+          "#000e0d",
+          "#022b28",
+          "#164945",
+          "#376763",
+          "#5a8b86",
+          "#7eb0ab",
+          "#a3d6d1",
+          "#c6fbf5"
+        ]
+      },
+      "cat-09": {
+        "role": "data",
+        "displayName": "Cat 09",
+        "canonical": "#bfd8e8",
+        "tonalRamp": [
+          "#000d17",
+          "#122733",
+          "#2e4350",
+          "#4b616f",
+          "#6d8493",
+          "#91a9b8",
+          "#b6cfdf",
+          "#def2fe"
+        ]
+      },
+      "cat-10": {
+        "role": "data",
+        "displayName": "Cat 10",
+        "canonical": "#e3bfcd",
+        "tonalRamp": [
+          "#18030d",
+          "#351a26",
+          "#533642",
+          "#725360",
+          "#967683",
+          "#bc9aa7",
+          "#e3bfcd",
+          "#fee8f0"
+        ]
+      },
+      "cat-11": {
+        "role": "data",
+        "displayName": "Cat 11",
+        "canonical": "#cfd3a6",
+        "tonalRamp": [
+          "#0c0c00",
+          "#252601",
+          "#41431a",
+          "#5e6138",
+          "#81845a",
+          "#a5a97d",
+          "#cbcfa2",
+          "#eff3c5"
+        ]
+      },
+      "cat-12": {
+        "role": "data",
+        "displayName": "Cat 12",
+        "canonical": "#d9cbb8",
+        "tonalRamp": [
+          "#120900",
+          "#2d2213",
+          "#493e2e",
+          "#685c4b",
+          "#8b7e6d",
+          "#b0a290",
+          "#d6c8b5",
+          "#fbecd9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The front door's question headline only."
+      },
+      "h1": {
+        "displayName": "Headline",
+        "purpose": "Every other page's question headline (max 24ch)."
+      },
+      "h2": {
+        "displayName": "Section",
+        "purpose": "Section headings (max 30ch)."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Ledes, the story answer, figure titles (700), h3."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prose, 19 px / 1.7, max 38em."
+      },
+      "body-phone": {
+        "displayName": "Body (phone)",
+        "purpose": "Prose under 641 px."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Navigation, buttons, table cells, source lines, chart names and notes; the floor for meaning."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Chips, tags, tab counts, interval ranges, the licence line; never smaller."
+      },
+      "numeric-tile": {
+        "displayName": "Numeric tile",
+        "purpose": "Stat values and finding-card numbers."
+      },
+      "numeric-hero": {
+        "displayName": "Numeric hero",
+        "purpose": "One hero number per page, in TCI blue."
+      },
+      "tick": {
+        "displayName": "Tick",
+        "purpose": "SVG axis ticks only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "floating",
+        "value": "0 14px 36px rgba(20,24,43,.14), 0 2px 6px rgba(20,24,43,.06)",
+        "purpose": "Popovers, tooltip, search listbox, nav group menus, map zoom."
+      },
+      {
+        "name": "raised-segment",
+        "value": "0 1px 3px rgba(20,24,43,.12)",
+        "purpose": "The selected option of the chart/table switch and the language switch."
+      },
+      {
+        "name": "phone-menu",
+        "value": "0 12px 24px rgba(20,24,43,.08)",
+        "purpose": "The open navigation under 900 px."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-quiet",
+        "value": "120ms–160ms ease-out",
+        "purpose": "Link underline, button and border colour, tab and story-line state changes."
+      },
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Disclosure chevrons and the story-line draw."
+      },
+      {
+        "name": "story-draw",
+        "value": "1100ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Story chart lines draw once on entering the view; already drawn under reduced motion."
+      }
+    ],
+    "focus": {
+      "value": "outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px",
+      "purpose": "One focus ring for every interactive element."
+    },
+    "breakpoints": [
+      {
+        "name": "wordmark",
+        "value": "520px"
+      },
+      {
+        "name": "phone",
+        "value": "640px"
+      },
+      {
+        "name": "finds",
+        "value": "700px"
+      },
+      {
+        "name": "fold",
+        "value": "760px"
+      },
+      {
+        "name": "nav",
+        "value": "900px"
+      },
+      {
+        "name": "story",
+        "value": "1100px"
+      },
+      {
+        "name": "container",
+        "value": "1200px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "TCI-blue action button (downloads, open in ThaiJO).",
+      "html": "<button class=\"ds-btn\">ดาวน์โหลดข้อมูล</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 20px; border: 0; border-radius: 8px; background: #283894; color: #fff; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-weight: 700; font-size: 16px; cursor: pointer; transition: background-color 140ms ease-out; } .ds-btn:hover { background: #1a2466; } .ds-btn:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet outlined button; the pressed state fills TCI blue.",
+      "html": "<button class=\"ds-btn2\">สรุปผู้บริหาร</button> <button class=\"ds-btn2\" aria-pressed=\"true\">บทความต่อแสนคน</button>",
+      "css": ".ds-btn2 { display: inline-flex; align-items: center; min-height: 42px; padding: 4px 16px; border: 1px solid #c9cddb; border-radius: 8px; background: #fff; color: #14182b; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-weight: 600; font-size: 16px; cursor: pointer; transition: border-color 140ms ease-out, background-color 140ms ease-out; } .ds-btn2:hover { border-color: #283894; color: #283894; } .ds-btn2[aria-pressed=\"true\"] { background: #283894; border-color: #283894; color: #fff; } .ds-btn2:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+    },
+    {
+      "name": "Topic Search",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Pill search field with a drawn magnifier.",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" aria-hidden=\"true\"><circle cx=\"7\" cy=\"7\" r=\"5\" fill=\"none\" stroke=\"#6b7088\" stroke-width=\"1.6\"/><path d=\"M11 11l3.5 3.5\" stroke=\"#6b7088\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg><input placeholder=\"ค้นหาหัวข้อ เช่น ไมโครพลาสติก\"></label>",
+      "css": ".ds-search { position: relative; display: block; width: 320px; } .ds-search svg { position: absolute; left: 14px; top: 14px; } .ds-search input { width: 100%; min-height: 44px; padding: 6px 14px 6px 40px; border: 1px solid #8a8fa6; border-radius: 999px; background: #fff; color: #14182b; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-size: 16px; transition: border-color 140ms ease-out; } .ds-search input:hover { border-color: #6b7088; } .ds-search input:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-color: #283894; } .ds-search input::placeholder { color: #6b7088; }"
+    },
+    {
+      "name": "Navigation Row",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Hairline navigation row; the current page TCI blue with a 3 px indicator.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\" aria-current=\"page\">ภาพรวม</a><a href=\"#\">สรุปผู้บริหาร</a><a href=\"#\">อะไรกำลังมา</a><a href=\"#\">ใครทำเรื่องอะไร</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 4px; border-bottom: 1px solid #e6e8f0; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-nav a { position: relative; display: inline-flex; align-items: center; min-height: 52px; padding: 0 12px; font-weight: 600; font-size: 16px; color: #14182b; text-decoration: none; } .ds-nav a:hover, .ds-nav a[aria-current=\"page\"] { color: #283894; } .ds-nav a[aria-current=\"page\"]::after { content: \"\"; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: #283894; } .ds-nav a:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+    },
+    {
+      "name": "Chart / Table Switch",
+      "kind": "custom",
+      "refersTo": "view-switch",
+      "description": "Soft segmented control in every figure caption row.",
+      "html": "<div class=\"ds-seg\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">แผนภูมิ</button><button role=\"tab\" aria-selected=\"false\">ตาราง</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: #f5f6fa; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-seg button { min-height: 36px; padding: 2px 14px; border: 0; border-radius: 7px; background: transparent; color: #4d536b; font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; } .ds-seg button:hover:not([aria-selected=\"true\"]) { color: #14182b; } .ds-seg button[aria-selected=\"true\"] { background: #fff; color: #283894; box-shadow: 0 1px 3px rgba(20,24,43,.12); } .ds-seg button:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; }"
+    },
+    {
+      "name": "Status Chips",
+      "kind": "chip",
+      "refersTo": "chip-emerging",
+      "description": "Glyph + colour + Thai name; square corners.",
+      "html": "<span class=\"ds-chip ds-em\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><path d=\"M6 1l5 9H1z\" fill=\"#13a08a\"/></svg>กำลังเกิดใหม่</span> <span class=\"ds-chip ds-hot\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><circle cx=\"6\" cy=\"6\" r=\"5\" fill=\"#a3124f\"/></svg>กำลังมาแรง</span> <span class=\"ds-chip ds-low\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><circle cx=\"6\" cy=\"6\" r=\"4.5\" fill=\"#fff\" stroke=\"#6f777b\" stroke-width=\"1.6\" stroke-dasharray=\"2.2 1.6\"/></svg>ข้อมูลน้อย</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 1px 6px; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; font-weight: 700; font-size: 14px; line-height: 1.5; white-space: nowrap; } .ds-em { background: #dcf3ec; color: #0a4a3e; } .ds-hot { background: #f9e2eb; color: #680b32; } .ds-low { background: #fff; color: #4d536b; box-shadow: inset 0 0 0 1px #c9cddb; }"
+    },
+    {
+      "name": "Stat Tile",
+      "kind": "card",
+      "refersTo": "stat-value",
+      "description": "A number on a hairline: label, value, change, context. No box, no sparkline.",
+      "html": "<div class=\"ds-stat\"><span class=\"ds-l\">บทความทั้งหมด</span><span class=\"ds-v\">248,310</span><span class=\"ds-d\">▲ +4,120 จากรอบก่อน</span><span class=\"ds-s\">เช่น บทความในวารสาร TCI ปี 2000–2024</span></div>",
+      "css": ".ds-stat { display: flex; flex-direction: column; width: 240px; padding-top: 14px; border-top: 1px solid #e6e8f0; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; } .ds-l { font-size: 16px; font-weight: 600; line-height: 1.5; color: #4d536b; } .ds-v { font-size: 40px; font-weight: 700; line-height: 1.5; color: #14182b; font-variant-numeric: tabular-nums; } .ds-d { font-size: 16px; font-weight: 600; color: #0b6b46; } .ds-s { margin-top: 4px; font-size: 16px; color: #4d536b; }"
+    },
+    {
+      "name": "Story Hero",
+      "kind": "custom",
+      "refersTo": "story-number",
+      "description": "Question, one-sentence answer, one TCI-blue number, byline.",
+      "html": "<section class=\"ds-story\"><h1>งานวิจัยไทย เรื่องไหนกำลังมา</h1><p class=\"ds-ans\">เรื่องที่โตเร็วที่สุดตอนนี้คือ <a href=\"#\">ไมโครพลาสติกในแหล่งน้ำ</a></p><p class=\"ds-num\"><span>2.1 เท่า</span><small>สัดส่วนบทความเรื่องนี้ เทียบกับปี 2017–2021</small></p><p class=\"ds-by\">248,310 บทความ · ข้อมูลถึงปี 2024</p></section>",
+      "css": ".ds-story { max-width: 400px; font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; color: #14182b; } .ds-story h1 { margin: 0; font-size: 52px; font-weight: 700; line-height: 1.45; } .ds-ans { margin: 22px 0 0; font-size: 24px; line-height: 1.65; } .ds-ans a { color: #283894; font-weight: 700; text-underline-offset: 0.22em; text-decoration-color: rgba(40,56,148,.4); transition: text-decoration-color 120ms ease-out; } .ds-ans a:hover { color: #1a2466; text-decoration-color: currentColor; } .ds-ans a:focus-visible { outline: 3px solid #283894; outline-offset: 2px; border-radius: 4px; } .ds-num { margin: 30px 0 0; display: grid; gap: 4px; } .ds-num span { font-size: 56px; font-weight: 700; line-height: 1.45; color: #283894; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; } .ds-num small { font-size: 16px; color: #4d536b; } .ds-by { margin: 26px 0 0; padding-top: 14px; border-top: 1px solid #e6e8f0; font-size: 16px; color: #6b7088; }"
+    },
+    {
+      "name": "Story Chart",
+      "kind": "custom",
+      "refersTo": "story-number",
+      "description": "Grey context lines, one TCI-blue focus line, one orange end dot, direct labels and an on-chart note.",
+      "html": "<svg class=\"ds-sl\" viewBox=\"0 0 440 200\" width=\"440\" height=\"200\" role=\"img\" aria-label=\"เรื่องที่โตเร็ว 3 เรื่อง\"><line x1=\"10\" x2=\"300\" y1=\"180\" y2=\"180\" class=\"b\"/><path d=\"M10 170 L100 160 L200 140 L300 120\" class=\"c\"/><path d=\"M10 175 L100 168 L200 150 L300 145\" class=\"c\"/><path d=\"M10 172 L100 150 L200 100 L300 40\" class=\"f\"/><circle cx=\"300\" cy=\"40\" r=\"6\" class=\"e\"/><text x=\"312\" y=\"45\" class=\"n\">ไมโครพลาสติก</text><text x=\"312\" y=\"125\" class=\"g\">พลังงานชุมชน</text><text x=\"312\" y=\"150\" class=\"g\">อาหารผู้สูงวัย</text><text x=\"40\" y=\"80\" class=\"note\">จาก 18 เป็น 95 เรื่อง</text></svg>",
+      "css": ".ds-sl { font-family: \"Sarabun\", \"Noto Sans Thai\", \"Leelawadee UI\", system-ui, sans-serif; overflow: visible; } .ds-sl .b { stroke: #c9cddb; } .ds-sl .c { fill: none; stroke: #b9bdcc; stroke-width: 2.25; stroke-linejoin: round; transition: stroke 160ms ease-out; } .ds-sl .c:hover { stroke: #283894; } .ds-sl .f { fill: none; stroke: #283894; stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; } .ds-sl .e { fill: #e07000; stroke: #fff; stroke-width: 3; } .ds-sl text { font-size: 16px; } .ds-sl .n { fill: #283894; font-weight: 700; } .ds-sl .g { fill: #6b7088; } .ds-sl .note { fill: #14182b; font-weight: 600; paint-order: stroke; stroke: #fff; stroke-width: 6px; stroke-linejoin: round; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Data Explainer",
+    "overview": "Every page is a short data story: a plain question as the headline, the answer in one sentence, one big number, then one large chart with its labels and notes written on the chart that proves it. The page is white, the type is Sarabun alone, and colour is spent like a newsroom spends it: TCI blue (from the logo) for the brand and for the data that answers the page's question, one orange mark for the single highlighted point, quiet greys for everything that is context. Numbers stand on the page with no boxes around them; structure comes from hairline rules and generous gaps, not from bands, boxed fields or card grids.\n\nThe front door (`/overview`) is the purest expression: the reader's question at display size, the answer, the hero number in TCI blue, a byline, then the fastest-rising topics drawn as one story chart. Tool pages (journals, institutions, search, the map) stay operate-clear inside the same world: the same hairlines, the same soft controls, the same chart/table figure. Specialists still find the table tab, the CSV, the \"ที่มา:\" line and the method behind \"วิธีอ่าน\" exactly where they were.\n\nThe world rejects two forms by name, both confirmed by the owner's choice (2026-10-23): the government statistical-release form (coloured header band, boxed fields, heavy ink rules, underlined links everywhere) and the SaaS dashboard (rows of bordered KPI cards, card grids, eyebrow chips over headings). There is one light theme; the dark theme was retired with the old world.",
+    "keyCharacteristics": [
+      "White ground, ink #14182b text, TCI blue for brand + answer data, one orange mark per view, grey context.",
+      "Question headline → one-sentence answer → one number → the chart that proves it.",
+      "Numbers on hairlines, never in boxes; no sparklines inside stat tiles.",
+      "Soft, quiet controls: 8 px controls, 12 px panels, pill toggles and the search field.",
+      "Every chart: chart/table switch, numbered caption, \"ที่มา:\" line, CSV.",
+      "Status always glyph + colour + Thai name.",
+      "One typeface (Sarabun 400/600/700), self-hosted."
+    ],
+    "rules": [
+      {
+        "name": "The Answer Is Blue Rule",
+        "body": "In a chart, TCI blue marks the data that answers the page's question; everything else is grey context. If two things are blue, one of them is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Orange Rule",
+        "body": "At most one orange highlight per view: a mark (dot, end point) in Orange Mark, never a fill. The logo orange (#f89020) never sits on white below 3:1.",
+        "section": "colors"
+      },
+      {
+        "name": "The Reserved Status Rule",
+        "body": "The six status colours mean status and nothing else; a status is never shown by colour alone — glyph + colour + Thai name, every time. Any colour change passes `web/src/styles/palette.test.ts` (CVD separation, contrast, one light theme only).",
+        "section": "colors"
+      },
+      {
+        "name": "The Token-Only Rule",
+        "body": "Components use `var(--token)` from `web/src/styles/tokens.css`; a hex value in a component is a bug. Group colours arrive from the data as token keys (`cat-07`), never hex.",
+        "section": "colors"
+      },
+      {
+        "name": "The Terrain Is Not Data Rule",
+        "body": "Field tints are background terrain; fields are always named by labels and in the gazetteer.",
+        "section": "colors"
+      },
+      {
+        "name": "The Thai Line-Height Rule",
+        "body": "Thai stacks marks above and below the line: body 1.7, headings ≥ 1.5, display headings ≥ 1.45; only English-only rules (`:lang(en)`) close up to 1.25–1.3. `web/src/styles/lineHeight.test.ts` enforces it.",
+        "section": "typography"
+      },
+      {
+        "name": "The Upright Thai Rule",
+        "body": "Thai has no true italic: `em`, `i`, `cite`, `dfn`, `var`, `address` render upright; emphasis is weight 600/700. No letter-spacing and no case transforms on Thai — negative tracking and caps are English-only.",
+        "section": "typography"
+      },
+      {
+        "name": "The Arabic Numerals Rule",
+        "body": "Both languages use Arabic digits with en-US grouping (248,310), the true minus sign (−), and Gregorian years (ค.ศ.), matching the data; numbers are tabular wherever they align.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Page Rule",
+        "body": "Stat tiles, finding cards, tables and figures never cast shadows; if something has a shadow it is temporary or selected.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** open a page with the reader's question, answer it in one sentence, give one number, then show the chart that proves it.",
+      "**Do** keep TCI blue (#283894) for the brand and the answer data, grey (#b9bdcc) for context, and at most one orange (#e07000) mark per view.",
+      "**Do** pair every chart with the chart/table switch, a numbered caption (\"แผนภูมิ n\" / \"ตาราง n\"), a \"ที่มา:\" source line and CSV; tables sort (`aria-sort`).",
+      "**Do** label charts directly and write the one note on the chart; keep labels ≥ 14 px.",
+      "**Do** set numbers on hairlines (1 px #e6e8f0) with a short unit line, not in boxes.",
+      "**Do** show status as glyph + colour + Thai name, and pass `palette.test.ts` for any colour change.",
+      "**Do** show uncertainty: intervals at `manifest.ci_level`, \"แนวโน้มไม่แน่นอน\" when a forecast is not shown, \"ใหม่ — ปี {base} ยังไม่มีงานเรื่องนี้\" when the baseline years had no articles.",
+      "**Do** set sizes only from `--fs-*`, spacing from `--sp-*`, colours from tokens; body 1.7, Thai headings ≥ 1.45/1.5.",
+      "**Do** keep 44 px controls and the 3 px TCI-blue focus ring on every interactive element.",
+      "**Do** lead with an example and plain words (Copy voice); put the exact rule behind \"วิธีอ่าน\", `HowNote` or a `Term`.",
+      "**Do** build new chart forms from the infographic kit's rules: table tab, direct labels, TCI blue + greys, hatch or dashed outline for no data."
+    ],
+    "donts": [
+      "**Don't** bring back a coloured header band, boxed form fields, heavy ink rules or a dark theme.",
+      "**Don't** build rows of bordered KPI cards or card grids, or put eyebrow labels or kicker chips above headings.",
+      "**Don't** put a sparkline inside a stat tile; a trend gets its own figure.",
+      "**Don't** use a status colour for anything that is not a status, or a status without its glyph and name.",
+      "**Don't** colour context data blue, fill an area with orange, or put the logo orange (#f89020) on white as a mark or text.",
+      "**Don't** use italics, letter-spacing or case transforms on Thai text.",
+      "**Don't** add shadows to tiles, cards, tables or figures; shadows are for floating or selected things only.",
+      "**Don't** load fonts or anything else from a third-party server.",
+      "**Don't** show abstracts or author names, or rank individual people.",
+      "**Don't** put information only in a hover or only in colour, or jargon and status codes in a heading, lede or column header.",
+      "**Don't** use the official SDG colours or icons, stock illustration or emoji."
+    ]
+  }
+}

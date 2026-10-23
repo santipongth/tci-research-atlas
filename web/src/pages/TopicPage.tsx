@@ -110,8 +110,6 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
   const lineage = topic.lineage ?? {}
   const event = lineage.event ?? 'new'
   const source = t('source.line', { release: release.overview.release })
-  // the topic's yearly share of all articles (the share tile's sparkline)
-  const shareTrend = years.map((_, i) => (release.series.corpus_total[i] ? (counts[i] ?? 0) / release.series.corpus_total[i] : null))
 
   const trendRows: TrendRow[] = [
     ...years.map((yr, i) => ({
@@ -133,9 +131,9 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
     { key: 'r95', csvHeader: 'range_95', header: t('tp.col.range95'), numeric: true, cell: (r) => (r.lo95 === null ? '' : `${fmtInt(r.lo95)}–${fmtInt(r.hi95)}`), csv: (r) => (r.lo95 === null ? null : `${r.lo95}-${r.hi95}`) },
   ]
   const toc = [
+    { id: 'trend', label: t('tp.trend.h') },
     ...(narrative ? [{ id: 'narrative', label: t('tp.narrative.h') }] : []),
     { id: 'numbers', label: t('tp.numbers.h') },
-    { id: 'trend', label: t('tp.trend.h') },
     ...(keywords.length ? [{ id: 'keywords', label: t('tp.keywords.h') }] : []),
     ...(glossary.length ? [{ id: 'glossary', label: t('tp.glossary.h') }] : []),
     { id: 'articles', label: t('tp.articles.h') },
@@ -216,15 +214,11 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
             label={t('tp.share')}
             value={fmtPct(m.share_recent, 2)}
             sub={t('tp.inWindow', { w: fmtWindow(w.R) })}
-            trend={shareTrend}
-            trendText={t('stat.trend', { a: years[0], b: years[years.length - 1], values: shareTrend.map((v) => (v === null ? DASH : fmtPct(v, 2))).join(', ') })}
           />
           <StatTile
             label={t('tp.articlesR', { w: fmtWindow(w.R) })}
             value={fmtInt(m.count_recent)}
             sub={counts.length ? t('tp.articlesSub', { n: fmtInt(total), a: years[0] }) : undefined}
-            trend={counts.length > 2 ? counts : undefined}
-            trendText={counts.length > 2 ? t('stat.trend', { a: years[0], b: years[years.length - 1], values: counts.map((v) => fmtInt(v)).join(', ') }) : undefined}
           />
         </StatGrid>
       </section>
@@ -241,41 +235,6 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
       ) : null}
       <div className="layout">
         <div className="main-col">
-          {narrative ? (
-            <Section id="narrative" title={t('tp.narrative.h')}>
-              <p className="tp-narr">{lang === 'en' ? narrative.en : narrative.th}</p>
-              <p className="headline-src">{t(narrative.source === 'llm' ? 'autoSummary.llm' : 'autoSummary.template')}</p>
-            </Section>
-          ) : null}
-
-          <Section id="numbers" title={t('tp.numbers.h')}>
-            {m.journal_driven || topic.status === 'WATCH' ? (
-              <div className="inset">
-                <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
-                <p>{t('journalDrivenBody', ruleVars(level))}</p>
-                <p><strong>{breadthText(t, topic)}</strong></p>
-              </div>
-            ) : null}
-            <StatGrid cols={nTiles === 4 ? 4 : 3}>
-              <StatTile label={t('col.ratio', { base: fmtWindow(w.B) })} value={ratioText(t, m, fmtWindow(w.B))} sub={t('tp.ratioSub', { r: fmtWindow(w.R), b: fmtWindow(w.B) })} />
-              <StatTile label={t('col.journals')} value={fmtInt(m.n_journals_R)} sub={t('tp.inWindow', { w: fmtWindow(w.R) })} />
-              <StatTile wide={nTiles === 3 ? 'phone' : false} label={t('col.orgs')} value={fmtInt(m.n_orgs_R)} sub={m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })} />
-              {cited !== null ? (
-                <StatTile
-                  label={t('tp.cited')}
-                  value={t('tp.cited.v', { n: fmtInt(cited) })}
-                  sub={
-                    <>
-                      {t('tp.cited.sub')}
-                      {hasModule(release, 'references') ? <> · <Link to="/references">{t('tp.cited.link')}</Link></> : null}
-                    </>
-                  }
-                />
-              ) : null}
-              {topic.status === 'LOW_DATA' ? <StatTile wide label={t('col.reason')} value={lowDataText(t, m) ?? DASH} /> : null}
-            </StatGrid>
-          </Section>
-
           <Section id="trend" title={t('tp.trend.h')}>
             {counts.length ? (
               <Figure
@@ -342,6 +301,41 @@ function TopicContent({ release, topic }: { release: AtlasRelease; topic: Topic 
                 <EmbedSnippet kind="topic" path={`topic/${topic.id}`} title={`${name(topic)} — TCI Research Atlas`} height={720} />
               </Suspense>
             ) : null}
+          </Section>
+
+          {narrative ? (
+            <Section id="narrative" title={t('tp.narrative.h')}>
+              <p className="tp-narr">{lang === 'en' ? narrative.en : narrative.th}</p>
+              <p className="headline-src">{t(narrative.source === 'llm' ? 'autoSummary.llm' : 'autoSummary.template')}</p>
+            </Section>
+          ) : null}
+
+          <Section id="numbers" title={t('tp.numbers.h')}>
+            {m.journal_driven || topic.status === 'WATCH' ? (
+              <div className="inset">
+                <b><StatusGlyph status="WATCH" size={14} />{t('journalDriven')}</b>
+                <p>{t('journalDrivenBody', ruleVars(level))}</p>
+                <p><strong>{breadthText(t, topic)}</strong></p>
+              </div>
+            ) : null}
+            <StatGrid cols={nTiles === 4 ? 4 : 3}>
+              <StatTile label={t('col.ratio', { base: fmtWindow(w.B) })} value={ratioText(t, m, fmtWindow(w.B))} sub={t('tp.ratioSub', { r: fmtWindow(w.R), b: fmtWindow(w.B) })} />
+              <StatTile label={t('col.journals')} value={fmtInt(m.n_journals_R)} sub={t('tp.inWindow', { w: fmtWindow(w.R) })} />
+              <StatTile wide={nTiles === 3 ? 'phone' : false} label={t('col.orgs')} value={fmtInt(m.n_orgs_R)} sub={m.orgs_unverified ? t('orgsUnverified') : t('tp.inWindow', { w: fmtWindow(w.R) })} />
+              {cited !== null ? (
+                <StatTile
+                  label={t('tp.cited')}
+                  value={t('tp.cited.v', { n: fmtInt(cited) })}
+                  sub={
+                    <>
+                      {t('tp.cited.sub')}
+                      {hasModule(release, 'references') ? <> · <Link to="/references">{t('tp.cited.link')}</Link></> : null}
+                    </>
+                  }
+                />
+              ) : null}
+              {topic.status === 'LOW_DATA' ? <StatTile wide label={t('col.reason')} value={lowDataText(t, m) ?? DASH} /> : null}
+            </StatGrid>
           </Section>
 
           {keywords.length ? (

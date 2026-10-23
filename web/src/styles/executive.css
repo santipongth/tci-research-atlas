@@ -1,18 +1,16 @@
 /* P3 executives' pages + the question-based navigation groups. Tokens only (DESIGN.md). */
 @layer components {
   .nav-group { position: relative; }
-  .nav-btn { gap: 6px; background: none; border: 0; border-bottom: 4px solid transparent; font: inherit; font-weight: 600; cursor: pointer; }
-  .nav-btn.is-active { border-bottom-color: var(--link); }
-  .nav-btn svg { transition: transform 120ms ease-out; }
+  .nav-btn { gap: 6px; background: none; border: 0; font: inherit; font-weight: 600; font-size: var(--fs-meta); cursor: pointer; }
+  .nav-btn svg { color: var(--ink-3); transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1); }
   .nav-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
-  .nav-menu { position: absolute; z-index: 40; top: 100%; left: 0; width: max-content; min-width: 15rem; max-width: min(24rem, calc(100vw - 32px)); margin: 0; padding: 6px 0; list-style: none; background: var(--bg); border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .nav-menu { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; width: max-content; min-width: 15rem; max-width: min(24rem, calc(100vw - 32px)); margin: 0; padding: 8px; list-style: none; background: var(--bg); border: 1px solid var(--border-2); border-radius: 12px; box-shadow: var(--shadow); }
   .nav-menu.is-flipped { left: auto; right: 0; }
   .nav-menu[hidden] { display: none; }
-  .nav-menu-link { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 44px; padding: 8px 16px; color: var(--ink); font-weight: 600; text-decoration: none; }
+  .nav-menu-link { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 44px; padding: 10px 14px; border-radius: var(--radius); color: var(--ink); font-weight: 600; text-decoration: none; }
   .nav-menu-hint { font-size: var(--fs-meta); font-weight: 400; line-height: 1.5; color: var(--ink-2); }
-  .nav-menu-link:hover { color: var(--link); }
-  .nav-menu-link:hover .nav-menu-name { text-decoration: underline; }
-  .nav-menu-link[aria-current="page"] { box-shadow: inset 4px 0 0 var(--link); }
+  .nav-menu-link:hover { background: var(--surface); color: var(--brand); }
+  .nav-menu-link[aria-current="page"] { background: var(--brand-soft); color: var(--brand); }
   @media (max-width: 640px) { .nav { position: relative; } .nav-group { position: static; } .nav-menu { left: 16px; right: 16px; min-width: 0; } }
   @media (prefers-reduced-motion: reduce) { .nav-btn svg { transition: none; } }
 
@@ -42,5 +40,5 @@
   .sdg-ex { display: grid; gap: 2px; }
   .goal-name strong { font-variant-numeric: tabular-nums; margin-right: 4px; }
   .pair { display: grid; gap: 2px; }
-  .flag-on { display: inline-block; margin-left: 6px; padding: 0 6px; border: 2px solid var(--ink); font-size: var(--fs-caption); font-weight: 700; line-height: 1.5; }
+  .flag-on { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; background: var(--tag-WATCH-bg); color: var(--tag-WATCH-ink); border: 0; font-size: var(--fs-caption); font-weight: 700; line-height: 1.5; }
 }

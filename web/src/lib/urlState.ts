@@ -140,7 +140,7 @@ export const compareCodec = makeCodec<CompareUrlState>({
   layout: oneOf('layout', ['one', 'grid'] as const, 'one'),
 })
 
-export const overviewCodec = makeCodec<{ wf: View; st: View; pf: View }>({ wf: oneOf('wf', VIEWS, 'chart'), st: oneOf('st', VIEWS, 'chart'), pf: oneOf('pf', VIEWS, 'chart') })
+export const overviewCodec = makeCodec<{ sto: View; wf: View; st: View; pf: View }>({ sto: oneOf('sto', VIEWS, 'chart'), wf: oneOf('wf', VIEWS, 'chart'), st: oneOf('st', VIEWS, 'chart'), pf: oneOf('pf', VIEWS, 'chart') })
 export const topicCodec = makeCodec<{ trend: View; jr: View; org: View }>({ trend: oneOf('trend', VIEWS, 'chart'), jr: oneOf('jr', VIEWS, 'chart'), org: oneOf('org', VIEWS, 'chart') })
 export const JOURNAL_SORTS = ['name', 'tier', 'articles', 'completeness', 'inhouse', 'orgs', 'foreign'] as const
 export type JournalSort = (typeof JOURNAL_SORTS)[number]

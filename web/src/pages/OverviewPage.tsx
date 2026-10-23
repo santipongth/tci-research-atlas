@@ -2,20 +2,19 @@ import { lazy, Suspense } from 'react'
 import { Link } from 'react-router'
 import { EmptyState } from '../components/EmptyState'
 import { OnThisPage } from '../components/OnThisPage'
-import { PageHeader } from '../components/PageHeader'
 import { RequireRelease } from '../components/RequireRelease'
 import { Section } from '../components/Section'
 import { hasModule, type AtlasRelease } from '../data/release'
 import { largeShareThreshold, quadrantOf } from '../lib/definition'
-import { fmtDate, fmtInt, fmtSignedPct, releaseQuarter } from '../lib/format'
+import { fmtSignedPct } from '../lib/format'
 import { sortBy } from '../lib/sort'
 import { statusName } from '../lib/topicText'
 import { useI18n } from '../lib/i18n'
 import { pickFindings } from '../lib/findings'
 import { FindingCards } from './overview/FindingCards'
 import { Findings } from './overview/Findings'
-import { Headline } from './overview/Headline'
 import { KpiGrid } from './overview/KpiGrid'
+import { StoryHero } from './overview/StoryHero'
 
 // The sections below the key figures load on demand (this page is in the entry chunk): the status waffle and forest
 // plot, and the size × growth matrix at the end of the page.
@@ -37,7 +36,6 @@ function Overview({ release }: { release: AtlasRelease }) {
   const threshold = largeShareThreshold(release.topics)
   const plotted = threshold === null ? [] : release.topics.filter((tp) => tp.metrics.share_recent > 0 && quadrantOf(tp, threshold) !== null)
   const trimmed = release.manifest.trimmed_years ?? []
-  const quarter = releaseQuarter(ov.release)
   // layer 1 leads with an example from the data: the strongest emerging topic (else the fastest hot one)
   const example =
     sortBy(release.topics.filter((tp) => tp.status === 'EMERGING'), (tp) => tp.score, 'desc')[0] ??
@@ -65,20 +63,7 @@ function Overview({ release }: { release: AtlasRelease }) {
         : t('firstRelease')
   return (
     <div className="container">
-      <PageHeader
-        title={t('ov.title', { release: ov.release })}
-        lede={
-          ov.kpis.assigned_articles != null
-            ? t('ov.lede.assigned', { articles: fmtInt(ov.kpis.articles), assigned: fmtInt(ov.kpis.assigned_articles), topics: fmtInt(ov.kpis.topics), unassigned: fmtInt(Math.max(0, ov.kpis.articles - ov.kpis.assigned_articles)) })
-            : t('ov.lede', { articles: fmtInt(ov.kpis.articles), topics: fmtInt(ov.kpis.topics) })
-        }
-        meta={[
-          { label: t('ov.meta.through'), value: t('ov.meta.throughV', { year: ov.last_complete_year }) },
-          { label: t('ov.meta.release'), value: quarter ? t('release.long', { release: ov.release, q: quarter.q, y: quarter.y }) : ov.release },
-          { label: t('ov.meta.generated'), value: fmtDate(ov.generated_at, lang) },
-          { label: t('ov.meta.definition'), value: t('ov.meta.definitionV', { v: release.definitionVersion }) },
-        ]}
-      >
+      <StoryHero release={release}>
         {trimmed.length ? <p className="note">{t('ov.trimmed', { years: trimmed.join(', ') })}</p> : null}
         <p className="page-acts">
           <Link className="btn-secondary" to="/brief">
@@ -88,8 +73,7 @@ function Overview({ release }: { release: AtlasRelease }) {
             {t('ov.brief.btn')}
           </Link>
         </p>
-      </PageHeader>
-      <Headline release={release} />
+      </StoryHero>
       <div className="layout">
         <div className="main-col">
           {findings.length ? (

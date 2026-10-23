@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 const DIR = fileURLToPath(new URL('.', import.meta.url))
 
 /** Thai stacks vowels and tone marks above and below the line: under 1.5 they collide when a heading wraps. */
-const DISPLAY_HEADINGS = ['.page-h h1']
+const DISPLAY_HEADINGS = ['.page-h h1', '.story h1', '.story-big']
 const MIN = 1.5
 const MIN_DISPLAY = 1.45
 /** Latin has no stacked marks: rules scoped to English (`:lang(en)`) may close headings up to 1.3. */

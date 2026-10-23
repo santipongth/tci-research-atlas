@@ -3,7 +3,7 @@
   .srch-form { display: grid; gap: 8px; margin-top: 24px; max-width: 46rem; }
   .srch-form label { font-weight: 700; }
   .srch-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
-  .srch-row input[type="search"] { flex: 1 1 18rem; min-width: 0; min-height: 52px; padding: 0 14px; border: 2px solid var(--field-border); background: var(--bg); color: var(--ink); font: inherit; font-size: var(--fs-body); }
+  .srch-row input[type="search"] { flex: 1 1 18rem; min-width: 0; min-height: 52px; padding: 0 18px; border: 1px solid var(--field-border); border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; font-size: var(--fs-body); }
   .srch-row input[type="search"]::placeholder { color: var(--ink-2); }
   .srch-row .btn { min-height: 52px; padding-inline: 24px; }
   .srch-row .btn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -57,7 +57,7 @@
   .gx-stage { position: relative; height: clamp(420px, 66vh, 720px); border: 1px solid var(--border); background: var(--bg); overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
   .gx-stage.is-over { cursor: pointer; }
   .gx-stage:active { cursor: grabbing; }
-  .gx-stage:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; box-shadow: inset 0 0 0 2px var(--focus-ink); }
+  .gx-stage:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   @media (max-width: 520px) { .gx-stage { height: clamp(260px, 78vw, 400px); } }
   .gx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .gx-ov { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
@@ -73,11 +73,11 @@
     background: linear-gradient(var(--ink), var(--ink)) center / 2px 100% no-repeat, linear-gradient(var(--ink), var(--ink)) center / 100% 2px no-repeat;
   }
   .gx-stage:focus-visible .gx-cross { display: block; }
-  .gx-lost { position: absolute; left: 16px; top: 16px; max-width: calc(100% - 32px); padding: 8px 12px; background: var(--surface); border: 1px solid var(--ink); }
+  .gx-lost { position: absolute; left: 16px; top: 16px; max-width: calc(100% - 32px); padding: 10px 14px; background: var(--surface); border-radius: var(--radius); }
   .gx-zoom { top: 12px; right: 12px; bottom: auto; }
   @media (max-width: 520px) { .gx-zoom { margin-top: 8px; } }
 
-  .gx-side { min-width: 0; padding-top: 14px; border-top: 2px solid var(--ink); }
+  .gx-side { min-width: 0; padding-top: 14px; border-top: 1px solid var(--border-2); }
   .gx-side .gx-card-h { font-size: var(--fs-body); }
   .gx-card-empty { margin-top: 8px; color: var(--ink-2); max-width: var(--measure-body); }
   .gx-card { display: grid; gap: 14px; margin-top: 8px; }
@@ -120,7 +120,7 @@
   /* topic page: SDG goals under the tags, export under the representative articles */
   .tp-sdg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; font-size: var(--fs-meta); }
   .tp-sdg-label { color: var(--ink-2); font-weight: 600; }
-  .tp-sdg-chip { display: inline-flex; align-items: baseline; gap: 6px; min-height: 28px; padding: 1px 8px; border: 1px solid var(--ink); color: var(--ink); text-decoration: none; }
+  .tp-sdg-chip { display: inline-flex; align-items: baseline; gap: 6px; min-height: 28px; padding: 1px 10px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); text-decoration: none; }
   .tp-sdg-chip:hover { background: var(--surface); text-decoration: underline; }
   .tp-cite { margin-top: 18px; }
 }

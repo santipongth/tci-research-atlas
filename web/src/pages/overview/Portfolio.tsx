@@ -24,7 +24,7 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
   return (
     <Figure
       id="fig-portfolio"
-      number={3}
+      number={4}
       title={t('ov.pf.title', { w })}
       source={t('source.line', { release: release.overview.release })}
       view={state.pf}
@@ -43,7 +43,7 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
       table={
         <>
           <DataTable
-            caption={t('table.n', { n: 3, title: t('ov.pf.quadTable') })}
+            caption={t('table.n', { n: 4, title: t('ov.pf.quadTable') })}
             rows={quadRows}
             rowKey={(r) => r.q}
             stack={false}
@@ -54,7 +54,7 @@ export function Portfolio({ release, topics, threshold }: { release: AtlasReleas
             ]}
           />
           <DataTable
-            caption={t('table.n', { n: 4, title: t('ov.pf.topicTable') })}
+            caption={t('table.n', { n: 5, title: t('ov.pf.topicTable') })}
             rows={topics}
             rowKey={(r) => r.id}
             defaultSort={{ key: 'share', dir: 'desc' }}

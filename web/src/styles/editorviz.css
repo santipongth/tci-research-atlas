@@ -57,7 +57,7 @@
   .ck-box.is-fill { fill: var(--ink); stroke: var(--ink); }
   .ck-box.is-dashed { stroke: var(--ink-2); stroke-dasharray: 3 2.5; }
   .ck-mark { fill: none; stroke: var(--bg); stroke-width: 2.4; stroke-linecap: square; }
-  .ck-half { fill: var(--ink-2); }
+  .ck-half { fill: var(--seq-3); }
   .ck-x { stroke: var(--ink-2); stroke-width: 1.8; }
   .ck-name { min-width: 0; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; }
   .ck-bar { height: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-2); }
@@ -121,7 +121,7 @@
   .sa-book.is-pick { fill: var(--link); stroke: var(--link); }
   .ms-cards { list-style: none; margin: 12px 0 0; padding: 0; }
   .ms-card { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) minmax(10rem, 15rem); gap: 6px 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-2); }
-  .ms-card.is-first { border-top: 2px solid var(--ink); }
+  .ms-card.is-first { border-top: 1px solid var(--border); }
   .ms-rank { align-self: start; font-size: var(--fs-lead); font-weight: 700; color: var(--ink-2); line-height: 1.5; font-variant-numeric: tabular-nums; }
   .ms-card.is-first .ms-rank { color: var(--ink); }
   .ms-body { min-width: 0; display: grid; gap: 4px; }
@@ -217,7 +217,7 @@
   .smx-host { width: 100%; }
   .smx { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px 24px; }
   .smx-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .smx-panel { min-width: 0; padding-top: 8px; border-top: 2px solid var(--ink); }
+  .smx-panel { min-width: 0; padding-top: 10px; border-top: 1px solid var(--border-2); }
   .smx-panel svg { display: block; overflow: visible; }
   .smx-title { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; font-size: var(--fs-meta); font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
   .smx-title svg { flex: none; }

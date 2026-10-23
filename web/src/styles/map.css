@@ -5,10 +5,10 @@
   @media (max-width: 1099px) { .atlas-grid { grid-template-columns: 1fr; } }
   .atlas-fig { margin: 0; min-width: 0; }
 
-  .sheet { position: relative; margin-top: 10px; border: 2px solid var(--ink); background: var(--map-sheet); padding: 5px; }
-  .sheet-in { position: relative; height: clamp(420px, 68vh, 760px); border: 1px solid var(--ink); overflow: hidden; touch-action: none; cursor: grab; background: var(--map-sheet); }
+  .sheet { position: relative; margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--map-sheet); padding: 5px; }
+  .sheet-in { position: relative; height: clamp(420px, 68vh, 760px); border: 0; overflow: hidden; touch-action: none; cursor: grab; background: var(--map-sheet); }
   .sheet-in:active { cursor: grabbing; }
-  .sheet-in:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; box-shadow: inset 0 0 0 2px var(--focus-ink); }
+  .sheet-in:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   /* phones: the sheet takes the map's own aspect (1000 × 640 plus the fit margin), so no band of empty paper is left */
   @media (max-width: 520px) { .sheet-in { height: auto; aspect-ratio: 25 / 17; } }
   canvas.terrain { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -23,13 +23,13 @@
   .mnode .hit { fill: transparent; }
   .mnode .mk { stroke: var(--map-sheet); stroke-width: 1.6; }
   .mnode:hover .mk { stroke: var(--ink); stroke-width: 2.4; }
-  .mnode:focus-visible .hit { fill: var(--focus); }
+  .mnode:focus-visible .hit { fill: var(--focus-fill); }
   .mnode:focus-visible .mk { stroke: var(--focus-ink); stroke-width: 2.6; }
   .sel-ring { fill: none; stroke: var(--ink); stroke-width: 1.5; }
   .sel-ring2 { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 2 3; }
   .mlabel { font-size: var(--fs-caption); font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--map-sheet); stroke-width: 3.5px; stroke-linejoin: round; pointer-events: none; }
   .mlabel.hover { font-weight: 700; }
-  .zoom { position: absolute; right: 16px; bottom: 44px; z-index: 3; display: flex; flex-direction: column; border: 1px solid var(--ink); background: var(--bg); box-shadow: var(--shadow); }
+  .zoom { position: absolute; right: 16px; bottom: 44px; z-index: 3; display: flex; flex-direction: column; border: 1px solid var(--border-2); border-radius: 12px; overflow: hidden; background: var(--bg); box-shadow: var(--shadow); }
   .zoom button { width: 44px; height: 44px; border: 0; background: transparent; display: grid; place-items: center; color: var(--ink); }
   .zoom button + button { border-top: 1px solid var(--border-2); }
   .zoom button:hover { background: var(--surface); }
@@ -42,7 +42,7 @@
   .map-hint { margin: 6px 0 0; font-size: var(--fs-meta); color: var(--ink-2); }
 
   .atlas-side { display: grid; gap: 16px; min-width: 0; }
-  .cart { position: relative; background: var(--bg); border: 1px solid var(--ink); padding: 14px 16px; }
+  .cart { position: relative; background: var(--bg); border: 1px solid var(--border-2); border-radius: 12px; padding: 16px 18px; }
   .cart::before { content: ""; position: absolute; inset: 3px; border: 1px solid var(--border-2); pointer-events: none; }
   .cart > * { position: relative; }
   .cart-h { font-size: var(--fs-body); margin-bottom: 8px; }
@@ -54,17 +54,17 @@
   .layers { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: var(--fs-meta); }
   .fieldkey { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: var(--fs-meta); line-height: 1.5; }
   .fieldkey li { display: flex; align-items: flex-start; gap: 7px; min-width: 0; }
-  .fieldkey .swatch { flex: none; width: 16px; height: 16px; margin-top: 3px; border: 1px solid var(--ink); }
+  .fieldkey .swatch { flex: none; width: 16px; height: 16px; margin-top: 3px; border: 1px solid var(--border); border-radius: 4px; }
   .keyrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: var(--fs-meta); color: var(--ink-2); }
   .keyrow svg { flex: none; display: block; }
   .sel-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
   .summary.compact > div { grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr); padding: 6px 0; }
-  .g-ref { display: inline-block; font-weight: 700; font-size: var(--fs-caption); border: 1px solid var(--ink); border-radius: 2px; padding: 0 4px; font-variant-numeric: tabular-nums; align-self: start; }
+  .g-ref { display: inline-block; font-weight: 700; font-size: var(--fs-caption); border: 0; border-radius: 6px; background: var(--surface); padding: 0 6px; font-variant-numeric: tabular-nums; align-self: start; }
 
   .gaz-search { max-width: 560px; margin-top: 16px; }
-  .gaz-input { width: 100%; min-height: 44px; padding: 6px 10px; border: 2px solid var(--field-border); border-radius: 0; background: var(--bg); color: var(--ink); font: inherit; font-size: var(--fs-meta); }
+  .gaz-input { width: 100%; min-height: 44px; padding: 6px 14px; border: 1px solid var(--field-border); border-radius: var(--radius); background: var(--bg); color: var(--ink); font: inherit; font-size: var(--fs-meta); }
   .gaz-hits { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid var(--border-2); }
-  .gaz { margin-top: 22px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--ink); }
+  .gaz { margin-top: 22px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border-2); border-radius: 12px; overflow: hidden; }
   .gcol { min-width: 0; padding: 14px 16px 18px; }
   .gcol + .gcol { border-left: 1px solid var(--border-2); }
   .gcol-h { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); }

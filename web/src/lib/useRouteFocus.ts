@@ -17,6 +17,13 @@ export function useRouteFocus(): void {
     document.getElementById('main')?.focus({ preventScroll: true })
   }, [pathname])
   useEffect(() => {
-    if (section) scrollToId(section)
+    if (!section) return
+    scrollToId(section)
+    // charts above the section size themselves after the first paint: once the page has settled, land on it again
+    const settle = window.setTimeout(() => {
+      const top = document.getElementById(section)?.getBoundingClientRect().top
+      if (top !== undefined && (top < -4 || top > 120)) document.getElementById(section)?.scrollIntoView({ block: 'start' })
+    }, 900)
+    return () => window.clearTimeout(settle)
   }, [key, section])
 }

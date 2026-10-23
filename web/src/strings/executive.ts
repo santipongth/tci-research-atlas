@@ -66,8 +66,6 @@ export const executive = defineStrings({
   'in.source.name': { th: 'ชื่อตามที่เขียนในบทความ', en: 'Name as written in the articles' },
   'in.foot': { th: 'นับบทความให้ทุกสถาบันของผู้แต่ง · ชื่อมาจากทะเบียน ROR หรือบทความ ชื่อสะกดต่างกันอาจแยกแถว · ไม่มีข้อมูลรายบุคคล', en: 'An article counts for each of its authors’ institutions. Names come from the table, ROR or the articles; spelling variants may split. No data on individuals.' },
   'in.kpi.h': { th: 'ร่วมมือกันมากแค่ไหน', en: 'How much institutions work together' },
-  'in.kpi.shown': { th: 'สถาบันที่แสดง', en: 'Institutions shown' },
-  'in.kpi.shownSub': { th: 'มีบทความอย่างน้อย {n} เรื่องในปี {a}–{b}', en: 'At least {n} articles in {a}–{b}' },
   'in.kpi.intl': { th: 'บทความที่มีผู้แต่งร่วมจากต่างประเทศ', en: 'Articles with foreign co-authors' },
   'in.kpi.intlSub': { th: 'ของบทความที่รู้สังกัดผู้แต่ง {n} เรื่อง', en: 'Of {n} articles with a known affiliation' },
   'in.kpi.multi': { th: 'บทความที่หลายสถาบันเขียนร่วมกัน', en: 'Articles by several institutions' },

@@ -144,8 +144,6 @@ function InstitutionContent({ release, file, inst }: { release: AtlasRelease; fi
                 label={t('col.articles')}
                 value={fmtInt(inst.articles)}
                 sub={t('in.articlesSub', { a: w.start, b: w.end, all: fmtInt(inst.articles_total) })}
-                trend={years.length > 2 ? years.map((y) => y.articles) : undefined}
-                trendText={years.length > 2 ? t('stat.trend', { a: years[0].year, b: years[years.length - 1].year, values: years.map((y) => fmtInt(y.articles)).join(', ') }) : undefined}
               />
               <StatTile label={t('in.col.recent', { r: `${r.start}–${r.end}` })} value={fmtInt(inst.articles_recent ?? 0)} sub={t('in.recentSub')} />
               <StatTile label={t('in.col.intl')} value={fmtPct(inst.intl_share ?? null, 0)} sub={t('in.intlSub')} />

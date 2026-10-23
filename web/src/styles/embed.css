@@ -30,7 +30,7 @@
 
   .copy-field { display: grid; gap: 6px; }
   .copy-field label { font-weight: 700; }
-  .copy-field textarea { width: 100%; padding: 10px 12px; border: 2px solid var(--field-border); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-meta); line-height: 1.6; resize: vertical; overflow-wrap: anywhere; }
+  .copy-field textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--field-border); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-meta); line-height: 1.6; resize: vertical; overflow-wrap: anywhere; }
   .copy-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
   .copy-st { font-size: var(--fs-meta); color: var(--ink-2); }
   .copy-st.is-fail { color: var(--ink); }

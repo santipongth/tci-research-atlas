@@ -3,7 +3,7 @@
   .tp-alt { margin-top: 6px; color: var(--ink-2); font-size: var(--fs-body); }
   .tp-tags { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: var(--fs-meta); }
   .tp-sub { color: var(--ink-2); }
-  .tp-badge { display: inline-block; padding: 1px 8px; border: 1px solid var(--ink); font-weight: 600; font-size: var(--fs-caption); }
+  .tp-badge { display: inline-block; padding: 1px 10px; border: 0; border-radius: 999px; background: var(--surface); font-weight: 600; font-size: var(--fs-caption); }
   .tp-lineage { margin-top: 10px; font-size: var(--fs-meta); color: var(--ink-2); }
   .tp-narr { font-size: var(--fs-body); line-height: 1.75; max-width: var(--measure-body); }
 
@@ -50,7 +50,7 @@
   .related { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 
   /* hero: status + growth in one plain sentence (with its likely range) beside the share and articles tiles */
-  .tp-hero { margin-top: var(--sp-block); display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--sp-group) 40px; align-items: start; padding-top: var(--sp-group); border-top: 2px solid var(--ink); }
+  .tp-hero { margin-top: var(--sp-block); display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--sp-group) 40px; align-items: start; padding-top: var(--sp-block); border-top: 1px solid var(--border-2); }
   .tp-hero-st { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5; }
   .tp-hero-g { margin-top: 10px; font-size: var(--fs-h2); font-weight: 600; line-height: 1.5; }
   .tp-hero-ci { margin-top: 8px; font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.6; }

@@ -196,7 +196,7 @@ function buildExample() {
     const group = GROUPS[s.gi]
     return {
       id: s.id, group: group[0], th: s.th, en: s.en,
-      description: `ตัวอย่าง: งานวิจัยเกี่ยวกับ${s.th}`,
+      description: `ตัวอย่าง: งานวิจัยเกี่ยวกับ${/^[A-Za-z]/.test(s.th) ? " " : ""}${s.th}`,
       keywords: s.keywords, label_source: 'keywords', size: sum(s.counts),
       x: r1(hx + Math.cos(angle) * dist), y: r1(hy + Math.sin(angle) * dist), r: r1(6 + 20 * Math.sqrt(s.shareR / maxShare)),
       status: s.status,

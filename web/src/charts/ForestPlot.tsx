@@ -93,7 +93,7 @@ export function ForestPlot({ groups, axisLabel, refLabel, subtitle, level, base,
                   >
                     <span className="fr-name">
                       <b><TopicName topic={tp} /></b>
-                      {tp.metrics.no_baseline ? <span className="fr-new">{t('noBaseline', { base })}</span> : null}
+                      {tp.metrics.no_baseline ? <span className="fr-new">{t('noBaseline', { base: base.replace(/\u2013/g, '\u2013\u2060') /* keep the year range on one line */ })}</span> : null}
                       <span>{subtitle(tp)}</span>
                     </span>
                     <span className="fr-plot">

@@ -33,14 +33,11 @@ export function KpiGrid({ release, more: showMore = true }: { release: AtlasRele
   const { t, lang } = useI18n()
   const now = release.overview.kpis
   const prev = release.previousOverview
-  const years = release.series.years
-  const perYear = release.series.corpus_total
   const tile = (k: Kpi) => {
     const value = num(now[k.key])
     if (value === null) return null
     const before = prev ? num(prev.kpis[k.key]) : null
     const delta = kpiDelta(value, before, k.unit, lang)
-    const spark = k.key === 'articles' && perYear.length > 2 && years.length === perYear.length
     return (
       <StatTile
         key={k.key}
@@ -48,8 +45,6 @@ export function KpiGrid({ release, more: showMore = true }: { release: AtlasRele
         value={k.unit === 'pct' ? `${fmtNum(value, 1)}%` : fmtInt(value)}
         // the arrow follows the change as printed: no arrow beside "±0.0"
         delta={delta && prev ? { text: delta, dir: kpiDir(value, before, k.unit), ref: t('delta', { prev: prev.release }) } : null}
-        trend={spark ? perYear : undefined}
-        trendText={spark ? t('stat.trend', { a: years[0], b: years[years.length - 1], values: perYear.map((v) => fmtInt(v)).join(', ') }) : undefined}
       />
     )
   }
