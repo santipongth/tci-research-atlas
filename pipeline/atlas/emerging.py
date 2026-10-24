@@ -1,4 +1,4 @@
-"""Emerging Topic Analysis — definition v3 (source of truth: docs/EMERGING_SPEC.md).
+"""Emerging Topic Analysis — definition v4 (source of truth: docs/EMERGING_SPEC.md).
 
 Windows: R = recent_window last complete years, B = baseline_window years before R,
 W = trend_window last years. Per topic:
@@ -8,7 +8,8 @@ W = trend_window last years. Per topic:
   acceleration            log growth in R − log growth in B
   burst_frac              Kleinberg burst years ∩ R / |R|
   novelty                 recency + topic age
-  breadth                 journals / institutions in R, share from journals new in R
+  breadth                 journals / institutions in R, share from journals new in R (v4: institutions are the
+                          canonical ones of atlas.institutions_ref — 06_topic_org_year from the series step)
                           (orgs_unverified = institution rule skipped: affiliation coverage too low)
 Statuses (in order): LOW_DATA, EMERGING, WATCH, HOT, DECLINING, STABLE.
 Score 0–100 = weighted percentile ranks within the run (ranking only; not comparable across runs).

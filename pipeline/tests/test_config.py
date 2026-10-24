@@ -22,7 +22,7 @@ def test_defaults_load_and_paths_are_absolute():
     cfg = load_config(None)
     for k in ("work_dir", "output_dir", "state_dir"):
         assert Path(cfg["pipeline"][k]).is_absolute()
-    assert cfg["emerging"]["definition_version"] == 3
+    assert cfg["emerging"]["definition_version"] == 4
     assert cfg["embedding"]["provider"] == "local"            # production default; lite is for CI/tests only
     assert cfg["embedding"]["lite_max_docs"] == 50_000
 

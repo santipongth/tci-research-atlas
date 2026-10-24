@@ -71,7 +71,7 @@ def test_scores_bounded_and_ranked(result):
     assert result["emerging_score"].between(0, 100.0001).all()
     assert result.loc[1, "emerging_score"] > result.loc[5, "emerging_score"]
     assert set(result["status"]) <= set(STATUSES)
-    assert (result["definition_version"] == 3).all()
+    assert (result["definition_version"] == 4).all()
 
 
 def test_two_year_corpus_does_not_crash():

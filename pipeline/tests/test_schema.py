@@ -33,7 +33,7 @@ def test_sample_topic_validates_and_bad_id_fails():
 
 def test_v3_contract_fields():
     defs = contract_json_schema()["definitions"]
-    assert defs["Manifest"]["properties"]["definition_version"]["default"] == 3
+    assert defs["Manifest"]["properties"]["definition_version"]["default"] == 4
     assert defs["TopicMetrics"]["properties"]["orgs_unverified"] == {
         "default": False, "title": "Orgs Unverified", "type": "boolean"}
     assert Topic.model_validate(SAMPLE).metrics.orgs_unverified is False

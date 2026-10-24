@@ -69,4 +69,4 @@ def test_manifest_carries_the_interval_level_and_llm_accounting():
                  labels=LabelStats(provider="llm", llm=10, keywords=1, overrides=2),
                  llm=[LlmTaskStats(task="label", model="m", items=11, from_cache=5, generated=5, repaired=1,
                                    fallback=1, cost_usd=0.02)])
-    assert m.definition_version == 3 and m.llm[0].fallback == 1
+    assert m.definition_version == 4 and m.llm[0].fallback == 1

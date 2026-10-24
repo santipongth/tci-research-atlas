@@ -57,6 +57,6 @@ describe('DEFINITION against pipeline/config.example.yaml', () => {
   })
 
   it('keeps the definition version the web labels it with', () => {
-    expect(Number(yaml.get('emerging.definition_version'))).toBe(3)
+    expect(Number(yaml.get('emerging.definition_version'))).toBe(DEFINITION.version)
   })
 })

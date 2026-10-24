@@ -119,10 +119,13 @@ def keywords(cfg: dict) -> pd.DataFrame:
                                                  "keywords_th", "keywords_en"])
     meta = json.loads((work / "06_meta.json").read_text(encoding="utf-8"))
     totals = pd.Series({int(y): int(n) for y, n in meta["totals"].items()}).sort_index()
-    try:
-        orgs = read_table(work / "01_authors.parquet")[["article_id", "org_key"]]
+    try:                                                    # the same institutions as the topic rule (series step)
+        orgs = read_table(work / "06_article_orgs.parquet")[["article_id", "org_key"]]
     except FileNotFoundError:
-        orgs = pd.DataFrame(columns=["article_id", "org_key"])
+        try:
+            orgs = read_table(work / "01_authors.parquet")[["article_id", "org_key"]]
+        except FileNotFoundError:
+            orgs = pd.DataFrame(columns=["article_id", "org_key"])
     out = emerging_keywords(keyword_rows(docs, int(cfg["keywords"]["min_key_length"])), totals, int(meta["last_complete_year"]), cfg["emerging"],
                             cfg["keywords"], orgs.drop_duplicates(), read_table(work / "06_journal_first_year.parquet"),
                             read_table(work / "04_fine_topics.parquet"))

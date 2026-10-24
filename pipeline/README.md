@@ -153,7 +153,7 @@ uv run atlas version
 
 | ที่ | อะไร |
 |---|---|
-| `output/data/<release>/*.json` + `output/data/latest.json` | **data contract v2** ที่เว็บอ่าน (`SCHEMA_VERSION = "2.5.0"`, `definition_version = 3`) — schema เต็ม `../docs/DATA_SPEC.md` |
+| `output/data/<release>/*.json` + `output/data/latest.json` | **data contract v2** ที่เว็บอ่าน (`SCHEMA_VERSION = "2.5.0"`, `definition_version = 4`) — schema เต็ม `../docs/DATA_SPEC.md` |
 | `output/atlas_data.json` + `topics.csv` · `emerging.csv` · `forecasts.csv` · `manifest.json` | schema 1.1 รุ่นเก่า + CSV สำหรับนักวิเคราะห์ (เว็บ v2 ไม่อ่าน `atlas_data.json` แล้ว) |
 | `output/review/` · `output/releases/` | CSV ตรวจชื่อหัวข้อ · `atlas-data-<release>.tar.gz` + notes จาก `publish --tarball` |
 | `work/` | checkpoint ของทุก step — ลบได้เสมอ |
@@ -181,7 +181,7 @@ uv run atlas version
 
 ## นิยาม "Emerging" ของ TCI v3
 
-implement ใน `atlas/emerging.py` (`definition_version = 3`) และปรับ threshold ได้ทั้งหมดใน `config.yaml → emerging:`
+implement ใน `atlas/emerging.py` (`definition_version = 4`) และปรับ threshold ได้ทั้งหมดใน `config.yaml → emerging:`
 หน้าต่างเวลา: R = `recent_window` ปีล่าสุดที่ข้อมูลสมบูรณ์ (ดีฟอลต์ 3), B = `baseline_window` ปีก่อนหน้า R (ดีฟอลต์ 5); ปีที่กำลังดำเนินอยู่ (`as_of_year`) ไม่นับเสมอ และ backfill guard ตัดปีล่าสุดที่ยอดต่ำกว่า 60% ของ median 3 ปีก่อนหน้า (ได้สูงสุด 2 ปี) — ปีที่ถูกตัดอยู่ใน `meta.trimmed_years`
 
 | สถานะ | ความหมาย (ดีฟอลต์) |

@@ -82,7 +82,7 @@
         ▼
 [series]       atlas/topics_time.py — หัวข้อ × ปี, ปีสมบูรณ์ล่าสุด (กฎ v3: backfill guard), เดือนของปีที่ยังไม่ครบ → work/06_*
         ▼
-[emerging]     atlas/emerging.py — นิยาม v3 (ช่วงเชื่อมั่น + ตัวกรองความกว้าง, 6 สถานะ, burst, score)      → work/07_emerging
+[emerging]     atlas/emerging.py — นิยาม v4 (ช่วงเชื่อมั่น + ตัวกรองความกว้าง, 6 สถานะ, burst, score)      → work/07_emerging
 [keywords]     atlas/keywords.py — คำสำคัญที่กำลังโตระดับคำ                                          → work/07_keywords
         ▼
 [forecast]     atlas/forecast.py — share × ยอดรวม · naive/drift/NB GLM/damped ETS · rolling-origin CV · skill gate

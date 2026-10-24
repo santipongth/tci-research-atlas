@@ -73,16 +73,30 @@ def publication_months(docs: pd.DataFrame) -> pd.DataFrame:
     return out.groupby(["year", "month"]).size().rename("count").reset_index()
 
 
+def article_orgs(cfg: dict) -> pd.DataFrame:
+    """(article_id, org_key) for the institution rule: canonical institutions (emerging.breadth.org_unit
+    "institution", definition v4, when institutions.enabled) or written affiliations ("affiliation", v3)."""
+    work = Path(cfg["pipeline"]["work_dir"])
+    try:
+        authors = read_table(work / "01_authors.parquet")
+    except FileNotFoundError:
+        return pd.DataFrame(columns=["article_id", "org_key"])
+    if cfg["emerging"]["breadth"]["org_unit"] == "institution" and cfg["institutions"]["enabled"]:
+        from atlas.institutions import article_institutions    # lazy: the institutions module is the heavier import
+        return article_institutions(cfg, authors).rename(columns={"inst_key": "org_key"})
+    a = authors[["article_id", "org_key"]].copy()
+    a["org_key"] = a["org_key"].fillna("").astype(str)
+    return a[a["org_key"] != ""].drop_duplicates().reset_index(drop=True)
+
+
 def build_series(cfg: dict) -> pd.DataFrame:
     work = Path(cfg["pipeline"]["work_dir"])
     docs = read_table(work / "02_docs.parquet", ["article_id", "year", "journal_name", "journal_key", "published"])
     n_articles = len(docs)
     docs = docs.assign(journal_name=journal_keys(docs))       # a journal is its key, never a (possibly varying) title
     fine = read_table(work / "04_fine_topics.parquet")
-    try:
-        authors = read_table(work / "01_authors.parquet")[["article_id", "org_key"]]
-    except FileNotFoundError:
-        authors = pd.DataFrame(columns=["article_id", "org_key"])
+    authors = article_orgs(cfg)
+    write_table(authors, work / "06_article_orgs.parquet")
 
     d = docs.merge(fine, on="article_id", how="left")
     d = d[d["year"].notna()].copy()

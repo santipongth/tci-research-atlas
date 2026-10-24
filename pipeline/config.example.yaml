@@ -207,7 +207,7 @@ taxonomy:
 
 # ---------- Emerging v3 — นิยามเต็มใน docs/EMERGING_SPEC.md ----------
 emerging:
-  definition_version: 3
+  definition_version: 4
   as_of_year: null            # ปีของ snapshot ที่ขั้น cluster บันทึกไว้ (null = ปีของวันที่รันขั้น cluster) — ปีที่กำลังดำเนินอยู่ไม่ถือว่าครบเสมอ
   min_year_complete: null     # null = backfill guard อัตโนมัติ (ตั้งเองได้ — มีผลเหนือกว่า guard)
   backfill_min_ratio: 0.6     # ปีที่ยอด < 60% ของ median ปีอ้างอิงก่อนหน้า ถือว่ายังไม่ครบ
@@ -236,6 +236,7 @@ emerging:
     min_orgs: 3               # และ ≥ 3 สถาบัน
     max_new_journal_share: 0.5  # บทความจากวารสารที่เพิ่งเข้าระบบใน R ต้อง < 50%
     min_org_coverage: 0.5     # ใช้เกณฑ์สถาบันเฉพาะเมื่อบทความใน R มีข้อมูลสังกัด ≥ 50% (กันข้อมูลตารางที่ไม่มีสังกัด)
+    org_unit: institution     # (v4) นับสถาบันหลังรวมชื่อ (ตารางชื่อสถาบัน → ROR → ตามที่เขียน) ชุดเดียวกับหน้าสถาบัน; affiliation = นับตามชื่อสังกัดที่เขียน (v3)
   burst:
     s: 2.0                    # Kleinberg: อัตราในสถานะ burst = s × ปกติ
     gamma: 1.0                # ค่าเข้าสถานะ burst = γ·ln(T)

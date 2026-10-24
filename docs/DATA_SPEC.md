@@ -156,7 +156,7 @@
     "generated_at": "2026-10-18T...",   // snapshot_at ของขั้น cluster แปลงเป็น UTC (export ซ้ำได้ค่าเดิม)
     "pipeline_version": "git hash หรือ nogit",
     "schema_version": "1.1",
-    "definition_version": 3,
+    "definition_version": 4,
     "last_complete_year": 2024,          // ปีสมบูรณ์สุดท้าย (หลัง backfill guard)
     "as_of_year": 2026,                  // จาก 06_meta.json (config emerging.as_of_year หรือปีของ snapshot)
     "trimmed_years": [2025, 2026],       // ปีที่มีข้อมูลหลัง last_complete_year (ไม่ใช้คำนวณแนวโน้ม)
@@ -215,7 +215,7 @@
 
 ### schema 1.1 additions (เทียบ 1.0)
 ต่อ node แบบ topic เพิ่ม: `share_growth`, `share_growth_lo`, `share_growth_hi` (null = ประมาณไม่ได้), `n_journals_R`, `n_orgs_R`, `journal_driven`, `orgs_unverified` (v3, additive), `coherence`, `forecast_uncertain`
-ต่อ `meta` เพิ่ม: `schema_version = "1.1"`, `definition_version = 3`, `assigned_articles`, `unassigned_articles`, และ (v3, additive) `as_of_year`, `trimmed_years`, `n_orgs_unverified`
+ต่อ `meta` เพิ่ม: `schema_version = "1.1"`, `definition_version = 4`, `assigned_articles`, `unassigned_articles`, และ (v3, additive) `as_of_year`, `trimmed_years`, `n_orgs_unverified`
 `forecast` เป็น null เว้นแต่ผ่าน skill gate (`show` = true) และสถานะไม่ใช่ `LOW_DATA`; `forecast_uncertain` = true เมื่อมี forecast แต่ไม่ผ่าน gate หรือหัวข้อเป็น `LOW_DATA`
 `07_emerging` ที่ไม่มีคอลัมน์ `orgs_unverified` (work_dir ก่อน v3) → export หยุดด้วย error (ไม่เดาค่า)
 

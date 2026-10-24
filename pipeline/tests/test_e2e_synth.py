@@ -49,4 +49,4 @@ def test_synthetic_corpus_recovers_planted_signals(tmp_path):
     purity = tt.groupby("fine_topic")["topic"].agg(lambda x: x.value_counts().iloc[0] / len(x)).mean()
     assert purity >= 0.95
     atlas = json.loads((tmp_path / "out" / "atlas_data.json").read_text(encoding="utf-8"))
-    assert atlas["meta"]["definition_version"] == 3
+    assert atlas["meta"]["definition_version"] == 4

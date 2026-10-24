@@ -107,6 +107,24 @@ def resolve_authors(authors: pd.DataFrame, resolver: Resolver, display: dict[str
     return links, ident.drop(columns=["org_key"])
 
 
+def resolver_for(cfg: dict) -> Resolver:
+    """The institution resolver of this run (alias table, ROR dump, province from name) — shared by every step that
+    counts institutions, so the emerging rule, the gaps card and /places count the same institutions."""
+    icfg = cfg["institutions"]
+    ror = load_ror(icfg["ror_path"], cfg["taxonomy"]["openalex"]["country_code"],
+                   Path(cfg["pipeline"]["state_dir"]) / "ror")
+    return Resolver(load_aliases(icfg["aliases_path"], int(icfg["alias_min_chars"])), ror, bool(icfg["province_from_name"]))
+
+
+def article_institutions(cfg: dict, authors: pd.DataFrame) -> pd.DataFrame:
+    """(article_id, inst_key), distinct: the canonical institutions of each article (affiliations only, never a name)."""
+    authors = authors[[c for c in AUTHOR_COLUMNS if c in authors.columns]]
+    if authors.empty:
+        return pd.DataFrame(columns=["article_id", "inst_key"])
+    links, _ = resolve_authors(authors, resolver_for(cfg), org_display_names(authors))
+    return links
+
+
 def suggest(mix: pd.DataFrame, coauthored: set[tuple[str, str]], k: int, min_sim: float, chunk: int = 512
             ) -> pd.DataFrame:
     """R6 — for each institution of `mix` (inst_key, topic_id, share) the k most similar others (cosine of topic
@@ -190,10 +208,7 @@ def institutions(cfg: dict) -> pd.DataFrame:
     except FileNotFoundError:
         authors = pd.DataFrame(columns=AUTHOR_COLUMNS)
     authors = authors[[c for c in AUTHOR_COLUMNS if c in authors.columns]]      # affiliations only — never a name
-    ror = load_ror(icfg["ror_path"], cfg["taxonomy"]["openalex"]["country_code"],
-                   Path(cfg["pipeline"]["state_dir"]) / "ror")
-    resolver = Resolver(load_aliases(icfg["aliases_path"], int(icfg["alias_min_chars"])), ror,
-                        bool(icfg["province_from_name"]))
+    resolver = resolver_for(cfg)
     links, ident = resolve_authors(authors, resolver, org_display_names(authors))
     links = links.merge(arts, on="article_id", how="inner")
 
@@ -290,7 +305,7 @@ def institutions(cfg: dict) -> pd.DataFrame:
         "institutions_total": len(named & set(per_w.index)),     # named institutions with an article in W (not every spelling)
         "published": len(published),
         "sources": {str(k): int(v) for k, v in out.loc[out["published"], "source"].value_counts().items()},
-        "aliases": len(resolver.alias_to_id), "ror_records": len(ror),
+        "aliases": len(resolver.alias_to_id), "ror_records": len(resolver.ror_by_id),
         "population": load_population(icfg["population_path"]),
     }
     (work / "15_institutions_meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")

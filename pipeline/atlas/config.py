@@ -219,6 +219,9 @@ class BreadthCfg(_Strict):
     min_orgs: int = 3
     max_new_journal_share: float = 0.5
     min_org_coverage: float = 0.5     # apply the institution rule only when >= 50% of R articles have affiliations
+    # v4: "institution" counts canonical institutions (alias table → ROR → as written, atlas.institutions_ref) —
+    # the same institutions /places shows; "affiliation" counts written affiliations (v3, one per spelling)
+    org_unit: Literal["institution", "affiliation"] = "institution"
 
 
 class BurstCfg(_Strict):
@@ -236,7 +239,7 @@ class ScoreWeightsCfg(_Strict):
 
 
 class EmergingCfg(_Strict):
-    definition_version: Literal[3] = 3
+    definition_version: Literal[4] = 4
     as_of_year: int | None = None     # null = the year of the snapshot recorded by cluster; the running year is never complete
     min_year_complete: int | None = None
     backfill_min_ratio: float = 0.6

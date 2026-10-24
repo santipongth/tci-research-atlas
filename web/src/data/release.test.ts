@@ -19,7 +19,7 @@ describe('loadRelease', () => {
     expect(r.previousProblem).toBe('offline') // the one-release file says so, not "not on this site"
     expect(r.sample).toBe(true)
     expect(r.ciLevel).toBe(0.9)
-    expect(r.definitionVersion).toBe(3)
+    expect(r.definitionVersion).toBe(4)
     expect(seriesOf(r, 'T000201')).toHaveLength(10)
     expect(groupName(r, 'F33', 'en')).toBe('Social Sciences')
     expect(groupName(r, 'F99', 'th')).toBe('F99')

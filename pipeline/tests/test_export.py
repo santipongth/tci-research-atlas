@@ -157,6 +157,6 @@ def test_manifest_records_run_provenance(tmp_path):
     man = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     assert man["embedding_provider"] == "lite" and man["embedding_model_id"] == "lite|char2-4|svd8"
     assert man["n_labels_fallback"] == 2                        # latest fine label of each topic is "fallback"
-    assert (man["definition_version"], man["ci_level"]) == (3, 0.9)
+    assert (man["definition_version"], man["ci_level"]) == (4, 0.9)
     assert (man["trimmed_years"], man["as_of_year"]) == ([2025, 2026], 2026)
     assert (man["n_orgs_unverified"], man["ingest_errors"]) == (1, 1)

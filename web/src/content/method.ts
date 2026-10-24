@@ -49,8 +49,8 @@ export const METHOD: readonly { id: string; h: Entry; body: readonly Entry[]; ho
       },
     ],
     how: {
-      th: 'อัตราโตของสัดส่วนประมาณด้วยแบบจำลอง Poisson จากทุกปีในช่วง {W} พร้อมช่วงที่น่าจะเป็น (ช่วงเชื่อมั่น) กฎของแต่ละสถานะอยู่ในหัวข้อถัดไป',
-      en: 'Share growth is estimated with a Poisson model from every year in {W}, with a likely range (a confidence interval). The rule for each status is in the next section.',
+      th: 'อัตราโตของสัดส่วนประมาณด้วยแบบจำลอง Poisson จากทุกปีในช่วง {W} พร้อมช่วงที่น่าจะเป็น (ช่วงเชื่อมั่น) สถาบันนับหลังรวมชื่อที่สะกดต่างกันแล้ว (ชุดเดียวกับหน้าสถาบัน) กฎของแต่ละสถานะอยู่ในหัวข้อถัดไป',
+      en: 'Share growth is estimated with a Poisson model from every year in {W}, with a likely range (a confidence interval). Institutions are counted after merging different spellings of a name (the same institutions as the institutions page). The rule for each status is in the next section.',
     },
   },
   {

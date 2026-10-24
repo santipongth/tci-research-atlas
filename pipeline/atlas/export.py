@@ -1,7 +1,7 @@
 """Export web-ready JSON (atlas_data.json, schema 1.1) + analyst CSVs + manifest.
 
 1.1 = the v1 contract read by web/src/lib/loader.ts, plus per topic:
-  status in EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA   (definition_version from config, 3)
+  status in EMERGING | WATCH | HOT | DECLINING | STABLE | LOW_DATA   (definition_version from config, 4)
   share_growth(_lo/_hi), n_journals_R, n_orgs_R, journal_driven, orgs_unverified, coherence, forecast_uncertain
   forecast is non-null only when the skill gate `show` is true
   meta adds as_of_year, trimmed_years, n_orgs_unverified (additive — schema stays 1.1)

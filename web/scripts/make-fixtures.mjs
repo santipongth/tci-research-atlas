@@ -223,7 +223,7 @@ function buildExample() {
         novelty: r4(s.status === 'EMERGING' ? between(0.8, 0.95) : between(0.05, 0.4)),
         coherence: r4(between(0.55, 0.8)),
         n_journals_R: s.status === 'WATCH' ? 2 : Math.round(s.status === 'LOW_DATA' ? between(1, 3) : s.status === 'HOT' ? between(40, 90) : between(8, 40)),
-        n_orgs_R: s.status === 'WATCH' ? 3 : Math.round(s.status === 'LOW_DATA' ? between(1, 4) : s.status === 'HOT' ? between(30, 80) : between(6, 45)),
+        n_orgs_R: s.status === 'WATCH' ? 3 : s.id === 'T000406' ? 4 : Math.round(s.status === 'LOW_DATA' ? between(1, 4) : s.status === 'HOT' ? between(30, 80) : between(6, 45)),
         new_journal_share: r4(s.status === 'WATCH' ? between(0.6, 0.8) : between(0, 0.15)),
         journal_hhi: r4(s.status === 'WATCH' ? between(0.55, 0.7) : between(0.03, 0.2)),
         journal_driven: s.flag === 'journal', orgs_unverified: s.flag === 'orgs',
@@ -307,7 +307,7 @@ function buildExample() {
   const statusCounts = Object.fromEntries(['EMERGING', 'WATCH', 'HOT', 'DECLINING', 'STABLE', 'LOW_DATA'].map((st) => [st, by(st).length]))
   const last = totals[totals.length - 1]
   const overview = {
-    schema_version: SCHEMA, release: RELEASE, previous_release: PREVIOUS, generated_at: GENERATED_AT, definition_version: 3, last_complete_year: 2024,
+    schema_version: SCHEMA, release: RELEASE, previous_release: PREVIOUS, generated_at: GENERATED_AT, definition_version: 4, last_complete_year: 2024,
     kpis: { articles, assigned_articles: assigned, topics: topics.length, groups: groups.length, journals: JOURNALS.length, institutions: 187, pct_abstract_en: 74.2, pct_doi: 61.5, pct_keywords: 96.1 },
     status_counts: statusCounts,
     corpus_by_year: YEARS.map((year, i) => ({ year, articles: totals[i] })),
@@ -706,7 +706,7 @@ function buildExecutives(files) {
   files['gaps.json'] = {
     schema_version: SCHEMA, recent: { start: 2022, end: 2024 }, statuses: ['EMERGING', 'WATCH'], max_institutions: 5, bridge_min_similarity: 0.6, bridge_max_jaccard: 0.1,
     min_articles: 30, max_top_share: 0.5, max_hhi: 0.25,
-    few_institutions: [{ topic: 'T000406', institutions: 3 }, { topic: 'T000806', institutions: 2 }],
+    few_institutions: [{ topic: 'T000806', institutions: 3 }, { topic: 'T000406', institutions: 4 }],   // = their n_orgs_R (definition v4 counts the same institutions)
     bridges: [{ a: 'T000201', b: 'T000701', similarity: 0.82, shared: 1, jaccard: 0.05 }, { a: 'T000106', b: 'T000701', similarity: 0.77, shared: 0, jaccard: 0 }],
     world: bench.filter((b) => b.opportunity).map((b) => ({ subfield: b.id, en: b.en, world_ratio: b.world_ratio, activity_index: b.activity_index, topics: b.topics })),
     concentration: [
@@ -936,7 +936,7 @@ function buildResearchers(files) {
 function manifest(release, previous, modules, entries, extra = {}) {
   return {
     schema_version: SCHEMA, release, generated_at: GENERATED_AT, pipeline_version: 'fixture', config_hash: '0000000000000000',
-    definition_version: 3, ci_level: 0.9, as_of_year: 2025, trimmed_years: [2025], embedding_provider: 'fixture', embedding_model: 'fixture|none|0',
+    definition_version: 4, ci_level: 0.9, as_of_year: 2025, trimmed_years: [2025], embedding_provider: 'fixture', embedding_model: 'fixture|none|0',
     taxonomy_version: 'fixture-1', modules, files: entries, previous_release: previous, n_orgs_unverified: 0, ingest_errors: 0,
     labels: { provider: 'off', llm: 0, keywords: 0, overrides: 0 }, llm: [], ...extra,
   }
@@ -976,7 +976,7 @@ writeLatest(example, RELEASE, { feeds: false })
 
 writeRelease(empty, RELEASE, {
   'overview.json': {
-    schema_version: SCHEMA, release: RELEASE, previous_release: null, generated_at: GENERATED_AT, definition_version: 3, last_complete_year: 2024,
+    schema_version: SCHEMA, release: RELEASE, previous_release: null, generated_at: GENERATED_AT, definition_version: 4, last_complete_year: 2024,
     kpis: { articles: 0, assigned_articles: 0, topics: 0, groups: 0, journals: 0, institutions: 0, pct_abstract_en: 0, pct_doi: 0, pct_keywords: 0 },
     status_counts: {}, corpus_by_year: [], corpus_forecast: [], nowcast: null, lineage_events: {}, retired_topics: [],
     data_quality: { year_missing: 0, unassigned_articles: 0, completeness_method: 'median', text_quality: {} }, brief: null,

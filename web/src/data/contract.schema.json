@@ -2624,7 +2624,7 @@
           "type": "string"
         },
         "definition_version": {
-          "default": 3,
+          "default": 4,
           "title": "Definition Version",
           "type": "integer"
         },
@@ -3192,7 +3192,7 @@
           "$ref": "#/definitions/DataQuality"
         },
         "definition_version": {
-          "default": 3,
+          "default": 4,
           "title": "Definition Version",
           "type": "integer"
         },

@@ -92,3 +92,19 @@ def test_province_topics_keep_the_largest_per_province_with_ties_by_id():
     assert bkk["share"].tolist() == pytest.approx([0.5, 0.25])
     assert t[t["province"] == "TH-50"]["topic_id"].tolist() == [3, 7]               # a1 counts for both provinces
     assert province_topics(placed, topic_of, 0).empty
+
+
+def test_institution_rule_counts_canonical_institutions(tmp_path):
+    """Definition v4: two spellings of one aliased university are one institution for the emerging rule
+    (org_unit "institution"); counting written affiliations (v3 "affiliation") sees two."""
+    from atlas.topics_time import article_orgs
+    cfg, work = _work(tmp_path)
+    a, b = "\N{THAI CHARACTER MO MA}.\N{THAI CHARACTER NO NU}\N{THAI CHARACTER RO RUA}\N{THAI CHARACTER SARA AM}\N{THAI CHARACTER SO SUA}\N{THAI CHARACTER WO WAEN}\N{THAI CHARACTER RO RUA}", "Naresuan University"
+    aliases = tmp_path / "aliases.csv"
+    aliases.write_text(aliases.read_text(encoding="utf-8") + f"{a},nu,,,,\n{b},nu,,,,\n", encoding="utf-8")
+    write_table(pd.DataFrame([{"article_id": "x1", "position": 1, "affiliation_th": a, "affiliation_en": "", "org_key": org_key(a, "")},
+                              {"article_id": "x1", "position": 2, "affiliation_th": "", "affiliation_en": b, "org_key": org_key("", b)}]),
+                work / "01_authors.parquet")
+    assert article_orgs(cfg)["org_key"].tolist() == ["alias:nu"]
+    cfg["emerging"]["breadth"]["org_unit"] = "affiliation"
+    assert article_orgs(cfg)["org_key"].nunique() == 2

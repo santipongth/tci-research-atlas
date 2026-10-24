@@ -63,7 +63,7 @@ class Manifest(_Model):
     generated_at: str
     pipeline_version: str
     config_hash: str
-    definition_version: int = 3
+    definition_version: int = 4
     ci_level: float = Field(0.9, description="level of every *_lo/*_hi interval in this release")
     as_of_year: int | None = None
     trimmed_years: list[int] = Field(default_factory=list, description="years after last_complete_year")
@@ -239,7 +239,7 @@ class Overview(_Model):
     release: str
     previous_release: str | None = None
     generated_at: str
-    definition_version: int = 3
+    definition_version: int = 4
     last_complete_year: int
     kpis: Kpis
     status_counts: dict[str, int]

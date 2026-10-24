@@ -46,10 +46,10 @@ def test_release_files_match_the_contract_and_link_back_to_thaijo(two_releases):
     assert all(t["status"] == "LOW_DATA" and t["id"].startswith("T") for t in topics)
     assert topics[0]["lineage"]["born"] == "2026Q1" and topics[0]["lineage"]["event"] == "continue"
     assert all(t["metrics"]["low_data_reason"] in ("few_articles", "not_estimable") for t in topics)
-    assert man.definition_version == 3 and man.ci_level == 0.9 and man.embedding_provider == "lite"
+    assert man.definition_version == 4 and man.ci_level == 0.9 and man.embedding_provider == "lite"
     assert man.labels.provider == "off" and man.labels.keywords == len(topics) and man.llm == []
     ov = json.loads((data / "2026Q2" / "overview.json").read_text(encoding="utf-8"))
-    assert ov["brief"]["source"] == "template" and ov["definition_version"] == 3
+    assert ov["brief"]["source"] == "template" and ov["definition_version"] == 4
     detail = json.loads((data / "2026Q2" / f"topics/{topics[0]['id']}.json").read_text(encoding="utf-8"))
     assert detail["articles"][0]["url"].startswith("https://so02.tci-thaijo.org/")
     blob = "".join(p.read_text(encoding="utf-8") for p in (data / "2026Q2").rglob("*.json"))
