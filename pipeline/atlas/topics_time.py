@@ -82,7 +82,7 @@ def article_orgs(cfg: dict) -> pd.DataFrame:
     except FileNotFoundError:
         return pd.DataFrame(columns=["article_id", "org_key"])
     if cfg["emerging"]["breadth"]["org_unit"] == "institution" and cfg["institutions"]["enabled"]:
-        from atlas.institutions import article_institutions    # lazy: the institutions module is the heavier import
+        from atlas.institutions import article_institutions  # lazy: the institutions module is the heavier import
         return article_institutions(cfg, authors).rename(columns={"inst_key": "org_key"})
     a = authors[["article_id", "org_key"]].copy()
     a["org_key"] = a["org_key"].fillna("").astype(str)
